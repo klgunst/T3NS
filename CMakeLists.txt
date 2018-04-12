@@ -1,0 +1,81 @@
+cmake_minimum_required(VERSION 2.8)
+project(T3NS)
+set( T3NS_MMP_VERSION "0.0" )
+set(T3NS_VERSION "${T3NS_MMP_VERSION} (2017-11-17)")
+set(T3NS_AUTHORS "Klaas Gunst")
+set(T3NS_DESCRIPTION "An implementation of the three-legged tree tensor network for fermionic systems.")
+set(T3NS_EMAIL "Klaas.Gunst@UGent.be")
+set(CMAKE_MODULE_PATH "${PROJECT_SOURCE_DIR}/cmake/Modules")
+
+#Bring the headers into the project
+
+#Add the sources
+file(GLOB SOURCES "${CMAKE_SOURCE_DIR}/src/*.c")
+
+option(BUILD_DOXYGEN	"Use Doxygen to create a HTML/PDF manual" OFF)
+option(DEBUG 		"Debug symbols used" 			  OFF)
+option(DEBUGFLAG        "Compile with DDEBUG flag" 		  OFF)
+option(LOWOPT 		"Optimization level of compilation O/O3"  OFF)
+
+if("${CMAKE_C_COMPILER_ID}" MATCHES "Intel")
+    find_package(MKL)
+    if(MKL_FOUND)
+	message("MKL found")
+	include_directories(${MKL_INCLUDE_DIRS})
+	set (LAPACK_LIBRARIES "${MKL_LIBRARIES}")
+    else()
+	message("MKL not found")
+	find_package (LAPACK REQUIRED)
+    endif()
+else()
+    find_package (LAPACK REQUIRED)
+endif()
+
+include_directories(include)
+
+if("${CMAKE_C_COMPILER_ID}" MATCHES "Intel")
+    set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -w3 -wd2259")
+else()
+    set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wall")
+endif()
+
+# OpenMP
+find_package (OpenMP)
+if (OPENMP_FOUND)
+    set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${OpenMP_C_FLAGS}")
+endif (OPENMP_FOUND)
+
+# HDF5
+find_package (HDF5 REQUIRED)
+
+if (DEBUG)
+    if("${CMAKE_C_COMPILER_ID}" MATCHES "Intel")
+	set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -g")
+    else()
+	set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -g -fsanitize=address")
+    endif()
+endif (DEBUG)
+if (DEBUGFLAG)
+    set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -DDEBUG")
+endif (DEBUGFLAG)
+if ( LOWOPT )
+    set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS}")
+else ()
+    if("${CMAKE_C_COMPILER_ID}" MATCHES "Intel")
+	set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -xHOST -O3")
+    else()
+	set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -march=native -O3")
+    endif()
+endif ( LOWOPT )
+
+if (BUILD_DOXYGEN)
+    find_package (Doxygen)
+    if (NOT DOXYGEN_FOUND)
+	message (FATAL_ERROR "Doxygen is needed to build the documentation. Please install it correctly.")
+    endif(NOT DOXYGEN_FOUND)
+    configure_file (${T3NS_SOURCE_DIR}/src/Doxyfile.in ${T3NS_BINARY_DIR}/Doxyfile @ONLY IMMEDIATE)
+    add_custom_target (doc COMMAND ${DOXYGEN_EXECUTABLE} ${T3NS_BINARY_DIR}/Doxyfile SOURCES ${T3NS_BINARY_DIR}/Doxyfile)
+endif(BUILD_DOXYGEN)
+
+add_executable(T3NS ${SOURCES})
+target_link_libraries(T3NS  ${LAPACK_LIBRARIES} ${HDF5_LIBRARIES} m)

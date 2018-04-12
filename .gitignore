@@ -1,0 +1,9 @@
+build
+Build
+calcs
+C_good_practices
+Chempstree
+*.swp
+tags
+*.taghl
+taghl_config.txt
