@@ -58,12 +58,32 @@
 int PG_get_max_irrep( int pg );
 
 /**
- * \brief Gives the resulting irreps from tensor product of two other irreps of SU2.
+ * \brief Gives the resulting irreps from tensor product of two other irreps belonging to sg.
  *
- * \param [out] prod_irreps Resulting array of irreps. Will be allocated, should be freed.
+ * \param [out] min_irrep The lowest label of resulting irrep.
  * \param [out] nr_irreps Number of resulting irreps.
+ * \param [out] step Step with which the labels are separated.
  * \param [in] irrep1 The first irrep of the tensorproduct.
  * \param [in] irrep2 The second irrep of the tensorproduct.
  */
-void PG_tensprod_irrep( int **prod_irreps, int *nr_irreps, int irrep1, int irrep2 );
+void PG_tensprod_irrep( int *min_irrep, int *nr_irreps, int *step, int irrep1, int irrep2 );
+
+/**
+ * \brief Returns the irrepstring, or INVALID if invalid.
+ *
+ * \param [out] buffer The resulting string. 
+ * \param [in] pg The point group symmetry.
+ * \param [in] irr The irrep.
+ */
+void  PG_get_irrstring( char buffer[], int pg, int irr );
+
+/**
+ * \brief finds which irrep is given in the buffer.
+ *
+ * \param [in] buffer The buffer.
+ * \param [in] pg The point group symmetry.
+ * \param [out] irr The irrep.
+ * \return 1 if successful, 0 otherwise.
+ */
+const int PG_which_irrep( char buffer[], int pg, int *irr );
 #endif

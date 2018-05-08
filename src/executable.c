@@ -4,21 +4,26 @@
 #include <sys/time.h>
 #include <argp.h>
 
-#include "network.h"
+#include "io.h"
 #include "macros.h"
+#include "network.h"
+#include "bookkeeper.h"
+#include "stensor.h"
+#include "optimize_network.h"
 
 /* ============================================================================================ */
 /* =============================== DECLARATION STATIC FUNCTIONS =============================== */
 /* ============================================================================================ */
 
-static void initialize_program( int argc, char *argv[] );
+static void initialize_program( int argc, char *argv[], struct stensor **T3NS );
 
-static void cleanup_before_exit( void );
+static void cleanup_before_exit( struct stensor **T3NS );
 
 /* ============================================================================================ */
 
 int main( int argc, char *argv[] )
 {
+  struct stensor *T3NS;
   long long t_elapsed;
   double d_elapsed;
   struct timeval t_start, t_end;
@@ -28,14 +33,14 @@ int main( int argc, char *argv[] )
   /* line by line write-out */
   setvbuf( stdout, NULL, _IOLBF, BUFSIZ );
 
-  initialize_program( argc, argv );
+  initialize_program( argc, argv, &T3NS );
 
-  cleanup_before_exit();
+  cleanup_before_exit( &T3NS );
   printf( "SUCCESFULL END!\n" );
   gettimeofday( &t_end, NULL );
 
   t_elapsed = ( t_end.tv_sec - t_start.tv_sec ) * 1000000LL + t_end.tv_usec - t_start.tv_usec;
-  d_elapsed = t_elapsed*1e-6;
+  d_elapsed = t_elapsed * 1e-6;
   printf( "elapsed time for calculation in total: %lf sec\n", d_elapsed );
  
   return EXIT_SUCCESS;
@@ -50,10 +55,10 @@ const char *argp_program_bug_address = "<Klaas.Gunst@UGent.be>";
 
 /* A description of the program */
 static char doc[] = "T3NS -- An implementation of the three-legged tree tensor networks for "
-                    "fermionic systems.";
+                    "        fermionic systems.";
 
 /* A description of the arguments we accept. */
-static char args_doc[] = "[ NETWORKFILE ] D";
+static char args_doc[] = "INPUTFILE D";
 
 /* The options we understand. */
 static struct argp_option options[] =
@@ -99,13 +104,7 @@ static error_t parse_opt( int key, char *arg, struct argp_state *state )
 /* Our argp parser. */
 static struct argp argp = { options, parse_opt, args_doc, doc };
 
-static void print_arguments( struct arguments arguments )
-{
-  printf( "Executing chempstree with : \n" );
-  printf( "\t** virt_dim = %d\n", atoi( arguments.args[ 1 ] ) );
-}
-
-static void initialize_program( int argc, char *argv[] )
+static void initialize_program( int argc, char *argv[], struct stensor **T3NS )
 {
   int max_dim;
   long long t_elapsed;
@@ -114,7 +113,10 @@ static void initialize_program( int argc, char *argv[] )
 
   struct arguments arguments;
 
-  gettimeofday(&t_start, NULL);
+  gettimeofday( &t_start, NULL );
+  init_bookie();
+  init_netw();
+
   /* Default values. */
   /* no arguments to initialize */
 
@@ -122,20 +124,21 @@ static void initialize_program( int argc, char *argv[] )
   argp_parse( &argp, argc, argv, 0, 0, &arguments );
   max_dim = atoi( arguments.args[ 1 ] );
 
-  readnetwork( arguments.args[0] );
+  read_inputfile( arguments.args[ 0 ] );
+  create_list_of_symsecs( max_dim );
 
-  print_arguments(arguments);
-  print_network();
+  random_init( T3NS );
 
-  gettimeofday(&t_end, NULL);
+  gettimeofday( &t_end, NULL );
 
   t_elapsed = ( t_end.tv_sec - t_start.tv_sec ) * 1000000LL + t_end.tv_usec - t_start.tv_usec;
-  d_elapsed = t_elapsed*1e-6;
+  d_elapsed = t_elapsed * 1e-6;
   printf( "elapsed time for preparing calculation: %lf sec\n", d_elapsed );
 }
 
-static void cleanup_before_exit( void )
+static void cleanup_before_exit( struct stensor **T3NS )
 {
   destroy_network();
-  //destroy_bookkeeper();
+  destroy_bookkeeper();
+  destroy_T3NS( T3NS );
 }

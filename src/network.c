@@ -20,6 +20,15 @@ static int strcmp_ign_ws( const char *s1, const char *s2 );
 
 /* ============================================================================================ */
 
+void init_netw( void )
+{
+  netw.nr_bonds  = 0;
+  netw.psites    = 0;
+  netw.sites     = 0;
+  netw.bonds     = NULL;
+  netw.sitetoorb = NULL;
+}
+
 void readnetwork( char netwf[] )
 {
   char buffer[ 255 ];
@@ -29,7 +38,7 @@ void readnetwork( char netwf[] )
 
   if( fp == NULL )
   {
-    fprintf( stderr, "Error reading input file %s\n", netwf );
+    fprintf( stderr, "ERROR : Failed reading networkfile %s.\n", netwf );
     exit( EXIT_FAILURE );
   }
 
@@ -173,6 +182,39 @@ int is_psite( int site )
 {
   assert( site < netw.sites && site >= 0 );
   return netw.sitetoorb[ site ] >= 0;
+}
+
+void get_bonds_of_site( int site, int bonds[] )
+{
+  int i;
+  bonds[ 0 ] = -1; bonds[ 1 ] = -1; bonds[ 2 ] = -1;
+
+  for( i = 0 ; i < netw.nr_bonds ; ++i )
+    if( netw.bonds[ i * 2 + 1 ] == site )
+    {
+      bonds[ 0 ] = i;
+      break;
+    }
+  assert( i != netw.nr_bonds );
+
+  if( is_psite( site ) )
+    bonds[ 1 ] = 2 * netw.nr_bonds + site;
+  else
+    for( ++i ; i < netw.nr_bonds ; ++i )
+      if( netw.bonds[ i * 2 + 1 ] == site )
+      {
+        bonds[ 1 ] = i;
+        break;
+      }
+  assert( i != netw.nr_bonds );
+
+  for( i = 0 ; i < netw.nr_bonds ; ++i )
+    if( netw.bonds[ i * 2 ] == site )
+    {
+      bonds[ 2 ] = i;
+      break;
+    }
+  assert( i != netw.nr_bonds );
 }
 
 /* ============================================================================================ */

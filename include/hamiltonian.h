@@ -12,14 +12,12 @@
  */
 
 /**
- * \brief Reads the hamiltonian out of a Hamiltonian file and specified hamiltoniantype.
+ * \brief Reads the interaction out of an interaction string.
+ * For qchemistry this interactionstring is given by a path to a fcidump with .fcidump extension.
  *
- * QC = QC ( quantum chemistry hamiltonian )
- *
- * \param [in] hamiltoniantype The type of the Hamiltonian. 
- * \param [in] hamiltonianfile The file of which the Hamiltonian should be read.
+ * \param [in] interactionstring The file of which the Hamiltonian should be read.
  */
-void make_hamiltonian( char hamiltoniantype[], char hamiltonianfile[] );
+void readinteraction(  char interactionstring[] );
 
 /**
  * \brief Gets the the symsecs struct of the physical bonds given a certain model.
@@ -28,4 +26,10 @@ void make_hamiltonian( char hamiltoniantype[], char hamiltonianfile[] );
  * \param [in] bond The bond number of the physical bond of which you want the symsecs structure.
  */
 void get_physsymsecs( struct symsecs *res, int bond );
+
+/**
+ * \brief Checks consistency of the made hamiltonian and the network ( e.g. nr of sites ).
+ * \return 1 if successful, 0 otherwise.
+ */
+int consistencynetworkinteraction( void );
 #endif

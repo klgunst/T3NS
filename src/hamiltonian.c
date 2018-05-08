@@ -1,8 +1,11 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
+#include <ctype.h>
 
 #include "hamiltonian.h"
+#include "bookkeeper.h"
+#include "symmetries.h"
 #include "hamiltonian_qc.h"
 
 enum hamtypes { QC, QCSU2 } ham;
@@ -16,18 +19,20 @@ static int set_hamiltonian( char hamiltonian[] );
 
 /* ============================================================================================ */
 
-void make_hamiltonian( char hamiltoniantype[], char hamiltonianfile[] )
+void readinteraction( char interactionstring[] )
 {
-  if( !set_hamiltonian( hamiltoniantype ) )
+  if( !set_hamiltonian( interactionstring ) )
     exit(EXIT_FAILURE);
 
   switch( ham )
   {
     case QC :
     case QCSU2 :
-      QC_make_hamiltonian( hamiltonianfile );
+      QC_make_hamiltonian( interactionstring );
+      break;
     default:
-      fprintf( stderr, "Unrecognized Hamiltonian.\n");
+      fprintf( stderr, "ERROR : unrecognized interaction %s.\n", interactionstring );
+      exit( EXIT_FAILURE );
   }
 }
 
@@ -44,22 +49,72 @@ void get_physsymsecs( struct symsecs *res, int bond )
   }
 }
 
+int consistencynetworkinteraction( void )
+{
+  switch( ham )
+  {
+    case QC:
+    case QCSU2:
+      return QC_consistencynetworkinteraction();
+    default:
+      fprintf( stderr, "Unrecognized Hamiltonian.\n");
+      exit( EXIT_FAILURE );
+  }
+
+  return 0;
+}
+
 /* ============================================================================================ */
 /* ================================ DEFINITION STATIC FUNCTIONS =============================== */
 /* ============================================================================================ */
 
 static int set_hamiltonian( char hamiltonian[] )
 {
-  if( strcmp( hamiltonian, "QC" ) == 0 )
+  char *ext = strrchr( hamiltonian, '.' );
+  if( ext )
   {
-    ham = QC;
-    return 1;
+    char *extfcidump = "FCIDUMP";
+
+    ext++;
+    while( *ext && tolower( *( ext++ ) ) == tolower( *( extfcidump++ ) ) );
+
+    /* extension is fcidump */
+    if( *ext == *extfcidump ){
+      enum symmetrygroup symmQC[] = { Z2, U1, U1 };
+      enum symmetrygroup symmQCSU2[] = { Z2, U1, SU2 };
+      int i;
+      if( bookie.nr_symmetries != 3 && bookie.nr_symmetries != 4 )
+      {
+        fprintf( stderr, "Invalid symmetry groups for quantum chemistry were inputted!\n" );
+        return 0;
+      }
+      if( bookie.nr_symmetries == 4 && bookie.sgs[ 3 ] < C1 )
+      {
+        fprintf( stderr, "Invalid symmetry groups for quantum chemistry were inputted!\n" );
+        return 0;
+      }
+      for( i = 0 ; i < 3 ; i++ )
+        if( symmQC[ i ] != bookie.sgs[ i ] )
+          break;
+      if( i == 3 )
+      {
+        ham = QC;
+        return 1;
+      }
+
+      for( i = 0 ; i < 3 ; i++ )
+        if( symmQCSU2[ i ] != bookie.sgs[ i ] )
+          break;
+      if( i == 3 )
+      {
+        ham = QCSU2;
+        return 1;
+      }
+      fprintf( stderr, "Invalid symmetry groups for quantum chemistry were inputted!\n" );
+      return 0;
+    }
   }
-  else if( strcmp( hamiltonian, "QCSU2" ) == 0 )
-  {
-    ham = QCSU2;
-    return 1;
-  }
-  fprintf( stderr, "A wrong hamiltonian type is used!\n" );
+
+  fprintf( stderr, "ERROR : Interaction %s is an unknown interaction.\n", hamiltonian );
   return 0;
 }

@@ -36,6 +36,11 @@ extern struct network netw;
 void readnetwork( char netwf[] );
 
 /**
+ * \brief initializes the network as empty.
+ */
+void init_netw( void );
+
+/**
  * \brief Destroys the network object.
  */
 void destroy_network( void );
@@ -52,4 +57,13 @@ void print_network( void );
  * \return The boolean.
  */
 int is_psite( int site );
+
+/**
+ * \brief Gives the bonds of a certain site in the network.
+ *
+ * \param [in] site The site.
+ * \param [out] bonds This should be a 3-element array which is already initialized.
+ * The bonds are stored here.
+ */
+void get_bonds_of_site( int site, int bonds[] );
 #endif

@@ -1,0 +1,14 @@
+Pay attention that the the bookkeeper should be already adapted for the internal indices in the
+tensor!!
+
+Two options are possible to do this.
+
+First, if the bond will be an internal index for ALL tensors at this stage, we can just 
+straightforwardly update this symsec at this point.
+( no need to recalculate the dimensions of the symsecs, since they are internal everywhere! ).
+( I should thus best erase the dimensions maybe so I certainly can't use this ).
+
+Second, I can also make a new symsec with a dummy bond at which it points too.
+I dont think i need the second option atm.
+
+Would it have a advantage to pick SU2 as last symmetry instead of PG?

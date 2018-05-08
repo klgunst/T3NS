@@ -15,6 +15,7 @@
  */
 
 /* POINT_GROUP_SYMMETRY is a macro!!! */
+/* If you change this, you should change the symmetrynames in symmetries.c also */
 enum symmetrygroup { Z2, U1, SU2, POINT_GROUP_SYMMETRY };
 
 /**
@@ -48,13 +49,92 @@ void tensprod_symmsec(int **resultsymmsec, int *nr_symmsecs, int *symmsec1, int 
 /**
  * \brief Gives the resulting irreps from tensor product of two other irreps belonging to sg.
  *
- * \param [out] prod_irreps Resulting array of irreps. Will be allocated, should be freed.
+ * \param [out] min_irrep The lowest label of resulting irrep.
  * \param [out] nr_irreps Number of resulting irreps.
+ * \param [out] step Step with which the labels are separated.
  * \param [in] irrep1 The first irrep of the tensorproduct.
  * \param [in] irrep2 The second irrep of the tensorproduct.
  * \param [in] sign -1 if the inverse of irrep2 should be taken, +1 otherwise.
  * \param [in] sg The symmetry group of the irreps.
  */
-void tensprod_irrep( int **prod_irreps, int *nr_irreps, int irrep1, int irrep2, int sign, 
+void tensprod_irrep( int *min_irrep, int *nr_irreps, int *step, int irrep1, int irrep2, int sign, 
     enum symmetrygroup sg );
+
+/**
+ * \brief Returns the string of the symmetrygroup.
+ *
+ * \param [in] sg The symmetrygroup
+ * \return The string of the symmetrygroup.
+ */
+const char* get_symstring( enum symmetrygroup sg );
+
+/**
+ * \brief Searches for an inputted string the right symmetrygroup.
+ *
+ * \param [in] buffer The string.
+ * \param [out] sg The resulting symmetrygroup.
+ * \return Returns 1 if successful, otherwise 0.
+ */
+const int which_symmgroup( char buffer[], enum symmetrygroup *sg );
+
+/**
+ * \brief Gets the string of the irrep.
+ *
+ * \param [out] buffer The string.
+ * \param [in] sg The symmetrygroup.
+ * \param [in] irr The irrep.
+ */
+void get_irrstring( char buffer[], enum symmetrygroup sg, int irr );
+
+/**
+ * \brief Finds the irrep that is inputted in a string.
+ *
+ * \param [in] buffer The string to read.
+ * \param [in] sg The symmetrygroup of which the irrep is an element.
+ * \param [out] irr The found irrep.
+ * \return Returns 1 if successful, otherwise 0.
+ */
+const int which_irrep( char buffer[], enum symmetrygroup sg, int *irr );
+
+/**
+ * \brief Searches for a string in a given array of strings.
+ * If the string is just an indexnumber, this is also valid.
+ *
+ * \param [in] buffer The string to search for.
+ * \param [in] arr The array of strings in which to search.
+ * \param [in] length The number of elements in the array arr.
+ * \param [out] ind The index of which the array is found in the string.
+ * \return 1 if the search was successful, 0 otherwise.
+ */
+const int find_str_in_array( char buffer[], const char* arr[], int length, int *ind );
+
+/**
+ * \brief Finds the parity of the targetstate with given irreps for other symmetrygroups.
+ *
+ * \param [in] sgs The symmetrygroups of the target state. The first element should be Z2.
+ * \param [in,out] ts The irreps of the targetstate. The parity of the ts is stored in the first
+ * element.
+ * \param [in] nr_symmetries The number of symmetries in the system.
+ * \return 1 if the determination of the parity was successful, 0 otherwise.
+ */
+const int find_Z2( enum symmetrygroup *sgs, int *ts, int nr_symmetries );
+
+/**
+ * \brief Checks if the inputted symmetrygroups are valid ones ( well for me at least )
+ *
+ * \param [in] sgs The symmetrygroups.
+ * \param [in] nr_symmetries The number of symmetrygroups in sgs.
+ * \return 1 if successful, otherwise 0.
+ */
+const int valid_sgs( enum symmetrygroup *sgs, int nr_symmetries );
+
+/**
+ * \brief Checks if the inputted state is consistent.
+ *
+ * \param [in] sgs The symmetrygroups.
+ * \param [in] ts The targetstate.
+ * \param [in] nr_symmetries The number of symmetries in sgs and ts.
+ * \return 1 if successful, 0 otherwise.
+ */
+const int consistent_state( enum symmetrygroup *sgs, int *ts, int nr_symmetries );
 #endif

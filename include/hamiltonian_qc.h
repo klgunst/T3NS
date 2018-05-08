@@ -2,7 +2,6 @@
 # define HAMILTONIAN_QC_H
 
 #include "bookkeeper.h"
-#include "symmetries.h"
 
 /**
  * \file hamiltonian_qc.h
@@ -27,4 +26,10 @@ void QC_make_hamiltonian( char hamiltonianfile[] );
  * \param [in] su2 Boolean if the SU2 symmetry is also in it or not.
  */
 void QC_get_physsymsecs( struct symsecs *res, int bond );
+
+/**
+ * \brief Checks consistency of the made qc hamiltonian and the network ( e.g. nr of sites ).
+ * \return 1 if successful, 0 otherwise.
+ */
+int QC_consistencynetworkinteraction( void );
 #endif

@@ -1,9 +1,11 @@
 #include <stdlib.h>
 #include <stdio.h>
+#include <string.h>
 #include <ctype.h>
 #include <assert.h>
 
 #include "hamiltonian_qc.h"
+#include "io.h"
 #include "network.h"
 #include "bookkeeper.h"
 #include "macros.h"
@@ -15,16 +17,19 @@ struct hamdata
   double core_energy; /**< core_energy of the system. */
   double* Vijkl;      /**< interaction terms of the system. */
 } hdat;
+
 /* ============================================================================================ */
 /* =============================== DECLARATION STATIC FUNCTIONS =============================== */
 /* ============================================================================================ */
 
-static void read_fcidump( char filename[], int *norb, int **orbirrep, double* core_energy, 
-    double** one_p_int, double** two_p_int );
+/** reads the header of fcidump, ignores nelec, ms2 and isym. **/
+static void readheader( char hamiltonianfile[] );
 
-static int strcmp_ign_ws( const char *s1, const char *s2 );
+/** reads the integrals from a fcidump file. **/
+static void readintegrals( double **one_p_int, char hamiltonianfile[] );
 
-static void form_integrals( double* one_p_int, double* two_p_int, int ORBS, int N );
+/** forms the integrals given a vijkl and a one_p_int **/
+static void form_integrals( double* one_p_int );
 
 static int check_orbirrep( void );
 
@@ -34,152 +39,170 @@ void QC_make_hamiltonian( char hamiltonianfile[] )
 {
   double *one_p_int;
 
-  read_fcidump( hamiltonianfile, &hdat.norb, &hdat.orbirrep, &hdat.core_energy, &one_p_int, 
-      &hdat.Vijkl );
-  if( hdat.norb != netw.psites ){
-    fprintf( stderr, "The number of physical sites in the network file don't correspond with "
-        "the FCIDUMP-orbitals (%d != %d)\n", hdat.norb, netw.psites );
-    exit( EXIT_FAILURE );
-  }
+  readheader( hamiltonianfile );
+  readintegrals( &one_p_int, hamiltonianfile );
+  form_integrals( one_p_int );
+
   if( !check_orbirrep() )
   {
-    fprintf( stderr, "The irreps given in the fcidump can not be correct irreps for the point group"
-        " symmetry defined in the inputfile\n" );
+    fprintf( stderr,
+        "ERROR : The irreps given in the fcidump can not be correct irreps for\n"
+        "        the point group symmetry defined in the inputfile,\n"
+        "        if there is one inputted at least.\n" );
     exit( EXIT_FAILURE );
   }
-
-  form_integrals( one_p_int, hdat.Vijkl, hdat.norb, get_particlestarget() );
 }
 
 void QC_get_physsymsecs( struct symsecs *res, int site )
 {
-  assert( bookie.nr_symmetries == 4 );
-  if( has_su2() )
+  int irrep[ 4 ][ 3 ]     = { { 0, 0, 0 }, { 1, 1, 0 }, { 1, 0, 1 }, { 0, 1, 1 } };
+  int irrep_su2[ 3 ][ 3 ] = { { 0, 0, 0 }, { 0, 2, 0 }, { 1, 1, 1 } };
+  int (*irreparr)[ 3 ]    = has_su2() ? irrep_su2 : irrep;
+  int i, j;
+
+  assert( bookie.nr_symmetries == 3 + ( get_pg_symmetry() != -1 ) );
+
+  res->nr_symsec = has_su2() ? 3 : 4;
+  res->totaldims = res->nr_symsec;
+  res->irreps = safe_malloc( res->nr_symsec * bookie.nr_symmetries, int );
+  res->dims = safe_malloc( res->nr_symsec, int );
+  res->fcidims = safe_malloc( res->nr_symsec, double );
+  for( i = 0 ; i < res->nr_symsec ; i++ )
   {
-    /* Z2, U1, SU2, PG */
-    res->nr_symsec = 3;
-    res->irreps = safe_malloc( res->nr_symsec * bookie.nr_symmetries, int );
-    res->irreps[ 0 ] = 0; res->irreps[ 1 ] = 0; res->irreps[ 2 ] = 0; res->irreps[ 3 ] = 0;
-
-    res->irreps[ 4 ] = 1; res->irreps[ 5 ] = 1; res->irreps[ 6 ] = 1;
-    res->irreps[ 7 ] = hdat.orbirrep[ netw.sitetoorb[ site ] ];
-
-    res->irreps[ 8 ] = 0; res->irreps[ 9 ] = 2; res->irreps[ 10 ] = 0; res->irreps[ 11 ] = 0;
-
-    res->fcidims = safe_malloc( res->nr_symsec, double );
-    res->fcidims[ 0 ] = 1;
-    res->fcidims[ 1 ] = 1;
-    res->fcidims[ 2 ] = 1;
-    res->dims = safe_malloc( res->nr_symsec, int );
-    res->dims[ 0 ] = 1;
-    res->dims[ 1 ] = 1;
-    res->dims[ 2 ] = 1;
-    res->totaldims = 3;
+    res->dims   [ i ] = 1;
+    res->fcidims[ i ] = 1;
+    for( j = 0 ; j < 3 ; j++ )
+      res->irreps[ i * bookie.nr_symmetries + j ] = irreparr[ i ][ j ];
+    /* trivial if even parity, otherwise irrep of orbital*/
+    if( get_pg_symmetry() != -1 )
+      res->irreps[ i * bookie.nr_symmetries + j ] = 
+        res->irreps[ i * bookie.nr_symmetries ] ? hdat.orbirrep[ netw.sitetoorb[ site ] ] : 0;
+    /* Z2 should come first */
   }
-  else
+}
+
+int QC_consistencynetworkinteraction( void )
+{
+  if( hdat.norb != netw.psites )
   {
-    /* Z2, U1 up, U1 down, PG */
-    res->nr_symsec = 4;
-    res->irreps = safe_malloc( res->nr_symsec * bookie.nr_symmetries, int );
-    res->irreps[ 0 ] = 0; res->irreps[ 1 ] = 0; res->irreps[ 2 ] = 0; res->irreps[ 3 ] = 0;
-
-    res->irreps[ 4 ] = 1; res->irreps[ 5 ] = 1; res->irreps[ 6 ] = 0;
-    res->irreps[ 7 ] = hdat.orbirrep[ netw.sitetoorb[ site ] ];
-
-    res->irreps[ 8 ] = 1; res->irreps[ 9 ] = 0; res->irreps[ 10 ] = 1;
-    res->irreps[ 11 ] = hdat.orbirrep[ netw.sitetoorb[ site ] ];
-
-    res->irreps[ 12 ] = 0; res->irreps[ 13 ] = 1; res->irreps[ 14 ] = 1; res->irreps[ 15 ] = 0;
-      
-    res->fcidims = safe_malloc( res->nr_symsec, double );
-    res->fcidims[ 0 ] = 1;
-    res->fcidims[ 1 ] = 1;
-    res->fcidims[ 2 ] = 1;
-    res->fcidims[ 3 ] = 1;
-    res->dims = safe_malloc( res->nr_symsec, int );
-    res->dims[ 0 ] = 1;
-    res->dims[ 1 ] = 1;
-    res->dims[ 2 ] = 1;
-    res->dims[ 3 ] = 1;
-    res->totaldims = 4;
+    fprintf( stderr, 
+        "ERROR : number of orbitals in the fcidump is not equal with\n"
+        "number of physical tensors in the network. (%d neq %d)\n", hdat.norb, netw.psites );
+    return 0;
   }
+
+  return 1;
 }
 
 /* ============================================================================================ */
 /* ================================ DEFINITION STATIC FUNCTIONS =============================== */
 /* ============================================================================================ */
 
-static void read_fcidump( char filename[], int *norb, int **orbirrep, double* core_energy, 
-    double** one_p_int, double** two_p_int )
+static void readheader( char hamiltonianfile[] )
 {
-  char buffer[255];
-  int cnt, i, j, k, l, ln_cnt;
-  double *matrix_el;
-  double value;
-  FILE *fp;
+  char buffer[ 255 ];
+  char *pch;
 
-  fp = fopen( filename, "r" );
-  if( fp == NULL )
+  if( read_option( "&FCI NORB", hamiltonianfile, buffer ) < 1 )
   {
-    fprintf( stderr, "Error reading fcidump file: %s\n", filename );
+    fprintf( stderr, "Error in reading %s. File is wrongly formatted.\n"
+                     "We expect \"&FCI NORB = \" at the first line.\n", hamiltonianfile );
     exit( EXIT_FAILURE );
   }
 
-  ln_cnt = 1;
-  if( fgets( buffer, sizeof buffer, fp ) == NULL )
+  pch = strtok( buffer, " ," );
+  hdat.norb = atoi( pch );
+  if( hdat.norb == 0 )
   {
-    fprintf( stderr, "Error in reading %s. File is wrongly formatted.\n", filename );
+    fprintf( stderr, "ERROR while reading NORB in %s.\n", hamiltonianfile );
     exit( EXIT_FAILURE );
   }
 
-  cnt = sscanf( buffer, " &FCI NORB= %d , ", norb );
-  if( cnt != 1 )
-  {
-    fprintf( stderr, "Error in reading %s. File is wrongly formatted.\n", filename );
-    exit( EXIT_FAILURE );
-  }
-
-  *orbirrep = safe_calloc( *norb, int );
-
-  while( fgets(buffer, sizeof buffer, fp ) != NULL )
-  {
-    ln_cnt++;
-    if( sscanf( buffer, "ORBSYM = " ) != EOF )
+  if( get_pg_symmetry() != -1 )
+  { /* reading ORBSYM */
+    int ops;
+    hdat.orbirrep = safe_calloc( hdat.norb, int );
+    if( ( ops = read_option( "ORBSYM", hamiltonianfile, buffer ) ) != hdat.norb )
     {
-      char c;
-      cnt = 0;
-      while( ( c = getc( fp ) ) != '\n' )
-      {
-        int nr = c - '0';
-        if( nr >= 0 && nr < 10 )
-          (*orbirrep)[ cnt ] = 10 * (*orbirrep)[ cnt ] + nr;
-        else if ( c == ',' )
-          cnt++;
-        else
-        {
-          fprintf( stderr, "Wrong format of the psite array at line %d!\n", ln_cnt );
-          exit( EXIT_FAILURE );
-        }
-      }
-
-      if( cnt != *norb )
-        fprintf( stderr, "Error in reading %s. ORBSYM is wrongly formatted.\n", filename );
-      for( cnt = 0 ; cnt < *norb ; cnt++ ) (*orbirrep[ cnt ])--;
+      fprintf( stderr, "ERROR while reading ORBSYM in %s. %d orbitals found.\n"
+                       "Fix the FCIDUMP or turn of point group symmetry!\n", hamiltonianfile, ops );
+      exit( EXIT_FAILURE );
     }
 
-    else if( !( strcmp_ign_ws( buffer, "&END" ) && strcmp_ign_ws( buffer, "/END" ) && 
-          strcmp_ign_ws( buffer, "/" ) ) )
+    pch = strtok( buffer, " ,\n" );
+    ops = 0;
+    while( pch )
+    {
+      hdat.orbirrep[ ops ] = atoi( pch );
+      if( hdat.orbirrep[ ops ]-- == 0 )
+      {
+        fprintf( stderr, "Error while reading ORBSYM in %s.\n", hamiltonianfile );
+        exit( EXIT_FAILURE );
+      }
+
+      pch = strtok( NULL, " ,\n" );
+      ops++;
+    }
+  }
+  else
+    hdat.orbirrep = NULL;
+}
+
+static void readintegrals( double **one_p_int, char hamiltonianfile[] )
+{
+  /* open file for reading integrals */
+  FILE *fp = fopen( hamiltonianfile, "r" );
+  char buffer[ 255 ];
+  int ln_cnt = 1;
+  int norb2 = hdat.norb * hdat.norb;
+  int norb3 = norb2 * hdat.norb;
+
+  /* integrals */
+  double *matrix_el;
+  *one_p_int = safe_calloc( norb2, double );
+  hdat.core_energy = 0;
+  hdat.Vijkl = safe_calloc( norb3 * hdat.norb, double );
+
+  if( fp == NULL )
+  {
+    fprintf( stderr, "ERROR reading fcidump file: %s\n", hamiltonianfile );
+    exit( EXIT_FAILURE );
+  }
+  
+  /* Pass through buffer until begin of the integrals, this is typically typed by 
+   * "&END", "/END" or "/" */
+  while( fgets( buffer, sizeof buffer, fp ) != NULL )
+  {
+    char *stops[] = {"&END", "/END", "/"  };
+    int lstops = sizeof stops / sizeof( char* );
+    int i;
+    for( i = 0 ; i < lstops ; i++ )
+    {
+      char *s = stops[ i ];
+      char *b = buffer;
+
+      while( isspace( *b ) ) b++;
+
+      while( *s && *s == *b )
+      {
+        b++;
+        s++;
+      }
+
+      while( isspace( *b ) ) b++;
+      if( !*b )
+        break;
+    }
+
+    if( i != lstops )
       break;
   }
 
-  *core_energy = 0;
-  
-  *one_p_int = safe_calloc( (*norb) * (*norb), double );
-  *two_p_int = safe_calloc( (*norb) * (*norb) * (*norb) * (*norb), double );
-
   while( fgets( buffer, sizeof buffer, fp ) != NULL )
-  {
-    cnt = sscanf( buffer, " %lf %d %d %d %d ", &value, &i, &j, &k, &l ); /* chemical notation */
+  { /* reading the integrals */
+    int i, j, k, l;
+    double value;
+    int cnt = sscanf( buffer, " %lf %d %d %d %d ", &value, &i, &j, &k, &l ); /* chemical notation */
     ln_cnt++;
     if( cnt != 5 )
     {
@@ -189,82 +212,58 @@ static void read_fcidump( char filename[], int *norb, int **orbirrep, double* co
     }
     
     if( k != 0 )
-      matrix_el = *two_p_int + (l-1) * (*norb) * (*norb) * (*norb) + (k-1) * (*norb) * (*norb)
-                  + (j-1) * (*norb) +(i-1);
+      matrix_el = hdat.Vijkl + (l-1) * norb3 + (k-1) * norb2 + (j-1) * hdat.norb +(i-1);
     else if ( i != 0 )
-      matrix_el = *one_p_int + (j-1) * (*norb) + (i-1);
+      matrix_el = *one_p_int + (j-1) * hdat.norb + (i-1);
     else
-      matrix_el = core_energy;
+      matrix_el = &hdat.core_energy;
 
     if( !COMPARE( *matrix_el, 0 ) )
       fprintf( stderr, "Doubly inputted value at line %d, hope you don\'t mind\n", ln_cnt );
     *matrix_el = value;
   }
-  
   fclose( fp );
 }
 
-static int strcmp_ign_ws( const char *s1, const char *s2 )
+static void form_integrals( double* one_p_int )
 {
-  const unsigned char *p1 = (const unsigned char *)s1;
-  const unsigned char *p2 = (const unsigned char *)s2;
-  
-  while( *p1 )
-  {
-    while( isspace( *p1 ) ) p1++;
-    if ( !*p1 ) break;
-                                      
-    while ( isspace( *p2 ) ) p2++;
-    if ( !*p2 )      return  1;
-    if ( *p2 > *p1 ) return -1;
-    if ( *p1 > *p2 ) return  1;
+  int i, j, k, l;
+  double pref = 1 / ( get_particlestarget() * 1. - 1 );
+  int norb2 = hdat.norb * hdat.norb;
+  int norb3 = norb2 * hdat.norb;
 
-    p1++;
-    p2++;
-  }
-  while ( isspace( *p2 ) ) p2++;
-  
-  if (*p2) return -1;
-  
-  return 0;
-}
-
-static void form_integrals( double* one_p_int, double* two_p_int, int ORBS, int N )
-{
-  int i,j,k,l, ORBS2, ORBS3, curr_ind;
-  double pref;
-  ORBS2 = ORBS * ORBS;
-  ORBS3 = ORBS2 * ORBS;
-
-  for( i = 0 ; i < ORBS ; i++ )
+  for( i = 0 ; i < hdat.norb ; i++ )
     for( j = 0 ; j <= i; j++ )
-      one_p_int[i * ORBS + j] = one_p_int[j * ORBS + i];
+      one_p_int[i * hdat.norb + j] = one_p_int[j * hdat.norb + i];
 
-  for( i = 0 ; i < ORBS ; i++ )
+  for( i = 0 ; i < hdat.norb ; i++ )
     for( j = 0 ; j <= i; j++ )
       for( k = 0 ; k <= i; k++ )
         for( l = 0 ; l <= k; l++ )
         {
-          curr_ind = i + ORBS * j + ORBS2 * k + ORBS3 * l;
-          if( !COMPARE( two_p_int[ curr_ind ], 0 ) )
+          int curr_ind = i + hdat.norb * j + norb2 * k + norb3 * l;
+          if( !COMPARE( hdat.Vijkl[ curr_ind ], 0 ) )
           {
-            two_p_int[ k + ORBS * l + ORBS2 * i + ORBS3 * j ] = two_p_int[ curr_ind ];
-            two_p_int[ j + ORBS * i + ORBS2 * l + ORBS3 * k ] = two_p_int[ curr_ind ];
-            two_p_int[ l + ORBS * k + ORBS2 * j + ORBS3 * i ] = two_p_int[ curr_ind ];
-            two_p_int[ j + ORBS * i + ORBS2 * k + ORBS3 * l ] = two_p_int[ curr_ind ];
-            two_p_int[ l + ORBS * k + ORBS2 * i + ORBS3 * j ] = two_p_int[ curr_ind ];
-            two_p_int[ i + ORBS * j + ORBS2 * l + ORBS3 * k ] = two_p_int[ curr_ind ];
-            two_p_int[ k + ORBS * l + ORBS2 * j + ORBS3 * i ] = two_p_int[ curr_ind ];
+            hdat.Vijkl[ k + hdat.norb * l + norb2 * i + norb3 * j ] = hdat.Vijkl[ curr_ind ];
+            hdat.Vijkl[ j + hdat.norb * i + norb2 * l + norb3 * k ] = hdat.Vijkl[ curr_ind ];
+            hdat.Vijkl[ l + hdat.norb * k + norb2 * j + norb3 * i ] = hdat.Vijkl[ curr_ind ];
+            hdat.Vijkl[ j + hdat.norb * i + norb2 * k + norb3 * l ] = hdat.Vijkl[ curr_ind ];
+            hdat.Vijkl[ l + hdat.norb * k + norb2 * i + norb3 * j ] = hdat.Vijkl[ curr_ind ];
+            hdat.Vijkl[ i + hdat.norb * j + norb2 * l + norb3 * k ] = hdat.Vijkl[ curr_ind ];
+            hdat.Vijkl[ k + hdat.norb * l + norb2 * j + norb3 * i ] = hdat.Vijkl[ curr_ind ];
           }
         }
 
-  pref = 1 / ( N * 1. - 1 );
-  for( i = 0 ; i < ORBS ; i++ )
-    for( j = 0 ; j < ORBS ; j++ )
-      for( k = 0 ; k < ORBS ; k++ ){
-        two_p_int[ i + ORBS * j + ORBS2 * k + ORBS3 * k ] += pref * one_p_int[ i * ORBS + j ];
-        two_p_int[ k + ORBS * k + ORBS2 * i + ORBS3 * j ] += pref * one_p_int[ i * ORBS + j ];
+  for( i = 0 ; i < hdat.norb ; i++ )
+    for( j = 0 ; j < hdat.norb ; j++ )
+    {
+      double pref2 = pref * one_p_int[ i * hdat.norb + j ];
+      for( k = 0 ; k < hdat.norb ; k++ )
+      {
+        hdat.Vijkl[ i + hdat.norb * j + norb2 * k + norb3 * k ] += pref2;
+        hdat.Vijkl[ k + hdat.norb * k + norb2 * i + norb3 * j ] += pref2;
       }
+    }
   safe_free( one_p_int );
 }
 
@@ -274,10 +273,8 @@ static int check_orbirrep( void )
   int max_pg;
   int i;
   if( ( pg_symm = get_pg_symmetry() ) == -1 )
-  {
-    fprintf( stderr, "No point group symmetry was specified yet!\n" );
-    exit( EXIT_FAILURE );
-  }
+    return hdat.orbirrep == NULL;
+
   max_pg = get_max_irrep( NULL, 0, NULL, 0, 0, pg_symm );
   for( i = 0 ; i < hdat.norb ; i++ )
     if( hdat.orbirrep[ i ] < 0 || hdat.orbirrep[ i ] >= max_pg )

@@ -67,20 +67,71 @@ extern struct bookkeeper bookie;
 void create_list_of_symsecs( int max_dim );
 
 /**
+ * \brief initializes the bookie as empty.
+ */
+void init_bookie( void );
+
+/**
  * \brief Frees the memory allocated to the global bookie variable.
  */
 void destroy_bookkeeper( void );
 
 /**
- * \brief Fetches the symm_prop of the inputted bond.
+ * \brief Prints the network and the bond dimensions.
  *
- * NOTE: If the symm_prop asked is of a physical bond, this physical bond will be freshly allocated
+ * \param [in] fci Boolean if the fcidims or the current dims should be printed.
+ */
+void print_bookkeeper( int fci );
+
+/**
+ * \brief Prints the symmetry sector with fci dims or truncated dims.
+ *
+ * \param [in] sector The symsec.
+ * \param [in] fci Boolean if fcidim should be printed or truncated dims.
+ */
+void print_symsecs( struct symsecs *currymsec, int fci );
+
+/**
+ * \brief Fetches the symmsecs of the inputted bond.
+ *
+ * NOTE: If the symmsecs asked is of a physical bond, this physical bond will be freshly allocated
  * and should thus be freed also!
  *
- * \param [out] res The resulting symm_prop.
- * \param [in] bond The bond of which we want the symm_prop.
+ * \param [out] res The resulting symmsecs.
+ * \param [in] bond The bond of which we want the symmsecs.
  */
 void get_symsecs( struct symsecs *res, int bond );
+
+/**
+ * \brief Fetches the symmsecs of the inputted bond array.
+ *
+ * NOTE: If the symmsecs asked is of a physical bond, this physical bond will be freshly allocated
+ * and should thus be freed also!
+ *
+ * \param [out] res The resulting symmsecs.
+ * \param [in] bonds The bond array of which we want the symmsecs.
+ * \param [in] nmbr The number of bonds.
+ */
+void get_symsecs_arr( struct symsecs res[], int bonds[], int nmbr );
+
+/**
+ * Cleans the symsecs, puts everything on 0 or NULL! if memory should be deallocated (e.g. for 
+ * physical symsecs) this will also happen.
+ *
+ * \param [in,out] res The symsecs that should be cleaned.
+ * \param [in] bond The bond of which the symsec is.
+ */
+void clean_symsecs( struct symsecs *res, int bond );
+
+/**
+ * Cleans the symsecs, puts everything on 0 or NULL! if memory should be deallocated (e.g. for 
+ * physical symsecs) this will also happen.
+ *
+ * \param [in,out] res The symsecs array that should be cleaned.
+ * \param [in] bond The bonds of which the symsec are.
+ * \param [in] nmbr The number of bonds.
+ */
+void clean_symsecs_arr( struct symsecs res[], int bonds[], int nmbr );
 
 /**
  * \brief Returns the total number of particles in the target state.
@@ -103,4 +154,40 @@ int has_su2( void );
  * \return Returns the pg symmetry.
  */
 int get_pg_symmetry( void );
+
+/**
+ * \brief Returns a correctly formatted string of the symmetries used.
+ *
+ * \param [in] sg The number of symmetry groups or -1 if defaults were used.
+ * \param [out] buffer The buffer where the string is stored.
+ */
+void get_sgsstring( int sg, char buffer[] );
+
+/**
+ * \brief Returns a correctly formatted string of the target state.
+ *
+ * \param [out] buffer The buffer where the string is stored.
+ */
+void get_tsstring( char buffer[] );
+
+/**
+ * \brief Searches a symmsec in a symsecs struct (naively atm)
+ *
+ * \param[in] symmsec The symmetry sector to search.
+ * \param[in] The array to search in.
+ * \return -1 if not found, otherwise the index.
+ */
+int search_symmsec( int* symmsec, struct symsecs *sectors );
+
+/**
+ * \brief Gives you a string of the specified sector.
+ *
+ * \param [in] symsec The symmetrysector structure.
+ * \param [in] ind The index of the sector.
+ * \param [out] buffer The buffer in which the string is passed.
+ */
+void get_sectorstring( struct symsecs *symsec, int ind, char buffer[] );
+
+void tensprod_symsecs( struct symsecs * const res, const struct symsecs * const sectors1, 
+    const struct symsecs * const sectors2, const int sign, const char o );
 #endif
