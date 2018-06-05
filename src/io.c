@@ -2,10 +2,10 @@
 #include <stdio.h>
 #include <string.h>
 #include <ctype.h>
-#include <assert.h>
 
 #include "io.h"
 #include "macros.h"
+#include "debug.h"
 #include "network.h"
 #include "bookkeeper.h"
 #include "symmetries.h"
@@ -129,17 +129,6 @@ void read_inputfile( char inputfile[] )
     printf( "Targetstate = %s\n", buffer );
   }
 
-  { /* For the path to the interactions file. */
-    ro = read_option( "interaction", inputfile, buffer );
-    if( ro != 1 )
-    {
-      fprintf( stderr, "No valid interaction specified in %s.\n", inputfile );
-      exit( EXIT_FAILURE );
-    }
-    printf( "Interaction = %s\n", buffer );
-    readinteraction( buffer );
-  }
-    
   { /* For the initialization of the network. */
     if( ( ro = read_option( "networkfile", inputfile, buffer ) ) == -1 )
       ro = read_option( "nf", inputfile, buffer );
@@ -153,6 +142,17 @@ void read_inputfile( char inputfile[] )
     print_network();
   }
 
+  { /* For the path to the interactions file. */
+    ro = read_option( "interaction", inputfile, buffer );
+    if( ro != 1 )
+    {
+      fprintf( stderr, "No valid interaction specified in %s.\n", inputfile );
+      exit( EXIT_FAILURE );
+    }
+    printf( "Interaction = %s\n", buffer );
+    readinteraction( buffer );
+  }
+    
   if( !consistencynetworkinteraction() )
     exit( EXIT_FAILURE );
 

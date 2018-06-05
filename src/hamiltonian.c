@@ -4,11 +4,11 @@
 #include <ctype.h>
 
 #include "hamiltonian.h"
+#include "hamiltonian_qc.h"
 #include "bookkeeper.h"
 #include "symmetries.h"
-#include "hamiltonian_qc.h"
 
-enum hamtypes { QC, QCSU2 } ham;
+enum hamtypes ham;
 
 /* ============================================================================================ */
 /* =============================== DECLARATION STATIC FUNCTIONS =============================== */
@@ -49,6 +49,61 @@ void get_physsymsecs( struct symsecs *res, int bond )
   }
 }
 
+void get_hamiltoniansymsecs( struct symsecs * const res, const int bond )
+{
+  switch( ham )
+  {
+    case QC :
+    case QCSU2 :
+      QC_get_hamiltoniansymsecs( res, bond );
+      break;
+    default:
+      fprintf( stderr, "%s@%s: Unrecognized Hamiltonian.\n", __FILE__, __func__ );
+  }
+}
+
+int get_nr_hamsymsec( void )
+{
+  switch( ham )
+  {
+    case QC :
+    case QCSU2 :
+      return QC_get_nr_hamsymsec();
+      break;
+    default:
+      fprintf( stderr, "Unrecognized Hamiltonian.\n");
+      return 0;
+  }
+}
+
+int get_trivialhamsymsec( void )
+{
+  switch( ham )
+  {
+    case QC :
+    case QCSU2 :
+      return QC_get_trivialhamsymsec( );
+      break;
+    default:
+      fprintf( stderr, "Unrecognized Hamiltonian.\n");
+      return -1;
+  }
+}
+
+int give_hermhamsymsec( const int orighamsymsec )
+{
+  switch( ham )
+  {
+    case QC :
+    case QCSU2 :
+      return QC_give_hermhamsymsec( orighamsymsec );
+      break;
+    default:
+      fprintf( stderr, "Unrecognized Hamiltonian.\n");
+      return -1;
+  }
+}
+
 int consistencynetworkinteraction( void )
 {
   switch( ham )
@@ -62,6 +117,47 @@ int consistencynetworkinteraction( void )
   }
 
   return 0;
+}
+
+int get_hamsymsec_site( const int siteoperator, const int site )
+{
+  switch( ham )
+  {
+    case QC :
+      return QC_get_hamsymsec_site( siteoperator, site );
+    case QCSU2 :
+    default:
+      fprintf( stderr, "%s@%s: unrecognized Hamiltonian.\n", __FILE__, __func__ );
+      exit( EXIT_FAILURE );
+  }
+}
+
+double get_site_element( const int siteoperator, const int braindex, const int ketindex )
+{
+  switch( ham )
+  {
+    case QC :
+      return QC_get_site_element( siteoperator, braindex, ketindex );
+    case QCSU2 :
+    default:
+      fprintf( stderr, "%s@%s: unrecognized Hamiltonian.\n", __FILE__, __func__ );
+      exit( EXIT_FAILURE );
+  }
+}
+
+void hamiltonian_tensor_products( int * const nr_of_prods, int ** const possible_prods, const int
+    resulting_hamsymsec, const int site )
+{
+  switch( ham )
+  {
+    case QC :
+      QC_hamiltonian_tensor_products( nr_of_prods, possible_prods, resulting_hamsymsec, site );
+      break;
+    case QCSU2 :
+    default:
+      fprintf( stderr, "%s@%s: unrecognized Hamiltonian.\n", __FILE__, __func__ );
+      exit( EXIT_FAILURE );
+  }
 }
 
 /* ============================================================================================ */

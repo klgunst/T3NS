@@ -4,6 +4,64 @@
 #include "stensor.h"
 
 /**
+ * Sooo... every T3NS tensor ( so of the wave function ) has as indices:
+ *     alpha, beta, gamma ( for branching ) or alpha, i, beta ( for physical )
+ * The coupling is in the same order, so coupling array is given by:
+ *     [ alpha, i, beta ] or [ alpha, beta, gamma ]
+ * The is_in array is given by:
+ *     [ 1, 1, 0 ]
+ *     
+ * I introduce a new notation now:
+ *    with ket(alpha) I mean bond alpha of a T3NS tensor ( the ket wavefunction )
+ *    with bra(alpha) I mean bond alpha of the hermitian of a T3NS tensor ( the bra wavefunction )
+ *
+ * Now for left renormalized operators without physical site added:
+ *     The indices array is given by : 
+ *      ---[ bra(alpha), ket(alpha), MPO ]
+ *     The coupling array is given by :
+ *      ---[ bra(alpha), MPO, ket(alpha) ]       ===> Should couple to the trivial irrep or singlet
+ *     The is_in array is given by :
+ *      ---[ 1, 0, 0 ]
+ *
+ * Now for left renormalized operators with physical site added, ( beta is an inner bond )
+ *     The indices array is given by : 
+ *      ---[ bra(alpha), bra(i), bra(beta), ket(alpha), ket(i), ket(beta), MPO ]
+ *     The coupling array is given by :
+ *      ---[ bra(alpha), bra(i), bra(beta) ,     ===> Should couple to the trivial irrep or singlet
+ *           bra(beta) , MPO   , ket(beta) ,     ===> Should couple to the trivial irrep or singlet
+ *           ket(beta) , ket(i), ket(alpha) ]    ===> Should couple to the trivial irrep or singlet
+ *     The is_in array is given by :
+ *      ---[ 1, 1, 0, 
+ *           1, 0, 0, 
+ *           1, 0, 0 ]
+ *
+ * Now for right renormalized operators without physical site added:
+ *     The indices array is given by : 
+ *      ---[ bra(beta), ket(beta), MPO ]
+ *     The coupling array is given by :
+ *      ---[ bra(beta), MPO, ket(beta) ]         ===> Should couple to the trivial irrep or singlet
+ *     The is_in array is given by :
+ *      ---[ 0, 0, 1 ]
+ *
+ * Now for right renormalized operators with physical site added, ( alpha is an inner bond )
+ *     The indices array is given by : 
+ *      ---[ bra(alpha), bra(i), bra(beta), ket(alpha), ket(i), ket(beta), MPO ]
+ *     The coupling array is given by :
+ *      ---[ bra(alpha), bra(i), bra(beta) ,     ===> Should couple to the trivial irrep or singlet
+ *           bra(alpha), MPO   , ket(alpha),     ===> Should couple to the trivial irrep or singlet
+ *           ket(beta) , ket(i), ket(alpha) ]    ===> Should couple to the trivial irrep or singlet
+ *     The is_in array is given by :
+ *      ---[ 1, 1, 0, 
+ *           0, 0, 1, 
+ *           1, 0, 0 ]
+ *
+ * The exact place of the MPO in the indices array should not matter, since its dimension is just 1.
+ * In the coupling array it matters ofcourse!
+ *
+ * I really should stick to this!!
+ */
+
+/**
  * \brief The structure for renormalized operators at a certain bond.
  */
 struct renormalizedops
@@ -43,7 +101,6 @@ struct renormalizedops
                               *   This is inherited by the different operators.
                               */
   
-  int hamsymsecs;            /**< The number of different hamiltonian symsecs. */
   int *nkappa_begin;         /**< The index of the first symmsec that belongs to a certain 
                               *   hamsymsecs. Length of this array is hamsymsecs+1.
                               */
@@ -61,9 +118,30 @@ struct renormalizedops
                               *       qnumbers + nkappa_begin[ i ] * nrind.
                               */
   int nrops;                  /**< The total number of renormalized operators. */
-  int *hamsymsec;             /**< To which hamsymsec belongs every renormalized operator? */
+  int *hamsymsec;             /**< To which hamsymsec belongs every renormalized operator?,
+                                *  This index number is according to all possible hamsymsecs,
+                                *  not only the ones that can occur at this renormalized ops.
+                                */
   struct stensor *operators;  /**< Array with all the renormalized operators in it. */
 };
+
+/**
+ * \brief This returns the bond for which the renormalizedops is linked too.
+ * It returns the furthest, meaning for rops with phsyical sites appended, it takes
+ * not the alpha bond, but the new alpha bond after a stensor appended to it.
+ *
+ * \param [in] ops The renormalizedops struct.
+ * \return The bond.
+ */
+int get_bond_of_rops( const struct renormalizedops * const ops );
+
+/**
+ * \brief This returns if the renormalizedops is a left or a right one.
+ *
+ * \param [in] ops The renormalizedops struct.
+ * \return Boolean is_left.
+ */
+int get_direction_of_rops( const struct renormalizedops * const ops );
 
 /**
  * \brief Initializes a null-renormalizedops.
@@ -87,6 +165,9 @@ void destroy_renormalizedops( struct renormalizedops* const rops );
  */
 void init_vacuumoperators( struct renormalizedops* const rops, const int bond );
 
+void expand_renormalizedops( struct renormalizedops * const expanded_ops, const struct 
+    renormalizedops * const compressed_ops, const int o );
+
 /**
  * \brief Appends a physical operator to a renormalized operator set.
  *
@@ -95,5 +176,13 @@ void init_vacuumoperators( struct renormalizedops* const rops, const int bond );
  * \param [in] DMRGstep Is 1 if the step is dmrg like or not. The exact structure differs.
  */
 void append_physical_to_renormalizedops( struct renormalizedops* const newrops,  const struct 
-    renormalizedops* const oldrops, const int DMRGstep );
+    renormalizedops* const oldrops );
+
+void update_renormalizedops_physical( struct renormalizedops * const rops, const struct stensor *
+    const tens );
+
+void init_3l_renormalizedops( struct renormalizedops * const rops, int ***tmp_nkappa_begin, 
+    const int bond_of_rops, const int is_left );
+
+void print_renormalizedops( const struct renormalizedops * const rops );
 #endif

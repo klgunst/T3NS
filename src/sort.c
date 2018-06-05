@@ -14,3 +14,10 @@ void quickSort( int *idx, int *array, int n )
 {
   qsort_r( idx, n, sizeof(int), compar, array );
 }
+
+int search( const int value, const int * const array, const int n )
+{
+  int result = 0;
+  while( result < n && array[ result ] != value ) ++result;
+  return result < n ? result : -1;
+}

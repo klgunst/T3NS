@@ -177,7 +177,7 @@ void get_tsstring( char buffer[] );
  * \param[in] The array to search in.
  * \return -1 if not found, otherwise the index.
  */
-int search_symmsec( int* symmsec, struct symsecs *sectors );
+int search_symmsec( int* symmsec, const struct symsecs *sectors );
 
 /**
  * \brief Gives you a string of the specified sector.
@@ -190,4 +190,39 @@ void get_sectorstring( struct symsecs *symsec, int ind, char buffer[] );
 
 void tensprod_symsecs( struct symsecs * const res, const struct symsecs * const sectors1, 
     const struct symsecs * const sectors2, const int sign, const char o );
+
+/**
+ * \brief Returns the maxdims of each bond passed.
+ *
+ * \param [out] maxdims The maximal dimension of the respective bonds.
+ * \param [in] bonds The bonds.
+ * \param [in] nr The number of bonds.
+ */
+void get_maxdims_of_bonds( int maxdims[], int bonds[], const int nr );
+
+/**
+ * \brief Finds correct quantum numbers in a product of two sectors to a third.
+ * Stores the results together with their dimensions in a multidimensional array.
+ *
+ * \param [out] dimarray Pointer to a 3dim array. (*dimarray)[sym1][sym2][count] gives 
+ * dim[ sym1 ] X dim[ sym2 ] X dim[ sym3(count) ]. Count runs over all possible sym3s that result
+ * from sym1 and sym2.
+ * \param [out] qnumbersarray Pointer to a 3dim array (*qnumbersarray)[sym1][sym2][count + 1]
+ * gives the qnumber = index(sym1) + index(sym2) * dim1 + index(sym3) * dim1 * dim2.
+ * And (*qnumbersarray)[sym1][sym2][0] = number of possible tensprod results for sym1 and sym2.
+ * ( thus the length of the (*qnumbersarray)[sym1][sym2] array )
+ * \param [out] total The total number of symmetryblocks.
+ * \param [in] symarr The array with the relevant symmetrysectors in.
+ */
+void find_goodqnumbersectors( int ****dimarray, int ****qnumbersarray, int *total, 
+    const struct symsecs symarr[] );
+
+/**
+ * \brief Checks if the symsec corresponding with the passed bond is set to an internal one.
+ * i.e. Checks if all dims=1.
+ *
+ * \param [in] bond The bond of which the symsec should be checked.
+ * \return 1 if the symsec corresponds with an internal symsec. i.e. all the dims=1.
+ */
+int is_set_to_internal_symsec( const int bond );
 #endif

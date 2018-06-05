@@ -66,7 +66,7 @@ void tensprod_irrep( int *min_irrep, int *nr_irreps, int *step, int irrep1, int 
  * \param [in] sg The symmetrygroup
  * \return The string of the symmetrygroup.
  */
-const char* get_symstring( enum symmetrygroup sg );
+const char * get_symstring( enum symmetrygroup sg );
 
 /**
  * \brief Searches for an inputted string the right symmetrygroup.
@@ -75,7 +75,7 @@ const char* get_symstring( enum symmetrygroup sg );
  * \param [out] sg The resulting symmetrygroup.
  * \return Returns 1 if successful, otherwise 0.
  */
-const int which_symmgroup( char buffer[], enum symmetrygroup *sg );
+int which_symmgroup( char buffer[], enum symmetrygroup *sg );
 
 /**
  * \brief Gets the string of the irrep.
@@ -94,7 +94,7 @@ void get_irrstring( char buffer[], enum symmetrygroup sg, int irr );
  * \param [out] irr The found irrep.
  * \return Returns 1 if successful, otherwise 0.
  */
-const int which_irrep( char buffer[], enum symmetrygroup sg, int *irr );
+int which_irrep( char buffer[], enum symmetrygroup sg, int *irr );
 
 /**
  * \brief Searches for a string in a given array of strings.
@@ -106,7 +106,7 @@ const int which_irrep( char buffer[], enum symmetrygroup sg, int *irr );
  * \param [out] ind The index of which the array is found in the string.
  * \return 1 if the search was successful, 0 otherwise.
  */
-const int find_str_in_array( char buffer[], const char* arr[], int length, int *ind );
+int find_str_in_array( char buffer[], const char* arr[], int length, int *ind );
 
 /**
  * \brief Finds the parity of the targetstate with given irreps for other symmetrygroups.
@@ -117,7 +117,7 @@ const int find_str_in_array( char buffer[], const char* arr[], int length, int *
  * \param [in] nr_symmetries The number of symmetries in the system.
  * \return 1 if the determination of the parity was successful, 0 otherwise.
  */
-const int find_Z2( enum symmetrygroup *sgs, int *ts, int nr_symmetries );
+int find_Z2( enum symmetrygroup *sgs, int *ts, int nr_symmetries );
 
 /**
  * \brief Checks if the inputted symmetrygroups are valid ones ( well for me at least )
@@ -126,7 +126,7 @@ const int find_Z2( enum symmetrygroup *sgs, int *ts, int nr_symmetries );
  * \param [in] nr_symmetries The number of symmetrygroups in sgs.
  * \return 1 if successful, otherwise 0.
  */
-const int valid_sgs( enum symmetrygroup *sgs, int nr_symmetries );
+int valid_sgs( enum symmetrygroup *sgs, int nr_symmetries );
 
 /**
  * \brief Checks if the inputted state is consistent.
@@ -136,5 +136,17 @@ const int valid_sgs( enum symmetrygroup *sgs, int nr_symmetries );
  * \param [in] nr_symmetries The number of symmetries in sgs and ts.
  * \return 1 if successful, 0 otherwise.
  */
-const int consistent_state( enum symmetrygroup *sgs, int *ts, int nr_symmetries );
+int consistent_state( enum symmetrygroup *sgs, int *ts, int nr_symmetries );
+
+double calculate_sympref_append_phys( const int symvalues[], const int is_left, const enum 
+    symmetrygroup sg );
+
+double calculate_prefactor_adjoint_tensor( const int * irrep_arr[], const char c, const enum
+    symmetrygroup * const sgs, const int nr_symmetries );
+
+double calculate_prefactor_update_physical_rops( const int * irrep_arr[], const int is_left, 
+    const enum symmetrygroup * const sgs, const int nr_symmetries );
+
+double calculate_mirror_coupling( int * irrep_arr[], const enum symmetrygroup * const sgs, 
+    const int nr_symmetries );
 #endif

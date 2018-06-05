@@ -4,7 +4,7 @@
 #include <stdlib.h>
 #include <math.h>
 
-#define TOLERANCE 1e-10
+#define TOLERANCE 1e-16
 #define COMPARE(X, Y)   (fabs((X) - (Y)) < TOLERANCE)
 
 #define safe_malloc(s, t) safe_malloc_helper((s), sizeof(t), #t, __FILE__, __LINE__, __func__)

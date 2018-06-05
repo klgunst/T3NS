@@ -1,9 +1,9 @@
 #include <stdlib.h>
 #include <stdio.h>
-#include <assert.h>
 
 #include "symmetry_su2.h"
 #include "macros.h"
+#include "debug.h"
 
 int SU2_get_max_irrep( int *prop1, int nr1, int *prop2, int nr2, int inc )
 {
@@ -34,11 +34,17 @@ void SU2_get_irrstring( char buffer[], int irr )
     sprintf(buffer, "INVALID" );
 }
 
-const int SU2_which_irrep( char buffer[], int *irr )
+int SU2_which_irrep( char buffer[], int *irr )
 {
   *irr = atoi( buffer );
   /* no error in reading buffer */
   if( ( *irr != 0 ) ^ ( buffer[ 0 ] == '0' ) )
     return *irr >= 0;
   return 0;
+}
+
+double SU2_calculate_mirror_coupling( int symvalues[] )
+{
+  assert( symvalues[ 0 ] + symvalues[ 1 ] + symvalues[ 2 ] % 2 == 0 );
+  return symvalues[ 0 ] + symvalues[ 1 ] + symvalues[ 2 ] % 4 ? 1 : -1;
 }

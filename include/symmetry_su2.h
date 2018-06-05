@@ -47,5 +47,7 @@ void SU2_get_irrstring( char buffer[], int irr );
  * \param [out] irr The irrep.
  * \return 1 if successful, 0 otherwise.
  */
-const int SU2_which_irrep( char buffer[], int *irr );
+int SU2_which_irrep( char buffer[], int *irr );
+
+double SU2_calculate_mirror_coupling( int symvalues[] );
 #endif

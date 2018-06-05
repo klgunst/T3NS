@@ -8,5 +8,7 @@
  * \param [in] array The array which should be sorted.
  * \param [in] n Number of elements.
  */
-void quickSort(int *idx, int *array, int n);
+void quickSort( int *idx, int *array, int n );
+
+int search( const int value, const int * const array, const int n );
 #endif

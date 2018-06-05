@@ -41,5 +41,13 @@ void  Z2_get_irrstring( char buffer[], int irr );
  * \param [out] irr The irrep.
  * \return 1 if successful, 0 otherwise.
  */
-const int Z2_which_irrep( char buffer[], int *irr );
+int Z2_which_irrep( char buffer[], int *irr );
+
+double Z2_calculate_prefactor_update_physical_rops( const int symvalues[], const int is_left );
+
+double Z2_calculate_sympref_append_phys( const int symvalues[], const int is_left );
+
+double Z2_calculate_prefactor_adjoint_tensor( const int symvalues[], const char c );
+
+double Z2_calculate_mirror_coupling( int symvalues[] );
 #endif

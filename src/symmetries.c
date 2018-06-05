@@ -1,10 +1,10 @@
 #include <stdlib.h>
 #include <stdio.h>
-#include <assert.h>
 #include <ctype.h>
 
 #include "symmetries.h"
 #include "macros.h"
+#include "debug.h"
 
 /* ============================================================================================ */
 /* =============================== DECLARATION STATIC FUNCTIONS =============================== */
@@ -89,14 +89,14 @@ void tensprod_irrep( int *min_irrep, int *nr_irreps, int *step, int irrep1, int 
   }
 }
 
-const char* symmetrynames[]={"Z2", "U1", "SU2", "C1", "Ci", "C2", "Cs", "D2", "C2v", "C2h", "D2h"};
+const char * symmetrynames[]={"Z2", "U1", "SU2", "C1", "Ci", "C2", "Cs", "D2", "C2v", "C2h", "D2h"};
 
-const char* get_symstring( enum symmetrygroup sg )
+const char * get_symstring( enum symmetrygroup sg )
 {
   return symmetrynames[ sg ];
 }
 
-const int which_symmgroup( char buffer[], enum symmetrygroup *sg )
+int which_symmgroup( char buffer[], enum symmetrygroup *sg )
 {
   int symmnameslength = sizeof symmetrynames / sizeof( char* );
   return find_str_in_array( buffer, symmetrynames, symmnameslength, (int *) sg );
@@ -120,7 +120,7 @@ void get_irrstring( char buffer[], enum symmetrygroup sg, int irr )
   }
 }
 
-const int which_irrep( char buffer[], enum symmetrygroup sg, int *irr )
+int which_irrep( char buffer[], enum symmetrygroup sg, int *irr )
 {
   switch( sg )
   {
@@ -135,7 +135,7 @@ const int which_irrep( char buffer[], enum symmetrygroup sg, int *irr )
   }
 }
 
-const int find_str_in_array( char buffer[], const char* arr[], int length, int *ind )
+int find_str_in_array( char buffer[], const char* arr[], int length, int *ind )
 {
   int i;
   *ind = atoi( buffer );
@@ -163,7 +163,7 @@ const int find_str_in_array( char buffer[], const char* arr[], int length, int *
   return 0;
 }
 
-const int find_Z2( enum symmetrygroup *sgs, int *ts, int nr_symmetries )
+int find_Z2( enum symmetrygroup *sgs, int *ts, int nr_symmetries )
 {
   int flag = 0;
   int i;
@@ -200,7 +200,7 @@ const int find_Z2( enum symmetrygroup *sgs, int *ts, int nr_symmetries )
   return flag;
 }
 
-const int valid_sgs( enum symmetrygroup *sgs, int nr_symmetries )
+int valid_sgs( enum symmetrygroup *sgs, int nr_symmetries )
 {
   int nrU1 = 0;
   int nrSU2 = 0;
@@ -235,7 +235,7 @@ const int valid_sgs( enum symmetrygroup *sgs, int nr_symmetries )
     return 1;
 }
 
-const int consistent_state( enum symmetrygroup *sgs, int *ts, int nr_symmetries )
+int consistent_state( enum symmetrygroup *sgs, int *ts, int nr_symmetries )
 {
   int nrU1 = 0;
   int hasU1 = 0;
@@ -269,7 +269,150 @@ const int consistent_state( enum symmetrygroup *sgs, int *ts, int nr_symmetries 
   return 1;
 }
 
+double calculate_sympref_append_phys( const int symvalues[], const int is_left, const enum 
+    symmetrygroup sg )
+{
+  /** 
+   * Notations: bra means it belongs to the bra T3NS (not that it is an outward bond!!)
+   *            ket means it belongs to the ket T3NS (not that it is an inward bond!!)
+   *            * depicts an outward, no * an inward bond.
+   *
+   * appending the site-operator:
+   *        for Left renormalized operators:
+   *        bra(alpha) MPO(alpha*) ket(alpha*) ==>
+   *        bra(alpha) MPO(alpha*) ket(alpha*), MPO(alpha) MPO(i) MPO(beta*), bra(i) MPO(i*) ket(i*)
+   * ( is the site operator correct? )
+   *        After this we should permute too :
+   *    bra(alpha) bra(i) bra(beta*), bra(beta) MPO(beta*) ket(beta*), ket(beta) ket(i*) ket(alpha*)
+   *
+   *        for Right renormalized operators:
+   *        bra(beta*) MPO(beta*) ket(beta) ==>
+   *        bra(beta*) MPO(beta*) ket(beta), MPO(i) MPO(beta) MPO(alpha*), bra(i) MPO(i*) ket(i*)
+   * ( is the site operator correct? )
+   *        After this we should permute too :
+   * bra(alpha) bra(i) bra(beta*), bra(alpha*) MPO(alpha*) ket(alpha), ket(beta) ket(i*) ket(alpha*)
+   */
+  switch( sg )
+  {
+    case Z2 :
+      return Z2_calculate_sympref_append_phys( symvalues, is_left );
+    case U1 :
+      return 1;
+      //return U1_calculate_sympref_append_phys( symvalues, is_left );
+    case SU2 :
+      fprintf( stderr, "ERROR: SU2 not fully implemented yet\n" );
+      return 0;
+      //return SU2_calculate_sympref_append_phys( symvalues, is_left );
+    default :
+      return 1;
+      //return PG_calculate_sympref_append_phys( symvalues, is_left );
+  }
+}
+
+double calculate_prefactor_adjoint_tensor( const int * irrep_arr[], const char c, const enum
+    symmetrygroup * const sgs, const int nr_symmetries )
+{
+  /* This returns the prefactor needed for the making of the adjoint of a three-legged T3NS-tensor.
+   * 
+   * Coupling : before : ket*(x1) ket*(x2) ket(x3)
+   *            after  : bra*(x3) bra(x2) bra(x1)
+   *
+   * c can be : 'l' for left orthogonalized tensors.                   ( contract x1, x2 )
+   *            'c' for orthogonalization centers.                     ( contract x1, x2, x3 )
+   *            'r' for right orthogonalization tensors, case 1        ( contract x2, x3 )
+   *            'R' for right orthogonalization tensors, case 2        ( contract x1, x3 )
+   */
+  int i, j;
+  int symvalues[ 3 ];
+  double prefactor = 1;
+  for( i = 0 ; i < nr_symmetries ; ++i )
+    switch( sgs[ i ] )
+    {
+      case Z2 :
+        for( j = 0 ; j < 3 ; ++j ) symvalues[ j ] = irrep_arr[ j ][ i ];
+        /* Only Z2 needs a sign change */
+        prefactor *= Z2_calculate_prefactor_adjoint_tensor( symvalues, c );
+        break;
+      case U1 :
+      case SU2 :
+      default :
+        break;
+    }
+  return prefactor;
+}
+
+double calculate_prefactor_update_physical_rops( const int * irrep_arr[], const int is_left, 
+    const enum symmetrygroup * const sgs, const int nr_symmetries )
+{
+  /* This returns the prefactor needed for the updating of a renormalized operator with a site 
+   * operator appended by using a three-legged T3NS-tensor.
+   *
+   * We have the following couplings for the renormalized ops, for tens and for tens_hermitian:
+   *
+   * renormalized ops (LEFT): ( A asterisk means it is an in-bond )
+   *   begin:
+   *      ---[ bra*(alpha), bra*(i), bra(beta) ,
+   *           bra*(beta) , MPO    , ket(beta) ,
+   *           ket*(beta) , ket(i) , ket(alpha) ]
+   *   end:
+   *      ---[ bra*(beta), MPO, ket(beta) ]
+   *
+   * renormalized ops (RIGHT):
+   *   begin:
+   *      ---[ bra*(alpha), bra*(i), bra(beta)  ,
+   *           bra(alpha) , MPO    , ket*(alpha),
+   *           ket*(beta) , ket(i) , ket(alpha)  ]
+   *   end:
+   *      ---[ bra(alpha), MPO, ket*(alpha) ]
+   *
+   * tens:
+   *      ---[ ket*(alpha), ket*(i), ket(beta) ]
+   * tens_hermitian:
+   *      ---[ bra*(beta), bra(i), bra(alpha) ]
+   */
+  int i, j;
+  int symvalues[ 7 ];
+  double prefactor = 1;
+  for( i = 0 ; i < nr_symmetries ; ++i )
+    switch( sgs[ i ] )
+    {
+      case Z2 :
+        for( j = 0 ; j < 7 ; ++j ) symvalues[ j ] = irrep_arr[ j ][ i ];
+        /* only Z2 needs a sign change for this contract */
+        prefactor *= Z2_calculate_prefactor_update_physical_rops( symvalues, is_left );
+        break;
+      case SU2 :
+      case U1 :
+      default :
+        break;
+    }
+  return prefactor;
+}
+
+double calculate_mirror_coupling( int * irrep_arr[], const enum symmetrygroup * const sgs, 
+    const int nr_symmetries )
+{
+  /* This returns the prefactor needed for the mirroring of a coupling a b c to a coupling c b a. */
+  int i, j;
+  int symvalues[ 3 ];
+  double prefactor = 1;
+  for( i = 0 ; i < nr_symmetries ; ++i )
+    switch( sgs[ i ] )
+    {
+      case Z2 :
+        for( j = 0 ; j < 3 ; ++j ) symvalues[ j ] = irrep_arr[ j ][ i ];
+        prefactor *= Z2_calculate_mirror_coupling( symvalues );
+        break;
+      case SU2 :
+        for( j = 0 ; j < 3 ; ++j ) symvalues[ j ] = irrep_arr[ j ][ i ];
+        prefactor *= SU2_calculate_mirror_coupling( symvalues );
+      case U1 :
+      default :
+        break;
+    }
+  return prefactor;
+}
+
 /* ============================================================================================ */
 /* ================================ DEFINITION STATIC FUNCTIONS =============================== */
 /* ============================================================================================ */
-

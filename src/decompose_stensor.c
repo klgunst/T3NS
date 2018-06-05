@@ -1,11 +1,11 @@
 #include <stdlib.h>
 #include <stdio.h>
-#include <assert.h>
 
 #include "stensor.h"
 #include "lapack.h"
 #include "macros.h"
 #include "bookkeeper.h"
+#include "debug.h"
 
 /* ============================================================================================ */
 /* =============================== DECLARATION STATIC FUNCTIONS =============================== */

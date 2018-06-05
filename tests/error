@@ -1,0 +1,1 @@
+T3NS: /home/kgunst/T3NS/src/P_update_rops.c:461: unique_append_physical_to_rops: Assertion `N == 0 || N == nextstensor->nkappa_begin[ newsec_op + 1 ] - nextstensor->nkappa_begin[ newsec_op ]' failed.

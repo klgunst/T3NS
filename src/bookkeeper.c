@@ -1,12 +1,12 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
-#include <assert.h>
 
 #include "bookkeeper.h"
 #include "network.h"
 #include "symmetries.h"
 #include "macros.h"
+#include "debug.h"
 #include "hamiltonian.h"
 
 struct bookkeeper bookie;
@@ -45,11 +45,11 @@ static int is_equal_symsector( struct symsecs *sectors1, int i, struct symsecs *
 
 /* Builds a naive sectors list, just a direct product of the different ranges possible from the 
  * other symmsectors */
-static void build_all_sectors( struct symsecs *res, struct symsecs *sectors1, 
-    struct symsecs *sectors2 );
+static void build_all_sectors( struct symsecs * const res, const struct symsecs * const sectors1, 
+    const struct symsecs * const sectors2 );
 
 /* kicks impossible symmetry sectors for the target out of it. */
-static void kick_impossibles( struct symsecs *sector );
+static void kick_impossibles( struct symsecs * const sector );
 
 /* ============================================================================================ */
 
@@ -156,19 +156,33 @@ void get_symsecs( struct symsecs *res, int bond )
 {
   if( bond >= 2 * bookie.nr_bonds )
   {
-    /* Its a physical bond, retrieve the site position out of the bond */
+    /* Its a physical bond, retrieve the site position out of the bond
+     * ket bonds are from 2 * bookie.nr_bonds ----- 2 * bookie.nr_bonds + netw.psites - 1
+     *
+     * bra bonds are from 
+     *      2 * bookie.nr_bonds + netw.psites ----- 2 * bookie.nr_bonds + 2 * netw.psites - 1
+     */
     bond -= 2 * bookie.nr_bonds;
-    bond /= 2;
+    bond %= netw.sites;
     get_physsymsecs( res, bond );
   }
-  else
+  else if( bond >= 0 )
   {
     /* its a bond of the tensor network, its stored in our bookkeeper
-     * ket bonds are 0 ---- bookie.nr_bonds-1,
-     * bra bonds go from bookie.nr_bonds ---- 2*bookie.nr_bonds - 1
+     * ket bonds are               0 ---- bookie.nr_bonds - 1,
+     * bra bonds are bookie.nr_bonds ---- 2 * bookie.nr_bonds - 1
      */
     bond %= bookie.nr_bonds;
     *res = bookie.list_of_symsecs[ bond ];
+  }
+  else if ( bond  == -1 )
+  {
+    get_hamiltoniansymsecs( res, bond );
+  }
+  else
+  {
+    fprintf( stderr, "%s@%s: asked symsec of bond %d.\n", __FILE__, __func__, bond );
+    exit( EXIT_FAILURE );
   }
 }
 
@@ -277,7 +291,7 @@ void get_tsstring( char buffer[] )
   }
 }
 
-int search_symmsec( int* symmsec, struct symsecs *sectors )
+int search_symmsec( int* symmsec, const struct symsecs *sectors )
 {
   /* A naive implementation for searching symmetry sectors in an array.
    * returns -1 if not found.
@@ -311,6 +325,17 @@ void get_sectorstring( struct symsecs *symsec, int ind, char buffer[] )
     strcat( buffer, "," );
   }
   buffer[ strlen( buffer ) - 1 ] = '\0';
+}
+
+void get_maxdims_of_bonds( int maxdims[], int bonds[], const int nr )
+{
+  struct symsecs symarr[ nr ];
+  int i;
+
+  get_symsecs_arr( symarr, bonds, nr );
+  for( i = 0 ; i < nr ; ++i )
+    maxdims[ i ] = symarr[ i ].nr_symsec;
+  clean_symsecs_arr( symarr, bonds, nr );
 }
 
 void tensprod_symsecs( struct symsecs * const res, const struct symsecs * const sectors1, 
@@ -356,7 +381,9 @@ void tensprod_symsecs( struct symsecs * const res, const struct symsecs * const 
       for( nr_symmsecs-- ; nr_symmsecs >= 0 ; nr_symmsecs-- )
       {
         int pos_symmsec = search_symmsec( resultsymmsec + bookie.nr_symmetries * nr_symmsecs, res );
-        assert( pos_symmsec >= 0 && "Results in a symmsec that build_all_sectors didn't make??" );
+        if( pos_symmsec < 0 )
+          break;
+        //assert( pos_symmsec >= 0 && "Results in a symmsec that build_all_sectors didn't make??" );
         if( o == 'f' )
           res->fcidims[ pos_symmsec ] += sectors1->fcidims[ i ] * sectors2->fcidims[ j ];
         if( o == 'n' )
@@ -368,6 +395,145 @@ void tensprod_symsecs( struct symsecs * const res, const struct symsecs * const 
 
   /* now we have the 'worst-case' res. Kick out all the symmsecs with dimension 0. */
   kick_empty_symmsecs( res );
+}
+
+void find_goodqnumbersectors( int ****dimarray, int ****qnumbersarray, int *total, 
+    const struct symsecs symarr[] )
+{
+  /** Loop over bond 1 and 2, tensorproduct them to form bond 3 and then look at the ones that 
+   * actually exist in bond 3. First do it for the first resulting symsec,
+   * after that, do it for all the rest.
+   */
+  int sym1, sym2, i;
+  int prevsym[ 2 ][ bookie.nr_symmetries ];
+  int min_irrep[ bookie.nr_symmetries ];
+  int nr_irreps[ bookie.nr_symmetries ];
+  int step     [ bookie.nr_symmetries ];
+  int max_irrep[ bookie.nr_symmetries ];
+
+  *dimarray      = safe_malloc( symarr[ 0 ].nr_symsec, int** );
+  *qnumbersarray = safe_malloc( symarr[ 0 ].nr_symsec, int** );
+  *total = 0;
+
+  for( i = 0 ; i < bookie.nr_symmetries ; i++ )
+  {
+    prevsym[ 0 ][ i ] = symarr[ 0 ].irreps[ 0 * bookie.nr_symmetries + i ];
+    prevsym[ 1 ][ i ] = symarr[ 1 ].irreps[ 0 * bookie.nr_symmetries + i ];
+    tensprod_irrep( &min_irrep[ i ], &nr_irreps[ i ], &step[ i ], prevsym[ 0 ][ i ],
+        prevsym[ 1 ][ i ], 1, bookie.sgs[ i ] );
+    max_irrep[ i ] = min_irrep[ i ] + step[ i ] * ( nr_irreps[ i ] - 1 );
+  }
+
+  for( sym1 = 0 ; sym1 < symarr[ 0 ].nr_symsec ; sym1++ )
+  {
+    (*dimarray)[ sym1 ]      = NULL;
+    (*qnumbersarray)[ sym1 ] = NULL;
+    if( symarr[ 0 ].dims[ sym1 ] == 0 )
+      continue;
+
+    (*dimarray)[ sym1 ]      = safe_malloc( symarr[ 1 ].nr_symsec, int* );
+    (*qnumbersarray)[ sym1 ] = safe_malloc( symarr[ 1 ].nr_symsec, int* );
+
+    for( i = 0 ; i < bookie.nr_symmetries ;i++ )
+    {
+      if( symarr[ 0 ].irreps[ sym1 * bookie.nr_symmetries + i ] != prevsym[ 0 ][ i ] )
+      {
+        prevsym[ 0 ][ i ] = symarr[ 0 ].irreps[ sym1 * bookie.nr_symmetries + i ];
+        tensprod_irrep( &min_irrep[ i ], &nr_irreps[ i ], &step[ i ], prevsym[ 0 ][ i ],
+            prevsym[ 1 ][ i ], 1, bookie.sgs[ i ] );
+        max_irrep[ i ] = min_irrep[ i ] + step[ i ] * ( nr_irreps[ i ] - 1 );
+      }
+    }
+
+    for( sym2 = 0 ; sym2 < symarr[ 1 ].nr_symsec ; sym2++ )
+    {
+      int irrep[ bookie.nr_symmetries ];
+      int dim         = symarr[ 0 ].dims[ sym1 ] * symarr[ 1 ].dims[ sym2 ];
+      int bigdim      = sym1 + symarr[ 0 ].nr_symsec * sym2;
+      int incbigdim   = symarr[ 0 ].nr_symsec * symarr[ 1 ].nr_symsec;
+      int totalirreps = 1;
+      int count       = -1;
+      int curr        = 0;
+      (*dimarray)[ sym1 ][ sym2 ]      = NULL;
+      (*qnumbersarray)[ sym1 ][ sym2 ] = NULL;
+      if( symarr[ 1 ].dims[ sym2 ] == 0 )
+        continue;
+
+      for( i = 0 ; i < bookie.nr_symmetries ;i++ )
+      {
+        if( symarr[ 1 ].irreps[ sym2 * bookie.nr_symmetries + i ] != prevsym[ 1 ][ i ] )
+        {
+          prevsym[ 1 ][ i ] = symarr[ 1 ].irreps[ sym2 * bookie.nr_symmetries + i ];
+          tensprod_irrep( &min_irrep[ i ], &nr_irreps[ i ], &step[ i ], prevsym[ 0 ][ i ],
+              prevsym[ 1 ][ i ], 1, bookie.sgs[ i ] );
+          max_irrep[ i ] = min_irrep[ i ] + step[ i ] * ( nr_irreps[ i ] - 1 );
+        }
+
+        irrep[ i ] = min_irrep[ i ];
+        totalirreps *= nr_irreps[ i ];
+      }
+
+      (*dimarray)[ sym1 ][ sym2 ]           = safe_malloc( totalirreps, int );
+      (*qnumbersarray)[ sym1 ][ sym2 ]      = safe_malloc( 1 + totalirreps, int );
+      (*qnumbersarray)[ sym1 ][ sym2 ][ 0 ] = totalirreps;
+
+      while( ++count < totalirreps )
+      {
+        int ind = search_symmsec( irrep, &symarr[ 2 ] );
+        if( ind != -1 && symarr[ 2 ].dims[ ind ] )
+        {
+          (*total)++;
+          (*dimarray)[ sym1 ][ sym2 ][ curr ] = dim * symarr[ 2 ].dims[ ind ];
+          (*qnumbersarray)[ sym1 ][ sym2 ][ curr + 1 ] = bigdim + incbigdim * ind;
+          ++curr;
+        }
+        //else
+        //  (*dimarray)[ sym1 ][ sym2 ][ count ] = 0;
+
+        for( i = 0 ; i < bookie.nr_symmetries ; i++ )
+        {
+          if( ( irrep[ i ] += step[ i ] ) > max_irrep[ i ] )
+            irrep[ i ] = min_irrep[ i ];
+          else
+            break;
+        }
+      }
+      assert( i == bookie.nr_symmetries );
+      assert( irrep[ bookie.nr_symmetries - 1 ]  == min_irrep[ bookie.nr_symmetries - 1 ] );
+
+      if( curr == 0 )
+        safe_free( (*dimarray)[ sym1 ][ sym2 ] );
+      else
+        (*dimarray)[ sym1 ][ sym2 ] = realloc( (*dimarray)[ sym1 ][ sym2 ],  curr * sizeof( int ));
+
+      (*qnumbersarray)[ sym1 ][ sym2 ] 
+        = realloc( (*qnumbersarray)[ sym1 ][ sym2 ],  ( curr + 1 ) * sizeof( int ));
+      (*qnumbersarray)[ sym1 ][ sym2 ][ 0 ] = curr;
+
+      if( ( curr != 0 && (*dimarray)[ sym1 ][ sym2 ] == NULL ) ||
+          (*qnumbersarray)[ sym1 ][ sym2 ] == NULL )
+      {
+        fprintf( stderr, "%s@%s: realloc failed: curr = %d\n", __FILE__, __func__, curr );
+        exit( EXIT_FAILURE );
+      }
+    }
+  }
+}
+
+int is_set_to_internal_symsec( const int bond )
+{
+  struct symsecs symsec;
+  int i;
+  get_symsecs( &symsec, get_ketT3NSbond( bond ) );
+
+  for( i = 0 ; i < symsec.nr_symsec ; ++i )
+    if( symsec.dims[ i ] != 1 )
+    {
+      clean_symsecs( &symsec, get_ketT3NSbond( bond ) );
+      return 0;
+    }
+  clean_symsecs( &symsec, get_ketT3NSbond( bond ) );
+  return 1;
 }
 
 /* ============================================================================================ */
@@ -636,8 +802,8 @@ static int is_equal_symsector( struct symsecs *sectors1, int i, struct symsecs *
   return 1;
 }
 
-static void build_all_sectors( struct symsecs *res, struct symsecs *sectors1, 
-    struct symsecs *sectors2 )
+static void build_all_sectors( struct symsecs * const res, const struct symsecs * const sectors1, 
+    const struct symsecs * const sectors2 )
 {
   int max_irrep[ bookie.nr_symmetries ];
   int indices[ bookie.nr_symmetries ];
@@ -701,7 +867,7 @@ static void build_all_sectors( struct symsecs *res, struct symsecs *sectors1,
   assert( ( i == bookie.nr_symmetries ) && ( indices[ i - 1 ] == 0 ) && "Not all symmsecs looped" );
 }
 
-static void kick_impossibles( struct symsecs *sector )
+static void kick_impossibles( struct symsecs * const sector )
 {
   int nr_symsecs = 0;
   int i,j;

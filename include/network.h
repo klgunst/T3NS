@@ -15,16 +15,18 @@
  */
 struct network
 {
-  int nr_bonds;                   /**< The number of TNSd, TNSu bonds in the network. */
-  int psites;                     /**< Number of physical sites (or orbitals) in the network. */
-  int sites;                      /**< Number of total sites (branching and physical). */
-  int *bonds;                     /**< Array of length #nr_bonds * 2, gives for each bond which
-                                    *  which sites is connected to it.
-                                    *  If no site is connnected, it is given by -1. */
-  int *sitetoorb;                 /**< Array of length #sites, 
-                                    *  For every site it gives the mapping of
-                                    *  site to orb ( 0, 1, 2...), and -1 if branching tensor.
-                                    */
+  int nr_bonds;        /**< The number of TNSd, TNSu bonds in the network. */
+  int psites;          /**< Number of physical sites (or orbitals) in the network. */
+  int sites;           /**< Number of total sites (branching and physical). */
+  int *bonds;          /**< Array of length #nr_bonds * 2.
+                         *  Gives for each bond which sites is connected to it.
+                         *  If no site is connnected, it is given by -1. */
+  int *sitetoorb;      /**< Array of length #sites, for every site it gives the mapping of
+                         *  site to orb ( 0, 1, 2...), and -1 if branching tensor. */
+  int *nr_left_psites; /**< Array of length #nr_bonds.
+                         *  Gives for every bond the number of sites to the left of it. */
+  int *order_psites;   /**< Array of length #nr_bonds * psites.
+                         *  For every bond gives the order of the psites. */
 };
 extern struct network netw;
 
@@ -58,6 +60,12 @@ void print_network( void );
  */
 int is_psite( int site );
 
+int get_left_psites( const int bond );
+
+int * get_order_psites( const int bond, const int is_left );
+
+int site_is_left_of_bond( const int site, const int bond );
+
 /**
  * \brief Gives the bonds of a certain site in the network.
  *
@@ -66,4 +74,16 @@ int is_psite( int site );
  * The bonds are stored here.
  */
 void get_bonds_of_site( int site, int bonds[] );
+
+int get_braT3NSbond( const int bond );
+
+int get_ketT3NSbond( const int bond );
+
+int get_hamiltonianbond( const int bond );
+
+int get_netw_bond( const int bond );
+
+int are_bra_and_ket_bonds( const int bra, const int ket );
+
+void get_string_of_bond( char buffer[], const int bond );
 #endif

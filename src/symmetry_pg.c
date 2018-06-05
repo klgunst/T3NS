@@ -1,10 +1,10 @@
 #include <stdlib.h>
 #include <stdio.h>
-#include <assert.h>
 
 #include "symmetry_pg.h"
 #include "symmetries.h"
 #include "macros.h"
+#include "debug.h"
 
 /* make sure the ordering is the same as in the macro POINT_GROUP_SYMMETRY !!!! */
 const int nr_irreps_pg[ 8 ] = { 1, 2, 2, 2, 4, 4, 4, 8 };

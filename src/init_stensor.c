@@ -1,17 +1,17 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
-#include <assert.h>
 #include <time.h>
 
 #include "stensor.h"
 #include "bookkeeper.h"
 #include "macros.h"
+#include "debug.h"
 #include "sort.h"
 
-/* ============================================================================================ */
-/* =============================== DECLARATION STATIC FUNCTIONS =============================== */
-/* ============================================================================================ */
+/* ============================================================================================== */
+/* ================================= DECLARATION STATIC FUNCTIONS =============================== */
+/* ============================================================================================== */
 
 /* This function checks if the given coupling and is_in are possible or not. */
 static int check_couplings( const struct stensor* const tens );
@@ -19,16 +19,11 @@ static int check_couplings( const struct stensor* const tens );
 /* Initializes the sparse blocks in a three-legged stensor. */
 static void init_3lblocks( struct stensor* const tens );
 
-/* Finds the good quantum numbers in a 3l stensor. Stores them in a multidim array. */
-static void find_goodqnumbersectors( int ****dimarray, int ****qnumbersarray, int *total, 
-    struct symsecs symarr[] );
-
 /* Makes the blocks out of the dimarray and qnumbersarray returned by find_goodqnumbersectors */
 static void make_blocks( struct stensor *tens, int ***dimarray, int ***qnumbersarray, struct symsecs
     symarr[] );
 
-/* ============================================================================================ */
-
+/* ========================================= INIT =============================================== */
 void init_null_stensor( struct stensor* const tens )
 {
   tens->nrind         = 0;
@@ -85,6 +80,9 @@ void init_3lstensor( struct stensor* const tens, const int* const bonds, const i
   }
 }
 
+/* ========================================= UNIT =============================================== */
+
+/* ======================================== DESTROY ============================================= */
 void destroy_stensor( struct stensor* const tens )
 {
   tens->nrind = 0;
@@ -97,9 +95,9 @@ void destroy_stensor( struct stensor* const tens )
   safe_free( tens->tel );
 }
 
-/* ============================================================================================ */
-/* ================================ DEFINITION STATIC FUNCTIONS =============================== */
-/* ============================================================================================ */
+/* ============================================================================================== */
+/* ================================== DEFINITION STATIC FUNCTIONS =============================== */
+/* ============================================================================================== */
 
 static int check_couplings( const struct stensor* const tens )
 {
@@ -212,111 +210,6 @@ static void init_3lblocks( struct stensor* const tens )
   clean_symsecs_arr( symarr, tens->coupling, tens->nrind );
 }
 
-static void find_goodqnumbersectors( int ****dimarray, int ****qnumbersarray, int *total, 
-    struct symsecs symarr[] )
-{
-  /** Loop over bond 1 and 2, tensorproduct them to form bond 3 and then look at the ones that 
-   * actually exist in bond 3. First do it for the first resulting symsec,
-   * after that, do it for all the rest.
-   */
-  int sym1, sym2, i;
-  int prevsym[ 2 ][ bookie.nr_symmetries ];
-  int min_irrep[ bookie.nr_symmetries ];
-  int nr_irreps[ bookie.nr_symmetries ];
-  int step     [ bookie.nr_symmetries ];
-  int max_irrep[ bookie.nr_symmetries ];
-
-  *dimarray = safe_malloc( symarr[ 0 ].nr_symsec, int** );
-  *qnumbersarray = safe_malloc( symarr[ 0 ].nr_symsec, int** );
-  *total = 0;
-
-  for( i = 0 ; i < bookie.nr_symmetries ; i++ )
-  {
-    prevsym[ 0 ][ i ] = symarr[ 0 ].irreps[ 0 * bookie.nr_symmetries + i ];
-    prevsym[ 1 ][ i ] = symarr[ 1 ].irreps[ 0 * bookie.nr_symmetries + i ];
-    tensprod_irrep( &min_irrep[ i ], &nr_irreps[ i ], &step[ i ], prevsym[ 0 ][ i ],
-        prevsym[ 1 ][ i ], 1, bookie.sgs[ i ] );
-    max_irrep[ i ] = min_irrep[ i ] + step[ i ] * ( nr_irreps[ i ] - 1 );
-  }
-
-  for( sym1 = 0 ; sym1 < symarr[ 0 ].nr_symsec ; sym1++ )
-  {
-    (*dimarray)[ sym1 ]      = NULL;
-    (*qnumbersarray)[ sym1 ] = NULL;
-    if( symarr[ 0 ].dims[ sym1 ] == 0 )
-      continue;
-
-    (*dimarray)[ sym1 ]      = safe_malloc( symarr[ 1 ].nr_symsec, int* );
-    (*qnumbersarray)[ sym1 ] = safe_malloc( symarr[ 1 ].nr_symsec, int* );
-
-    for( i = 0 ; i < bookie.nr_symmetries ;i++ )
-    {
-      if( symarr[ 0 ].irreps[ sym1 * bookie.nr_symmetries + i ] != prevsym[ 0 ][ i ] )
-      {
-        prevsym[ 0 ][ i ] = symarr[ 0 ].irreps[ sym1 * bookie.nr_symmetries + i ];
-        tensprod_irrep( &min_irrep[ i ], &nr_irreps[ i ], &step[ i ], prevsym[ 0 ][ i ],
-            prevsym[ 1 ][ i ], 1, bookie.sgs[ i ] );
-        max_irrep[ i ] = min_irrep[ i ] + step[ i ] * ( nr_irreps[ i ] - 1 );
-      }
-    }
-
-    for( sym2 = 0 ; sym2 < symarr[ 1 ].nr_symsec ; sym2++ )
-    {
-      int irrep[ bookie.nr_symmetries ];
-      int dim         = symarr[ 0 ].dims[ sym1 ] * symarr[ 1 ].dims[ sym2 ];
-      int bigdim      = sym1 + symarr[ 0 ].nr_symsec * sym2;
-      int incbigdim   = symarr[ 0 ].nr_symsec * symarr[ 1 ].nr_symsec;
-      int totalirreps = 1;
-      int count       = -1;
-      (*dimarray)[ sym1 ][ sym2 ]      = NULL;
-      (*qnumbersarray)[ sym1 ][ sym2 ] = NULL;
-      if( symarr[ 1 ].dims[ sym2 ] == 0 )
-        continue;
-
-      for( i = 0 ; i < bookie.nr_symmetries ;i++ )
-      {
-        if( symarr[ 1 ].irreps[ sym2 * bookie.nr_symmetries + i ] != prevsym[ 1 ][ i ] )
-        {
-          prevsym[ 1 ][ i ] = symarr[ 1 ].irreps[ sym2 * bookie.nr_symmetries + i ];
-          tensprod_irrep( &min_irrep[ i ], &nr_irreps[ i ], &step[ i ], prevsym[ 0 ][ i ],
-              prevsym[ 1 ][ i ], 1, bookie.sgs[ i ] );
-          max_irrep[ i ] = min_irrep[ i ] + step[ i ] * ( nr_irreps[ i ] - 1 );
-        }
-
-        irrep[ i ] = min_irrep[ i ];
-        totalirreps *= nr_irreps[ i ];
-      }
-
-      (*dimarray)[ sym1 ][ sym2 ]           = safe_malloc( totalirreps, int );
-      (*qnumbersarray)[ sym1 ][ sym2 ]      = safe_malloc( 1 + totalirreps, int );
-      (*qnumbersarray)[ sym1 ][ sym2 ][ 0 ] = totalirreps;
-
-      while( ++count < totalirreps )
-      {
-        int ind = search_symmsec( irrep, &symarr[ 2 ] );
-        if( ind != -1 && symarr[ 2 ].dims[ ind ] )
-        {
-          (*total)++;
-          (*dimarray)[ sym1 ][ sym2 ][ count ] = dim * symarr[ 2 ].dims[ ind ];
-          (*qnumbersarray)[ sym1 ][ sym2 ][ count + 1 ] = bigdim + incbigdim * ind;
-        }
-        else
-          (*dimarray)[ sym1 ][ sym2 ][ count ] = 0;
-
-        for( i = 0 ; i < bookie.nr_symmetries ; i++ )
-        {
-          if( ( irrep[ i ] += step[ i ] ) > max_irrep[ i ] )
-            irrep[ i ] = min_irrep[ i ];
-          else
-            break;
-        }
-      }
-      assert( i == bookie.nr_symmetries );
-      assert( irrep[ bookie.nr_symmetries - 1 ]  == min_irrep[ bookie.nr_symmetries - 1 ] );
-    }
-  }
-}
-
 static void make_blocks( struct stensor *tens, int ***dimarray, int ***qnumbersarray, struct symsecs
     symarr[] )
 {
@@ -332,12 +225,8 @@ static void make_blocks( struct stensor *tens, int ***dimarray, int ***qnumbersa
 
   for( sym1 = 0 ; sym1 < symarr[ 0 ].nr_symsec ; ++sym1  )
   {
-    if( dimarray[ sym1 ] == NULL )
-      continue;
     for( sym2 = 0 ; sym2 < symarr[ 1 ].nr_symsec ; ++sym2 )
     {
-      if( dimarray[ sym1 ][ sym2 ] == NULL )
-        continue;
       for( sym3 = 0 ; sym3 < qnumbersarray[ sym1 ][ sym2 ][ 0 ] ; ++sym3 )
       {
         if( dimarray[ sym1 ][ sym2 ][ sym3 ] == 0 )

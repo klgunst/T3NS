@@ -15,6 +15,7 @@ struct stensor
                               *       7 (5ext, 2int) => 3 couplings
                               *       9 (6ext, 3int) => 4 couplings
                               */
+  int nrcoup;                 /**< The number of couplings. (1,2,3 or 4) */
   int *indices;              /**< This array gives the different indices of the stensor and 
                               *   their order in the tel-array. This is thus independent of things 
                               *   like the order of bra's and kets in this tensor for Z2 and SU2 
@@ -29,7 +30,7 @@ struct stensor
                               *
                               *   e.g. [ 0, 1, 2, 3, 4, 5, 2, 5, 6 ]
                               *   means 0,1,2 and 3,4,5 and 2,5,6 couple.
-                              *   with the indices the bonds specified in the indices-array.
+                              *   with the indices the same bonds as specified in the indices-array.
                               */
   int *is_in;                /**< This array gives if the index of every coupling goes in or out. 
                               *   So this array is a 2D array of 3 * couplings.
@@ -48,7 +49,7 @@ struct stensor
                               *   dim1, dim2, ... are the total number of different qnumber sets in
                               *   the first, second, ... symsecs struct.
                               *
-                              *   Length of this array is nkappa_tot;
+                              *   Length of this array is nkappa_tot * nrcoup;
                               */
   int *nkappa_begin;         /**< Start of a certain sparse block. 
                               *   Length of this array is nkappa_tot + 1;
@@ -101,6 +102,8 @@ void destroy_stensor( struct stensor* const tens );
  * \param [in] tens The stensor to print.
  */
 void print_stensor( const struct stensor* const tens );
+
+void kick_zero_symsecs( struct stensor* const tens );
 
 /* ==================================== DECOMPOSE ============================================== */
 /**

@@ -1,7 +1,9 @@
 ! This is a template for the input file
-networkfile 	template.netw
+networkfile 	templateDMRG.netw
 symm 		u1 u1 d2h
 ts 		7 7 0
+!symm 		u1 u1
+!ts 		7 7
 !symm 		u1 su2 d2h
 !ts 		14 0 0
 
