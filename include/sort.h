@@ -1,6 +1,8 @@
 #ifndef SORT_H
 # define SORT_H
 
+#include "macros.h"
+
 /**
  * \brief Gives the permutation array for the sorted array, does not sort the array.
  *
@@ -9,6 +11,8 @@
  * \param [in] n Number of elements.
  */
 void quickSort( int *idx, int *array, int n );
+
+void qnumbersSort( int *idx, QN_TYPE * array, int nrels, int n );
 
 int search( const int value, const int * const array, const int n );
 #endif

@@ -15,17 +15,15 @@
 /* =============================== DECLARATION STATIC FUNCTIONS =============================== */
 /* ============================================================================================ */
 
-static void initialize_program( int argc, char *argv[], struct stensor **T3NS, 
-    struct renormalizedops **rops );
+static void initialize_program( int argc, char *argv[], struct siteTensor **T3NS );
 
-static void cleanup_before_exit( struct stensor **T3NS, struct renormalizedops **rops );
+static void cleanup_before_exit( struct siteTensor **T3NS );
 
 /* ============================================================================================ */
 
 int main( int argc, char *argv[] )
 {
-  struct stensor *T3NS;
-  struct renormalizedops *rops;
+  struct siteTensor *T3NS;
   long long t_elapsed;
   double d_elapsed;
   struct timeval t_start, t_end;
@@ -35,9 +33,9 @@ int main( int argc, char *argv[] )
   /* line by line write-out */
   setvbuf( stdout, NULL, _IOLBF, BUFSIZ );
 
-  initialize_program( argc, argv, &T3NS, &rops );
+  initialize_program( argc, argv, &T3NS );
 
-  cleanup_before_exit( &T3NS, &rops );
+  cleanup_before_exit( &T3NS );
   printf( "SUCCESFULL END!\n" );
   gettimeofday( &t_end, NULL );
 
@@ -106,8 +104,7 @@ static error_t parse_opt( int key, char *arg, struct argp_state *state )
 /* Our argp parser. */
 static struct argp argp = { options, parse_opt, args_doc, doc };
 
-static void initialize_program( int argc, char *argv[], struct stensor **T3NS, 
-    struct renormalizedops **rops )
+static void initialize_program( int argc, char *argv[], struct siteTensor **T3NS )
 {
   int max_dim;
   long long t_elapsed;
@@ -130,7 +127,7 @@ static void initialize_program( int argc, char *argv[], struct stensor **T3NS,
   read_inputfile( arguments.args[ 0 ] );
   create_list_of_symsecs( max_dim );
 
-  random_init( T3NS, rops );
+  random_init( T3NS );
 
   gettimeofday( &t_end, NULL );
 
@@ -139,10 +136,9 @@ static void initialize_program( int argc, char *argv[], struct stensor **T3NS,
   printf( "elapsed time for preparing calculation: %lf sec\n", d_elapsed );
 }
 
-static void cleanup_before_exit( struct stensor **T3NS, struct renormalizedops **rops )
+static void cleanup_before_exit( struct siteTensor **T3NS )
 {
   destroy_network();
   destroy_bookkeeper();
   destroy_T3NS( T3NS );
-  destroy_all_rops( rops );
 }

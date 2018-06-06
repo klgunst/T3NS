@@ -449,8 +449,6 @@ void find_goodqnumbersectors( int ****dimarray, int ****qnumbersarray, int *tota
     {
       int irrep[ bookie.nr_symmetries ];
       int dim         = symarr[ 0 ].dims[ sym1 ] * symarr[ 1 ].dims[ sym2 ];
-      int bigdim      = sym1 + symarr[ 0 ].nr_symsec * sym2;
-      int incbigdim   = symarr[ 0 ].nr_symsec * symarr[ 1 ].nr_symsec;
       int totalirreps = 1;
       int count       = -1;
       int curr        = 0;
@@ -484,11 +482,9 @@ void find_goodqnumbersectors( int ****dimarray, int ****qnumbersarray, int *tota
         {
           (*total)++;
           (*dimarray)[ sym1 ][ sym2 ][ curr ] = dim * symarr[ 2 ].dims[ ind ];
-          (*qnumbersarray)[ sym1 ][ sym2 ][ curr + 1 ] = bigdim + incbigdim * ind;
+          (*qnumbersarray)[ sym1 ][ sym2 ][ curr + 1 ] = ind;
           ++curr;
         }
-        //else
-        //  (*dimarray)[ sym1 ][ sym2 ][ count ] = 0;
 
         for( i = 0 ; i < bookie.nr_symmetries ; i++ )
         {

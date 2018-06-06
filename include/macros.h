@@ -3,9 +3,14 @@
 
 #include <stdlib.h>
 #include <math.h>
+#include <inttypes.h>
 
+/* For comparising doubles */
 #define TOLERANCE 1e-16
 #define COMPARE(X, Y)   (fabs((X) - (Y)) < TOLERANCE)
+
+/* macro that defines the size of the qnumbers stored */
+#define QN_TYPE int_fast64_t
 
 #define safe_malloc(s, t) safe_malloc_helper((s), sizeof(t), #t, __FILE__, __LINE__, __func__)
 #define safe_calloc(s, t) safe_calloc_helper((s), sizeof(t), #t, __FILE__, __LINE__, __func__)

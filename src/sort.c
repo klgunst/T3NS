@@ -3,6 +3,13 @@
 #include <stdlib.h>
 
 #include "sort.h"
+#include "macros.h"
+
+struct sort_struct
+{
+  QN_TYPE * s_struct_array;
+  int s_struct_nrels;
+};
 
 static int compar( const void *a, const void *b, void *base_arr )
 {
@@ -10,9 +17,37 @@ static int compar( const void *a, const void *b, void *base_arr )
   return ( ( int* ) base_arr )[ aa ] - ( ( int* ) base_arr )[ bb ];
 }
 
+static int compare_el( const QN_TYPE * a, const QN_TYPE * b, const int size_el )
+{
+  int i;
+  for( i = size_el - 1 ; i >= 0 ; --i )
+    if( a[ i ] != b[ i ] )
+      return a[ i ] - b[ i ];
+  return 0;
+}
+
+static int comparqn( const void *a, const void *b, void *base_arr )
+{
+  int aa = *( ( int* ) a ), bb = *( ( int* ) b );
+
+  struct sort_struct * sstruct = base_arr;
+  const int size = sstruct->s_struct_nrels;
+  const QN_TYPE * el1 = sstruct->s_struct_array + aa * size;
+  const QN_TYPE * el2 = sstruct->s_struct_array + bb * size;
+
+  return compare_el( el1, el2, size );
+}
+
 void quickSort( int *idx, int *array, int n )
 {
   qsort_r( idx, n, sizeof(int), compar, array );
+}
+
+void qnumbersSort( int *idx, QN_TYPE * array, int nrels, int n )
+{
+  struct sort_struct sstruct = { .s_struct_array = array, .s_struct_nrels = nrels } ;
+
+  qsort_r( idx, n, sizeof(int), comparqn, &sstruct );
 }
 
 int search( const int value, const int * const array, const int n )
