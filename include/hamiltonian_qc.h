@@ -3,6 +3,15 @@
 
 #include "bookkeeper.h"
 
+struct hamdata 
+{
+  int norb;           /**< number of orbitals. */
+  int *orbirrep;      /**< the pg_irreps of the orbitals. */
+  double core_energy; /**< core_energy of the system. */
+  double* Vijkl;      /**< interaction terms of the system. */
+};
+extern struct hamdata hdat;
+extern struct symsecs MPOsymsecs;
 /**
  * \file hamiltonian_qc.h
  * \brief Implementation for the quantum chemistry hamiltonian with U1 SU2 and point-group 
@@ -58,4 +67,9 @@ void QC_hamiltonian_tensor_products( int * const nr_of_prods, int ** const possi
 int QC_get_hamsymsec_from_tag( const int * const tag, const int tagsize );
 
 void get_tag_site(int site_op, int *tag, int *tagsize);
+
+void QC_get_string_of_rops( char buffer[], const int ropsindex, const int bond, 
+    const int is_left, const char o );
+
+void QC_get_string_of_siteops( char buffer[], const int siteindex, const int site );
 #endif

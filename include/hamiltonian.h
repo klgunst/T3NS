@@ -77,4 +77,9 @@ int give_hermhamsymsec( const int orighamsymsec );
  */
 void hamiltonian_tensor_products( int * const nr_of_prods, int ** const possible_prods, const int
     resulting_hamsymsec, const int site );
+
+void get_string_of_rops( char buffer[], const int ropsindex, const int bond, const int is_left, 
+    const char o );
+
+void get_string_of_siteops( char buffer[], const int siteindex, const int site );
 #endif

@@ -1,5 +1,5 @@
 ! This is a template for the input file
-networkfile 	templateDMRG.netw
+networkfile 	templateDMRG10.netw
 symm 		u1 u1 d2h
 ts 		7 7 0
 !symm 		u1 u1
@@ -7,4 +7,4 @@ ts 		7 7 0
 !symm 		u1 su2 d2h
 !ts 		14 0 0
 
-interaction 	N2.FCIDUMP
+interaction 	N2.STO3G.FCIDUMP

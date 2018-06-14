@@ -11,13 +11,7 @@
 #include "debug.h"
 #include "ops_type.h"
 
-static struct hamdata
-{
-  int norb;           /**< number of orbitals. */
-  int *orbirrep;      /**< the pg_irreps of the orbitals. */
-  double core_energy; /**< core_energy of the system. */
-  double* Vijkl;      /**< interaction terms of the system. */
-} hdat;
+struct hamdata hdat;
 
 static const int irreps_of_hamsymsec_QC[ 13 ][ 2 ] = { { -2, 0 }, { -1, -1 }, { -1, 0 }, { -1, 1 }, 
   { 0, -2 }, { 0, -1 }, { 0, 0 }, { 0, 1 }, { 0, 2 }, { 1, -1 }, { 1, 0 }, { 1, 1 }, { 2, 0 } };
@@ -27,7 +21,7 @@ static const int irreps_of_hamsymsec_QCSU2[ 8 ][ 2 ] = { { -2, 2 }, { -2, 0 }, {
   { 0, 0 }, { 1, 1 }, { 2, 0 }, { 2, 2 } };
 static const int is_valid_hss_site_QCSU2[ 8 ] = { 0, 1, 1, 1, 1, 1, 1, 0 };
 
-static struct symsecs MPOsymsecs =
+struct symsecs MPOsymsecs =
 { .nr_symsec = 0, .irreps = NULL, .fcidims = NULL, .dims = NULL, .totaldims = 0 };
 
 /* ============================================================================================ */
@@ -723,6 +717,28 @@ int QC_get_hamsymsec_from_tag( const int * const tag, const int tagsize )
         __FILE__, __func__, hss[ 0 ], hss[ 1 ] );
     return -1;
   }
+}
+
+void QC_get_string_of_rops( char buffer[], const int ropsindex, const int bond, 
+    const int is_left, const char o )
+{
+  struct ops_type ops = get_op_type_list( bond, is_left, o );
+  get_string_tag( buffer, &ops, ropsindex );
+  destroy_ops_type( &ops, o );
+}
+
+void QC_get_string_of_siteops( char buffer[], const int siteindex, const int site )
+{
+  int tag[ SIZE_TAG * 4 ];
+  int tagsize = 0;
+  int i;
+  get_tag_site( siteindex, tag, &tagsize );
+  for( i = 0 ; i < tagsize ; ++i )
+    tag[ i * SIZE_TAG + 1 ] = site;
+  if( tagsize == 0 )
+    strcpy( buffer, "Unity" );
+  else
+    get_string_tg( buffer, tag, tagsize, 0 );
 }
 
 /* ============================================================================================ */

@@ -2,6 +2,7 @@
 # define OPTIMIZE_NETWORK_H
 
 #include "siteTensor.h"
+#include "rOperators.h"
 
 /**
  * \brief Initializes the T3NS randomly and prepares the calculation.
@@ -9,7 +10,7 @@
  * \param [out] T3NS Pointer to the siteTensor array representing the T3NS.
  * \param [out] rops Pointer to the renormalizedops array representing the renormalized operators.
  */
-void random_init( struct siteTensor ** const T3NS );
+void random_init( struct siteTensor ** const T3NS, struct rOperators ** const rops );
 
 /**
  * \brief Destroys the T3NS object.
@@ -17,4 +18,6 @@ void random_init( struct siteTensor ** const T3NS );
  * \param[in,out] T3NS the T3NS.
  */
 void destroy_T3NS( struct siteTensor **T3NS );
+
+void destroy_all_rops( struct rOperators **rops );
 #endif

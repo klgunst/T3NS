@@ -51,6 +51,8 @@ static void build_all_sectors( struct symsecs * const res, const struct symsecs 
 /* kicks impossible symmetry sectors for the target out of it. */
 static void kick_impossibles( struct symsecs * const sector );
 
+static void tensprod_symsecs( struct symsecs * const res, const struct symsecs * const sectors1, 
+    const struct symsecs * const sectors2, const int sign, const char o );
 /* ============================================================================================ */
 
 void create_list_of_symsecs( int max_dim )
@@ -75,7 +77,7 @@ void destroy_bookkeeper( void )
 {
   int cnt;
   for( cnt = 0 ; cnt < bookie.nr_bonds ; cnt++ )
-    destroy_symsecs(bookie.list_of_symsecs + cnt);
+    destroy_symsecs( bookie.list_of_symsecs + cnt );
 
   safe_free( bookie.list_of_symsecs );
   safe_free( bookie.sgs );
@@ -338,65 +340,6 @@ void get_maxdims_of_bonds( int maxdims[], int bonds[], const int nr )
   clean_symsecs_arr( symarr, bonds, nr );
 }
 
-void tensprod_symsecs( struct symsecs * const res, const struct symsecs * const sectors1, 
-    const struct symsecs * const sectors2, const int sign, const char o )
-{
-  /* First I make a 'worst-case' res, where a rough first guess of the symmsecs that will occur 
-   * is initialized in. After this, this 'worst-case' res can be simplified by kicking out all 
-   * the symmsecs with D = 0.
-   */
-  int i;
-  assert( o == 'f' || o == 'n' );
-
-  res->nr_symsec = 0;
-  res->irreps    = NULL;
-  res->fcidims   = NULL;
-  res->dims      = NULL;
-  res->totaldims = 0;
-
-  /* This function will give a rough first irreps array with also a lot of forbidden symmsecs. */
-  build_all_sectors( res, sectors1, sectors2 );
-  res->fcidims = safe_calloc( res->nr_symsec * bookie.nr_symmetries, double );
-
-  for( i = 0 ; i < sectors1->nr_symsec ; i++ )
-  {
-    int j;
-    /* zero dimension symmsec */
-    if( ( o == 'f' && sectors1->fcidims[ i ] < 0.5 ) || ( o == 'n' && sectors1->dims[ i ] == 0 ) )
-      continue;
-
-    for( j = 0 ; j < sectors2->nr_symsec ; j++ )
-    {
-      int nr_symmsecs;
-      int *resultsymmsec;
-      if( ( o == 'f' && sectors2->fcidims[ j ] < 0.5 ) || ( o == 'n' && sectors2->dims[ j ] == 0 ) )
-        continue;
-
-      /* for non-abelian symmetries, like SU(2), there are multiple irreps that are valid as
-       * result of the tensorproduct of two irreps */
-      tensprod_symmsec( &resultsymmsec, &nr_symmsecs, &sectors1->irreps[ i * bookie.nr_symmetries ], 
-                        &sectors2->irreps[ j * bookie.nr_symmetries ], sign, bookie.sgs,
-                        bookie.nr_symmetries );
-
-      for( nr_symmsecs-- ; nr_symmsecs >= 0 ; nr_symmsecs-- )
-      {
-        int pos_symmsec = search_symmsec( resultsymmsec + bookie.nr_symmetries * nr_symmsecs, res );
-        if( pos_symmsec < 0 )
-          break;
-        //assert( pos_symmsec >= 0 && "Results in a symmsec that build_all_sectors didn't make??" );
-        if( o == 'f' )
-          res->fcidims[ pos_symmsec ] += sectors1->fcidims[ i ] * sectors2->fcidims[ j ];
-        if( o == 'n' )
-          res->fcidims[ pos_symmsec ] = 1;
-      }
-      safe_free( resultsymmsec );
-    }
-  }
-
-  /* now we have the 'worst-case' res. Kick out all the symmsecs with dimension 0. */
-  kick_empty_symmsecs( res );
-}
-
 void find_goodqnumbersectors( int ****dimarray, int ****qnumbersarray, int *total, 
     const struct symsecs symarr[] )
 {
@@ -535,6 +478,65 @@ int is_set_to_internal_symsec( const int bond )
 /* ============================================================================================ */
 /* ================================ DEFINITION STATIC FUNCTIONS =============================== */
 /* ============================================================================================ */
+
+static void tensprod_symsecs( struct symsecs * const res, const struct symsecs * const sectors1, 
+    const struct symsecs * const sectors2, const int sign, const char o )
+{
+  /* First I make a 'worst-case' res, where a rough first guess of the symmsecs that will occur 
+   * is initialized in. After this, this 'worst-case' res can be simplified by kicking out all 
+   * the symmsecs with D = 0.
+   */
+  int i;
+  assert( o == 'f' || o == 'n' );
+
+  res->nr_symsec = 0;
+  res->irreps    = NULL;
+  res->fcidims   = NULL;
+  res->dims      = NULL;
+  res->totaldims = 0;
+
+  /* This function will give a rough first irreps array with also a lot of forbidden symmsecs. */
+  build_all_sectors( res, sectors1, sectors2 );
+  res->fcidims = safe_calloc( res->nr_symsec * bookie.nr_symmetries, double );
+
+  for( i = 0 ; i < sectors1->nr_symsec ; i++ )
+  {
+    int j;
+    /* zero dimension symmsec */
+    if( ( o == 'f' && sectors1->fcidims[ i ] < 0.5 ) || ( o == 'n' && sectors1->dims[ i ] == 0 ) )
+      continue;
+
+    for( j = 0 ; j < sectors2->nr_symsec ; j++ )
+    {
+      int nr_symmsecs;
+      int *resultsymmsec;
+      if( ( o == 'f' && sectors2->fcidims[ j ] < 0.5 ) || ( o == 'n' && sectors2->dims[ j ] == 0 ) )
+        continue;
+
+      /* for non-abelian symmetries, like SU(2), there are multiple irreps that are valid as
+       * result of the tensorproduct of two irreps */
+      tensprod_symmsec( &resultsymmsec, &nr_symmsecs, &sectors1->irreps[ i * bookie.nr_symmetries ], 
+                        &sectors2->irreps[ j * bookie.nr_symmetries ], sign, bookie.sgs,
+                        bookie.nr_symmetries );
+
+      for( nr_symmsecs-- ; nr_symmsecs >= 0 ; nr_symmsecs-- )
+      {
+        int pos_symmsec = search_symmsec( resultsymmsec + bookie.nr_symmetries * nr_symmsecs, res );
+        if( pos_symmsec < 0 )
+          break;
+        //assert( pos_symmsec >= 0 && "Results in a symmsec that build_all_sectors didn't make??" );
+        if( o == 'f' )
+          res->fcidims[ pos_symmsec ] += sectors1->fcidims[ i ] * sectors2->fcidims[ j ];
+        if( o == 'n' )
+          res->fcidims[ pos_symmsec ] = 1;
+      }
+      safe_free( resultsymmsec );
+    }
+  }
+
+  /* now we have the 'worst-case' res. Kick out all the symmsecs with dimension 0. */
+  kick_empty_symmsecs( res );
+}
 
 static void calc_fcidims( void )
 {
@@ -764,7 +766,7 @@ static void scale_dims( int max_dim )
   {
     double ratio, totalfcidims = 0;
     int i;
-    struct symsecs *sectors = &bookie.list_of_symsecs[ bnd ];
+    struct symsecs * const sectors = &bookie.list_of_symsecs[ bnd ];
     for( i = 0 ; i < sectors->nr_symsec ; i++ ) totalfcidims += sectors->fcidims[ i ];
 
     sectors->dims = safe_malloc( sectors->nr_symsec, int );
@@ -785,6 +787,7 @@ static void destroy_symsecs(struct symsecs *sectors)
 {
   safe_free(sectors->irreps);
   safe_free(sectors->fcidims);
+  if( sectors->dims == NULL ) printf( "what\n" );
   safe_free(sectors->dims);
 }
 

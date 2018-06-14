@@ -160,6 +160,35 @@ void hamiltonian_tensor_products( int * const nr_of_prods, int ** const possible
   }
 }
 
+void get_string_of_rops( char buffer[], const int ropsindex, const int bond, const int is_left, 
+    const char o )
+{
+  switch( ham )
+  {
+    case QC :
+      QC_get_string_of_rops( buffer, ropsindex, bond, is_left, o );
+      break;
+    case QCSU2 :
+    default:
+      fprintf( stderr, "%s@%s: Not defined for the given hamiltonian.\n", __FILE__, __func__ );
+      exit( EXIT_FAILURE );
+  }
+}
+
+void get_string_of_siteops( char buffer[], const int siteindex, const int site )
+{
+  switch( ham )
+  {
+    case QC :
+      QC_get_string_of_siteops( buffer, siteindex, site );
+      break;
+    case QCSU2 :
+    default:
+      fprintf( stderr, "%s@%s: Not defined for the given hamiltonian.\n", __FILE__, __func__ );
+      exit( EXIT_FAILURE );
+  }
+}
+
 /* ============================================================================================ */
 /* ================================ DEFINITION STATIC FUNCTIONS =============================== */
 /* ============================================================================================ */

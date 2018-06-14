@@ -2,7 +2,6 @@
 # define INSTRUCTIONS_H
 
 #include "ops_type.h"
-#define NOHERM
 
 /**
  * \file instructions.h

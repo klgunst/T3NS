@@ -34,6 +34,18 @@ struct sparseblocks
  */
 void init_null_sparseblocks( struct sparseblocks * const blocks );
 
+/** 
+ * \brief Makes a sparseblocks instance with malloc or calloc
+ *
+ * \param [out] The sparseblocks struct
+ * \param [in] beginblock the beginblock array, gets hard copied.
+ * \param [in] nr_blocks The number of blocks.
+ * \param [in] o o is 'c' if calloc, 'm' if malloc for tel.
+ */
+
+void init_sparseblocks( struct sparseblocks * const blocks, const int * const beginblock, 
+    const int nr_blocks, char o );
+
 /**
  * \brief Destroys a sparseblocks struct.
  *

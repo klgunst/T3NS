@@ -2,10 +2,10 @@
 #include <stdio.h>
 
 #include "siteTensor.h"
-#include "macros.h"
 #include "debug.h"
 #include "network.h"
 #include "bookkeeper.h"
+#include "sort.h"
 
 /* ============================================================================================ */
 /* =============================== DECLARATION STATIC FUNCTIONS =============================== */
@@ -76,6 +76,12 @@ void siteTensor_give_is_in( const struct siteTensor * const tens, int is_in[] )
 {
   assert( tens->nrsites == 1 );
   is_in[ 0 ] = 1; is_in[ 1 ] = 1; is_in[ 2 ] = 0;
+}
+
+int siteTensor_search_qnumber( QN_TYPE qnumber, const struct siteTensor * const tens )
+{
+  assert( tens->nrsites == 1 && "Only defined for 1 site sitetensors atm" );
+  return qnumbersSearch( &qnumber, 1, tens->qnumbers, 1, tens->nrblocks );
 }
 
 /* ============================================================================================ */

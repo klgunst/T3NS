@@ -218,28 +218,6 @@ void QC_fetch_expand_ops( int ** const instructions, double ** const prefactors,
   destroy_ops_type( &ops_exp, 'e' );
 }
 
-void QC_get_string_of_rops( char buffer[], const int ropsindex, const int bond, 
-    const int is_left, const char o )
-{
-  struct ops_type ops = get_op_type_list( bond, is_left, o );
-  get_string_tag( buffer, &ops, ropsindex );
-  destroy_ops_type( &ops, o );
-}
-
-void QC_get_string_of_siteops( char buffer[], const int siteindex, const int site )
-{
-  int tag[ SIZE_TAG * 4 ];
-  int tagsize;
-  int i;
-  get_tag_site( siteindex, tag, &tagsize );
-  for( i = 0 ; i < tagsize ; ++i )
-    tag[ i * SIZE_TAG + 1 ] = site;
-  if( tagsize == 0 )
-    strcpy( buffer, "Unity" );
-  else
-    get_string_tg( buffer, tag, tagsize, 0 );
-}
-
 /* ============================================================================================ */
 /* ================================ DEFINITION STATIC FUNCTIONS =============================== */
 /* ============================================================================================ */

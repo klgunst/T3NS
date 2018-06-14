@@ -42,9 +42,4 @@ void QC_fetch_DMRG_make_ops( int ** const instructions, double ** const prefacto
  */
 void QC_fetch_expand_ops( int ** const instructions, double ** const prefactors, 
     int * const nr_instructions, const int bond, const int is_left, const int needsfull );
-
-void QC_get_string_of_rops( char buffer[], const int ropsindex, const int bond, 
-    const int is_left, const char o );
-
-void QC_get_string_of_siteops( char buffer[], const int siteindex, const int site );
 #endif

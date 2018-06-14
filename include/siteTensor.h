@@ -167,6 +167,15 @@ void siteTensor_give_couplings( const struct siteTensor * const tens, int coupli
  */
 void siteTensor_give_is_in( const struct siteTensor * const tens, int is_in[] );
 
+/**
+ * \brief Searches a certain qnumber in a siteTensor.
+ *
+ * \param [in] qnumber The quantum number to search.
+ * \param [in] tens The siteTensor.
+ * \return The location of the found qnumber. -1 if not found.
+ */
+int siteTensor_search_qnumber( QN_TYPE qnumber, const struct siteTensor * const tens );
+
 /* ==================================== DECOMPOSE ============================================== */
 /**
  * \brief Execute a QR decomposition on a one-site tensor.

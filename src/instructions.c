@@ -4,7 +4,6 @@
 #include "instructions.h"
 #include "instructions_qc.h"
 #include "hamiltonian.h"
-#include "hamiltonian_qc.h"
 #include "sort.h"
 #include "macros.h"
 #include "network.h"
@@ -23,11 +22,6 @@ static void print_expand_instructions(int * const instructions, double * const p
 
 static void print_DMRG_instructions(int * const instructions, double * const prefactors, 
     int * const hss, const int nr_instructions, const int bond, const int is_left );
-
-static void get_string_of_rops( char buffer[], const int ropsindex, const int bond, 
-    const int is_left, const char o );
-
-static void get_string_of_siteops( char buffer[], const int siteindex, const int site );
 
 /* ============================================================================================ */
 
@@ -216,33 +210,4 @@ static void print_DMRG_instructions(int * const instructions, double * const pre
   }
 
   clean_symsecs( &MPO, -1 );
-}
-
-static void get_string_of_rops( char buffer[], const int ropsindex, const int bond, 
-    const int is_left, const char o )
-{
-  switch( ham )
-  {
-    case QC :
-      QC_get_string_of_rops( buffer, ropsindex, bond, is_left, o );
-      break;
-    case QCSU2 :
-    default:
-      fprintf( stderr, "%s@%s: Not defined for the given hamiltonian.\n", __FILE__, __func__ );
-      exit( EXIT_FAILURE );
-  }
-}
-
-static void get_string_of_siteops( char buffer[], const int siteindex, const int site )
-{
-  switch( ham )
-  {
-    case QC :
-      QC_get_string_of_siteops( buffer, siteindex, site );
-      break;
-    case QCSU2 :
-    default:
-      fprintf( stderr, "%s@%s: Not defined for the given hamiltonian.\n", __FILE__, __func__ );
-      exit( EXIT_FAILURE );
-  }
 }

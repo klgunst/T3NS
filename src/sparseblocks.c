@@ -21,6 +21,25 @@ void init_null_sparseblocks( struct sparseblocks * const blocks )
   blocks->tel        = NULL;
 }
 
+void init_sparseblocks( struct sparseblocks * const blocks, const int * const beginblock, 
+    const int nr_blocks, char o )
+{
+  int j;
+  blocks->beginblock = safe_malloc( nr_blocks + 1, int );
+  for( j = 0 ; j < nr_blocks + 1 ; ++j )
+    blocks->beginblock[ j ] = beginblock[ j ];
+  switch( o )
+  {
+    case 'c':
+      blocks->tel = safe_calloc( blocks->beginblock[ nr_blocks ], EL_TYPE );
+      break;
+    case 'm':
+      blocks->tel = safe_malloc( blocks->beginblock[ nr_blocks ], EL_TYPE );
+    default:
+      fprintf( stderr, "%s@%s: wrong option (%c) passed.\n", __FILE__, __func__, o );
+  }
+}
+
 void destroy_sparseblocks( struct sparseblocks * const blocks )
 {
   safe_free( blocks->beginblock );

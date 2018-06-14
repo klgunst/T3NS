@@ -188,9 +188,6 @@ int search_symmsec( int* symmsec, const struct symsecs *sectors );
  */
 void get_sectorstring( struct symsecs *symsec, int ind, char buffer[] );
 
-void tensprod_symsecs( struct symsecs * const res, const struct symsecs * const sectors1, 
-    const struct symsecs * const sectors2, const int sign, const char o );
-
 /**
  * \brief Returns the maxdims of each bond passed.
  *
