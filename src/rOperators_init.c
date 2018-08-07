@@ -2,6 +2,7 @@
 #include <stdio.h>
 
 #include "rOperators.h"
+#include "tensorproducts.h"
 #include "bookkeeper.h"
 #include "network.h"
 #include "debug.h"
@@ -20,10 +21,6 @@ static void init_nP_rOperators( struct rOperators * const rops, int ***tmp_nkapp
 
 static void init_P_rOperators( struct rOperators * const rops, int ***tmp_nkappa_begin, const int 
     bond_of_operator, const int is_left );
-
-static void find_qnumbers_with_index_in_array( const int id, const int idnr, int *** qnumbersarray, 
-    int ***dimarray, const struct symsecs symarr[], QN_TYPE **res_qnumbers, int ** res_dim, 
-    int *length );
 
 /* ============================================================================================ */
 void init_null_rOperators( struct rOperators * const rops )
@@ -211,12 +208,11 @@ static void init_nP_rOperators( struct rOperators * const rops, int ***tmp_nkapp
   for( hss = 0 ; hss < rops->nrhss ; ++hss )
   {
     const int N = rops->begin_blocks_of_hss[ hss + 1 ] - rops->begin_blocks_of_hss[ hss ];
-    int *idx              = safe_malloc( N, int );
+    int *idx;
     QN_TYPE *qnumberstemp = safe_malloc( N, QN_TYPE );
     QN_TYPE *qnumbersofhss = rOperators_give_qnumbers_for_hss( rops, hss );
     int *dimtemp          = safe_malloc( N, int );
     int i, j, curr = 0;
-    for( i = 0 ; i < N ; ++i ) idx[ i ] = i;
 
     (*tmp_nkappa_begin)[ hss ] = safe_malloc( N + 1, int );
     for( i = 0 ; i < symarr[ 1 ].nr_symsec ; ++i )
@@ -249,7 +245,7 @@ static void init_nP_rOperators( struct rOperators * const rops, int ***tmp_nkapp
     safe_free( qnumbersarray[ hss ] );
     safe_free( dimarray[ hss ] );
 
-    qnumbersSort( idx, qnumberstemp, rOperators_give_nr_of_couplings( rops ), N );
+    idx = qnumbersSort( qnumberstemp, rOperators_give_nr_of_couplings( rops ), N );
     (*tmp_nkappa_begin)[ hss ][ 0 ] = 0;
     for( i = 0 ; i < N ; ++i )
     {
@@ -373,8 +369,6 @@ static void init_P_rOperators( struct rOperators * const rops, int ***nkappa_beg
     (*nkappa_begin_temp)[ hamss ] = safe_malloc( N + 1, int );
     qnumberstmp                   = safe_malloc( N * couplings, QN_TYPE );
     dimtmp                        = safe_malloc( N, int );
-    idx                           = safe_malloc( N, int );
-    for( i = 0 ; i < N ; ++i ) idx[ i ] = i;
 
     for( internal_out = 0 ; internal_out < symarr_internal[ 1 ].nr_symsec ; ++internal_out )
     {
@@ -432,7 +426,7 @@ static void init_P_rOperators( struct rOperators * const rops, int ***nkappa_beg
     }
     assert( curr_qnumber == N );
 
-    qnumbersSort( idx, qnumberstmp, couplings, N );
+    idx = qnumbersSort( qnumberstmp, couplings, N );
     for( i = 0 ; i < N ; ++i )
     {
       int j;
@@ -481,105 +475,4 @@ static void init_P_rOperators( struct rOperators * const rops, int ***nkappa_beg
   safe_free( qnumbersarray_internal );
   safe_free( dimarray_internal );
   clean_symsecs_arr( symarr_internal, bonds, 3 );
-}
-
-static void find_qnumbers_with_index_in_array( const int id, const int idnr, int *** qnumbersarray, 
-    int ***dimarray, const struct symsecs symarr[], QN_TYPE **res_qnumbers, int ** res_dim, 
-    int *length )
-{
-  int sym1, sym2, sym3;
-  int counter;
-  const int dim1 = symarr[ 0 ].nr_symsec;
-  const int dim2 = symarr[ 0 ].nr_symsec * symarr[ 1 ].nr_symsec;
-  const int NULLflag = ( res_qnumbers == NULL ) && ( res_dim == NULL );
-
-  assert( ( res_qnumbers == NULL ) == ( res_dim == NULL ) &&
-      "Both res_qnumbers and res_dim should be null-pointers or valid pointers" );
-
-  *length = 0;
-  switch ( idnr )
-  {
-    case 0:
-      assert( id < symarr[ 0 ].nr_symsec );
-      sym1 = id;
-      for( sym2 = 0 ; sym2 < symarr[ 1 ].nr_symsec ; ++sym2 )
-      {
-        *length += qnumbersarray[ sym1 ][ sym2 ][ 0 ];
-      }
-      if( NULLflag )
-        break;
-
-      *res_qnumbers = safe_malloc( *length, QN_TYPE );
-      *res_dim      = safe_malloc( *length, int );
-
-      counter = 0;
-      for( sym2 = 0 ; sym2 < symarr[ 1 ].nr_symsec ; ++sym2 )
-      {
-        QN_TYPE ind = sym1 + dim1 * sym2;
-        for( sym3 = 0 ; sym3 < qnumbersarray[ sym1 ][ sym2 ][ 0 ] ; ++sym3 )
-        {
-          (*res_qnumbers)[ counter ] = ind + qnumbersarray[ sym1 ][ sym2 ][ 1 + sym3 ] * dim2;
-          (*res_dim)[ counter ]      = dimarray[ sym1 ][ sym2 ][ sym3 ];
-          ++counter;
-        }
-      }
-      break;
-    case 1:
-      assert( id < symarr[ 1 ].nr_symsec );
-      sym2 = id;
-      for( sym1 = 0 ; sym1 < symarr[ 0 ].nr_symsec ; ++sym1 )
-      {
-        *length += qnumbersarray[ sym1 ][ sym2 ][ 0 ];
-      }
-      if( NULLflag )
-        break;
-
-      *res_qnumbers = safe_malloc( *length, QN_TYPE );
-      *res_dim      = safe_malloc( *length, int );
-
-      counter = 0;
-      for( sym1 = 0 ; sym1 < symarr[ 0 ].nr_symsec ; ++sym1 )
-      {
-        QN_TYPE ind = sym1 + dim1 * sym2;
-        for( sym3 = 0 ; sym3 < qnumbersarray[ sym1 ][ sym2 ][ 0 ] ; ++sym3 )
-        {
-          (*res_qnumbers)[ counter ] = ind + qnumbersarray[ sym1 ][ sym2 ][ 1 + sym3 ] * dim2;
-          (*res_dim)[ counter ]      = dimarray[ sym1 ][ sym2 ][ sym3 ];
-          ++counter;
-        }
-      }
-      break;
-    case 2:
-      assert( id < symarr[ 2 ].nr_symsec );
-
-      for( sym1 = 0 ; sym1 < symarr[ 0 ].nr_symsec ; ++sym1 )
-        for( sym2 = 0 ; sym2 < symarr[ 1 ].nr_symsec ; ++sym2 )
-          for( sym3 = 0 ; sym3 < qnumbersarray[ sym1 ][ sym2 ][ 0 ] ; ++sym3 )
-          {
-            *length += qnumbersarray[ sym1 ][ sym2 ][ 1 + sym3 ] == id;
-          }
-      if( NULLflag )
-        break;
-
-      *res_qnumbers = safe_malloc( *length, QN_TYPE );
-      *res_dim      = safe_malloc( *length, int );
-
-      counter = 0;
-      for( sym1 = 0 ; sym1 < symarr[ 0 ].nr_symsec ; ++sym1 )
-        for( sym2 = 0 ; sym2 < symarr[ 1 ].nr_symsec ; ++sym2 ){
-          QN_TYPE ind = sym1 + dim1 * sym2;
-          for( sym3 = 0 ; sym3 < qnumbersarray[ sym1 ][ sym2 ][ 0 ] ; ++sym3 )
-            if( qnumbersarray[ sym1 ][ sym2 ][ 1 + sym3 ] == id )
-            {
-              (*res_qnumbers)[ counter ] = ind + qnumbersarray[ sym1 ][ sym2 ][ 1 + sym3 ] * dim2;
-              (*res_dim)[ counter ]      = dimarray[ sym1 ][ sym2 ][ sym3 ];
-              ++counter;
-            }
-        }
-      assert( counter == *length );
-      break;
-    default:
-      fprintf( stderr, "ERROR: Wrong idnr (%d) passed in find_qnumbers_with_index_in_array\n",idnr);
-      exit( EXIT_FAILURE );
-  }
 }

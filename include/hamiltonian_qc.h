@@ -3,15 +3,6 @@
 
 #include "bookkeeper.h"
 
-struct hamdata 
-{
-  int norb;           /**< number of orbitals. */
-  int *orbirrep;      /**< the pg_irreps of the orbitals. */
-  double core_energy; /**< core_energy of the system. */
-  double* Vijkl;      /**< interaction terms of the system. */
-};
-extern struct hamdata hdat;
-extern struct symsecs MPOsymsecs;
 /**
  * \file hamiltonian_qc.h
  * \brief Implementation for the quantum chemistry hamiltonian with U1 SU2 and point-group 
@@ -20,12 +11,13 @@ extern struct symsecs MPOsymsecs;
  * enum in hamiltonian wrapper is QC, QCSU2
  */
 
+void QC_destroy_hamiltonian( void );
 /**
  * \brief Reads the qc hamiltonian out of a FCIDUMP file.
  *
  * \param [in] hamiltonianfile The FCIDUMP file.
  */
-void QC_make_hamiltonian( char hamiltonianfile[] );
+void QC_make_hamiltonian( char hamiltonianfile[], int su2 );
 
 /**
  * \brief Gets the the symsecs struct of the physical bonds for qc Hamiltonian.

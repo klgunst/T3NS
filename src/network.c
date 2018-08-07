@@ -318,6 +318,55 @@ void get_string_of_bond( char buffer[], const int bond )
   }
 }
 
+int next_opt_step( const int maxsites, int bonds_involved[], int sites_opt[], int common_nxt[] )
+{
+  /* Only DMRG implemented atm, just sweep from right to left and back. Always 2 site opt */
+  static int curr_state = -1;
+  static int to_the_left = 1;
+  /* end of a sweep */
+  if( curr_state == netw.nr_bonds - 2 && to_the_left == 0 )
+  {
+    to_the_left = 1;
+    return 0;
+  }
+
+  if( curr_state == -1 ) curr_state = netw.nr_bonds - 2;
+
+  bonds_involved[ 0 ] = curr_state - 1;
+  bonds_involved[ 1 ] = curr_state + 1;
+  bonds_involved[ 2 ] = -1;
+  sites_opt[ 0 ] = netw.bonds[ 2 * curr_state ];
+  sites_opt[ 1 ] = netw.bonds[ 2 * curr_state + 1 ];
+  assert( sites_opt[ 0 ] != -1 && sites_opt[ 1 ] != -1 );
+  sites_opt[ 2 ] = -1;
+  sites_opt[ 3 ] = -1;
+
+  if( curr_state == 1 ) to_the_left = 0;
+  curr_state += to_the_left ? -1 : 1;
+
+  common_nxt[ 0 ] = to_the_left;
+  common_nxt[ 1 ] = !to_the_left;
+  common_nxt[ 2 ] = -1;
+  common_nxt[ 3 ] = -1;
+
+  return 1;
+}
+
+int get_common_bond( const int site1 , const int site2 )
+{
+  int bonds1[ 3 ];
+  int bonds2[ 3 ];
+  int i, j;
+
+  get_bonds_of_site( site1, bonds1 );
+  get_bonds_of_site( site2, bonds2 );
+  for( i = 0 ; i < 3 ; ++i )
+    for( j = 0 ; j < 3 ; ++j )
+      if( bonds1[ i ] == bonds2[ j ] ) 
+        return bonds1[ i ];
+  return -1;
+}
+
 /* ============================================================================================ */
 /* ================================ DEFINITION STATIC FUNCTIONS =============================== */
 /* ============================================================================================ */

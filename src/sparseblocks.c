@@ -40,6 +40,16 @@ void init_sparseblocks( struct sparseblocks * const blocks, const int * const be
   }
 }
 
+void deep_copy_sparseblocks( struct sparseblocks * const copy, const struct sparseblocks * const 
+    tocopy, const int nrblocks )
+{
+  int i;
+  copy->beginblock = safe_malloc( nrblocks + 1, int );
+  copy->tel = safe_malloc( tocopy->beginblock[ nrblocks ], EL_TYPE );
+  for( i = 0 ; i < nrblocks + 1 ; ++i ) copy->beginblock[ i ] = tocopy->beginblock[ i ];
+  for( i = 0 ; i < tocopy->beginblock[ nrblocks ] ; ++i ) copy->tel[ i ] = tocopy->tel[ i ];
+}
+
 void destroy_sparseblocks( struct sparseblocks * const blocks )
 {
   safe_free( blocks->beginblock );

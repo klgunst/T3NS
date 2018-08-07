@@ -13,6 +13,8 @@
 
 extern enum hamtypes { QC, QCSU2 } ham;
 
+void destroy_hamiltonian( void );
+
 /**
  * \brief Reads the interaction out of an interaction string.
  * For qchemistry this interactionstring is given by a path to a fcidump with .fcidump extension.

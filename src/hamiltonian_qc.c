@@ -11,7 +11,14 @@
 #include "debug.h"
 #include "ops_type.h"
 
-struct hamdata hdat;
+static struct hamdata 
+{
+  int norb;           /**< number of orbitals. */
+  int *orbirrep;      /**< the pg_irreps of the orbitals. */
+  double core_energy; /**< core_energy of the system. */
+  double* Vijkl;      /**< interaction terms of the system. */
+  int su2;
+} hdat;
 
 static const int irreps_of_hamsymsec_QC[ 13 ][ 2 ] = { { -2, 0 }, { -1, -1 }, { -1, 0 }, { -1, 1 }, 
   { 0, -2 }, { 0, -1 }, { 0, 0 }, { 0, 1 }, { 0, 2 }, { 1, -1 }, { 1, 0 }, { 1, 1 }, { 2, 0 } };
@@ -21,7 +28,7 @@ static const int irreps_of_hamsymsec_QCSU2[ 8 ][ 2 ] = { { -2, 2 }, { -2, 0 }, {
   { 0, 0 }, { 1, 1 }, { 2, 0 }, { 2, 2 } };
 static const int is_valid_hss_site_QCSU2[ 8 ] = { 0, 1, 1, 1, 1, 1, 1, 0 };
 
-struct symsecs MPOsymsecs =
+static struct symsecs MPOsymsecs =
 { .nr_symsec = 0, .irreps = NULL, .fcidims = NULL, .dims = NULL, .totaldims = 0 };
 
 /* ============================================================================================ */
@@ -47,9 +54,20 @@ static void prepare_MPOsymsecs( void );
 
 /* ============================================================================================ */
 
-void QC_make_hamiltonian( char hamiltonianfile[] )
+void QC_destroy_hamiltonian( void )
+{
+  safe_free( MPOsymsecs.irreps );
+  safe_free( MPOsymsecs.fcidims );
+  safe_free( MPOsymsecs.dims );
+  safe_free( hdat.orbirrep );
+  safe_free( hdat.Vijkl );
+
+}
+
+void QC_make_hamiltonian( char hamiltonianfile[], int su2 )
 { double *one_p_int;
 
+  hdat.su2 = su2;
   readheader( hamiltonianfile );
   readintegrals( &one_p_int, hamiltonianfile );
   form_integrals( one_p_int );
@@ -70,12 +88,12 @@ void QC_get_physsymsecs( struct symsecs *res, int site )
 {
   int irrep[ 4 ][ 3 ]     = { { 0, 0, 0 }, { 1, 1, 0 }, { 1, 0, 1 }, { 0, 1, 1 } };
   int irrep_su2[ 3 ][ 3 ] = { { 0, 0, 0 }, { 0, 2, 0 }, { 1, 1, 1 } };
-  int (*irreparr)[ 3 ]    = has_su2() ? irrep_su2 : irrep;
+  int (*irreparr)[ 3 ]    = hdat.su2 ? irrep_su2 : irrep;
   int i, j;
 
   assert( bookie.nr_symmetries == 3 + ( get_pg_symmetry() != -1 ) );
 
-  res->nr_symsec = has_su2() ? 3 : 4;
+  res->nr_symsec = hdat.su2 ? 3 : 4;
   res->totaldims = res->nr_symsec;
   res->irreps = safe_malloc( res->nr_symsec * bookie.nr_symmetries, int );
   res->dims = safe_malloc( res->nr_symsec, int );
@@ -109,7 +127,7 @@ int QC_get_nr_hamsymsec( void )
   const int pg       = get_pg_symmetry();
   const int nr_of_pg = pg == -1 ? 1 : get_max_irrep( NULL, 0, NULL, 0, 0, pg );
 
-  if( has_su2() )
+  if( hdat.su2 )
     return sizeof irreps_of_hamsymsec_QCSU2 / sizeof irreps_of_hamsymsec_QCSU2[ 0 ] * nr_of_pg;
   else
     return sizeof irreps_of_hamsymsec_QC / sizeof irreps_of_hamsymsec_QC[ 0 ] * nr_of_pg;
@@ -119,7 +137,7 @@ int QC_get_trivialhamsymsec( void )
 {
   const int pg       = get_pg_symmetry();
   const int nr_of_pg = pg == -1 ? 1 : get_max_irrep( NULL, 0, NULL, 0, 0, pg );
-  const int * irreps_of_hamsymsec = has_su2() ? &irreps_of_hamsymsec_QCSU2[ 0 ][ 0 ] 
+  const int * irreps_of_hamsymsec = hdat.su2 ? &irreps_of_hamsymsec_QCSU2[ 0 ][ 0 ] 
     : &irreps_of_hamsymsec_QC[ 0 ][ 0 ];
   const int size = QC_get_nr_hamsymsec() / nr_of_pg;
   int i;
@@ -142,14 +160,14 @@ int QC_give_hermhamsymsec( const int orighamsymsec )
    */
   const int pg        = get_pg_symmetry();
   const int nr_of_pg  = pg == -1 ? 1 : get_max_irrep( NULL, 0, NULL, 0, 0, pg );
-  const int * irreps_of_hamsymsec = has_su2() ? &irreps_of_hamsymsec_QCSU2[ 0 ][ 0 ] 
+  const int * irreps_of_hamsymsec = hdat.su2 ? &irreps_of_hamsymsec_QCSU2[ 0 ][ 0 ] 
     : &irreps_of_hamsymsec_QC[ 0 ][ 0 ];
   const int size = QC_get_nr_hamsymsec() / nr_of_pg;
 
   const int pg_irrep  = orighamsymsec % nr_of_pg;
   const int other_irr = orighamsymsec / nr_of_pg;
   const int herm_irr[ 2 ] = { -1 * irreps_of_hamsymsec[ other_irr*2 + 0 ], 
-    irreps_of_hamsymsec[ other_irr*2 + 1 ]  * ( has_su2() ? 1 : -1 ) };
+    irreps_of_hamsymsec[ other_irr*2 + 1 ]  * ( hdat.su2 ? 1 : -1 ) };
   int i;
 
   assert( other_irr < size );
@@ -560,7 +578,7 @@ int QC_get_hamsymsec_site( const int siteoperator, const int site )
   const int pg        = get_pg_symmetry();
   const int nr_of_pg  = pg == -1 ? 1 : get_max_irrep( NULL, 0, NULL, 0, 0, pg );
   const int pg_irrep  = hdat.orbirrep[ netw.sitetoorb[ site ] ];
-  const int * irreps_of_hamsymsec = has_su2() ? &irreps_of_hamsymsec_QCSU2[ 0 ][ 0 ] 
+  const int * irreps_of_hamsymsec = hdat.su2 ? &irreps_of_hamsymsec_QCSU2[ 0 ][ 0 ] 
     : &irreps_of_hamsymsec_QC[ 0 ][ 0 ];
   const int size = QC_get_nr_hamsymsec() / nr_of_pg;
   int irreps_of_hss[ 2 ];
@@ -639,7 +657,7 @@ void QC_hamiltonian_tensor_products( int * const nr_of_prods, int ** const possi
    */
   const int pg        = get_pg_symmetry();
   const int nr_of_pg  = pg == -1 ? 1 : get_max_irrep( NULL, 0, NULL, 0, 0, pg );
-  const int size  = has_su2() 
+  const int size  = hdat.su2 
     ? sizeof irreps_of_hamsymsec_QCSU2 / sizeof irreps_of_hamsymsec_QCSU2[ 0 ]
     : sizeof irreps_of_hamsymsec_QC / sizeof irreps_of_hamsymsec_QC[ 0 ];
 
@@ -692,7 +710,7 @@ int QC_get_hamsymsec_from_tag( const int * const tag, const int tagsize )
   const int nr_of_pg  = pg == -1 ? 1 : get_max_irrep( NULL, 0, NULL, 0, 0, pg );
 
   assert( tagsize <= 2 );
-  if( has_su2() )
+  if( hdat.su2 )
   {
     fprintf( stderr, "%s@%s: SU2 not yet implemented.\n", __FILE__, __func__ );
     exit( EXIT_FAILURE );
@@ -935,15 +953,15 @@ static int check_orbirrep( void )
 
 static int is_valid_tproduct( const int i, const int j, const int other_irr, const int psite )
 {
-  const int * irr_of_hss = has_su2() ? &irreps_of_hamsymsec_QCSU2[ 0 ][ 0 ] : 
+  const int * irr_of_hss = hdat.su2 ? &irreps_of_hamsymsec_QCSU2[ 0 ][ 0 ] : 
     &irreps_of_hamsymsec_QC[ 0 ][ 0 ];
-  const int * is_valid_hss_site = has_su2() ? &is_valid_hss_site_QCSU2[ 0 ] :
+  const int * is_valid_hss_site = hdat.su2 ? &is_valid_hss_site_QCSU2[ 0 ] :
     &is_valid_hss_site_QC[ 0 ];
 
   if( psite && !is_valid_hss_site[ i ] )
     return 0;
 
-  if( has_su2() )
+  if( hdat.su2 )
   {
     return irr_of_hss[ i*2 + 0 ] + irr_of_hss[ j*2 + 0 ] == irr_of_hss[ other_irr*2 + 0 ] &&
       ( irr_of_hss[ i*2 + 1 ] + irr_of_hss[ j*2 + 1 ] + irr_of_hss[ other_irr*2 +1] )%2==0 &&
@@ -959,7 +977,7 @@ static int is_valid_tproduct( const int i, const int j, const int other_irr, con
 
 static int is_double_operator( const int operator )
 {
-  if( has_su2() )
+  if( hdat.su2 )
     return !( abs(irreps_of_hamsymsec_QCSU2[ operator ][ 0 ]) % 2 );
   else
     return !( abs(irreps_of_hamsymsec_QC[operator][0] + irreps_of_hamsymsec_QC[operator][1] ) % 2 );
@@ -969,9 +987,9 @@ static void prepare_MPOsymsecs( void )
 {
   const int pg        = get_pg_symmetry();
   const int nr_of_pg  = pg == -1 ? 1 : get_max_irrep( NULL, 0, NULL, 0, 0, pg );
-  const int * irreps_of_hss = has_su2() ? &irreps_of_hamsymsec_QCSU2[ 0 ][ 0 ] 
+  const int * irreps_of_hss = hdat.su2 ? &irreps_of_hamsymsec_QCSU2[ 0 ][ 0 ] 
     : &irreps_of_hamsymsec_QC[ 0 ][ 0 ];
-  const int size  = has_su2() 
+  const int size  = hdat.su2 
     ? sizeof irreps_of_hamsymsec_QCSU2 / sizeof irreps_of_hamsymsec_QCSU2[ 0 ]
     : sizeof irreps_of_hamsymsec_QC / sizeof irreps_of_hamsymsec_QC[ 0 ];
   int i;

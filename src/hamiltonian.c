@@ -28,7 +28,7 @@ void readinteraction( char interactionstring[] )
   {
     case QC :
     case QCSU2 :
-      QC_make_hamiltonian( interactionstring );
+      QC_make_hamiltonian( interactionstring, ham == QCSU2 );
       break;
     default:
       fprintf( stderr, "ERROR : unrecognized interaction %s.\n", interactionstring );
@@ -181,6 +181,20 @@ void get_string_of_siteops( char buffer[], const int siteindex, const int site )
   {
     case QC :
       QC_get_string_of_siteops( buffer, siteindex, site );
+      break;
+    case QCSU2 :
+    default:
+      fprintf( stderr, "%s@%s: Not defined for the given hamiltonian.\n", __FILE__, __func__ );
+      exit( EXIT_FAILURE );
+  }
+}
+
+void destroy_hamiltonian( void )
+{
+  switch( ham )
+  {
+    case QC :
+      QC_destroy_hamiltonian();
       break;
     case QCSU2 :
     default:

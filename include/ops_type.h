@@ -85,4 +85,6 @@ void QC_get_hss_of_operators( int ** const hamsymsec_of_new, const int bond, con
 void get_string_tag( char buffer[], const struct ops_type * const input, int i );
 
 void get_string_tg( char buffer[], const int * tag, const int tagsize, const int is_compl );
+
+void clean_ops_type( void );
 #endif

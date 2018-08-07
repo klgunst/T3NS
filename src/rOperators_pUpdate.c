@@ -21,7 +21,6 @@ static void sum_unique_rOperators( struct rOperators * const newrops, const stru
     const uniquerops, const int * const instructions, const int * const hamsymsec_new, const double* 
     const prefactors, const int nr_instructions );
 
-
 static void initialize_unique_append_physical_to_rOperators( struct rOperators * const uniquerops, 
     const int bond_of_operator, const int is_left, const int * const instructions, 
     const int * const hamsymsecs_of_new, const int nr_instructions );
@@ -30,13 +29,27 @@ static void initialize_sum_unique_rOperators( struct rOperators * const newrops,
     rOperators * const uniquerops, const int * const instructions, const int * const 
     hamsymsec_of_new, const int nr_instructions );
 
-static double calculate_prefactor_append_physical( const int indexes[], const int site, const int
-    is_left );
+static double calculate_prefactor_append_physical( const int indexes[], const struct symsecs 
+    symarr[], const int is_left );
+
 static int consistency_check_for_update_physical( const struct rOperators * const rops, 
     const struct siteTensor * const tens );
 
 static void get_separate_qnumbers( int indexes[], const QN_TYPE * const qnumbers, int maxdims[], 
     const int couplings );
+
+static int get_compressed_instructions( const int * const instructions, const int nr_instructions, 
+    const int * const prev_hss, const int site, const int * const new_hss, int ** const compr_instr,
+    int ** const compr_hss );
+
+static QN_TYPE change_new_to_old_ops( const QN_TYPE new, const int dimold, const int dimnew, 
+    int * const oldtonew );
+
+static QN_TYPE change_old_to_new_site( const QN_TYPE old, const int dimold, const int maxdims[],
+    int * const oldtonew, const int is_left );
+
+static int * make_oldtonew( const struct symsecs * const internalss, const int bond );
+
 /* ============================================================================================ */
 
 void append_physical_to_rOperators( struct rOperators * const newrops, const struct rOperators * 
@@ -79,7 +92,7 @@ void append_physical_to_rOperators( struct rOperators * const newrops, const str
 }
 
 void update_rOperators_physical( struct rOperators * const rops, const struct siteTensor * 
-    const tens )
+    const tens, const struct symsecs * const internalss )
 {
   /* THE SYMMSEC OF THE INTERNAL BOND OF ROPS SHOULD ALREADY BEEN UPDATED TO AN EXTERNAL SYMMSEC.
    * This means not all dims are necessarily equal to 1 (some may be even zero).
@@ -121,6 +134,7 @@ void update_rOperators_physical( struct rOperators * const rops, const struct si
   struct rOperators updated_rops;
   struct symsecs symarr[ 4 ];
   int i, new_sb;
+  int old_sb = 0;
 
   /* Do for left renormalized operators  : tens_herm_sb.T x old_sb x tens_sb
    * Do for right renormalized operators : tens_herm_sb x old_sb x tens_sb.T */
@@ -130,6 +144,8 @@ void update_rOperators_physical( struct rOperators * const rops, const struct si
   const double ONE = 1;
   const double ZERO = 0;
 
+  const int dimoldint = internalss->nr_symsec; 
+  int * oldtonew = make_oldtonew( internalss, rops->bond_of_operator );
   int maxdims[ 3 ];
   int indices[ 3 ];
   siteTensor_give_indices( tens, indices );
@@ -170,22 +186,28 @@ void update_rOperators_physical( struct rOperators * const rops, const struct si
   for( new_sb = 0 ; new_sb < updated_rops.begin_blocks_of_hss[ updated_rops.nrhss ] ; ++new_sb )
   {
     int newhss = 0;
-    int old_sb;
     const QN_TYPE newqnumber = updated_rops.qnumbers[ new_sb ];
+    const QN_TYPE newtooldqn = change_new_to_old_ops( newqnumber, dimoldint, maxdims[ 2 * is_left ],
+        oldtonew );
 
     /* Search the hamiltonian_symsec of the current symmetryblock */
     while( new_sb >= updated_rops.begin_blocks_of_hss[ newhss + 1 ] ) ++newhss;
 
     /* NOTE: This can be probably be done more efficient, by not looping over all old_sb since
      * the ones that pass the next if statement are all consecutive */
-    for( old_sb = 0 ; old_sb < rops->begin_blocks_of_hss[ rops->nrhss ] ; ++old_sb )
+    for( ; old_sb < rops->begin_blocks_of_hss[ rops->nrhss ] ; ++old_sb )
     {
       /* if newqnumber corresponds with the last qnumber of old_sb than you should do something */
-      if( newqnumber == rops->qnumbers[ oldcoupling * old_sb + oldcoupling - 1 ] )
+      //if( newqnumber == rops->qnumbers[ oldcoupling * old_sb + oldcoupling - 1 ] )
+      if( newtooldqn == rops->qnumbers[ oldcoupling * old_sb + oldcoupling - 1 ] )
       {
         /* T3NS qnumber is the second qnumber of old_sb, T3NS herm qnumber is the first one */
-        const QN_TYPE T3NSqnumber     = rops->qnumbers[ oldcoupling * old_sb + 1 ];
-        const QN_TYPE T3NShermqnumber = rops->qnumbers[ oldcoupling * old_sb ];
+        const QN_TYPE T3NSoldqnumber     = rops->qnumbers[ oldcoupling * old_sb + 1 ];
+        const QN_TYPE T3NSoldhermqnumber = rops->qnumbers[ oldcoupling * old_sb ];
+        const QN_TYPE T3NSqnumber     = change_old_to_new_site( T3NSoldqnumber, dimoldint, 
+            maxdims, oldtonew, is_left );
+        const QN_TYPE T3NShermqnumber = change_old_to_new_site( T3NSoldhermqnumber, dimoldint, 
+            maxdims, oldtonew, is_left );
         double prefactor;
         const int tens_sb       = siteTensor_search_qnumber( T3NSqnumber, tens );
         const int tens_herm_sb  = siteTensor_search_qnumber( T3NShermqnumber, tens );
@@ -261,8 +283,8 @@ void update_rOperators_physical( struct rOperators * const rops, const struct si
           new_block = get_tel_block( curr_operator, new_sb_tens );
           /* the symblock of the old and new operator can be skipped if empty */
           if( get_size_block( prev_operator, old_sb_tens ) == 0 ||
-              get_size_block( curr_operator, new_sb_tens ) == 0 )
-            continue;
+             get_size_block( curr_operator, new_sb_tens ) == 0 )
+          continue;
 
           /* the symblock of the old and new operator should match with the size from the symsecs */
           assert( get_size_block( prev_operator, old_sb_tens ) == M * M2 ||
@@ -273,10 +295,10 @@ void update_rOperators_physical( struct rOperators * const rops, const struct si
           {
             dgemm_( &NOTRANS, &TRANS2, &M, &N2, &M2, &ONE, old_block, &M, tens_block, 
                 TRANS2 == 'N' ? &M2 : &N2, &ZERO, workmem, &M );
-            dgemm_( &TRANS1, &NOTRANS, &N, &N2, &M, &prefactor, tens_herm_block, TRANS1 == 'N' ? &N : 
+            dgemm_( &TRANS1, &NOTRANS, &N, &N2, &M, &prefactor, tens_herm_block, TRANS1 == 'N' ? &N:
                 &M, workmem, &M, &ONE, new_block, &N );
           }
-          /* Second way of contracting : tens_herm_sb.TRANS1 x old_sb --> workmem x tens_sb.TRANS2 */
+          /* Second way of contracting : tens_herm_sb.TRANS1 x old_sb --> workmem x tens_sb.TRANS2*/
           else
           {
             dgemm_( &TRANS1, &NOTRANS, &N, &M2, &M, &ONE, tens_herm_block, TRANS1 == 'N' ? &N : &M,
@@ -287,11 +309,14 @@ void update_rOperators_physical( struct rOperators * const rops, const struct si
         }
         safe_free( workmem );
       }
+      else if( newqnumber < rops->qnumbers[ oldcoupling * old_sb + oldcoupling - 1 ] )
+        break;
     }
   }
 
   clean_symsecs_arr( symarr, indices, 3 );
   clean_symsecs( &symarr[ 3 ], get_hamiltonianbond( rops->bond_of_operator ) );
+  safe_free( oldtonew );
   destroy_rOperators( rops );
   *rops = updated_rops;
   for( i = 0 ; i < rops->nrops ; ++i )
@@ -309,12 +334,34 @@ static void unique_append_physical_to_rOperators( struct rOperators * const uniq
   /* The Lsite for right, and Rsite for left */
   const int site = netw.bonds[ 2 * prevrops->bond_of_operator + prevrops->is_left ];
   int bonds[ 3 ];
+  int tmpbond[ 9 ];
+  struct symsecs symarr[ 9 ];
   int newsec;
   const int couplings = 3;
   int maxdims[ 3 * couplings ];
   int qnbonds[ 3 * couplings ];
-  get_bonds_of_site( site, bonds );
+  int *compr_instr;
+  int *compr_hss;
+  int nrinstr;
+  get_bonds_of_site( site,  bonds );
 
+  /* bra(alpha), bra(i), bra(beta) */
+  tmpbond[ 0 ] = get_braT3NSbond( bonds[ 0 ] );
+  tmpbond[ 1 ] = get_braT3NSbond( bonds[ 1 ] );
+  tmpbond[ 2 ] = get_braT3NSbond( bonds[ 2 ] );
+
+  /* ket(alpha), ket(i), ket(beta) */
+  tmpbond[ 3 ] = get_ketT3NSbond( bonds[ 0 ] );
+  tmpbond[ 4 ] = get_ketT3NSbond( bonds[ 1 ] );
+  tmpbond[ 5 ] = get_ketT3NSbond( bonds[ 2 ] );
+
+  /* hamsymsec_alpha, hamsymsec_site, hamsymsec_beta */
+  tmpbond[ 6 ] = get_hamiltonianbond( bonds[ 0 ] );
+  tmpbond[ 7 ] = get_hamiltonianbond( bonds[ 1 ] );
+  tmpbond[ 8 ] = get_hamiltonianbond( bonds[ 2 ] );
+
+  get_symsecs_arr( symarr, tmpbond, 9 );
+ 
   assert( is_psite( site ) );
 
   initialize_unique_append_physical_to_rOperators( uniquerops, bonds[ 2 * prevrops->is_left ], 
@@ -325,6 +372,8 @@ static void unique_append_physical_to_rOperators( struct rOperators * const uniq
 
   rOperators_give_qnumberbonds( uniquerops, qnbonds );
   get_maxdims_of_bonds( maxdims, qnbonds, 3 * couplings );
+  nrinstr = get_compressed_instructions( instructions, nr_instructions, prevrops->hss_of_ops, site, 
+      hamsymsecs_of_new, &compr_instr, &compr_hss );
 
   /* Now loop over different symsecs of uniquerops, find the symsecs of the original that correspond
    * with it and of the siteoperator, and loop over all these possibilities also.
@@ -372,6 +421,8 @@ static void unique_append_physical_to_rOperators( struct rOperators * const uniq
       const int hamsymsec_old  = possible_prods[ prod * 2 ];
       const int hamsymsec_site = possible_prods[ prod * 2 + 1 ];
       int instr;
+      int * curr_instr = compr_instr;
+      int * curr_hss = compr_hss;
       /* oldqnumber is bra(alpha), ket(alpha), MPO for left
        * and           bra(beta), ket(beta), MPO for right */ 
       const QN_TYPE oldqnumber = indexes[ 2 * !prevrops->is_left ] + 
@@ -390,7 +441,7 @@ static void unique_append_physical_to_rOperators( struct rOperators * const uniq
       indexes[ 7 ]                          = hamsymsec_site;
 
       /* This function calculates the prefactor for this symsec manipulation, for all symmetries */
-      prefactor = calculate_prefactor_append_physical( indexes, site, uniquerops->is_left );
+      prefactor = calculate_prefactor_append_physical( indexes, symarr, uniquerops->is_left );
 
       oldblock = qnumbersSearch( &oldqnumber, 1,
           rOperators_give_qnumbers_for_hss( prevrops, hamsymsec_old ), 
@@ -403,28 +454,17 @@ static void unique_append_physical_to_rOperators( struct rOperators * const uniq
       newblock = newsec - uniquerops->begin_blocks_of_hss[ hamsymsec_new ];
 
       /* Now loop over the different instructions and only execute the unique ones. */
-      for( instr = 0 ; instr < nr_instructions ; ++instr )
+      for( instr = 0 ; instr < nrinstr; ++instr, ++nextBlock, curr_instr += 3, curr_hss += 3 )
       {
-        const int prevoperator = instructions[ instr * 3 + 0 ];
-        const int siteoperator = instructions[ instr * 3 + 1 ];
-        const int nextoperator = instructions[ instr * 3 + 2 ];
+        const int prevoperator = curr_instr[ 0 ];
+        const int siteoperator = curr_instr[ 1 ];
+        const int nextoperator = curr_instr[ 2 ];
         const struct sparseblocks * const prevBlock = &prevrops->operators[ prevoperator ];
 
         assert( prevoperator < prevrops->nrops );
-        /* This instruction is the same as the previous one, thus already executed, just skip it. */
-        /* If it is the first instruction, you have to execute it for sure */
-        if( instr != 0 && prevoperator == instructions[ ( instr - 1 ) * 3 + 0 ] &&
-            siteoperator == instructions[ ( instr - 1 ) * 3 + 1 ] && 
-            hamsymsecs_of_new[ nextoperator ] == 
-            hamsymsecs_of_new[ instructions[ ( instr - 1 ) * 3 + 2 ] ] )
-          continue;
-
-        /* If we are calculating the first operator, increment should not be done yet.
-         * otherwise, the operator-pointer should be incremented */
-        nextBlock += ( instr != 0 );
 
         assert( hamsymsecs_of_new[ nextoperator ] == 
-            uniquerops->hss_of_ops[ nextBlock - uniquerops->operators ]);
+            uniquerops->hss_of_ops[ nextBlock - uniquerops->operators ] );
         /* If hamsymsec_old does not correspond with the hamsymsec of the previous operator passed
          * or hamsymsec_site does not correspond with the hamsymsec of the site operator passed
          * or hamsymsec_new does not correspond with the hamsymsec of the new operator passed
@@ -432,9 +472,8 @@ static void unique_append_physical_to_rOperators( struct rOperators * const uniq
          * not occur in this one!
          *
          * If not we can start appending */
-        if( prevrops->hss_of_ops[ prevoperator ] == hamsymsec_old &&
-            get_hamsymsec_site( siteoperator, site ) == hamsymsec_site &&
-            hamsymsecs_of_new[ nextoperator ] == hamsymsec_new )
+        if( curr_hss[ 0 ] == hamsymsec_old && curr_hss[ 1 ] == hamsymsec_site &&
+            curr_hss[ 2 ] == hamsymsec_new )
         {
           const int N = get_size_block( prevBlock, oldblock );
 
@@ -453,10 +492,14 @@ static void unique_append_physical_to_rOperators( struct rOperators * const uniq
       }
 
       /* check if i looped over all the uniqueoperators */
-      assert( nextBlock - uniquerops->operators + 1 == uniquerops->nrops );
+      assert( nextBlock - uniquerops->operators == uniquerops->nrops );
     }
     safe_free( possible_prods );
   }
+
+  clean_symsecs_arr( symarr, tmpbond, 9 );
+  safe_free( compr_instr );
+  safe_free( compr_hss );
 }
 
 static void sum_unique_rOperators( struct rOperators * const newrops, const struct rOperators * 
@@ -602,8 +645,8 @@ static void initialize_sum_unique_rOperators( struct rOperators * const newrops,
   }
 }
 
-static double calculate_prefactor_append_physical( const int indexes[], const int site, const int
-    is_left )
+static double calculate_prefactor_append_physical( const int indexes[], const struct symsecs 
+    symarr[], const int is_left )
 {
   /* The indexes of the symmsecs of all 9 bonds involved!
    * Column major stored.
@@ -616,30 +659,9 @@ static double calculate_prefactor_append_physical( const int indexes[], const in
    * As can be seen in my notes for example at page 13, for the wigner9j */
   double prefactor = 1;
   int symvalues[ 9 ];
-  int bonds[ 9 ];
-  int tmpbond[ 3 ];
-  struct symsecs symarr[ 9 ];
   int i, j;
 
-  /* bra(alpha), bra(i), bra(beta) */
-  get_bonds_of_site( site,  tmpbond);
-  bonds[ 0 ] = get_braT3NSbond( tmpbond[ 0 ] );
-  bonds[ 1 ] = get_braT3NSbond( tmpbond[ 1 ] );
-  bonds[ 2 ] = get_braT3NSbond( tmpbond[ 2 ] );
-
-  /* ket(alpha), ket(i), ket(beta) */
-  get_bonds_of_site( site, &bonds[ 3 ] );
-  bonds[ 3 ] = get_ketT3NSbond( tmpbond[ 0 ] );
-  bonds[ 4 ] = get_ketT3NSbond( tmpbond[ 1 ] );
-  bonds[ 5 ] = get_ketT3NSbond( tmpbond[ 2 ] );
-
-  /* hamsymsec_alpha, hamsymsec_site, hamsymsec_beta */
-  bonds[ 6 ] = get_hamiltonianbond( tmpbond[ 0 ] );
-  bonds[ 7 ] = get_hamiltonianbond( tmpbond[ 1 ] );
-  bonds[ 8 ] = get_hamiltonianbond( tmpbond[ 2 ] );
-
-  get_symsecs_arr( symarr, bonds, 9 );
-  for( i = 0 ; i < bookie.nr_symmetries ; ++i )
+ for( i = 0 ; i < bookie.nr_symmetries ; ++i )
   {
     for( j = 0 ; j < 9 ; ++j )
     {
@@ -647,7 +669,6 @@ static double calculate_prefactor_append_physical( const int indexes[], const in
     }
     prefactor *= calculate_sympref_append_phys( symvalues, is_left, bookie.sgs[ i ] );
   }
-  clean_symsecs_arr( symarr, bonds, 9 );
 
   return prefactor;
 }
@@ -712,4 +733,121 @@ static void get_separate_qnumbers( int indexes[], const QN_TYPE * const qnumbers
     }
     assert( currqnumber == 0 );
   }
+}
+
+static int get_compressed_instructions( const int * const instructions, const int nr_instructions, 
+    const int * const prev_hss, const int site, const int * const new_hss, int ** const compr_instr,
+    int ** const compr_hss )
+{
+  int instr;
+  int nrinstr = 0;
+  *compr_instr = safe_malloc( nr_instructions * 3, int );
+  *compr_hss = safe_malloc( nr_instructions * 3, int );
+
+  /* Now loop over the different instructions and only execute the unique ones. */
+  for( instr = 0 ; instr < nr_instructions ; ++instr )
+  {
+    const int prevoperator = instructions[ instr * 3 + 0 ];
+    const int siteoperator = instructions[ instr * 3 + 1 ];
+    const int nextoperator = instructions[ instr * 3 + 2 ];
+
+    /* This instruction is the same as the previous one, thus already executed, just skip it. */
+    /* If it is the first instruction, you have to execute it for sure */
+    if( instr != 0 && prevoperator == instructions[ ( instr - 1 ) * 3 + 0 ] &&
+        siteoperator == instructions[ ( instr - 1 ) * 3 + 1 ] && 
+        new_hss[ nextoperator ] == new_hss[ instructions[ ( instr - 1 ) * 3 + 2 ] ] )
+      continue;
+
+    /* save the new instructions */
+    (*compr_instr)[ 3 * nrinstr + 0 ] = instructions[ instr * 3 + 0 ];
+    (*compr_instr)[ 3 * nrinstr + 1 ] = instructions[ instr * 3 + 1 ];
+    (*compr_instr)[ 3 * nrinstr + 2 ] = instructions[ instr * 3 + 2 ];
+
+    (*compr_hss)[ 3 * nrinstr + 0 ] = prev_hss[ prevoperator ];
+    (*compr_hss)[ 3 * nrinstr + 1 ] = get_hamsymsec_site( siteoperator, site );
+    (*compr_hss)[ 3 * nrinstr + 2 ] = new_hss[ nextoperator ];
+    ++nrinstr;
+  }
+
+  *compr_instr = realloc( *compr_instr, nrinstr * 3 * sizeof( int ) );
+  *compr_hss   = realloc( *compr_hss, nrinstr * 3 * sizeof( int ) );
+  return nrinstr;
+}
+
+static QN_TYPE change_new_to_old_ops( const QN_TYPE new, const int dimold, const int dimnew, 
+    int * const oldtonew )
+{
+  /* [ bra, ket, MPO ] => [ bra', ket', MPO ] */
+  assert( dimold >= dimnew );
+  const int branew = new % dimnew;
+  const QN_TYPE temp = new / dimnew;
+  const int ketnew = temp % dimnew;
+  const int MPO = temp / dimnew;
+  int braold;
+  int ketold;
+  for( braold = branew ; braold < dimold ; ++braold )
+    if( oldtonew[ braold ] == branew )
+      break;
+  assert( braold != dimold );
+  for( ketold = ketnew ; ketold < dimold ; ++ketold )
+    if( oldtonew[ ketold ] == ketnew )
+      break;
+  assert( ketold != dimold );
+
+  return braold + ketold * dimold + MPO * dimold * dimold;
+}
+
+static QN_TYPE change_old_to_new_site( const QN_TYPE old, const int dimold, const int maxdims[],
+    int * const oldtonew, const int is_left )
+{
+  if( !is_left )
+  {
+    assert( oldtonew[ old % dimold ] != -1 );
+    return oldtonew[ old % dimold ] + ( old / dimold ) * maxdims[ 0 ];
+  }
+  else
+  {
+    const QN_TYPE AB = maxdims[ 0 ] * maxdims[ 1 ];
+    assert( oldtonew[ old / AB ] != -1 );
+    return old % AB + oldtonew[ old / AB ] * AB;
+  }
+}
+
+static int * make_oldtonew( const struct symsecs * const internalss, const int bond )
+{
+  struct symsecs newss;
+  int * result = safe_malloc( internalss->nr_symsec, int );
+  int cnt = 0;
+  int i = 0;
+  get_symsecs( &newss, bond );
+  assert( internalss->nr_symsec >= newss.nr_symsec );
+
+  for( i = 0 ; i < newss.nr_symsec ; ++i )
+  {
+    for( ; cnt < internalss->nr_symsec ; ++cnt )
+    {
+      int j;
+      for( j = 0 ; j < bookie.nr_symmetries ; ++j )
+        if( internalss->irreps[ cnt * bookie.nr_symmetries + j ] != 
+            newss.irreps[ i * bookie.nr_symmetries + j ] )
+          break;
+      if( j == bookie.nr_symmetries )
+      {
+        result[ cnt ] = i;
+        ++cnt;
+        break;
+      }
+      else
+        result[ cnt ] = -1;
+    }
+    assert( cnt < internalss->nr_symsec || 
+        ( cnt == internalss->nr_symsec && i == newss.nr_symsec - 1 ) );
+  }
+    assert( cnt < internalss->nr_symsec || 
+        ( cnt == internalss->nr_symsec && i == newss.nr_symsec ) );
+  for( ; cnt < internalss->nr_symsec ; ++cnt )
+    result[ cnt ] = -1;
+
+  clean_symsecs( &newss, bond );
+  return result;
 }

@@ -10,12 +10,14 @@
  * \param [in] array The array which should be sorted.
  * \param [in] n Number of elements.
  */
-void quickSort( int *idx, int *array, int n );
+int * quickSort( int *array, int n );
 
-void qnumbersSort( int *idx, QN_TYPE * array, int nrels, int n );
+int * qnumbersSort( QN_TYPE * array, int nrels, int n );
 
 int search( const int value, const int * const array, const int n );
 
 int qnumbersSearch( const QN_TYPE  * values, const int nr_values, const QN_TYPE * const array, 
     const int step, const int n );
+
+int * inverse_permutation( int * perm, const int nrel );
 #endif

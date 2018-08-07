@@ -4,6 +4,7 @@
 #include "sparseblocks.h"
 #include "siteTensor.h"
 #include "macros.h"
+#include "symsecs.h"
 
 /**
  * Sooo... every siteTensor ( so of the wave function ) has as indices:
@@ -266,5 +267,5 @@ void append_physical_to_rOperators( struct rOperators * const newrops, const str
  * \param [ in ] tens The siteTensor to use for the update.
  */
 void update_rOperators_physical( struct rOperators * const rops, const struct siteTensor * 
-    const tens );
+    const tens, const struct symsecs * const internalss );
 #endif

@@ -40,16 +40,25 @@ static int comparqn( const void *a, const void *b, void *base_arr )
   return compare_el( el1, el2, size );
 }
 
-void quickSort( int *idx, int *array, int n )
+int * quickSort( int *array, int n )
 {
+  int i;
+  int * idx = safe_malloc( n, int );
+  for( i = 0 ; i < n ; ++i ) idx[ i ] = i;
+
   qsort_r( idx, n, sizeof(int), compar, array );
+  return idx;
 }
 
-void qnumbersSort( int *idx, QN_TYPE * array, int nrels, int n )
+int * qnumbersSort( QN_TYPE * array, int nrels, int n )
 {
   struct sort_struct sstruct = { .s_struct_array = array, .s_struct_nrels = nrels } ;
+  int i;
+  int * idx = safe_malloc( n, int );
+  for( i = 0 ; i < n ; ++i ) idx[ i ] = i;
 
-  qsort_r( idx, n, sizeof(int), comparqn, &sstruct );
+  qsort_r( idx, n, sizeof( int ), comparqn, &sstruct );
+  return idx;
 }
 
 int search( const int value, const int * const array, const int n )
@@ -91,4 +100,13 @@ int qnumbersSearch( const QN_TYPE  * values, const int nr_values, const QN_TYPE 
       exit( EXIT_FAILURE );
   }
   return result == n ? -1 : result;
+}
+
+int * inverse_permutation( int * perm, const int nrel )
+{
+  int * res = safe_malloc( nrel, int );
+  int i;
+  for( i = 0 ; i < nrel ; ++i ) res[ perm[ i ] ] = i;
+  safe_free( perm );
+  return res;
 }

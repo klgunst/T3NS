@@ -120,14 +120,12 @@ static void sort_instructions( int ** instructions, double ** prefactors, const 
     const int step )
 {
   int max[ step ];
-  int *idx        = safe_malloc( nr_instructions, int );
+  int *idx;
   int *instr_new  = safe_malloc( nr_instructions * step, int );
   int *array      = safe_malloc( nr_instructions, int );
   double *prefnew = prefactors == NULL ? NULL : safe_malloc( nr_instructions, double );
   int i, j;
 
-  for( i = 0 ; i < nr_instructions ; ++i ) idx[ i ] = i;
-  
   for( i = 0 ; i < step; ++i )
   {
     max[ i ] = -1;
@@ -144,7 +142,7 @@ static void sort_instructions( int ** instructions, double ** prefactors, const 
     for( j = 0 ; j < step ; ++j )
       array[ i ] += max[ j ] * (*instructions)[ i * step + j ];
   }
-  quickSort( idx, array, nr_instructions );
+  idx = quickSort( array, nr_instructions );
   for( i = 0 ; i < nr_instructions ; i++ )
   {
     for( j = 0 ; j < step ; ++j )

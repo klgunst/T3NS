@@ -42,9 +42,18 @@ void init_null_sparseblocks( struct sparseblocks * const blocks );
  * \param [in] nr_blocks The number of blocks.
  * \param [in] o o is 'c' if calloc, 'm' if malloc for tel.
  */
-
 void init_sparseblocks( struct sparseblocks * const blocks, const int * const beginblock, 
     const int nr_blocks, char o );
+
+/**
+ * \brief Makes a deep copy of a sparseblock.
+ *
+ * \param [out] copy The copy.
+ * \param [in] tocopy The sparseblocks to copy
+ * \param [in] nrblocks The number of sparse blocks.
+ */
+void deep_copy_sparseblocks( struct sparseblocks * const copy, const struct sparseblocks * const 
+    tocopy, const int nrblocks );
 
 /**
  * \brief Destroys a sparseblocks struct.

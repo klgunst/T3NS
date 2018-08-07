@@ -86,4 +86,31 @@ int get_netw_bond( const int bond );
 int are_bra_and_ket_bonds( const int bra, const int ket );
 
 void get_string_of_bond( char buffer[], const int bond );
+
+/**
+ * \brief Returns the information for the next optimization step.
+ *
+ * This function has an internal state, and is thus not threadsafe, but you won't use this in a
+ * thread normally.
+ *
+ * \param [in] maxsites The maximal number of sites updated this step, if larger than 4,
+ * 4 is assumed.
+ * \param [out] bonds_involved The outward bonds of the siteTensor to be optimized.
+ * \param [out] sites_opt The sites to optimize this step.
+ * This is always a 4-element array, if less than 4 sites should be optimized, the surpluss is 
+ * filled with -1.
+ * \param [out] common_nxt The sites that are common with the next step to be executed.
+ *
+ * \return Returns 1 if sweep is not finished yet, 0 if sweep is finished.
+ */
+int next_opt_step( const int maxsites, int bonds_involved[], int sites_opt[], int common_nxt[] );
+
+/**
+ * \brief Gives the common bond between the two sites.
+ *
+ * \param [in] site1 The first site.
+ * \param [in] site2 The second site.
+ * \return Returns the bond that is common between the two sites, or -1 if no common bond is found.
+ */
+int get_common_bond( const int site1 , const int site2 );
 #endif

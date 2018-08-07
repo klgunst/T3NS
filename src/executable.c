@@ -11,6 +11,7 @@
 #include "hamiltonian.h"
 #include "hamiltonian_qc.h"
 #include "optimize_network.h"
+#include "options.h"
 
 /* ============================================================================================ */
 /* =============================== DECLARATION STATIC FUNCTIONS =============================== */
@@ -19,7 +20,14 @@
 static void initialize_program( int argc, char *argv[], struct siteTensor **T3NS, 
     struct rOperators **rops );
 
-static void cleanup_before_exit( struct siteTensor **T3NS, struct rOperators **rops );
+static void cleanup_before_exit( struct siteTensor **T3NS, struct rOperators **rops, 
+    struct optScheme * const scheme );
+
+static void destroy_T3NS( struct siteTensor **T3NS );
+
+static void destroy_all_rops( struct rOperators **rops );
+
+static void initialize_example_scheme( struct optScheme * const scheme );
 
 /* ============================================================================================ */
 
@@ -27,6 +35,7 @@ int main( int argc, char *argv[] )
 {
   struct siteTensor *T3NS;
   struct rOperators *rops;
+  struct optScheme scheme;
   long long t_elapsed;
   double d_elapsed;
   struct timeval t_start, t_end;
@@ -37,8 +46,11 @@ int main( int argc, char *argv[] )
   setvbuf( stdout, NULL, _IOLBF, BUFSIZ );
 
   initialize_program( argc, argv, &T3NS, &rops );
+  initialize_example_scheme( &scheme );
 
-  cleanup_before_exit( &T3NS, &rops );
+  execute_optScheme( T3NS, rops, &scheme );
+
+  cleanup_before_exit( &T3NS, &rops, &scheme );
   printf( "SUCCESFULL END!\n" );
   gettimeofday( &t_end, NULL );
 
@@ -140,10 +152,45 @@ static void initialize_program( int argc, char *argv[], struct siteTensor **T3NS
   printf( "elapsed time for preparing calculation: %lf sec\n", d_elapsed );
 }
 
-static void cleanup_before_exit( struct siteTensor **T3NS, struct rOperators **rops )
+static void cleanup_before_exit( struct siteTensor **T3NS, struct rOperators **rops, 
+    struct optScheme * const scheme )
 {
   destroy_network();
   destroy_bookkeeper();
   destroy_T3NS( T3NS );
   destroy_all_rops( rops );
+  destroy_hamiltonian();
+  destroy_optScheme( scheme );
+}
+
+static void destroy_T3NS( struct siteTensor **T3NS )
+{
+  int i;
+  for( i = 0 ; i < netw.sites ; ++i )
+    destroy_siteTensor( &(*T3NS)[ i ] );
+  safe_free( *T3NS );
+}
+
+static void destroy_all_rops( struct rOperators **rops )
+{
+  int i;
+  for( i = 0 ; i < netw.nr_bonds ; ++i )
+    destroy_rOperators( &(*rops)[ i ] );
+  safe_free( *rops );
+}
+
+static void initialize_example_scheme( struct optScheme * const scheme )
+{
+  struct regime regime1 = { .minD = 10, .maxD = 50, .truncerror = 1e-5, .sitesize = 2, 
+    .davidson_rtl = SOLVER_TOL, .davidson_max_its = SOLVER_MAX_ITS, .max_sweeps = 2, 
+    .energy_conv = 1e-5 };
+  struct regime regime2  = { .minD = 200, .maxD = 400, .truncerror = 1e-5, .sitesize = 2, 
+    .davidson_rtl = SOLVER_TOL, .davidson_max_its = SOLVER_MAX_ITS, .max_sweeps = 2, 
+    .energy_conv = 1e-5 };
+
+  scheme->nrRegimes = 2;
+  scheme->regimes = safe_malloc( scheme->nrRegimes, struct regime );
+  scheme->regimes[ 0 ] = regime1;
+  scheme->regimes[ 1 ] = regime2;
+
 }

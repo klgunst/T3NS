@@ -209,6 +209,23 @@ void destroy_ops_type( struct ops_type * inp, const char o )
   }
 }
 
+void clean_ops_type( void )
+{
+  int i;
+  if( ops_compressed_array != NULL )
+    for( i = 0 ; i < 2 * netw.nr_bonds ; ++i )
+    {
+      destroy_ops_type( &ops_compressed_array[ i ], 'd' );
+    }
+  safe_free( ops_compressed_array );
+  if( ops_expanded_array != NULL )
+    for( i = 0 ; i < 2 * netw.nr_bonds ; ++i )
+    {
+      destroy_ops_type( &ops_expanded_array[ i ], 'd' );
+    }
+  safe_free( ops_expanded_array );
+}
+
 void print_ops_type( const struct ops_type * const in )
 {
   int i, *tag;

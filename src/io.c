@@ -258,10 +258,9 @@ static char* find_option( char option[], char line[] )
 static int* read_symmetries( char line[], int sg )
 {
   char* pch;
-  int *permarray = safe_malloc( sg, int );
+  int *idx;
   enum symmetrygroup *tempsgs;
   int i;
-  for( i = 0 ; i < sg ; i++ ) permarray[ i ] = i;
   bookie.nr_symmetries = sg;
   tempsgs    = safe_malloc( bookie.nr_symmetries, enum symmetrygroup );
   bookie.sgs = safe_malloc( bookie.nr_symmetries, enum symmetrygroup );
@@ -280,12 +279,13 @@ static int* read_symmetries( char line[], int sg )
     i++;
   }
 
-  quickSort( permarray, (int* ) tempsgs, bookie.nr_symmetries );
+  idx = quickSort( (int* ) tempsgs, bookie.nr_symmetries );
 
   for( i = 0 ; i < bookie.nr_symmetries ; i++ )
-    bookie.sgs[ i ] = tempsgs[ permarray[ i ] ];
+    bookie.sgs[ i ] = tempsgs[ idx[ i ] ];
+
   safe_free( tempsgs );
-  return permarray;
+  return idx;
 }
 
 static int read_targetstate( char line[], int *permarray, int no_irr, int sg )
