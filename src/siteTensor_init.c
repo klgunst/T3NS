@@ -55,6 +55,11 @@ static void make_qnumbers_and_dims( int ***qnumbersarray[], int ***dimarray[], s
  * Also destroys the passed dim_of_blocks array that was passed. */
 static void sort_and_make( struct siteTensor * const tens, int ** const dim_of_blocks );
 
+static QN_TYPE change_newtooldqnumber( QN_TYPE new, int * newtoold, int * maxdims, const int newdim,
+    const int map );
+
+static int * make_newtoold( const struct symsecs * const internalss, const int bond );
+
 /* =================================== INIT & DESTROY ========================================== */
 
 void init_null_siteTensor( struct siteTensor * const tens )
@@ -608,10 +613,12 @@ static void contractsiteTensors( struct siteTensor * const tens, struct siteTens
   int bonds[ nrbonds ];
   struct symsecs symarr[ nrbonds ];
   const int nr_internal = siteTensor_give_nr_internalbonds( tens );
+  int maxdims[ nrbonds ];
   int internalbonds[ nr_internal ];
   int map[ 2 ];
   int site;
   int resblock;
+  int * newtoold;
   
   struct siteTensor tens1 = T3NS[ tens->sites[ 0 ] ];
   struct siteTensor tens2 = T3NS[ tens->sites[ 1 ] ];
@@ -622,7 +629,9 @@ static void contractsiteTensors( struct siteTensor * const tens, struct siteTens
   const double ZERO = 0;
 
   siteTensor_give_internalbonds( tens, internalbonds );
+  newtoold = make_newtoold( &internalsymsec[ 0 ], internalbonds[ 0 ] );
   siteTensor_give_qnumberbonds( tens, bonds );
+  get_maxdims_of_bonds( maxdims, bonds, nrbonds );
   get_symsecs_arr( symarr, bonds, nrbonds );
 
   assert( tens->nrsites == 2 && nr_internal == 1 && "At this moment only two-site optimization" );
@@ -637,49 +646,58 @@ static void contractsiteTensors( struct siteTensor * const tens, struct siteTens
    * with the first or second bond of the second tensor */
   for( resblock = 0 ; resblock < tens->nrblocks ; ++resblock )
   {
+    QN_TYPE oldqnumeros[ tens->nrsites ];
     int indexes[ 3 * tens->nrsites ];
     int M1, N1, M2, N2, K2;
     int i, m, k;
-    int block1 = qnumbersSearch( &tens->qnumbers[ tens->nrsites * resblock ], 1, tens1.qnumbers, 1,
-        tens1.nrblocks );
-    int block2 = qnumbersSearch( &tens->qnumbers[ tens->nrsites * resblock + 1 ], 1, tens2.qnumbers,
-        1, tens2.nrblocks );
+    int block1, block2;
+    for( i = 0 ; i < tens->nrsites ; ++i )
+      oldqnumeros[ i ] = tens->qnumbers[ tens->nrsites * resblock + i ];
+
+    oldqnumeros[ 0 ] = change_newtooldqnumber( oldqnumeros[ 0 ], newtoold, &maxdims[ 0 ],
+        internalsymsec[ 0 ].nr_symsec, map[ 0 ] );
+    oldqnumeros[ 1 ] = change_newtooldqnumber( oldqnumeros[ 1 ], newtoold, &maxdims[ 3 ],
+        internalsymsec[ 0 ].nr_symsec, map[ 1 ] );
+
+    if( oldqnumeros[ 0 ] < 0 || oldqnumeros[ 1 ] < 0 )
+      continue;
+
+    block1 = qnumbersSearch( &oldqnumeros[ 0 ], 1, tens1.qnumbers, 1, tens1.nrblocks );
+    block2 = qnumbersSearch( &oldqnumeros[ 1 ], 1, tens2.qnumbers, 1, tens2.nrblocks );
 
     if( block1 < 0 || block2 < 0 )
       continue;
+    assert( tens1.qnumbers[ block1 ] == oldqnumeros[ 0 ] );
+    assert( tens2.qnumbers[ block2 ] == oldqnumeros[ 1 ] );
+
     EL_TYPE *tel1   = get_tel_block( &tens1.blocks, block1 );
     EL_TYPE *tel2   = get_tel_block( &tens2.blocks, block2 );
     EL_TYPE *telres = get_tel_block( &tens->blocks, resblock );
 
     for( site = 0 ; site < tens->nrsites ; ++site )
     {
-      QN_TYPE curr_QN = tens->qnumbers[ resblock * tens->nrsites + site ];
+      //QN_TYPE curr_QN = tens->qnumbers[ resblock * tens->nrsites + site ];
+      QN_TYPE curr_QN = oldqnumeros[ site ];
       int i;
       for( i = 0 ; i < 3 ; ++i )
       {
-        indexes[ site * 3 + i ] = curr_QN % symarr[ site * 3 + i ].nr_symsec;
-        curr_QN /= symarr[ site * 3 + i ].nr_symsec;
+        indexes[ site * 3 + i ] = curr_QN % maxdims[ site * 3 + i ];
+        curr_QN /= maxdims[ site * 3 + i ];
       }
       assert( curr_QN == 0 );
     }
 
     /* calculate the different dimensions of the blocks. */
-    if( indexes[ map[ 0 ] ] != indexes[ 3 + map[ 1 ] ] )
-    {
-      print_siteTensor( &tens1 );
-      print_siteTensor( &tens2 );
-
-    }
     assert( indexes[ map[ 0 ] ] == indexes[ 3 + map[ 1 ] ] );
     M1 = symarr[ 0 ].dims[ indexes[ 0 ] ] * symarr[ 1 ].dims[ indexes[ 1 ] ];
     N1 = symarr[ 2 ].dims[ indexes[ 2 ] ];
 
     M2 = 1;
-    for( i = 0 ; i < map[ 1 ] ; ++i ) M2 *= symarr[ 3 + i ].dims[ indexes [ 3 + i ] ];
+    for( i = 0 ; i < map[ 1 ] ; ++i ) M2 *= symarr[ 3 + i ].dims[ indexes[ 3 + i ] ];
     N2 = symarr[ 3 + i ].dims[ indexes[ 3 + i ] ];
     ++i;
     K2 = 1;
-    for( ; i < 3 ; ++i ) K2 *= symarr[ 3 + i ].dims[ indexes [ 3 + i ] ];
+    for( ; i < 3 ; ++i ) K2 *= symarr[ 3 + i ].dims[ indexes[ 3 + i ] ];
 
     assert( N1 == N2 );
     assert( M1 * N1 == get_size_block( &tens1.blocks, block1 ) );
@@ -692,5 +710,66 @@ static void contractsiteTensors( struct siteTensor * const tens, struct siteTens
             telres + m * M1 + k * M1 * M2, &I_ONE );
   }
 
+  safe_free( newtoold );
   clean_symsecs_arr( symarr, bonds, nrbonds );
+}
+
+static QN_TYPE change_newtooldqnumber( QN_TYPE new, int * newtoold, int * maxdims, const int newdim,
+    const int map )
+{
+  const int olddim = maxdims[ map ];
+  int i;
+  int indices[ 3 ];
+  maxdims[ map ] = newdim;
+  for( i = 0 ; i < 3 ; ++i )
+  {
+    indices[ i ] = new % maxdims[ i ];
+    new /= maxdims[ i ];
+  }
+  assert( new == 0 );
+  indices[ map ] = newtoold[ indices[ map ] ];
+  if( indices[ map ] == -1 )
+  {
+    maxdims[ map ] = olddim;
+    return -1;
+  }
+
+  maxdims[ map ] = olddim;
+  for( i = 2 ; i >= 0 ; --i )
+  {
+    new *= maxdims[ i ];
+    new += indices[ i ];
+  }
+  return new;
+}
+
+static int * make_newtoold( const struct symsecs * const internalss, const int bond )
+{
+  struct symsecs newss;
+  int * result = safe_malloc( internalss->nr_symsec, int );
+  int i = 0;
+  int currj = 0;
+  get_symsecs( &newss, bond );
+
+  for( i = 0 ; i < internalss->nr_symsec ; ++i )
+  {
+    int j;
+    result[ i ] = -1;
+    for( j = currj ; j < newss.nr_symsec ; ++j )
+    {
+      int k;
+      for( k = 0 ; k < bookie.nr_symmetries ; ++k )
+        if( internalss->irreps[ i * bookie.nr_symmetries + k ] != 
+            newss.irreps[ j * bookie.nr_symmetries + k ] )
+          break;
+      if( k == bookie.nr_symmetries )
+      {
+        result[ i ] = j;
+        currj = j + 1;
+        break;
+      }
+    }
+  }
+  clean_symsecs( &newss, bond );
+  return result;
 }

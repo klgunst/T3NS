@@ -309,7 +309,7 @@ void update_rOperators_physical( struct rOperators * const rops, const struct si
         }
         safe_free( workmem );
       }
-      else if( newqnumber < rops->qnumbers[ oldcoupling * old_sb + oldcoupling - 1 ] )
+      else if( newtooldqn < rops->qnumbers[ oldcoupling * old_sb + oldcoupling - 1 ] )
         break;
     }
   }

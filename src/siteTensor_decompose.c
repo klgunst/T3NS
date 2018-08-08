@@ -193,7 +193,6 @@ void decomposesiteObject( struct siteTensor * const siteObject, struct siteTenso
       deep_copy_symsecs( &symsec[ j ], &bookie.list_of_symsecs[ bond[ j ] ] );
       printf( "     * splitting of site %d through bond %d: trunc: %.4e, dimension: %d\n", 
           order[ j ], bond[ j ], truncerr[ j ], symsec[ j ].totaldims );
-      print_symsecs( &symsec[ j ], 0 );
     }
   }
   for( i = 0 ; i < nr_of_SVDs ; ++i ) destroy_symsecs( &originalsymsecs[ i ] );
@@ -717,7 +716,6 @@ static double truncateBond( double **S, struct symsecs * const newSymsec, const 
     for( i = 0 ; i < newSymsec->dims[ ss ] ; ++i, ++currS )
       *currS = S[ ss ][ i ];
   }
-  fprintf( stderr, "NORM : %.16f\n", dnrm2_( &newSymsec->totaldims, tempS, &ONE ) );
   assert( fabs( dnrm2_( &newSymsec->totaldims, tempS, &ONE) - 1. ) < 1e-14 && "S not normed" );
   dlasrt_( &ID, &newSymsec->totaldims, tempS, &INFO );
   assert( INFO == 0 );
@@ -754,7 +752,6 @@ static double truncateBond( double **S, struct symsecs * const newSymsec, const 
     newSymsec->dims[ ss ] = i;
     newSymsec->totaldims += i;
   }
-  printf( "New dimension size %d\n", newSymsec->totaldims );
 
   return truncerr;
 }
@@ -1071,20 +1068,6 @@ static void make_tensor( struct siteTensor * tens, int * perm, const struct syms
       for( j = gotoindex + 1 ; j < tens->nrsites * 3 ; ++j )
         Q *= symarr[ j ].dims[ indices[ j ] ];
 
-      /*
-      if( ! (blocksize == P * Q * dimss && P * Q == dim[ ss ][ i ] ) )
-      {
-        print_siteTensor( tens );
-        printf( "bonds: %d %d %d\n", bonds[ 0 ], bonds[ 1 ], bonds[ 2 ] );
-        print_symsecs( &symarr[ 0 ], 0 );
-        print_symsecs( &symarr[ 1 ], 0 );
-        print_symsecs( &symarr[ 2 ], 0 );
-        fprintf( stderr, "P : %d, Q: %d, S: %d, blocksize: %d, dim: %d\n", P, Q, dimss, blocksize,
-            dim[ ss ][ i ] );
-        fprintf( stderr, "nr indices %d, index = %d %d %d\n", tens->nrsites * 3, 
-            indices[ 0 ], indices[ 1 ], indices[ 2 ] );
-      }
-      */
       assert( blocksize == P * Q * dimss && P * Q == dim[ ss ][ i ] );
 
       /* Now the matrix is ordered as PQS for U and SPQ for V

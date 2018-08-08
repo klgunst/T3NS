@@ -239,36 +239,19 @@ static double execute_sweep_in_regime( struct siteTensor * const T3NS, struct rO
     struct symsecs internalss[ 3 ];
     int i;
 
+    printf( "sites : %d, %d\n", sites_opt[ 0 ], sites_opt[ 1 ] );
     /* The order of makesiteTensor and preprocess_rOperators is really important!
      * In makesiteTensor the symsec is set to an internal symsec. This is what you need also for
      * preprocess_rOperators */
     makesiteTensor( &tens, T3NS, sites_opt );
     preprocess_rOperators( Operators, rops, bonds_involved, internalss );
 
-    ///*
-    for( i = 0 ; i < tens.nrsites ; ++i )
-      print_siteTensor( &T3NS[ sites_opt[ i ] ] );
-    print_symsecs( &bookie.list_of_symsecs[ Operators[ 0 ].bond_of_operator ], 0 );
-    printf( "blablabla\n" );
     decomposesiteObject( &tens, T3NS, sites_opt, common_nxt, reg->minD, reg->maxD, reg->truncerror);
-    printf( "+++++AFTER+++++++++\n" );
-    for( i = 0 ; i < tens.nrsites ; ++i )
-      print_siteTensor( &T3NS[ sites_opt[ i ] ] );
-    destroy_siteTensor( &tens );
-    makesiteTensor( &tens, T3NS, sites_opt );
-    //*/
-    decomposesiteObject( &tens, T3NS, sites_opt, common_nxt, reg->minD, reg->maxD, reg->truncerror);
-    ///*
-    printf( "+++++AFTERTWO+++++++++\n" );
-    for( i = 0 ; i < tens.nrsites ; ++i )
-      print_siteTensor( &T3NS[ sites_opt[ i ] ] );
-    //  */
     destroy_siteTensor( &tens );
 
     //TEMPORARLY
     //curr_energy = optimize_siteTensor( T3NS, Operators, sites_opt, common_nxt, reg );
     curr_energy = 0;
-    printf( "sites : %d, %d\n", sites_opt[ 0 ], sites_opt[ 1 ] );
     postprocess_rOperators( Operators, rops, T3NS, sites_opt, common_nxt, bonds_involved, 
         internalss );
 

@@ -114,5 +114,5 @@ double Z2_calculate_prefactor_update_physical_rops( const int symvalues[], const
 double Z2_calculate_mirror_coupling( int symvalues[] )
 {
   /* a b c => c b a : a + bc */
-  return symvalues[ 0 ] + symvalues[ 1 ] * symvalues[ 2 ] % 2 ? 1 : -1;
+  return ( symvalues[ 0 ] + symvalues[ 1 ] * symvalues[ 2 ] ) % 2 ? -1 : 1;
 }
