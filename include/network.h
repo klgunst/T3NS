@@ -113,4 +113,6 @@ int next_opt_step( const int maxsites, int bonds_involved[], int sites_opt[], in
  * \return Returns the bond that is common between the two sites, or -1 if no common bond is found.
  */
 int get_common_bond( const int site1 , const int site2 );
+
+int is_dmrg_bond( const int bond );
 #endif

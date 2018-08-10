@@ -88,7 +88,7 @@ void init_1siteTensor( struct siteTensor * const tens, const int site, const cha
   siteTensor_give_couplings( tens, couplings );
 
   get_symsecs_arr( symarr, couplings, nrind );
-  find_goodqnumbersectors( &dimarray, &qnumbersarray, &tens->nrblocks, symarr );
+  find_goodqnumbersectors( &dimarray, &qnumbersarray, &tens->nrblocks, symarr, 1 );
 
   make_1sblocks( tens, dimarray, qnumbersarray, symarr );
 
@@ -320,7 +320,7 @@ static void make_new_internalsymsecs_and_tensor( struct siteTensor * const tens,
     get_bonds_of_site( innersite, bonds );
     get_ss_with_internal( symsec, internalsymsec, internalbonds, nr_internal, bonds );
 
-    find_goodqnumbersectors( &dimarray, &qnumbersarray, &total, symsec );
+    find_goodqnumbersectors( &dimarray, &qnumbersarray, &total, symsec, 1 );
 
     for( i = 0 ; i < 3 ; ++i )
     {
@@ -368,7 +368,7 @@ static void make_multisitetensor( struct siteTensor * tens, const struct symsecs
     get_bonds_of_site( tens->sites[ i ], bonds );
     get_ss_with_internal( symarr, internalsymsec, internalbonds, nr_internal, bonds );
 
-    find_goodqnumbersectors( &dimarray[ i ], &qnumbersarray[ i ], &total, symarr );
+    find_goodqnumbersectors( &dimarray[ i ], &qnumbersarray[ i ], &total, symarr, 1 );
   }
 
   make_qnumbers_and_dims( qnumbersarray, dimarray, tens, NULL, all_symarr, all_bonds, internalbonds,

@@ -50,4 +50,6 @@ double Z2_calculate_sympref_append_phys( const int symvalues[], const int is_lef
 double Z2_calculate_prefactor_adjoint_tensor( const int symvalues[], const char c );
 
 double Z2_calculate_mirror_coupling( int symvalues[] );
+
+double Z2_calculate_prefactor_DMRG_matvec( const int symvalues[] );
 #endif

@@ -367,6 +367,11 @@ int get_common_bond( const int site1 , const int site2 )
   return -1;
 }
 
+int is_dmrg_bond( const int bond )
+{
+  return is_psite( netw.bonds[ bond * 2 ] ) && is_psite( netw.bonds[ bond * 2 + 1 ] );
+}
+
 /* ============================================================================================ */
 /* ================================ DEFINITION STATIC FUNCTIONS =============================== */
 /* ============================================================================================ */

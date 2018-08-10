@@ -42,4 +42,7 @@ void QC_fetch_DMRG_make_ops( int ** const instructions, double ** const prefacto
  */
 void QC_fetch_expand_ops( int ** const instructions, double ** const prefactors, 
     int * const nr_instructions, const int bond, const int is_left, const int needsfull );
+
+void QC_fetch_merge( int ** const instructions, int * const nr_instructions, 
+    double ** const prefactors, const int bond );
 #endif

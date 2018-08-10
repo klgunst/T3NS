@@ -40,8 +40,9 @@ static void preprocess_rOperators( struct rOperators Operators[], const struct r
     rops, const int bonds_involved[], struct symsecs internalss[] );
 
 /* Optimization step */
-static double optimize_siteTensor( struct siteTensor * const T3NS, const struct rOperators 
-    Operators[], const int site_opt[], const int common_nxt[], const struct regime * const reg );
+static double optimize_siteTensor( struct siteTensor * tens, struct siteTensor * const T3NS, 
+    const struct rOperators Operators[], const int site_opt[], const int common_nxt[], 
+    const struct regime * const reg );
 
 /* This postprocesses the used rOperators for the current optimization */
 static void postprocess_rOperators( struct rOperators Operators[], struct rOperators * const rops,
@@ -239,19 +240,17 @@ static double execute_sweep_in_regime( struct siteTensor * const T3NS, struct rO
     struct symsecs internalss[ 3 ];
     int i;
 
-    printf( "sites : %d, %d\n", sites_opt[ 0 ], sites_opt[ 1 ] );
+    printf( "**\tOptimize sites %d", sites_opt[ 0 ] );
+    for( i = 1 ; i < 4 && sites_opt[ i ] != -1 ; ++i ) printf(" & %d", sites_opt[ i ] );
+    printf(" :\n");
     /* The order of makesiteTensor and preprocess_rOperators is really important!
      * In makesiteTensor the symsec is set to an internal symsec. This is what you need also for
      * preprocess_rOperators */
     makesiteTensor( &tens, T3NS, sites_opt );
     preprocess_rOperators( Operators, rops, bonds_involved, internalss );
 
-    decomposesiteObject( &tens, T3NS, sites_opt, common_nxt, reg->minD, reg->maxD, reg->truncerror);
-    destroy_siteTensor( &tens );
+    curr_energy = optimize_siteTensor( &tens, T3NS, Operators, sites_opt, common_nxt, reg );
 
-    //TEMPORARLY
-    //curr_energy = optimize_siteTensor( T3NS, Operators, sites_opt, common_nxt, reg );
-    curr_energy = 0;
     postprocess_rOperators( Operators, rops, T3NS, sites_opt, common_nxt, bonds_involved, 
         internalss );
 
@@ -284,58 +283,53 @@ static void preprocess_rOperators( struct rOperators Operators[], const struct r
   }
 }
 
-//static double optimize_siteTensor( struct siteTensor * const T3NS, const struct rOperators 
-//    Operators[], const int site_opt[], const int common_nxt[], const struct regime * const reg )
-//{
-//  long long t_elapsed;
-//  double d_elapsed;
-//  struct timeval t_start, t_end;
-//
-//  struct matvec_data mv_dat;
-//  struct siteTensor siteObject;
-//  double energy;
-//  EL_TYPE *diagonal;
-//  int size;
-//  int i;
-//
-//  gettimeofday(&t_start, NULL);
-//
-//  /* Making siteObject */
-//  makesiteTensor( &siteObject, T3NS, site_opt );
-//
-//  /* preparing optimization */
-//  size = siteObject.blocks.beginblock[ siteObject.nrblocks ];
-//  init_matvec_data( &mv_dat, Operators, &siteObject );
-//  diagonal = make_diagonal( &mv_dat );
-//
-//  /* optimize bond */
-//  if( Operators[ 2 ].bond_of_operator != -1 ) /* T3NS */
-//    sparse_eigensolve( siteObject.blocks.tel, size, &energy, matvecT3NS, diagonal, NULL,
-//        reg->davidson_rtl, reg->davidson_max_its, "D", DAVIDSON_KEEP_DEFLATE, DAVIDSON_MAX_VECS, 
-//        &mv_dat );
-//  else /* DMRG */
-//    sparse_eigensolve( siteObject.blocks.tel, size, &energy, matvecDMRG, diagonal, NULL,
-//        reg->davidson_rtl, reg->davidson_max_its, "D", DAVIDSON_KEEP_DEFLATE, DAVIDSON_MAX_VECS, 
-//        &mv_dat );
-//
-//  destroy_matvec_data( &mv_dat );
-//  safe_free( diagonal );
-//
-//  decomposesiteObject( &siteObject, T3NS, site_opt, common_nxt, reg->minD, reg->maxD, 
-//    reg->truncerror);
-//
-//  printf( "**\tOptimize sites %d", site_opt[ 0 ] );
-//  for( i = 1 ; i < 4 && site_opt[ i ] != -1 ; ++i ) printf(" & %d", site_opt[ i ] );
-//  printf(" :\n");
-//
-//  gettimeofday( &t_end, NULL );
-//  t_elapsed = (t_end.tv_sec - t_start.tv_sec) * 1000000LL + t_end.tv_usec - t_start.tv_usec;
-//  d_elapsed = t_elapsed * 1e-6;
-//
-//  printf("**  \t\tEnergy : %.16lf\n", energy);
-//  return energy;
-//  return 0;
-//}
+static double optimize_siteTensor( struct siteTensor * tens, struct siteTensor * const T3NS, 
+    const struct rOperators Operators[], const int site_opt[], const int common_nxt[], 
+    const struct regime * const reg )
+{
+  long long t_elapsed;
+  double d_elapsed;
+  struct timeval t_start, t_end;
+
+  struct matvec_data mv_dat;
+  double energy;
+  EL_TYPE *diagonal;
+  int size;
+
+  gettimeofday(&t_start, NULL);
+
+  /* preparing optimization */
+  size = tens->blocks.beginblock[ tens->nrblocks ];
+  init_matvec_data( &mv_dat, Operators, tens );
+  diagonal = make_diagonal( &mv_dat );
+
+  /* optimize bond */
+  if( Operators[ 2 ].bond_of_operator != -1 ) /* T3NS */
+    assert( 0 );
+  /*
+    sparse_eigensolve( tens->blocks.tel, size, &energy, matvecT3NS, diagonal, NULL,
+        reg->davidson_rtl, reg->davidson_max_its, "D", DAVIDSON_KEEP_DEFLATE, DAVIDSON_MAX_VECS, 
+        &mv_dat );
+        */
+  else /* DMRG */
+    sparse_eigensolve( tens->blocks.tel, size, &energy, matvecDMRG, diagonal, NULL,
+        reg->davidson_rtl, reg->davidson_max_its, "D", DAVIDSON_KEEP_DEFLATE, DAVIDSON_MAX_VECS, 
+        &mv_dat );
+
+  destroy_matvec_data( &mv_dat );
+  safe_free( diagonal );
+
+  decomposesiteObject( tens, T3NS, site_opt, common_nxt, reg->minD, reg->maxD, 
+    reg->truncerror );
+  destroy_siteTensor( tens );
+
+  gettimeofday( &t_end, NULL );
+  t_elapsed = (t_end.tv_sec - t_start.tv_sec) * 1000000LL + t_end.tv_usec - t_start.tv_usec;
+  d_elapsed = t_elapsed * 1e-6;
+
+  printf("**  \t\tEnergy : %.16lf\n", energy);
+  return energy;
+}
 
 static void postprocess_rOperators( struct rOperators Operators[], struct rOperators * const rops,
     const struct siteTensor * const T3NS, const int site_opt[], const int common_nxt[], const int

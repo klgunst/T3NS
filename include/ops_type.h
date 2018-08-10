@@ -55,6 +55,8 @@ void get_tag( const struct ops_type * const input, int i, int ** const tag, int 
  */
 int get_pos_of_tag( const struct ops_type * const input, const int * const tag, const int tagsize );
 
+struct ops_type get_null_op_type( void );
+
 /**
  * \brief Givest the full list of the operators needed at the given bond.
  *

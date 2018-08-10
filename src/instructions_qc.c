@@ -9,7 +9,6 @@
 #include "ops_type.h"
 #include "debug.h"
 #include "macros.h"
-
 /* ============================================================================================ */
 /* =============================== DECLARATION STATIC FUNCTIONS =============================== */
 /* ============================================================================================ */
@@ -21,6 +20,9 @@ static void DMRG_make_ops_make_r_count( int ** const instructions, double ** con
 
 static void fillin_interact(const int * const tag1, const int * const tag2, const int * const tag3, 
     const int * const tag4, const int instr1, const int instr2, const int * const instr3);
+
+static void merge_make_r_count( int ** instructions, double ** prefactors, int * nr_instructions,
+    int * step, const int bond );
 
 /* ============================================================================================ */
 
@@ -44,6 +46,20 @@ void QC_fetch_DMRG_make_ops( int ** const instructions, double ** const prefacto
 
   /* Now make the hamsymsecs_of_new */
   QC_get_hss_of_operators( hamsymsecs_of_new, bonds[ 2 * is_left ], is_left, 'c' );
+}
+
+void QC_fetch_merge( int ** const instructions, int * const nr_instructions, 
+    double ** const prefactors, const int bond )
+{
+  int step;
+  *instructions = NULL;
+  *prefactors   = NULL;
+
+  merge_make_r_count( instructions, prefactors, nr_instructions, &step, bond );
+
+  *instructions = safe_malloc( step * ( *nr_instructions ), int );
+  *prefactors   = safe_malloc( *nr_instructions, double );
+  merge_make_r_count( instructions, prefactors, nr_instructions, &step, bond );
 }
 
 void QC_fetch_expand_ops( int ** const instructions, double ** const prefactors, 
@@ -722,4 +738,186 @@ static void DMRG_make_ops_make_r_count( int ** const instructions, double ** con
 
   destroy_ops_type( &ops_in, 'e' );
   destroy_ops_type( &ops_out, 'c' );
+}
+
+static void merge_make_r_count( int ** instructions, double ** prefactors, int * nr_instructions,
+    int * step, const int bond )
+{
+  const int zero = 0;
+  const int isdmrg = is_dmrg_bond( bond );
+  int *tag, tagsize, i, j, k;
+  struct ops_type ops_1, ops_2, ops_3;
+
+  if( isdmrg )
+  {
+    ops_1 = get_op_type_list( bond, 1, 'e' );
+    ops_2 = get_op_type_list( bond, 0, 'e' );
+    ops_3 = get_null_op_type();
+  }
+  else
+  {
+    int bonds[ 3 ];
+    int branching_site = netw.bonds[ 2 * bond + is_psite( netw.bonds[ 2 * bond ] ) ];
+    assert( !is_psite( branching_site ) );
+    get_bonds_of_site( branching_site, bonds );
+
+    ops_1 = get_op_type_list(bonds[ 0 ], 1, 'e' );
+    ops_2 = get_op_type_list(bonds[ 1 ], 1, 'e' );
+    ops_3 = get_op_type_list(bonds[ 2 ], 0, 'e' );
+  }
+
+  if( *instructions == NULL || *prefactors == NULL )
+  {
+    *step = 2 + ( isdmrg == 0 );
+    *nr_instructions = ops_1.nr_H + ops_2.nr_H + ops_3.nr_H +
+      ops_1.nr_c_renorm_ops_2 + ops_2.nr_c_renorm_ops_2 + ops_3.nr_c_renorm_ops_2 +
+      ops_1.nr_c_renorm_ops_3 + ops_2.nr_c_renorm_ops_3 + ops_3.nr_c_renorm_ops_3;
+    return;
+  }
+  assert( *step == 2 + ( isdmrg == 0 ) );
+
+  start_fillin_instr( *instructions, *prefactors );
+
+  if( ops_1.nr_H != 0 ) /* H x 1 x 1 */
+    nfillin_instr( ops_1.end_cops_3, 0, isdmrg ? NULL : &zero, 1 );
+  if( ops_2.nr_H != 0 ) /* 1 x H x 1 */
+    nfillin_instr( 0, ops_2.end_cops_3, isdmrg ? NULL : &zero, 1 );
+  if( ops_3.nr_H != 0 ) /* 1 x 1 x H */
+    nfillin_instr( 0, 0, &ops_3.end_cops_3, 1 );
+
+  for( i = ops_1.end_rops_2 ; i < ops_1.end_cops_2 ; ++i )
+  {
+    get_tag( &ops_1, i, &tag, &tagsize );
+    
+    /* copsc1c2 x c1c2 x 1 */
+    if( ( j = get_pos_of_tag( &ops_2, tag, tagsize ) ) != -1 && j < ops_2.end_rops_2 )
+      nfillin_instr( i, j, isdmrg ? NULL : &zero, 1 );
+    /* copsc1c2 x 1 x c1c2 */
+    else if( ( j = get_pos_of_tag( &ops_3, tag, tagsize ) ) != -1 && j < ops_3.end_rops_2 )
+      nfillin_instr( i, 0, &j, 1 );
+    /* copsc1c2 x c1 x c2 */
+    else if( ( j = get_pos_of_tag( &ops_2, tag, 1 ) ) != -1 && j < ops_2.end_rops_2 &&
+        ( k = get_pos_of_tag( &ops_3, tag + SIZE_TAG, 1 ) ) != -1 && k < ops_3.end_rops_2 )
+      nfillin_instr( i, j, &k, 1 );
+    /* copsc1c2 x c2 x c1 */
+    else if( ( j = get_pos_of_tag( &ops_2, tag + SIZE_TAG, 1 ) ) != -1 && j < ops_2.end_rops_2 &&
+        ( k = get_pos_of_tag( &ops_3, tag, 1 ) ) != -1 && k < ops_3.end_rops_2 )
+      nfillin_instr( i, j, &k, -1 );
+    else
+    {
+      fprintf( stderr, "%s:%d : error in Hamiltonian creation.\n", __FILE__, __LINE__ );
+      exit( EXIT_FAILURE );
+    }
+  }
+
+  for( j = ops_2.end_rops_2 ; j < ops_2.end_cops_2 ; ++j )
+  {
+    get_tag( &ops_2, j, &tag, &tagsize );
+    
+    /* c1c2 x copsc1c2 x 1 */
+    if( ( i = get_pos_of_tag( &ops_1, tag, tagsize ) ) != -1 && i < ops_1.end_rops_2 )
+      nfillin_instr( i, j, isdmrg ? NULL : &zero, 1 );
+    /* 1 x copsc1c2 x c1c2 */
+    else if( ( k = get_pos_of_tag( &ops_3, tag, tagsize ) ) != -1 && k < ops_3.end_rops_2 )
+      nfillin_instr( 0, j, &k, 1 );
+    /* c1 x copsc1c2 x c2 */
+    else if( ( i = get_pos_of_tag( &ops_1, tag, 1 ) ) != -1 && i < ops_1.end_rops_2 && 
+        ( k = get_pos_of_tag( &ops_3, tag + SIZE_TAG, 1 ) ) != -1 && k < ops_3.end_rops_2 )
+      nfillin_instr( i, j, &k, 1 );
+    /* c2 x copsc1c2 x c1 */
+    else if( ( i = get_pos_of_tag( &ops_1, tag + SIZE_TAG, 1 ) ) != -1 && i < ops_1.end_rops_2 && 
+        ( k = get_pos_of_tag( &ops_3, tag, 1 ) ) != -1 && k < ops_3.end_rops_2 )
+      nfillin_instr( i, j, &k, -1 );
+    else
+    {
+      fprintf( stderr, "%s:%d : error in Hamiltonian creation.\n", __FILE__, __LINE__ );
+      exit( EXIT_FAILURE );
+    }
+  }
+
+  for( k = ops_3.end_rops_2 ; k < ops_3.end_cops_2 ; ++k )
+  {
+    get_tag( &ops_3, k, &tag, &tagsize );
+    
+    /* c1c2 x 1 x copsc1c2 */
+    if( ( i = get_pos_of_tag( &ops_1, tag, tagsize ) ) != -1 && i < ops_1.end_rops_2 )
+      nfillin_instr( i, 0, &k, 1 );
+    /* 1 x c1c2 x copsc1c2 */
+    else if( ( j = get_pos_of_tag( &ops_2, tag, tagsize ) ) != -1 && j < ops_2.end_rops_2 )
+      nfillin_instr( 0, j, &k, 1 );
+    /* c1 x c2 x copsc1c2 */
+    else if( ( i = get_pos_of_tag( &ops_1, tag, 1 ) ) != -1 && i < ops_1.end_rops_2 && 
+        ( j = get_pos_of_tag( &ops_2, tag + SIZE_TAG, 1 ) ) != -1 && j < ops_2.end_rops_2 )
+      nfillin_instr( i, j, &k, 1 );
+    /* c2 x c1 x copsc1c2 */
+    else if( ( i = get_pos_of_tag( &ops_1, tag + SIZE_TAG, 1 ) ) != -1 && i < ops_1.end_rops_2 && 
+        ( j = get_pos_of_tag( &ops_2, tag, 1 ) ) != -1 && j < ops_2.end_rops_2 )
+      nfillin_instr( i, j, &k, -1 );
+    else
+    {
+      fprintf( stderr, "%s:%d : error in Hamiltonian creation.\n", __FILE__, __LINE__ );
+      exit( EXIT_FAILURE );
+    }
+  }
+
+  for( i = ops_1.end_cops_2 ; i < ops_1.end_cops_3 ; ++i )
+  {
+    get_tag( &ops_1, i, &tag, &tagsize );
+    
+    /* copsc x c x 1 */
+    if( ( j = get_pos_of_tag( &ops_2, tag, tagsize ) ) != -1 &&  j < ops_2.end_rops_2 )
+      nfillin_instr( i, j, isdmrg ? NULL : &zero, 1 );
+    /* copsc x 1 x c */
+    else if( ( k = get_pos_of_tag( &ops_3, tag, tagsize ) ) != -1 && k < ops_3.end_rops_2 )
+      nfillin_instr( i, 0, &k, 1 );
+    else
+    {
+      fprintf( stderr, "%s:%d : error in Hamiltonian creation.\n", __FILE__, __LINE__ );
+      exit( EXIT_FAILURE );
+    }
+  }
+
+  for( j = ops_2.end_cops_2 ; j < ops_2.end_cops_3 ; ++j )
+  {
+    get_tag( &ops_2, j, &tag, &tagsize );
+    
+    /* c x copsc x 1 */
+    if( ( i = get_pos_of_tag( &ops_1, tag, tagsize ) ) != -1 && i < ops_1.end_rops_2 )
+      nfillin_instr( i, j, isdmrg ? NULL : &zero, -1 );
+    /* 1 x copsc x c */
+    else if( ( k = get_pos_of_tag( &ops_3, tag, tagsize ) ) != -1 && k < ops_3.end_rops_2 )
+      nfillin_instr( 0, j, &k, 1 );
+    else
+    {
+      fprintf( stderr, "%s:%d : error in Hamiltonian creation.\n", __FILE__, __LINE__ );
+      exit( EXIT_FAILURE );
+    }
+  }
+
+  for( k = ops_3.end_cops_2 ; k < ops_3.end_cops_3 ; ++k )
+  {
+    get_tag( &ops_3, k, &tag, &tagsize );
+    
+    /* c x 1 x copsc */
+    if( ( i = get_pos_of_tag( &ops_1, tag, tagsize ) ) != -1 && i < ops_1.end_rops_2 )
+      nfillin_instr( i, 0, &k, -1 );
+    /* 1 x c x copsc */
+    else if( ( j = get_pos_of_tag( &ops_2, tag, tagsize ) ) != -1 && j < ops_2.end_rops_2 )
+      nfillin_instr( 0, j, &k, -1 );
+    else
+    {
+      fprintf( stderr, "%s:%d : error in Hamiltonian creation.\n", __FILE__, __LINE__ );
+      exit( EXIT_FAILURE );
+    }
+  }
+
+  if( *instructions != NULL && *nr_instructions != get_nrinstr() )
+  {
+    fprintf(stderr, "The calculated number of instructions are not the same as the given ones.\n");
+    exit( EXIT_FAILURE );
+  }
+
+  destroy_ops_type( &ops_1, 'e' );
+  destroy_ops_type( &ops_2, 'e' );
+  destroy_ops_type( &ops_3, 'e' );
 }

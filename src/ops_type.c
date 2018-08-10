@@ -150,6 +150,12 @@ int get_pos_of_tag( const struct ops_type * const input, const int * const tag, 
   }
 }
 
+struct ops_type get_null_op_type( void )
+{
+  struct ops_type result = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, NULL };
+  return result;
+}
+
 struct ops_type get_op_type_list( const int bond, const int is_left, const char o )
 {
   switch( o )

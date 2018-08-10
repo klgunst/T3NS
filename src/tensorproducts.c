@@ -18,7 +18,7 @@ static void build_all_sectors( struct symsecs * const res, const struct symsecs 
 /* ============================================================================================ */
 
 void find_goodqnumbersectors( int ****dimarray, int ****qnumbersarray, int *total, 
-    const struct symsecs symarr[] )
+    const struct symsecs symarr[], const int sign )
 {
   /** Loop over bond 1 and 2, tensorproduct them to form bond 3 and then look at the ones that 
    * actually exist in bond 3. First do it for the first resulting symsec,
@@ -40,7 +40,7 @@ void find_goodqnumbersectors( int ****dimarray, int ****qnumbersarray, int *tota
     prevsym[ 0 ][ i ] = symarr[ 0 ].irreps[ 0 * bookie.nr_symmetries + i ];
     prevsym[ 1 ][ i ] = symarr[ 1 ].irreps[ 0 * bookie.nr_symmetries + i ];
     tensprod_irrep( &min_irrep[ i ], &nr_irreps[ i ], &step[ i ], prevsym[ 0 ][ i ],
-        prevsym[ 1 ][ i ], 1, bookie.sgs[ i ] );
+        prevsym[ 1 ][ i ], sign, bookie.sgs[ i ] );
     max_irrep[ i ] = min_irrep[ i ] + step[ i ] * ( nr_irreps[ i ] - 1 );
   }
 
@@ -60,7 +60,7 @@ void find_goodqnumbersectors( int ****dimarray, int ****qnumbersarray, int *tota
       {
         prevsym[ 0 ][ i ] = symarr[ 0 ].irreps[ sym1 * bookie.nr_symmetries + i ];
         tensprod_irrep( &min_irrep[ i ], &nr_irreps[ i ], &step[ i ], prevsym[ 0 ][ i ],
-            prevsym[ 1 ][ i ], 1, bookie.sgs[ i ] );
+            prevsym[ 1 ][ i ], sign, bookie.sgs[ i ] );
         max_irrep[ i ] = min_irrep[ i ] + step[ i ] * ( nr_irreps[ i ] - 1 );
       }
     }
@@ -83,7 +83,7 @@ void find_goodqnumbersectors( int ****dimarray, int ****qnumbersarray, int *tota
         {
           prevsym[ 1 ][ i ] = symarr[ 1 ].irreps[ sym2 * bookie.nr_symmetries + i ];
           tensprod_irrep( &min_irrep[ i ], &nr_irreps[ i ], &step[ i ], prevsym[ 0 ][ i ],
-              prevsym[ 1 ][ i ], 1, bookie.sgs[ i ] );
+              prevsym[ 1 ][ i ], sign, bookie.sgs[ i ] );
           max_irrep[ i ] = min_irrep[ i ] + step[ i ] * ( nr_irreps[ i ] - 1 );
         }
 

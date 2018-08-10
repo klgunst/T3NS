@@ -1,6 +1,10 @@
 #ifndef HEFF_H
 # define HEFF_H
 
+#include "siteTensor.h"
+#include "rOperators.h"
+#include "symsecs.h"
+
 /**
  * \brief A struct that wraps all the data needed for a the matvec product.
  *
@@ -9,11 +13,24 @@
  */
 struct matvec_data
 {
-  int iets;
+  struct siteTensor siteObject;
+  struct rOperators Operators[ 3 ];
+  struct symsecs symarr[ 6 ];
+  int maxdims[ 6 ];
+  int * nr_oldsb;
+  int ** oldsb_ar;
+  int ** nrMPOcombos;   /* for a tree merge these MPOcombos should not be specified for 
+                           [ bra(int), ket(int) ] 
+                           but for every [ qnumberbra( branching tensor ), qnumberket( branching ) ]
+                           intstead. */
+  int *** MPOs;
+  int * instructions;
+  int * instrbegin;
+  double * prefactors;
 };
 
 void init_matvec_data( struct matvec_data * const data, const struct rOperators Operators[], 
-    struct siteTensor * const siteObject );
+    const struct siteTensor * const siteObject );
 
 void destroy_matvec_data( struct matvec_data * const data );
 

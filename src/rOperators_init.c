@@ -189,7 +189,7 @@ static void init_nP_rOperators( struct rOperators * const rops, int ***tmp_nkapp
   /* expects a is_in of 001 or 110  for find_goodqnumbersectors */
   get_symsecs_arr( symarr, indexes, 3 );
   assert( symarr[ 0 ].nr_symsec == rops->nrhss && "Something wrong with the hamsymsec" );
-  find_goodqnumbersectors( &dimarray, &qnumbersarray, &total, symarr );
+  find_goodqnumbersectors( &dimarray, &qnumbersarray, &total, symarr, 1 );
 
   rops->begin_blocks_of_hss[ 0 ] = 0;
   for( hss = 0 ; hss < rops->nrhss ; ++hss )
@@ -293,7 +293,7 @@ static void init_P_rOperators( struct rOperators * const rops, int ***nkappa_beg
    * renormalized operators */
   rOperators_give_qnumberbonds( rops, qnumberbonds );
   get_symsecs_arr( symarr, qnumberbonds, 3 );
-  find_goodqnumbersectors( &dimarray, &qnumbersarray, &total, symarr );
+  find_goodqnumbersectors( &dimarray, &qnumbersarray, &total, symarr, 1 );
 
   /* Since the third row in qnumberbonds is coupling is bra(inner), ket(inner), MPO with is_in being 
    * 1,0,0 for Left and 0,1,0 for Right. So we want 0,0,1 order and MPO on first place. Easier and 
@@ -304,7 +304,7 @@ static void init_P_rOperators( struct rOperators * const rops, int ***nkappa_beg
   get_symsecs_arr( symarr_internal, bonds, 3 );
   assert( symarr_internal[ 0 ].nr_symsec == rops->nrhss && "Something wrong with the hamsymsec" );
   find_goodqnumbersectors( &dimarray_internal, &qnumbersarray_internal, &total_internal, 
-      symarr_internal );
+      symarr_internal, 1 );
 
   /* So now you know enough to recombine everything */
   /* First count the number of blocks... */

@@ -183,7 +183,11 @@ static void print_blocks( const struct siteTensor * const tens )
   printf( "Blocks : \n" );
   for( block = 0 ; block < tens->nrblocks ; ++block )
   {
-    printf( "bl: %d, qn: %ld\n", block, tens->qnumbers[ block ] );
+    int i;
+    printf( "bl: %d", block );
+    for( i = 0 ; i < tens->nrsites ; ++i )
+      printf( ", qn: %ld", tens->qnumbers[ block * tens->nrsites + i ] );
+    printf( "\n" );
     print_qnumber( tens, block );
     print_block( &tens->blocks, block );
   }

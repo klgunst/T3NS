@@ -413,6 +413,28 @@ double calculate_mirror_coupling( int * irrep_arr[], const enum symmetrygroup * 
   return prefactor;
 }
 
+double calculate_prefactor_DMRG_matvec( int * irrep_arr[], const enum symmetrygroup * const sgs, 
+    const int nr_symmetries )
+{
+  int i, j;
+  int symvalues[ 12 ];
+  double prefactor = 1;
+  for( i = 0 ; i < nr_symmetries ; ++i )
+    switch( sgs[ i ] )
+    {
+      case Z2 :
+        for( j = 0 ; j < 12 ; ++j ) symvalues[ j ] = irrep_arr[ j ][ i ];
+        /* only Z2 needs a sign change for this contract */
+        prefactor *= Z2_calculate_prefactor_DMRG_matvec( symvalues );
+        break;
+      case SU2 :
+      case U1 :
+      default :
+        break;
+    }
+  return prefactor;
+}
+
 /* ============================================================================================ */
 /* ================================ DEFINITION STATIC FUNCTIONS =============================== */
 /* ============================================================================================ */

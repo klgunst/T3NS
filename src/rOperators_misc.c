@@ -259,9 +259,16 @@ static void print_blocks( const struct rOperators * const rops, const int op )
 {
   const int hss = rops->hss_of_ops[ op ];
   const int blocksize = rOperators_give_nr_blocks_for_hss( rops, hss );
+  const int nrcoup = rOperators_give_nr_of_couplings( rops );
+  QN_TYPE * qn = rOperators_give_qnumbers_for_hss( rops, hss );
   int block;
   for( block = 0 ; block < blocksize ; ++block )
   {
+    int i;
+    printf( "bl: %d", block );
+    for( i = 0 ; i < nrcoup ; ++i )
+      printf( ", qn: %ld", qn[ block * nrcoup + i ] );
+    printf( "\n" );
     print_qnumber( rops, op, block );
     print_block( &rops->operators[ op ], block );
   }

@@ -60,12 +60,12 @@ double Z2_calculate_sympref_append_phys( const int symvalues[], const int is_lef
    * bra(alpha) bra(i) bra(beta*), bra(alpha*) MPO(alpha*) ket(alpha), ket(beta) ket(i*) ket(alpha*)
    *
    *        This is for Z2 a factor
-   *           |ket(alpha)||MPO(i)|
-   *           = |symvalues[ 3 ]||symvalues[ 7 ]|
+   *           |bra(beta)||MPO(i)|
+   *           = |symvalues[ 2 ]||symvalues[ 7 ]|
    *
    *           symvalues = 1 for odd, 0 for even
    */
-  return ( symvalues[ 4 - !is_left ] && symvalues[ 6 + !is_left ] ) ? -1 : 1;
+  return ( symvalues[ 4 - 2 * !is_left ] * symvalues[ 6 + !is_left ] ) % 2 ? -1 : 1;
 }
 
 double Z2_calculate_prefactor_adjoint_tensor( const int symvalues[], const char c )
@@ -115,4 +115,25 @@ double Z2_calculate_mirror_coupling( int symvalues[] )
 {
   /* a b c => c b a : a + bc */
   return ( symvalues[ 0 ] + symvalues[ 1 ] * symvalues[ 2 ] ) % 2 ? -1 : 1;
+}
+
+double Z2_calculate_prefactor_DMRG_matvec( const int symvalues[] )
+{
+  /*
+   * indexes of tens are 
+   *     ket(alpha) ket(i) ket(j) ket(gamma)*
+   * indexes of left operator:
+   *     bra(alpha) bra(i) MPO1* ket(i)* ket(alpha)*
+   * indexes of right operator:
+   *     bra(j) bra(gamma)* MPO2* ket(gamma) ket(j)*
+   * fusion of two operators:
+   *     MPO1 MPO2
+   * 
+   * So: bra(alpha) bra(i) MPO1* bra(j) bra(gamma)* MPO2* MPO1 MPO2   *    (-1)^|ket(gamma)|
+   *  =  bra(alpha) bra(i) bra(j) bra(gamma)* * (-1)^(|ket(gamma)|+|MPO1||MPO2|+|MPO1||bra(beta)|)
+   *  =  bra(alpha) bra(i) bra(j) bra(gamma)* * (-1)^(|ket(gamma)|+|MPO1||ket(beta)|)
+   *  =  bra(alpha) bra(i) bra(j) bra(gamma)* * (-1)^(|ket(gamma)|+|ket(beta)|+|ket(bet)||bra(bet)|)
+   *  =  bra(alpha) bra(i) bra(j) bra(gamma)* * (-1)^( |ket(j)| + |ket(beta)||bra(beta)| )
+   */
+  return ( symvalues[ 2 ] * symvalues[ 8 ] + symvalues[ 10 ] ) % 2 ? -1 : 1;
 }

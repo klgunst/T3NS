@@ -187,9 +187,14 @@ void decomposesiteObject( struct siteTensor * const siteObject, struct siteTenso
     printf(   "   * SVD sequence no. %d:\n", i + 1 );
     for( j = 0 ; j < nr_of_SVDs ; ++j )
     {
+      int ONE = 1;
       truncerr[ j ] = splitOfSite( order[ j ], bond[ j ], &tensors[ j ], &tensors[ j + 1 ], mind, 
           maxd, maxtrunc );
       /* copy the adapted symsec in te bookkeeper to the array symsec */
+
+      printf( "NORM WAVEFUNCTION : %f\n" , 
+          dnrm2_( &tensors[ j + 1 ].blocks.beginblock[ tensors[ j + 1 ].nrblocks ], 
+            tensors[ j + 1 ].blocks.tel, &ONE ));
       deep_copy_symsecs( &symsec[ j ], &bookie.list_of_symsecs[ bond[ j ] ] );
       printf( "     * splitting of site %d through bond %d: trunc: %.4e, dimension: %d\n", 
           order[ j ], bond[ j ], truncerr[ j ], symsec[ j ].totaldims );

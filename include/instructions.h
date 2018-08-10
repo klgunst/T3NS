@@ -51,6 +51,13 @@ void fetch_DMRG_make_ops( int ** const instructions, double ** const prefactors,
 void fetch_expand_ops( int ** const instructions, double ** const prefactors, 
     int * const nr_instructions, const int bond, const int is_left, const int needsfull );
 
+void fetch_merge( int ** const instructions, int * const nr_instructions, double** const prefactors, 
+    const int bond );
+
+void sortinstructions_toMPOcombos( int ** const instructions, int ** const instrbegin, 
+    double ** const prefactors, const int nr_instructions, const int step, 
+    int * const hss_of_Ops[ step ], int ** const MPOinstr, int * const nrMPOinstr );
+
 /* NOT THREADSAFE!!! */
 void start_fillin_instr( int * const instrline_init, double * const pref_init );
 

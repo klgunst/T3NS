@@ -80,20 +80,26 @@ int qnumbersSearch( const QN_TYPE  * values, const int nr_values, const QN_TYPE 
     case 1:
       value1 = values[ 0 ];
       while( result < n && array[ result * step ] != value1 ) ++result;
+      assert( result == n || array[ result * step ] == values[ 0 ] );
       break;
     case 2:
       value1 = values[ 0 ];
       value2 = values[ 1 ];
       while( result < n && array[ result * step ] != value1 && array[ result * step + 1 ] != value2) 
+      while( result < n && (array[ result * step ] != value1 || array[ result * step+1 ] != value2)) 
         ++result;
+      assert( result == n || ( array[ result * step ] == values[ 0 ] && 
+            array[ result * step + 1 ] == values[ 1 ] ) );
       break;
     case 3:
       value1 = values[ 0 ];
       value2 = values[ 1 ];
       value3 = values[ 2 ];
-      while( result < n && array[ result * step ] != value1 && array[ result * step + 1 ] != value2
-          && array[ result * step + 3 ] != value3 ) 
+      while( result < n && (array[ result * step ] != value1 || array[ result * step + 1 ] != value2
+          || array[ result * step + 2 ]  != value3 ) ) 
         ++result;
+      assert( result == n || ( array[ result * step ] == values[ 0 ] && 
+            array[ result * step + 1 ] == values[ 1 ] && array[ result * step + 2 ] == values[ 2]));
       break;
     default:
       fprintf( stderr, "%s@%s: Not defined for nr_values = %d\n", __FILE__, __func__, nr_values );

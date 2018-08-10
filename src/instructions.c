@@ -23,6 +23,9 @@ static void print_expand_instructions(int * const instructions, double * const p
 static void print_DMRG_instructions(int * const instructions, double * const prefactors, 
     int * const hss, const int nr_instructions, const int bond, const int is_left );
 
+static void print_merge_instructions(int * const instructions, double * const prefactors, 
+    const int nr_instructions, const int bond );
+
 /* ============================================================================================ */
 
 void fetch_DMRG_make_ops( int ** const instructions, double ** const prefactors, int ** const 
@@ -44,6 +47,82 @@ void fetch_DMRG_make_ops( int ** const instructions, double ** const prefactors,
   }
 
   sort_instructions( instructions, prefactors, *nr_instructions, 3 );
+}
+
+void fetch_merge( int ** const instructions, int * const nr_instructions, double** const prefactors, 
+    const int bond )
+{
+  switch( ham )
+  {
+    case QC :
+      QC_fetch_merge( instructions, nr_instructions, prefactors, bond );
+      break;
+    case QCSU2 :
+      fprintf( stderr, "Instructions not yet defined for SU2 QC.\n");
+      exit( EXIT_FAILURE );
+      break;
+    default:
+      fprintf( stderr, "Unrecognized Hamiltonian.\n");
+      exit( EXIT_FAILURE );
+  }
+}
+
+void sortinstructions_toMPOcombos( int ** const instructions, int ** const instrbegin, 
+    double ** const prefactors, const int nr_instructions, const int step, 
+    int * const hss_of_Ops[ step ], int ** const MPOinstr, int * const nrMPOinstr )
+{
+  int * temp = safe_malloc( nr_instructions, int ); 
+  int * newinstructions = safe_malloc( nr_instructions * step , int );
+  double * newpref = safe_malloc( nr_instructions, double );
+  int * idx;
+  int i;
+  const int hssdim = get_nr_hamsymsec();
+
+  for( i = 0 ; i < nr_instructions ; ++i )
+  {
+    int j;
+    temp[ i ] = 0;
+    for( j = step - 1 ; j >= 0 ; --j )
+      temp[ i ] = hss_of_Ops[ j ][ (*instructions)[ step * i + j ] ] + temp[ i ] * hssdim;
+  }
+
+  idx = quickSort( temp, nr_instructions );
+
+  *instrbegin = safe_malloc( nr_instructions + 1, int );
+  *MPOinstr   = safe_malloc( nr_instructions, int );
+  *nrMPOinstr = 0;
+
+  (*instrbegin)[ (*nrMPOinstr) ] = 0;
+  (*MPOinstr)  [ (*nrMPOinstr) ] = temp[ idx[ 0 ] ];
+  ++(*nrMPOinstr);
+  newpref[ 0 ] = (*prefactors)[ idx[ 0 ] ];
+  for( i = 0 ; i < step ; ++i )
+    newinstructions[ 0 * step + i ] = (*instructions)[ idx[ 0 ] * step + i ];
+  for( i = 1 ; i < nr_instructions ; ++i )
+  {
+    int j;
+    assert( (*MPOinstr)[ (*nrMPOinstr) - 1 ] <= temp[ idx[ i ] ] );
+
+    newpref[ i ] = (*prefactors)[ idx[ i ] ];
+    for( j = 0 ; j < step ; ++j )
+      newinstructions[ i * step + j ] = (*instructions)[ idx[ i ] * step + j ];
+
+    if( (*MPOinstr)[ (*nrMPOinstr) - 1 ] != temp[ idx[ i ] ] )
+    {
+      (*instrbegin)[ (*nrMPOinstr) ] = i;
+      (*MPOinstr)  [ (*nrMPOinstr) ] = temp[ idx[ i ] ];
+      ++(*nrMPOinstr);
+    }
+  }
+  (*instrbegin)[ (*nrMPOinstr) ] = i;
+  *instrbegin = realloc( *instrbegin, ( *nrMPOinstr + 1 ) * sizeof( int ) );
+  *MPOinstr   = realloc( *MPOinstr, *nrMPOinstr * sizeof( int ) );
+  safe_free( *instructions );
+  safe_free( *prefactors );
+  safe_free( idx );
+  safe_free( temp );
+  *instructions = newinstructions;
+  *prefactors = newpref;
 }
 
 void fetch_expand_ops( int ** const instructions, double ** const prefactors, 
@@ -105,8 +184,10 @@ void print_instructions(int * const instructions, double * const prefactors, int
     case 'd':
       print_DMRG_instructions( instructions, prefactors, hss, nr_instructions, bond, is_left );
       break;
-    case 't':
     case 'm':
+      print_merge_instructions( instructions, prefactors, nr_instructions, bond );
+      break;
+    case 't':
     default:
       fprintf( stderr, "%s@%s: Unknown option (%c)\n", __FILE__, __func__, kind );
   }
@@ -207,5 +288,51 @@ static void print_DMRG_instructions(int * const instructions, double * const pre
     printf( "\t%s\n", buffer );
   }
 
+  clean_symsecs( &MPO, -1 );
+}
+
+static void print_merge_instructions(int * const instructions, double * const prefactors, 
+    const int nr_instructions, const int bond )
+{
+  const int isdmrg = is_dmrg_bond( bond );
+  int i;
+  const int step = 2 + !isdmrg;
+  int bonds[ step ];
+  int isleft[ step ];
+  struct symsecs MPO;
+  get_symsecs( &MPO, -1 );
+
+  if( isdmrg )
+  {
+    bonds[ 0 ] = bond;
+    bonds[ 1 ] = bond;
+    isleft[ 0 ] = 1;
+    isleft[ 1 ] = 0;
+  }
+  else
+  {
+    int branching_site = netw.bonds[ 2 * bond + is_psite( netw.bonds[ 2 * bond ] ) ];
+    assert( !is_psite( branching_site ) );
+    get_bonds_of_site( branching_site, bonds );
+
+    isleft[ 0 ] = 1;
+    isleft[ 1 ] = 1;
+    isleft[ 2 ] = 0;
+  }
+
+  printf( "================================================================================\n" 
+          "Printing merge instructions for bond %d.\n", bond );
+
+  for( i = 0 ; i < nr_instructions ; ++i )
+  {
+    char buffer[ 255 ];
+    int j;
+    printf( "%10.4g * ", prefactors[ i ] );
+    for( j = 0 ; j < step ; ++ j)
+    {
+      get_string_of_rops( buffer, instructions[ i * step + j ], bonds[ j ], isleft[ j ], 'e' );
+      printf( "%-16s%s", buffer, j == step - 1 ? "\n" : " + " );
+    }
+  }
   clean_symsecs( &MPO, -1 );
 }

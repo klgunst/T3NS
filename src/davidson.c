@@ -53,6 +53,7 @@ int davidson(double* result, double* energy, int max_vectors, int keep_deflate, 
 
   int cnt_matvecs = 0;
   gettimeofday(&t_start, NULL);
+  printf("Dimension of davidson : %d\n", basis_size );
   printf("IT\tINFO\tRESIDUE\tENERGY\n");
 #endif
 

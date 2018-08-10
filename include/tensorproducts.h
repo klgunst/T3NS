@@ -25,7 +25,7 @@
  * \param [in] symarr The array with the relevant symmetrysectors in.
  */
 void find_goodqnumbersectors( int ****dimarray, int ****qnumbersarray, int *total, 
-    const struct symsecs symarr[] );
+    const struct symsecs symarr[], const int sign );
 
 void destroy_dim_and_qnumbersarray( int ****dimarray, int ****qnumbersarray, const struct symsecs 
     symarr[]);
