@@ -17,7 +17,6 @@ int U1_get_max_irrep( int *prop1, int nr1, int *prop2, int nr2, int inc )
 void U1_tensprod_irrep( int *min_irrep, int *nr_irreps, int *step, int irrep1, int irrep2, int sign)
 {
   *min_irrep = irrep1 + sign * irrep2;
-  //*nr_irreps = *min_irrep >= 0;
   *nr_irreps = 1;
   *step = 1;
 }

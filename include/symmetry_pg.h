@@ -86,4 +86,6 @@ void  PG_get_irrstring( char buffer[], int pg, int irr );
  * \return 1 if successful, 0 otherwise.
  */
 const int PG_which_irrep( char buffer[], int pg, int *irr );
+
+int fcidump_to_psi4( const int fcidumpirrep, const int pg_symm );
 #endif

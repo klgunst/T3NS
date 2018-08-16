@@ -77,11 +77,12 @@ void append_physical_to_rOperators( struct rOperators * const newrops, const str
   /* hamsymsecs_of_new is an extra array with the hamsymsecs index of every resulting operator */
   fetch_DMRG_make_ops( &instructions, &prefactors, &hamsymsecs_of_new, &nr_instructions, 
       oldrops->bond_of_operator, oldrops->is_left );
-  //print_instructions( instructions, prefactors, hamsymsecs_of_new, nr_instructions, 
-  //  oldrops->bond_of_operator, oldrops->is_left, 'd' );
+  /*
+  print_instructions( instructions, prefactors, hamsymsecs_of_new, nr_instructions, 
+    oldrops->bond_of_operator, oldrops->is_left, 'd' );
+    */
   unique_append_physical_to_rOperators( &uniquerops, instructions, hamsymsecs_of_new, 
       nr_instructions, oldrops );
-  //print_rOperators( &uniquerops );
 
   sum_unique_rOperators( newrops, &uniquerops, instructions, hamsymsecs_of_new, prefactors, 
       nr_instructions );

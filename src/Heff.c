@@ -1,5 +1,6 @@
 #include <stdlib.h>
 #include <stdio.h>
+#include <omp.h>
 
 #include "Heff.h"
 #include "symmetries.h"
@@ -92,8 +93,8 @@ void matvecDMRG( double * vec, double * result, void * vdata )
 
   /* NOTE actually i could just store N and M for every block in the siteObject instead of 
    * calculating Nnew, Nold, Mnew and Mold every time */
-  struct matvec_data * data = vdata;
-  struct siteTensor tens = data->siteObject;
+  const struct matvec_data * const data = vdata;
+  const struct siteTensor tens = data->siteObject;
   const struct rOperators * const Operators = data->Operators;
   const QN_TYPE innerdimsq = data->maxdims[ 2 ] * data->maxdims[ 2 ];
   int indexes[ 12 ];
@@ -108,11 +109,10 @@ void matvecDMRG( double * vec, double * result, void * vdata )
   int new_sb;
   int i;
   for( i = 0 ; i < tens.blocks.beginblock[ tens.nrblocks ] ; ++i ) result[ i ] = 0;
-  tens.blocks.tel = vec;
-  //print_siteTensor( &tens );
 
   /* looping over all new symmetry blocks */
-  /* parallellizeable */
+#pragma omp parallel for schedule(static) default(none) shared(vec, result, bookie) \
+  private(indexes, irreparr, new_sb, i)
   for( new_sb = 0 ; new_sb < tens.nrblocks ; ++new_sb )
   {
     const QN_TYPE * const newqn  = &tens.qnumbers[ new_sb * tens.nrsites ];
@@ -234,9 +234,6 @@ void matvecDMRG( double * vec, double * result, void * vdata )
       }
     }
   }
-
-  //tens.blocks.tel = result;
-  //print_siteTensor( &tens );
 }
 
 void init_matvec_data( struct matvec_data * const data, const struct rOperators Operators[], 

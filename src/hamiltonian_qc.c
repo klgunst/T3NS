@@ -109,6 +109,7 @@ void QC_get_physsymsecs( struct symsecs *res, int site )
       res->irreps[ i * bookie.nr_symmetries + j ] = 
         res->irreps[ i * bookie.nr_symmetries ] ? hdat.orbirrep[ netw.sitetoorb[ site ] ] : 0;
     /* Z2 should come first */
+    assert( bookie.sgs[ 0 ] == Z2 );
   }
 }
 
@@ -691,8 +692,8 @@ void QC_hamiltonian_tensor_products( int * const nr_of_prods, int ** const possi
       {
         if( is_psite( site ) )
         {
-          const int pg_2 = hdat.orbirrep[ netw.sitetoorb[ site ] ] * !is_double_operator( j );
-          const int pg_1 = pg_2 ^ pg_irrep;
+          const int pg_1 = hdat.orbirrep[ netw.sitetoorb[ site ] ] * ( is_double_operator(i) == 0 );
+          const int pg_2 = pg_1 ^ pg_irrep;
           (*possible_prods)[ cnt++ ] = i * nr_of_pg + pg_1;
           (*possible_prods)[ cnt++ ] = j * nr_of_pg + pg_2;
         }
@@ -805,11 +806,13 @@ static void readheader( char hamiltonianfile[] )
     while( pch )
     {
       hdat.orbirrep[ ops ] = atoi( pch );
-      if( hdat.orbirrep[ ops ]-- == 0 )
+      if( hdat.orbirrep[ ops ] == 0 )
       {
         fprintf( stderr, "Error while reading ORBSYM in %s.\n", hamiltonianfile );
         exit( EXIT_FAILURE );
       }
+      else
+        hdat.orbirrep[ ops ] = fcidump_to_psi4( hdat.orbirrep[ ops ] - 1, get_pg_symmetry() - C1 );
 
       pch = strtok( NULL, " ,\n" );
       ops++;
@@ -951,8 +954,10 @@ static int check_orbirrep( void )
 
   max_pg = get_max_irrep( NULL, 0, NULL, 0, 0, pg_symm );
   for( i = 0 ; i < hdat.norb ; i++ )
+  {
     if( hdat.orbirrep[ i ] < 0 || hdat.orbirrep[ i ] >= max_pg )
       return 0;
+  }
 
   return 1;
 }
@@ -984,9 +989,9 @@ static int is_valid_tproduct( const int i, const int j, const int other_irr, con
 static int is_double_operator( const int operator )
 {
   if( hdat.su2 )
-    return !( abs(irreps_of_hamsymsec_QCSU2[ operator ][ 0 ]) % 2 );
+    return abs(irreps_of_hamsymsec_QCSU2[ operator ][ 0 ]) % 2 == 0;
   else
-    return !( abs(irreps_of_hamsymsec_QC[operator][0] + irreps_of_hamsymsec_QC[operator][1] ) % 2 );
+    return abs(irreps_of_hamsymsec_QC[operator][0] + irreps_of_hamsymsec_QC[operator][1] ) % 2 == 0;
 }
 
 static void prepare_MPOsymsecs( void )

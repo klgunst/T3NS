@@ -18,7 +18,13 @@ const char *irrepnames[][ 8 ] = {
   { "Ag", "Bg", "Au", "Bu" }, 
   { "Ag", "B1g", "B2g", "B3g", "Au", "B1u", "B2u", "B3u" }
 };
-
+const int fcidumptopsi4[ 5 ][ 8 ] = {
+  { 0 },    // for C1
+  { 0, 1 }, // for Ci, C2 and Cs
+  { 0, 3, 2, 1 }, // for D2
+  { 0, 2, 3, 1 }, // for C2v and C2h
+  { 0, 7, 6, 1, 5, 2, 3, 4 } // for D2h
+};
 
 int PG_get_max_irrep( int pg )
 {
@@ -27,7 +33,6 @@ int PG_get_max_irrep( int pg )
 
 void PG_tensprod_irrep( int *min_irrep, int *nr_irreps, int *step, int irrep1, int irrep2 )
 {
-  int i, j;
   *nr_irreps = 1;
   *step = 1;
   *min_irrep = irrep1 ^ irrep2;
@@ -41,8 +46,14 @@ void PG_get_irrstring( char buffer[], int pg, int irr )
     sprintf( buffer, "INVALID" );
 }
 
-const int PG_which_irrep( char buffer[], int pg, int *irr )
+int PG_which_irrep( char buffer[], int pg, int *irr )
 {
-  int length = nr_irreps_pg[ pg ];
+  const int length = nr_irreps_pg[ pg ];
   return find_str_in_array( buffer, irrepnames[ pg ], length, irr );
+}
+
+int fcidump_to_psi4( const int fcidumpirrep, const int pg_symm )
+{
+  const int pg_symm_to_array[ 8 ] = { 0, 1, 1, 1, 2, 3, 3, 4 };
+  return fcidumptopsi4[ pg_symm_to_array[ pg_symm ] ][ fcidumpirrep ];
 }
