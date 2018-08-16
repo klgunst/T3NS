@@ -187,14 +187,10 @@ void decomposesiteObject( struct siteTensor * const siteObject, struct siteTenso
     printf(   "   * SVD sequence no. %d:\n", i + 1 );
     for( j = 0 ; j < nr_of_SVDs ; ++j )
     {
-      int ONE = 1;
       truncerr[ j ] = splitOfSite( order[ j ], bond[ j ], &tensors[ j ], &tensors[ j + 1 ], mind, 
           maxd, maxtrunc );
-      /* copy the adapted symsec in te bookkeeper to the array symsec */
 
-      printf( "NORM WAVEFUNCTION : %f\n" , 
-          dnrm2_( &tensors[ j + 1 ].blocks.beginblock[ tensors[ j + 1 ].nrblocks ], 
-            tensors[ j + 1 ].blocks.tel, &ONE ));
+      /* copy the adapted symsec in te bookkeeper to the array symsec */
       deep_copy_symsecs( &symsec[ j ], &bookie.list_of_symsecs[ bond[ j ] ] );
       printf( "     * splitting of site %d through bond %d: trunc: %.4e, dimension: %d\n", 
           order[ j ], bond[ j ], truncerr[ j ], symsec[ j ].totaldims );
@@ -708,7 +704,6 @@ static double truncateBond( double **S, struct symsecs * const newSymsec, const 
   double rescale;
   int ss;
   int INFO = 1;
-  const int ONE = 1;
   char ID = 'D';
   const int runupto   = maxd < newSymsec->totaldims ? maxd : newSymsec->totaldims;
   const int minimalto = mind < newSymsec->totaldims ? mind : newSymsec->totaldims;
@@ -721,7 +716,6 @@ static double truncateBond( double **S, struct symsecs * const newSymsec, const 
     for( i = 0 ; i < newSymsec->dims[ ss ] ; ++i, ++currS )
       *currS = S[ ss ][ i ];
   }
-  assert( fabs( dnrm2_( &newSymsec->totaldims, tempS, &ONE) - 1. ) < 1e-14 && "S not normed" );
   dlasrt_( &ID, &newSymsec->totaldims, tempS, &INFO );
   assert( INFO == 0 );
 

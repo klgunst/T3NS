@@ -81,6 +81,7 @@ void append_physical_to_rOperators( struct rOperators * const newrops, const str
   //  oldrops->bond_of_operator, oldrops->is_left, 'd' );
   unique_append_physical_to_rOperators( &uniquerops, instructions, hamsymsecs_of_new, 
       nr_instructions, oldrops );
+  //print_rOperators( &uniquerops );
 
   sum_unique_rOperators( newrops, &uniquerops, instructions, hamsymsecs_of_new, prefactors, 
       nr_instructions );
@@ -418,11 +419,12 @@ static void unique_append_physical_to_rOperators( struct rOperators * const uniq
     for( prod = 0 ; prod < nr_of_prods ; ++prod )
     {
       double prefactor;
-      const int hamsymsec_old  = possible_prods[ prod * 2 ];
-      const int hamsymsec_site = possible_prods[ prod * 2 + 1 ];
+      const int hamsymsec_site  = possible_prods[ prod * 2 ];
+      const int hamsymsec_old = possible_prods[ prod * 2 + 1 ];
       int instr;
       int * curr_instr = compr_instr;
       int * curr_hss = compr_hss;
+
       /* oldqnumber is bra(alpha), ket(alpha), MPO for left
        * and           bra(beta), ket(beta), MPO for right */ 
       const QN_TYPE oldqnumber = indexes[ 2 * !prevrops->is_left ] + 

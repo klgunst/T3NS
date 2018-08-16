@@ -85,7 +85,6 @@ int qnumbersSearch( const QN_TYPE  * values, const int nr_values, const QN_TYPE 
     case 2:
       value1 = values[ 0 ];
       value2 = values[ 1 ];
-      while( result < n && array[ result * step ] != value1 && array[ result * step + 1 ] != value2) 
       while( result < n && (array[ result * step ] != value1 || array[ result * step+1 ] != value2)) 
         ++result;
       assert( result == n || ( array[ result * step ] == values[ 0 ] && 

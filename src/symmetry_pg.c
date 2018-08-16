@@ -27,6 +27,7 @@ int PG_get_max_irrep( int pg )
 
 void PG_tensprod_irrep( int *min_irrep, int *nr_irreps, int *step, int irrep1, int irrep2 )
 {
+  int i, j;
   *nr_irreps = 1;
   *step = 1;
   *min_irrep = irrep1 ^ irrep2;

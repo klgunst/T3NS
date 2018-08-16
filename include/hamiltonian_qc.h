@@ -53,6 +53,8 @@ double QC_get_site_element( const int siteoperator, const int braindex, const in
 double get_V( const int * const tag1, const int * const tag2, const int * const tag3, 
     const int * const tag4 );
 
+double get_core( void );
+
 void QC_hamiltonian_tensor_products( int * const nr_of_prods, int ** const possible_prods, const int
     resulting_hamsymsec, const int site );
 
@@ -64,4 +66,5 @@ void QC_get_string_of_rops( char buffer[], const int ropsindex, const int bond,
     const int is_left, const char o );
 
 void QC_get_string_of_siteops( char buffer[], const int siteindex, const int site );
+
 #endif

@@ -82,7 +82,7 @@ void random_init( struct siteTensor ** const T3NS, struct rOperators ** const ro
         const int ONE = 1;
         const int N = tens->blocks.beginblock[ tens->nrblocks ];
         const double norm = dnrm2_( &N, tens->blocks.tel, &ONE );
-        const double inv_norm = 1 / norm;
+        const double inv_norm = -1 / norm;
         dscal_( &N, &inv_norm, tens->blocks.tel, &ONE );
       }
     }
@@ -286,8 +286,7 @@ static void preprocess_rOperators( struct rOperators Operators[], const struct r
 static double optimize_siteTensor( struct siteTensor * tens, struct siteTensor * const T3NS, 
     const struct rOperators Operators[], const int site_opt[], const int common_nxt[], 
     const struct regime * const reg )
-{
-  long long t_elapsed;
+{ long long t_elapsed;
   double d_elapsed;
   struct timeval t_start, t_end;
 

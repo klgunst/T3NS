@@ -109,7 +109,7 @@ void print_block( const struct sparseblocks * const blocks, const int id )
   EL_TYPE * const tel = get_tel_block( blocks, id );
   printf( "%d: ", N );
   for( el = 0 ; el < N ; ++el )
-    printf( "%.3f%s", tel[ el ], el == N - 1 ? "" : ", " );
+    printf( "%.6f%s", tel[ el ], el == N - 1 ? "" : ", " );
   printf( "\n" );
 }
 

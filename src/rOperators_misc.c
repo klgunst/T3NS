@@ -265,6 +265,9 @@ static void print_blocks( const struct rOperators * const rops, const int op )
   for( block = 0 ; block < blocksize ; ++block )
   {
     int i;
+    if( get_size_block( &rops->operators[ op ], block ) == 0 )
+      continue;
+
     printf( "bl: %d", block );
     for( i = 0 ; i < nrcoup ; ++i )
       printf( ", qn: %ld", qn[ block * nrcoup + i ] );

@@ -36,6 +36,12 @@ static void print_blocktoblock( const struct siteTensor * const tens, int * cons
     int ** const oldsb_ar, int ** const nrMPOcombos, int *** const MPOs, int * const MPOinstr, 
     const int nrMPOinstr, const int internaldim, struct symsecs * const internalss );
 
+double * make_diagonal_DMRG( struct matvec_data * const data );
+
+#ifdef DEBUG
+static void check_diagonal( struct matvec_data * const data, double * diagonal );
+#endif
+
 /* ============================================================================================ */
 
 void matvecDMRG( double * vec, double * result, void * vdata )
@@ -102,6 +108,8 @@ void matvecDMRG( double * vec, double * result, void * vdata )
   int new_sb;
   int i;
   for( i = 0 ; i < tens.blocks.beginblock[ tens.nrblocks ] ; ++i ) result[ i ] = 0;
+  tens.blocks.tel = vec;
+  //print_siteTensor( &tens );
 
   /* looping over all new symmetry blocks */
   /* parallellizeable */
@@ -199,6 +207,7 @@ void matvecDMRG( double * vec, double * result, void * vdata )
 
           if( OpBlock[ 0 ] == NULL || OpBlock[ 1 ] == NULL )
             continue;
+
           assert( get_size_block(&Operators[ 0 ].operators[instr[ 0 ]], Opsb[ 0 ]) == Nold * Nnew );
           assert( get_size_block(&Operators[ 1 ].operators[instr[ 1 ]], Opsb[ 1 ]) == Mold * Mnew );
           assert( Operators[ 0 ].hss_of_ops[ instr[ 0 ] ] == hss[ 0 ] );
@@ -217,7 +226,7 @@ void matvecDMRG( double * vec, double * result, void * vdata )
             /* second way is tens x op2.T --> op1 x workmem */
             dgemm_( &NOTRANS, &TRANS, &Nold, &Mnew, &Mold, &ONE, oldBlock, &Nold, OpBlock[ 1 ], 
                 &Mnew, &ZERO, workmem, &Nold );
-            dgemm_( &NOTRANS, &NOTRANS, &Nnew, &Mnew, &Nold, &ONE, OpBlock[ 0 ], &Nnew, workmem, 
+            dgemm_( &NOTRANS, &NOTRANS, &Nnew, &Mnew, &Nold, &totpref, OpBlock[ 0 ], &Nnew, workmem, 
                 &Nold, &ONE, newBlock, &Nnew );
           }
         }
@@ -225,6 +234,9 @@ void matvecDMRG( double * vec, double * result, void * vdata )
       }
     }
   }
+
+  //tens.blocks.tel = result;
+  //print_siteTensor( &tens );
 }
 
 void init_matvec_data( struct matvec_data * const data, const struct rOperators Operators[], 
@@ -270,7 +282,7 @@ void init_matvec_data( struct matvec_data * const data, const struct rOperators 
     MPOinstr, nrMPOinstr, data->maxdims[ 2 ], &data->symarr[ 2 ] );
   print_instructions( data->instructions, data->prefactors, NULL, data->instrbegin[ nrMPOinstr ],
       bonds[ 2 ], 0, 'm' );
-      */
+    */
 
   safe_free( MPOinstr );
 }
@@ -307,11 +319,12 @@ void destroy_matvec_data( struct matvec_data * const data )
 
 double * make_diagonal( struct matvec_data * const data )
 {
-  const int size = data->siteObject.blocks.beginblock[ data->siteObject.nrblocks ];
-  double * const result = safe_malloc( size, double );
-  int i;
-  for( i = 0 ; i < size ; ++i ) result[ i ] = 1;
-  return result;
+  double * res = make_diagonal_DMRG( data );
+
+#ifdef DEBUG
+  check_diagonal( data, res );
+#endif
+  return res;
 }
 
 /* ============================================================================================ */
@@ -551,3 +564,140 @@ static void print_blocktoblock( const struct siteTensor * const tens, int * cons
     }
   }
 }
+
+double * make_diagonal_DMRG( struct matvec_data * const data )
+{
+  struct siteTensor tens = data->siteObject;
+  double * result = safe_calloc( tens.blocks.beginblock[ tens.nrblocks ], double );
+  int block;
+  const char TRANS = 'T';
+  const char NOTRANS = 'N';
+  const int ONE = 1;
+  const double D_ONE = 1;
+
+  const QN_TYPE innerdimsq = data->maxdims[ 2 ] * data->maxdims[ 2 ];
+  assert( tens.nrsites == 2 );
+
+  for( block = 0 ; block < tens.nrblocks ; ++block )
+  {
+    double * const resblock = &result[ tens.blocks.beginblock[ block ] ];
+    int indexes[ 6 ];
+    int * irreparr[ 12 ];
+    int i;
+    int M, N;
+    int nrMPOcombos;
+    int *MPOs;
+    int *MPO;
+    double prefsym;
+
+    const QN_TYPE * const qn = &tens.qnumbers[ block * 2 ];
+    find_indexes( qn[ 0 ], &data->maxdims[ 0 ], &indexes[ 0 ] );
+    find_indexes( qn[ 1 ], &data->maxdims[ 3 ], &indexes[ 3 ] );
+
+    M = data->symarr[ 0 ].dims[ indexes[ 0 ] ] * data->symarr[ 1 ].dims[ indexes[ 1 ] ];
+    N = data->symarr[ 4 ].dims[ indexes[ 4 ] ] * data->symarr[ 5 ].dims[ indexes[ 5 ] ];
+
+    assert( M * N == get_size_block( &tens.blocks, block ) );
+
+    for( i = 0 ; i < data->nr_oldsb[ block ] ; ++i ) 
+      if( data->oldsb_ar[ block ][ i ] == block ) break;
+    assert( i != data->nr_oldsb[ block ] );
+    if( i == data->nr_oldsb[ block ] ) continue; 
+    /* No possibility for diagonal elements in this block. Should probably not occur */
+
+    for( i = 0 ; i < 6 ; ++i ) 
+    {
+      irreparr[ i ] = &data->symarr[ i ].irreps[ bookie.nr_symmetries * indexes[ i ] ];
+      irreparr[ i + 6 ] = irreparr[ i ];
+    }
+
+    /* possible I need way less than al these irreps */
+    prefsym = calculate_prefactor_DMRG_matvec( irreparr, bookie.sgs, bookie.nr_symmetries );
+
+    /* Loop over all MPO combos that can give diagonal elements. */
+    nrMPOcombos = data->nrMPOcombos[ indexes[ 2 ] ][ indexes[ 2 ] ];
+    MPOs        = data->MPOs[ indexes[ 2 ] ][ indexes[ 2 ] ];
+    for( MPO = MPOs ; MPO < &MPOs[ nrMPOcombos ] ; ++MPO )
+    {
+      /* The instructions are sorted according to MPO */
+      int * instr    = &data->instructions[ 2 * data->instrbegin[ *MPO ] ];
+      int * endinstr = &data->instructions[ 2 * data->instrbegin[ *MPO + 1 ] ];
+      double * pref  = &data->prefactors[ data->instrbegin[ *MPO ] ];
+      const int Mp1 = M + 1;
+      const int Np1 = N + 1;
+
+      const int hss[ 2 ] = { data->Operators[ 0 ].hss_of_ops[ instr[ 0 ] ], 
+        data->Operators[ 1 ].hss_of_ops[ instr[ 1 ] ] };
+      const QN_TYPE innerdims = indexes[ 2 ]  * ( 1 + data->maxdims[ 2 ] );
+      const QN_TYPE qnofOperators[ 2 ][ 3 ] = 
+      { { qn[ 0 ], qn[ 0 ], innerdims + hss[ 0 ] * innerdimsq }, 
+        { qn[ 1 ], qn[ 1 ], innerdims + hss[ 1 ] * innerdimsq } };
+
+      int Opsb[ 2 ];
+
+      if( instr == endinstr )
+        continue;
+
+      /* find the blocks */
+      Opsb[ 0 ] = qnumbersSearch( qnofOperators[ 0 ], 3, 
+          rOperators_give_qnumbers_for_hss( &data->Operators[ 0 ], hss[ 0 ] ), 3, 
+          rOperators_give_nr_blocks_for_hss( &data->Operators[ 0 ], hss[ 0 ] ) );
+      Opsb[ 1 ] = qnumbersSearch( qnofOperators[ 1 ], 3, 
+          rOperators_give_qnumbers_for_hss( &data->Operators[ 1 ], hss[ 1 ] ), 3, 
+          rOperators_give_nr_blocks_for_hss( &data->Operators[ 1 ], hss[ 1 ] ) );
+      assert( Opsb[ 0 ] != -1 && Opsb[ 1 ] != -1 );
+
+      for( ; instr < endinstr ; instr += 2, ++pref )
+      {
+        EL_TYPE * const OpBlock[ 2 ] = 
+        { get_tel_block( &data->Operators[ 0 ].operators[ instr[ 0 ] ], Opsb[ 0 ] ),
+          get_tel_block( &data->Operators[ 1 ].operators[ instr[ 1 ] ], Opsb[ 1 ] ) };
+        const double totpref = *pref * prefsym;
+
+        if( OpBlock[ 0 ] == NULL || OpBlock[ 1 ] == NULL )
+          continue;
+
+        assert( get_size_block( &data->Operators[ 0 ].operators[ instr[ 0 ] ], Opsb[ 0 ] ) == M*M );
+        assert( get_size_block( &data->Operators[ 1 ].operators[ instr[ 1 ] ], Opsb[ 1 ] ) == N*N );
+        assert( data->Operators[ 0 ].hss_of_ops[ instr[ 0 ] ] == hss[ 0 ] );
+        assert( data->Operators[ 1 ].hss_of_ops[ instr[ 1 ] ] == hss[ 1 ] );
+
+        dgemm_( &TRANS, &NOTRANS, &M, &N, &ONE, &totpref, OpBlock[ 0 ], &Mp1, OpBlock[ 1 ], 
+            &Np1, &D_ONE, resblock, &M );
+      }
+    }
+  }
+  return result;
+}
+
+#ifdef DEBUG
+static void check_diagonal( struct matvec_data * const data, double * diagonal )
+{
+  int i;
+  const int size = data->siteObject.blocks.beginblock[ data->siteObject.nrblocks ];
+  double * vec = safe_calloc( size, double );
+  double * res = safe_calloc( size, double );
+
+  srand(time(NULL));
+
+  for( i = 0 ; i < 20 ; ++i )
+  {
+    const int ind = rand() % size;
+    vec[ ind ] = 1;
+    if( 1 )
+      matvecDMRG( vec, res, data );
+
+    vec[ ind ] = 0;
+    if( fabs( diagonal[ ind ] - res[ ind ] ) > 1e-7 )
+    {
+      fprintf( stderr, "calculated diag :%f brute force diag: %f\n", diagonal[ ind ], res[ ind ] );
+      fprintf( stderr, "Something is wrong in the construction of the diagonal!\n" );
+      exit( EXIT_FAILURE );
+    }
+  }
+  fprintf( stderr, "Random sample of diagonal seems ok!\n" );
+
+  safe_free( vec );
+  safe_free( res );
+}
+#endif

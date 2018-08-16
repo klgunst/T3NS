@@ -110,6 +110,16 @@ void init_1siteTensor( struct siteTensor * const tens, const int site, const cha
     case 'r':
       tens->blocks.tel = safe_malloc( tens->blocks.beginblock[ tens->nrblocks ], EL_TYPE );
       srand( time( NULL ) );
+      for( i = 0 ; i <  tens->nrblocks ; ++i )
+        /*
+      {
+        int j;
+        double * EL = get_tel_block( &tens->blocks, i );
+        for( j = 0 ; j < get_size_block( &tens->blocks, i ) ; ++j )
+          EL[ j ] = j + 1;
+      }
+      break;
+      */
       for( i = 0 ; i <  tens->blocks.beginblock[ tens->nrblocks ] ; ++i )
         tens->blocks.tel[ i ] = ( rand() * 1. ) / RAND_MAX;
       break;

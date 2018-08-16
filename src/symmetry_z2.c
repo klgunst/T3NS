@@ -53,11 +53,11 @@ double Z2_calculate_sympref_append_phys( const int symvalues[], const int is_lef
    *           = |symvalues[ 4 ]||symvalues[ 6 ]|
    *
    *        for Right renormalized operators:
-   *        bra(beta*) MPO(beta*) ket(beta) ==>
-   *        bra(beta*) MPO(beta*) ket(beta), MPO(beta) MPO(i) MPO(alpha*), bra(i) MPO(i*) ket(i*)
+   *        bra(beta*) MPO(beta) ket(beta) ==>
+   *        bra(beta*) MPO(beta) ket(beta), MPO(alpha) MPO(i) MPO(beta*), bra(i) MPO(i*) ket(i*)
    * ( is the site operator correct? )
    *        After this we should permute too :
-   * bra(alpha) bra(i) bra(beta*), bra(alpha*) MPO(alpha*) ket(alpha), ket(beta) ket(i*) ket(alpha*)
+   * bra(alpha) bra(i) bra(beta*), bra(alpha*) MPO(alpha) ket(alpha), ket(beta) ket(i*) ket(alpha*)
    *
    *        This is for Z2 a factor
    *           |bra(beta)||MPO(i)|
@@ -65,6 +65,12 @@ double Z2_calculate_sympref_append_phys( const int symvalues[], const int is_lef
    *
    *           symvalues = 1 for odd, 0 for even
    */
+  /* symvalues[ 7 ] * symvalues[ 8 ] cuz in instructions I always paste the site operator to the end
+   * of the operator string */
+  if( is_left )
+    return ( symvalues[ 4 ] * symvalues[ 6 ] ) % 2 ? -1 : 1;
+  else
+    return ( symvalues[ 7 ] * symvalues[ 5 ]  + symvalues[ 7 ] + symvalues[ 7 ] * symvalues[ 8 ] ) % 2 ? -1 : 1;
   return ( symvalues[ 4 - 2 * !is_left ] * symvalues[ 6 + !is_left ] ) % 2 ? -1 : 1;
 }
 
@@ -129,11 +135,12 @@ double Z2_calculate_prefactor_DMRG_matvec( const int symvalues[] )
    * fusion of two operators:
    *     MPO1 MPO2
    * 
-   * So: bra(alpha) bra(i) MPO1* bra(j) bra(gamma)* MPO2* MPO1 MPO2   *    (-1)^|ket(gamma)|
+   * So: bra(alpha) bra(i) MPO1* bra(j) bra(gamma)* *MPO2* MPO1 MPO2   *    (-1)^|ket(gamma)|
    *  =  bra(alpha) bra(i) bra(j) bra(gamma)* * (-1)^(|ket(gamma)|+|MPO1||MPO2|+|MPO1||bra(beta)|)
    *  =  bra(alpha) bra(i) bra(j) bra(gamma)* * (-1)^(|ket(gamma)|+|MPO1||ket(beta)|)
    *  =  bra(alpha) bra(i) bra(j) bra(gamma)* * (-1)^(|ket(gamma)|+|ket(beta)|+|ket(bet)||bra(bet)|)
    *  =  bra(alpha) bra(i) bra(j) bra(gamma)* * (-1)^( |ket(j)| + |ket(beta)||bra(beta)| )
    */
-  return ( symvalues[ 2 ] * symvalues[ 8 ] + symvalues[ 10 ] ) % 2 ? -1 : 1;
+  return ( symvalues[ 2 ] * symvalues[ 8 ] + symvalues[ 11 ] + symvalues[ 2 ] ) % 2 ? -1 : 1;
+  //return ( symvalues[ 2 ] * symvalues[ 8 ] + symvalues[ 10 ] ) % 2 ? -1 : 1;
 }

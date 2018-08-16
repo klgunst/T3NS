@@ -444,7 +444,7 @@ double QC_get_site_element( const int siteoperator, const int braindex, const in
   switch (siteoperator)
   {
     case 0 : /* 1 : |0><0| + |1><1| + |2><2| + |3><3| */
-      return braindex == ketindex ? 1.0 : 0.0;
+      return ( braindex == ketindex ) ? 1.0 : 0.0;
 
     case 10 : /* c+_u : |1><0| + |3><2| */
       if( braindex == 1 && ketindex == 0 )
@@ -530,7 +530,7 @@ double QC_get_site_element( const int siteoperator, const int braindex, const in
 
     case 8 : /* c+_u c+_d c_u c_d : -|3><3| */
       if( braindex == 3 && ketindex == 3 )
-        return 1.0;
+        return -1.0;
       return 0;
 
     default :
@@ -619,8 +619,8 @@ int QC_get_hamsymsec_site( const int siteoperator, const int site )
   }
 
   for( i = 0 ; i < size ; ++i )
-    if( irreps_of_hamsymsec[ i*2 + 0 ] == irreps_of_hss[ 0 ] &&
-        irreps_of_hamsymsec[ i*2 + 1 ] == irreps_of_hss[ 1 ] )
+    if( irreps_of_hamsymsec[ i * 2 + 0 ] == irreps_of_hss[ 0 ] &&
+        irreps_of_hamsymsec[ i * 2 + 1 ] == irreps_of_hss[ 1 ] )
       return i * nr_of_pg + pg_irrep * ( abs( irreps_of_hss[ 0 ]  + irreps_of_hss[ 1 ] ) % 2 );
 
   return -1;
@@ -637,11 +637,17 @@ double get_V( const int * const tag1, const int * const tag2, const int * const 
     return 0;
   if( tag1[ 2 ] != tag4[ 2 ] || tag2[ 2 ] != tag3[ 2 ] )
     return 0;
+
   if( get_pg_symmetry() != -1 && ( ( hdat.orbirrep[ tag1[ 1 ] ] ^ hdat.orbirrep[ tag2[ 1 ] ] ) ^
       ( hdat.orbirrep[ tag3[ 1 ] ] ^ hdat.orbirrep[ tag4[ 1 ] ] ) ) != 0 )
     return 0;
 
   return 0.5 * hdat.Vijkl[tag1[1] + psites * tag4[1] + psites2 * tag3[1] + psites3 * tag2[1] ];
+}
+
+double get_core( void )
+{
+  return hdat.core_energy;
 }
 
 void QC_hamiltonian_tensor_products( int * const nr_of_prods, int ** const possible_prods, const int
@@ -729,7 +735,7 @@ int QC_get_hamsymsec_from_tag( const int * const tag, const int tagsize )
       hss[ spin ] += sign;
     }
     for( i = 0 ; i < size ; ++i )
-      if( hss[0] == irreps_of_hamsymsec_QC[ i ][ 0 ] && hss[1] == irreps_of_hamsymsec_QC[ i ][ 1 ])
+      if( hss[0] == irreps_of_hamsymsec_QC[ i ][ 0 ] && hss[1] == irreps_of_hamsymsec_QC[ i ][ 1 ] )
         return i * nr_of_pg + pg_new;
     fprintf( stderr, "%s@%s: Something wrong while calculating hamsymsec from tag (%d, %d).\n", 
         __FILE__, __func__, hss[ 0 ], hss[ 1 ] );

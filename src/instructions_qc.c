@@ -295,7 +295,7 @@ static void DMRG_make_ops_make_r_count( int ** const instructions, double ** con
     else
     {
       siteops = QC_tag_to_site_operator( tag, tagsize );
-      nfillin_instr(0, siteops, &nextops, 1 );
+      nfillin_instr( 0, siteops, &nextops, 1 );
     }
   }
 
@@ -597,6 +597,8 @@ static void DMRG_make_ops_make_r_count( int ** const instructions, double ** con
 
   /* quadruple operator */
   if( ops_in.nr_H == 1 ) nfillin_instr( ops_in.end_cops_3, 0, &(ops_out.end_cops_3), 1 );
+  if( ops_out.nr_H == 1 && bond == 0 && is_left ) 
+    nfillin_instr( 0, 0, &(ops_out.end_cops_3), get_core() );
 
   temptag[ 0 ] = 1;     temptag[ 3 ] = 1;     temptag[ 6 ] = 0;     temptag[ 9 ] = 0;
   temptag[ 1 ] = psite; temptag[ 4 ] = psite; temptag[ 7 ] = psite; temptag[ 10 ] = psite;
