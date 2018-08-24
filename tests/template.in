@@ -1,10 +1,11 @@
 ! This is a template for the input file
-networkfile 	templateDMRG10.netw
+!networkfile 	templateDMRG10.netw
+networkfile 	templateT3NS10.netw
 !networkfile 	templateDMRG28.netw
-symm 		u1 u1 d2h
-ts 		7 7 0
-!symm 		u1 u1
-!ts 		7 7
+!symm 		u1 u1 d2h
+!ts 		7 7 0
+symm 		u1 u1
+ts 		7 7
 !symm 		u1 su2 d2h
 !ts 		14 0 0
 

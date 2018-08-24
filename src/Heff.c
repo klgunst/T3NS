@@ -2,6 +2,12 @@
 #include <stdio.h>
 #include <omp.h>
 
+#ifdef DEBUG
+#include <sys/time.h>
+#include <math.h>
+#include <time.h>
+#endif
+
 #include "Heff.h"
 #include "symmetries.h"
 #include "macros.h"
@@ -111,7 +117,7 @@ void matvecDMRG( double * vec, double * result, void * vdata )
   for( i = 0 ; i < tens.blocks.beginblock[ tens.nrblocks ] ; ++i ) result[ i ] = 0;
 
   /* looping over all new symmetry blocks */
-#pragma omp parallel for schedule(static) default(none) shared(vec, result, bookie) \
+#pragma omp parallel for schedule(dynamic) default(none) shared(vec, result, bookie) \
   private(indexes, irreparr, new_sb, i)
   for( new_sb = 0 ; new_sb < tens.nrblocks ; ++new_sb )
   {
@@ -273,13 +279,6 @@ void init_matvec_data( struct matvec_data * const data, const struct rOperators 
       nr_instructions, 2, hss_of_Ops, &MPOinstr, &nrMPOinstr );
 
   adaptMPOcombosDMRG( data->nrMPOcombos, data->MPOs, MPOinstr, nrMPOinstr, data->maxdims[ 2 ] );
-
-  /*
-  print_blocktoblock( siteObject, data->nr_oldsb, data->oldsb_ar, data->nrMPOcombos, data->MPOs, 
-    MPOinstr, nrMPOinstr, data->maxdims[ 2 ], &data->symarr[ 2 ] );
-  print_instructions( data->instructions, data->prefactors, NULL, data->instrbegin[ nrMPOinstr ],
-      bonds[ 2 ], 0, 'm' );
-    */
 
   safe_free( MPOinstr );
 }

@@ -94,10 +94,10 @@ int get_size_block( const struct sparseblocks * const blocks, const int id )
   return blocks->beginblock[ id + 1 ] - blocks->beginblock[ id ];
 }
 
-EL_TYPE * get_tel_block( const struct sparseblocks * const blocks, const int id )
+EL_TYPE * get_tel_block(const struct sparseblocks * const blocks, const int id)
 {
-  if( get_size_block( blocks, id ) )
-    return blocks->tel + blocks->beginblock[ id ];
+  if (get_size_block(blocks, id))
+    return blocks->tel + blocks->beginblock[id];
   else
     return NULL;
 }

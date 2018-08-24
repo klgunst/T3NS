@@ -52,4 +52,6 @@ double Z2_calculate_prefactor_adjoint_tensor( const int symvalues[], const char 
 double Z2_calculate_mirror_coupling( int symvalues[] );
 
 double Z2_calculate_prefactor_DMRG_matvec( const int symvalues[] );
+
+double Z2_prefactor_update_branch(const int symvalues[3][3], const int updateCase);
 #endif

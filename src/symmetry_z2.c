@@ -76,8 +76,7 @@ double Z2_calculate_sympref_append_phys( const int symvalues[], const int is_lef
 
 double Z2_calculate_prefactor_adjoint_tensor( const int symvalues[], const char c )
 {
-  switch( c )
-  {
+  switch( c ) {
     case 'l':
       /* left renormalized tensor, no sign needed */
       return 1;
@@ -117,6 +116,55 @@ double Z2_calculate_prefactor_update_physical_rops( const int symvalues[], const
     return ( symvalues[ 1 ] + symvalues[ 4 ] ) % 2 ? -1 : 1;
 }
 
+double Z2_prefactor_update_branch(const int symvalues[3][3], const int updateCase)
+{
+  /* tensor : 
+   *   ket(alpha) ket(beta) ket(gamma)*
+   * adjoint :
+   *   bra(gamma) bra(beta)* bra(alpha)* with sign: 'r', 'R', 'l' for case 0, 1, 2
+   * mergeMPO:
+   *   MPO(alpha)MPO(beta)MPO(gamma)*
+   * 
+   * updateCase 0:
+   * OPS1 :
+   *   bra(beta) MPO(beta)* ket(beta)*
+   * OPS2 :
+   *   bra(gamma)* MPO(gamma) ket(gamma)
+   * NEWOPS :
+   *   bra(alpha)* MPO(alpha) ket(alpha)
+   *  ===> sign needed (-1)^|ket(gamma) MPO(beta) + bra(beta)|
+   *   
+   * updateCase 1:
+   * OPS1 :
+   *   bra(alpha) MPO(alpha)* ket(alpha)*
+   * OPS2 :
+   *   bra(gamma)* MPO(gamma) ket(gamma)
+   * NEWOPS :
+   *   bra(beta)* MPO(beta) ket(beta)
+   *  ===> sign needed (-1)^|ket(alpha) MPO(gamma) + bra(alpha)|
+   *
+   * updateCase 2:
+   * OPS1 :
+   *   bra(alpha) MPO(alpha)* ket(alpha)*
+   * OPS2 :
+   *   bra(beta) MPO(beta)* ket(beta)*
+   * NEWOPS :
+   *   bra(gamma) MPO(gamma)* ket(gamma)*
+   *  ===> sign needed (-1)^|ket(beta) MPO(alpha)|
+   */
+  switch (updateCase) {
+    case 0:
+      return (symvalues[1][2] * symvalues[2][1] + symvalues[0][1]) ? -1 : 1;
+    case 1:
+      return (symvalues[1][0] * symvalues[2][2] + symvalues[0][0]) ? -1 : 1;
+    case 2:
+      return (symvalues[1][1] && symvalues[0][2]) ? -1 : 1;
+    default:
+      fprintf(stderr, "%s@%s: wrong switch (%d)\n", __FILE__, __func__, updateCase);
+      exit(EXIT_FAILURE);
+  }
+}
+
 double Z2_calculate_mirror_coupling( int symvalues[] )
 {
   /* a b c => c b a : a + bc */
@@ -139,8 +187,7 @@ double Z2_calculate_prefactor_DMRG_matvec( const int symvalues[] )
    *  =  bra(alpha) bra(i) bra(j) bra(gamma)* * (-1)^(|ket(gamma)|+|MPO1||MPO2|+|MPO1||bra(beta)|)
    *  =  bra(alpha) bra(i) bra(j) bra(gamma)* * (-1)^(|ket(gamma)|+|MPO1||ket(beta)|)
    *  =  bra(alpha) bra(i) bra(j) bra(gamma)* * (-1)^(|ket(gamma)|+|ket(beta)|+|ket(bet)||bra(bet)|)
-   *  =  bra(alpha) bra(i) bra(j) bra(gamma)* * (-1)^( |ket(j)| + |ket(beta)||bra(beta)| )
+   *  =  bra(alpha) bra(i) bra(j) bra(gamma)* * (-1)^(|ket(j)| + |ket(beta)||bra(beta)|) 
    */
   return ( symvalues[ 2 ] * symvalues[ 8 ] + symvalues[ 11 ] + symvalues[ 2 ] ) % 2 ? -1 : 1;
-  //return ( symvalues[ 2 ] * symvalues[ 8 ] + symvalues[ 10 ] ) % 2 ? -1 : 1;
 }

@@ -17,17 +17,9 @@ static void unique_append_physical_to_rOperators( struct rOperators * const uniq
      const int * const instructions, const int * const hamsymsecs_of_new, const int nr_instructions,
      const struct rOperators * const fullrops );
 
-static void sum_unique_rOperators( struct rOperators * const newrops, const struct rOperators * 
-    const uniquerops, const int * const instructions, const int * const hamsymsec_new, const double* 
-    const prefactors, const int nr_instructions );
-
 static void initialize_unique_append_physical_to_rOperators( struct rOperators * const uniquerops, 
     const int bond_of_operator, const int is_left, const int * const instructions, 
     const int * const hamsymsecs_of_new, const int nr_instructions );
-
-static void initialize_sum_unique_rOperators( struct rOperators * const newrops, const struct 
-    rOperators * const uniquerops, const int * const instructions, const int * const 
-    hamsymsec_of_new, const int nr_instructions );
 
 static double calculate_prefactor_append_physical( const int indexes[], const struct symsecs 
     symarr[], const int is_left );
@@ -77,10 +69,6 @@ void append_physical_to_rOperators( struct rOperators * const newrops, const str
   /* hamsymsecs_of_new is an extra array with the hamsymsecs index of every resulting operator */
   fetch_DMRG_make_ops( &instructions, &prefactors, &hamsymsecs_of_new, &nr_instructions, 
       oldrops->bond_of_operator, oldrops->is_left );
-  /*
-  print_instructions( instructions, prefactors, hamsymsecs_of_new, nr_instructions, 
-    oldrops->bond_of_operator, oldrops->is_left, 'd' );
-    */
   unique_append_physical_to_rOperators( &uniquerops, instructions, hamsymsecs_of_new, 
       nr_instructions, oldrops );
 
@@ -420,8 +408,8 @@ static void unique_append_physical_to_rOperators( struct rOperators * const uniq
     for( prod = 0 ; prod < nr_of_prods ; ++prod )
     {
       double prefactor;
-      const int hamsymsec_site  = possible_prods[ prod * 2 ];
-      const int hamsymsec_old = possible_prods[ prod * 2 + 1 ];
+      const int hamsymsec_site = possible_prods[ prod * 2 ];
+      const int hamsymsec_old  = possible_prods[ prod * 2 + 1 ];
       int instr;
       int * curr_instr = compr_instr;
       int * curr_hss = compr_hss;
@@ -505,45 +493,6 @@ static void unique_append_physical_to_rOperators( struct rOperators * const uniq
   safe_free( compr_hss );
 }
 
-static void sum_unique_rOperators( struct rOperators * const newrops, const struct rOperators * 
-    const uniquerops, const int * const instructions, const int * const hamsymsec_new, const double*
-    const prefactors, const int nr_instructions )
-{
-  int instr, i;
-  const struct sparseblocks * uniqueBlock = &uniquerops->operators[ 0 ];
-
-  initialize_sum_unique_rOperators( newrops, uniquerops, instructions, hamsymsec_new, 
-      nr_instructions );
-
-  for( instr = 0 ; instr < nr_instructions ; ++instr )
-  {
-    const int prevoperator = instructions[ instr * 3 + 0 ];
-    const int siteoperator = instructions[ instr * 3 + 1 ];
-    const int nextoperator = instructions[ instr * 3 + 2 ];
-    const int nr_blocks = rOperators_give_nr_blocks_for_operator( newrops, nextoperator );
-    struct sparseblocks * const newBlock = &newrops->operators[ nextoperator ];
-
-    const int N = newBlock->beginblock[ nr_blocks ];
-    int j;
-
-    /* This instruction is not the same as the previous one, you have to increment uniquetens. */
-    /* If it is the first instruction, you have to execute it for sure */
-    if( instr != 0 && ( prevoperator != instructions[ ( instr - 1 ) * 3 + 0 ] || 
-        siteoperator != instructions[ ( instr - 1 ) * 3 + 1 ] || 
-        hamsymsec_new[ nextoperator ] != hamsymsec_new[instructions[( instr - 1 ) * 3 + 2 ]] ) )
-      ++uniqueBlock;
-
-    assert( N == uniqueBlock->beginblock[ nr_blocks ] );
-
-    for( j = 0 ; j < N ; ++j ) newBlock->tel[ j ] += prefactors[ instr ] * uniqueBlock->tel[ j ];
-  }
-  assert( uniqueBlock - uniquerops->operators + 1 == uniquerops->nrops );
-
-  /* Kick out all the symsecs that have only zero tensor elements out of each operator */
-  for( i = 0 ; i < newrops->nrops ; ++i )
-    kick_zero_blocks( &newrops->operators[ i ], rOperators_give_nr_blocks_for_operator(newrops,i) );
-}
-
 static void initialize_unique_append_physical_to_rOperators( struct rOperators * const uniquerops, 
     const int bond_of_operator, const int is_left, const int * const instructions, 
     const int * const hamsymsecs_of_new, const int nr_instructions )
@@ -598,54 +547,6 @@ static void initialize_unique_append_physical_to_rOperators( struct rOperators *
   for( i = 0 ; i < uniquerops->nrhss ; ++i )
     safe_free( nkappa_begin_temp[ i ] );
   safe_free( nkappa_begin_temp );
-}
-
-static void initialize_sum_unique_rOperators( struct rOperators * const newrops, const struct 
-    rOperators * const uniquerops, const int * const instructions, const int * const 
-    hamsymsec_of_new, const int nr_instructions )
-{
-  const int couplings = rOperators_give_nr_of_couplings( uniquerops );
-  int i;
-
-  /* copy everything */
-  *newrops = *uniquerops;
-
-  /* calc the number of operators */
-  newrops->nrops = 0;
-  for( i = 0 ; i < nr_instructions ; ++i ) 
-    newrops->nrops = (newrops->nrops > instructions[3*i+2]) ? newrops->nrops:instructions[3*i+2]+1;
-
-  /* Making deepcopy of qnumbers and begin_block_of_hss */
-  newrops->begin_blocks_of_hss = safe_malloc( newrops->nrhss + 1, int );
-  for( i = 0 ; i < newrops->nrhss + 1 ; ++i ) 
-    newrops->begin_blocks_of_hss[ i ] = uniquerops->begin_blocks_of_hss[ i ];
-
-  newrops->qnumbers = safe_malloc( newrops->begin_blocks_of_hss[ newrops->nrhss ] * couplings, 
-      QN_TYPE );
-  for( i = 0 ; i < newrops->begin_blocks_of_hss[ newrops->nrhss ] * couplings ; ++i ) 
-    newrops->qnumbers[ i ] = uniquerops->qnumbers[ i ];
-
-  newrops->hss_of_ops = safe_malloc( newrops->nrops, int );
-  newrops->operators  = safe_malloc( newrops->nrops, struct sparseblocks );
-  for( i = 0 ; i < newrops->nrops ; ++i )
-  {
-    struct sparseblocks * const newBlock = &newrops->operators[ i ];
-    struct sparseblocks * oldBlock = NULL;
-    int j = 0;
-    const int N = rOperators_give_nr_blocks_for_hss( newrops, hamsymsec_of_new[ i ] );
-    newrops->hss_of_ops[ i ] = hamsymsec_of_new[ i ];
-    newBlock->beginblock = safe_malloc( N + 1, int );
-
-    /* find in uniquerops a operator with same symsecs that is already initialized.
-     * For this operator no zero-symsecs are kicked out yet. */
-    while( j < uniquerops->nrops && uniquerops->hss_of_ops[ j ] != newrops->hss_of_ops[ i ] ) ++j;
-    assert( j < uniquerops->nrops );
-    oldBlock = &uniquerops->operators[ j ];
-
-    for( j = 0 ; j < N + 1 ; ++j )
-      newBlock->beginblock[ j ] = oldBlock->beginblock[ j ];
-    newBlock->tel = safe_calloc( newBlock->beginblock[ N ], EL_TYPE );
-  }
 }
 
 static double calculate_prefactor_append_physical( const int indexes[], const struct symsecs 
@@ -777,8 +678,8 @@ static int get_compressed_instructions( const int * const instructions, const in
   return nrinstr;
 }
 
-static QN_TYPE change_new_to_old_ops( const QN_TYPE new, const int dimold, const int dimnew, 
-    int * const oldtonew )
+static QN_TYPE change_new_to_old_ops( const QN_TYPE new, const int dimold, const int dimnew, int * 
+    const oldtonew )
 {
   /* [ bra, ket, MPO ] => [ bra', ket', MPO ] */
   assert( dimold >= dimnew );

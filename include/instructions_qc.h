@@ -23,25 +23,8 @@
 void QC_fetch_DMRG_make_ops( int ** const instructions, double ** const prefactors, int ** const 
     hamsymsecs_of_new, int * const nr_instructions, const int bond, const int is_left );
 
-/** \brief This makes the expanded list of renormalized operators (not complimentary).
- * 
- * The instructions are as followed:
- *
- * <table>
- * <tr><td> index of renormalized operator to use here from the compressed list.
- * <td> Have to transpose or not.
- * <td> Index of renormalized operator that is created for in the expanded list.
- * <td> prefactor
- * </table>
- *
- * \param [out] instructions The pointer where the different instructions will be stored.
- * \param [out] prefactor The pointer where the different prefactors will be stored.
- * \param [out] nr_instructions The number of instructions to be excecuted.
- * \param [in] bond The bond where the merge has to happen.
- * \param [in] is_left Boolean saying if we are going 'left' or 'right'.
- */
-void QC_fetch_expand_ops( int ** const instructions, double ** const prefactors, 
-    int * const nr_instructions, const int bond, const int is_left, const int needsfull );
+void QC_fetch_T3NS_update(struct instructionset * const instructions, const int bond, 
+    const int is_left);
 
 void QC_fetch_merge( int ** const instructions, int * const nr_instructions, 
     double ** const prefactors, const int bond );

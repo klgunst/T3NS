@@ -13,6 +13,8 @@
 /* =============================== DECLARATION STATIC FUNCTIONS =============================== */
 /* ============================================================================================ */
 
+static inline void copy_tag(int *tag_orig, int *tag_copy, int tagsize);
+
 static inline int is_equal_tag( const int * const tag_one, const int * const tag_two );
 
 static void DMRG_make_ops_make_r_count( int ** const instructions, double ** const prefactors, 
@@ -20,6 +22,9 @@ static void DMRG_make_ops_make_r_count( int ** const instructions, double ** con
 
 static void fillin_interact(const int * const tag1, const int * const tag2, const int * const tag3, 
     const int * const tag4, const int instr1, const int instr2, const int * const instr3);
+
+static void T3NS_update_make_r_count(int **instructions, double **prefactors, int *nr_instructions,
+    const int bond, const int is_left);
 
 static void merge_make_r_count( int ** instructions, double ** prefactors, int * nr_instructions,
     int * step, const int bond );
@@ -48,6 +53,22 @@ void QC_fetch_DMRG_make_ops( int ** const instructions, double ** const prefacto
   QC_get_hss_of_operators( hamsymsecs_of_new, bonds[ 2 * is_left ], is_left, 'c' );
 }
 
+void QC_fetch_T3NS_update(struct instructionset * const instructions, const int bond, 
+    const int is_left)
+{
+  /* first count the nr of instructions needed */
+  instructions->step = 3;
+  instructions->instr = NULL;
+  instructions->pref  = NULL;
+  T3NS_update_make_r_count(&instructions->instr, &instructions->pref, &instructions->nr_instr, bond, 
+      is_left);
+  instructions->instr = safe_malloc(3 * instructions->nr_instr, int);
+  instructions->pref  = safe_malloc(instructions->nr_instr, double);
+  T3NS_update_make_r_count(&instructions->instr, &instructions->pref, &instructions->nr_instr, bond, 
+      is_left);
+  QC_get_hss_of_operators(&instructions->hss_of_new, bond, is_left, 'c');
+}
+
 void QC_fetch_merge( int ** const instructions, int * const nr_instructions, 
     double ** const prefactors, const int bond )
 {
@@ -62,181 +83,15 @@ void QC_fetch_merge( int ** const instructions, int * const nr_instructions,
   merge_make_r_count( instructions, prefactors, nr_instructions, &step, bond );
 }
 
-void QC_fetch_expand_ops( int ** const instructions, double ** const prefactors, 
-    int * const nr_instructions, const int bond, const int is_left, const int needsfull )
-{
-  int temp, *tag, tagsize;
-  int prevops, transp;
-  int newops = 0;
-  double pref;
-
-  struct ops_type ops_compr = get_op_type_list( bond, is_left, 'c' );
-  struct ops_type ops_exp   = get_op_type_list( bond, is_left, 'e' );
-  const int psite           = netw.sitetoorb[ netw.bonds[ 2 * bond + is_left ] ];
-  assert( needsfull || psite >= 0 );
-
-  *instructions    = safe_malloc( ops_exp.nr_ops * 3, int );
-  *prefactors      = safe_malloc( ops_exp.nr_ops, double );
-  start_fillin_instr( *instructions, *prefactors );
-
-  /* In the compressed list there is no unit operator, in the expanded list there is. */
-#ifdef NOHERM
-  for( newops = 0 ; newops < ops_exp.nr_ops ; ++newops )
-    nfillin_instr( newops, 0, &newops, 1 );
-  *nr_instructions = ops_exp.nr_ops;
-  return;
-#else
-  assert(ops_compr.nr_unity == 0 );
-  assert(  ops_exp.nr_unity == 1 );
-  nfillin_instr( -1, -1, &newops, 1 );
-#endif
-
-  /* single operators */
-  for( newops = ops_exp.end_unity ; newops < ops_exp.end_rops_1 ; ++newops )
-  {
-    get_tag( &ops_exp, newops, &tag, &tagsize );
-    assert( tagsize == 1 );
-    /* transpose if its an annihilator you search or don't transpose if its a creator. */
-    transp = !tag[ 0 ];
-    /* set the tag you have to search to a creator. */
-    tag[ 0 ] = 1;
-    /* get the position of the operator in the compressed ensamble */
-    prevops = get_pos_of_tag( &ops_compr, tag, tagsize );
-    assert( prevops != -1 );
-    /* put tag back to initial value!! */
-    tag[ 0 ] = !transp;
-    nfillin_instr( prevops, transp, &newops, 1 );
-  }
-
-  /* double operators, their transposes need only be constructed if we need a full expand 
-   * or in a limited expanse the complementary operators are not defined */
-  if( needsfull || ops_exp.nr_c_renorm_ops_2 == 0 )
-  {
-    for( newops = ops_exp.end_rops_1 ; newops < ops_exp.end_rops_2 ; ++newops )
-    {
-      get_tag( &ops_exp, newops, &tag, &tagsize );
-      assert( tagsize == 2 );
-
-      /* Three groups of double operators... We have the c+c+, c+c and cc */
-      /* c+c+ */
-      if( tag[ 0 ] && tag[ SIZE_TAG ] )
-      {
-        prevops = get_pos_of_tag( &ops_compr, tag, tagsize );
-        transp  = 0;
-        pref    = 1;
-        assert( prevops != -1 );
-      }
-      /* c c, keep in mind I have to include a minus sign for the prefactor of this transpose! */
-      else if( !tag[ 0 ] && !tag[ SIZE_TAG ] )
-      {
-        tag[ 0 ] = 1; tag[ SIZE_TAG ] = 1;
-        prevops = get_pos_of_tag( &ops_compr, tag, tagsize );
-        transp  = 1;
-        pref    = -1;
-        tag[ 0 ] = 0; tag[ SIZE_TAG ] = 0;
-        assert( prevops != -1 );
-      }
-      /* c+ c */
-      else if( tag[ 0 ] && !tag[ SIZE_TAG ] )
-      {
-        prevops = get_pos_of_tag( &ops_compr, tag, tagsize );
-        transp  = 0;
-        pref    = 1;
-        /* means it wasnt found, so its the hermitian that has to be constructed */
-        if( prevops == -1 )
-        {
-          temp = tag[1]; tag[1] = tag[SIZE_TAG + 1]; tag[SIZE_TAG + 1] = temp;
-          temp = tag[2]; tag[2] = tag[SIZE_TAG + 2]; tag[SIZE_TAG + 2] = temp;
-          prevops = get_pos_of_tag( &ops_compr, tag, tagsize );
-          transp  = 1;
-          temp = tag[1]; tag[1] = tag[SIZE_TAG + 1]; tag[SIZE_TAG + 1] = temp;
-          temp = tag[2]; tag[2] = tag[SIZE_TAG + 2]; tag[SIZE_TAG + 2] = temp;
-          assert(prevops != -1);
-        }
-      }
-      nfillin_instr( prevops, transp, &newops, pref );
-    }
-  }
-
-  /* double complementary operators */
-  for( newops = ops_exp.end_rops_2 ; newops < ops_exp.end_cops_2 ; ++newops )
-  {
-    get_tag( &ops_exp, newops, &tag, &tagsize );
-    assert(tagsize == 2);
-
-    /* will have all cops_cc and half cops_c+c */
-    if( ( prevops = get_pos_of_tag( &ops_compr, tag, tagsize ) ) != -1 )
-    {
-      transp  = 0;
-      pref    = 1;
-    }
-    /* means it wasnt found, so its the hermitian that has to be constructed */
-    else if( needsfull || tag[ 1 ] == psite || tag[ SIZE_TAG + 1 ] == psite )
-    {
-      /* cops_c+c+, keep in mind I have to include a minus sign for the prefactor of transpose! */
-      if( tag[ 0 ] && tag[ SIZE_TAG ] )
-      {
-        tag[0] = 0; tag[SIZE_TAG] = 0;
-        prevops = get_pos_of_tag( &ops_compr, tag, tagsize );
-        transp  = 1;
-        pref    = -1;
-        tag[0] = 1; tag[SIZE_TAG] = 1;
-      }
-      /* cops_c+c */
-      else if( tag[ 0 ] && !tag[ SIZE_TAG ] )
-      {
-        temp = tag[1]; tag[1] = tag[SIZE_TAG + 1]; tag[SIZE_TAG + 1] = temp;
-        temp = tag[2]; tag[2] = tag[SIZE_TAG + 2]; tag[SIZE_TAG + 2] = temp;
-        prevops = get_pos_of_tag( &ops_compr, tag, tagsize );
-        transp  = 1;
-        temp = tag[1]; tag[1] = tag[SIZE_TAG + 1]; tag[SIZE_TAG + 1] = temp;
-        temp = tag[2]; tag[2] = tag[SIZE_TAG + 2]; tag[SIZE_TAG + 2] = temp;
-        pref    = 1;
-      }
-    }
-    assert( prevops != -1 );
-    nfillin_instr( prevops, transp, &newops, pref );
-  }
-
-  /* triple operators */
-  for( newops = ops_exp.end_cops_2; newops < ops_exp.end_cops_3 ; ++newops )
-  {
-    get_tag( &ops_exp, newops, &tag, &tagsize );
-    assert( tagsize == 1 );
-
-    /* transpose if its a creator you search or don't transpose if its an annihilator. */
-    transp = tag[ 0 ];
-    /* set the tag you have to search to an annihilator. */
-    tag[ 0 ] = 0;
-    /* get the position of the operator in the compressed ensemble */
-    prevops = get_pos_of_tag( &ops_compr, tag, tagsize );
-    /* put tag back to initial value!! */
-    tag[ 0 ] = transp;
-    if( prevops != -1 && ( needsfull || !transp || tag[ 1 ] == psite ) )
-      nfillin_instr( prevops, transp, &newops, transp ? -1 : 1 );
-  }
-
-  /* quadruple operators */
-  if( ops_compr.nr_H != 0 )
-    nfillin_instr( ops_compr.end_cops_3, 0, &ops_exp.end_cops_3, 1 );
-
-  *nr_instructions = get_nrinstr();
-  assert( *nr_instructions <= ops_exp.nr_ops );
-  *instructions = realloc( *instructions, 3 * (*nr_instructions) * sizeof *instructions );
-  *prefactors   = realloc( *prefactors, (*nr_instructions) * sizeof *prefactors );
-  if( *instructions == NULL || *prefactors == NULL )
-  {
-    fprintf( stderr, "%s@%s: realloc failed\n", __FILE__, __func__ );
-    exit( EXIT_FAILURE );
-  }
-
-  destroy_ops_type( &ops_compr, 'c' );
-  destroy_ops_type( &ops_exp, 'e' );
-}
-
 /* ============================================================================================ */
 /* ================================ DEFINITION STATIC FUNCTIONS =============================== */
 /* ============================================================================================ */
+
+static inline void copy_tag(int *tag_orig, int *tag_copy, int tagsize)
+{
+  int i;
+  for (i = 0 ; i < tagsize * SIZE_TAG ; ++i) tag_copy[i] = tag_orig[i];
+}
 
 static inline int is_equal_tag( const int * const tag_one, const int * const tag_two )
 {
@@ -597,8 +452,10 @@ static void DMRG_make_ops_make_r_count( int ** const instructions, double ** con
 
   /* quadruple operator */
   if( ops_in.nr_H == 1 ) nfillin_instr( ops_in.end_cops_3, 0, &(ops_out.end_cops_3), 1 );
+#ifndef COMPARECHEMPSTREE
   if( ops_out.nr_H == 1 && bond == 0 && is_left ) 
     nfillin_instr( 0, 0, &(ops_out.end_cops_3), get_core() );
+#endif
 
   temptag[ 0 ] = 1;     temptag[ 3 ] = 1;     temptag[ 6 ] = 0;     temptag[ 9 ] = 0;
   temptag[ 1 ] = psite; temptag[ 4 ] = psite; temptag[ 7 ] = psite; temptag[ 10 ] = psite;
@@ -740,6 +597,226 @@ static void DMRG_make_ops_make_r_count( int ** const instructions, double ** con
 
   destroy_ops_type( &ops_in, 'e' );
   destroy_ops_type( &ops_out, 'c' );
+}
+
+static void T3NS_update_make_r_count(int **instructions, double **prefactors, int *nr_instructions,
+    const int bond, const int is_left)
+{
+  int i, temptag[SIZE_TAG * 2];
+  struct ops_type ops_1, ops_2, ops_3;
+  int bonds[ 3 ];
+  const int branching_site = netw.bonds[ 2 * bond + is_psite( netw.bonds[ 2 * bond ] ) ];
+  assert( !is_psite( branching_site ) );
+  get_bonds_of_site( branching_site, bonds );
+
+  ops_1 = get_op_type_list(bonds[bond == bonds[0]], 1, 'e' );
+  ops_2 = get_op_type_list(bonds[is_left ? 1 : 2], is_left, 'e' );
+  ops_3 = get_op_type_list(bond,                   is_left, 'c' );
+  assert( !is_dmrg_bond(bond));
+
+  start_fillin_instr(*instructions, *prefactors);
+
+  if (ops_1.nr_unity &&  ops_2.nr_unity && ops_3.nr_unity) {
+    const int zero = 0;
+    nfillin_instr(0, 0, &zero, 1);
+  }
+
+  /* single operator */
+  for (i = ops_3.end_unity ; i < ops_3.end_rops_1 ; ++i) {
+    int tagsize;
+    int *tag;
+    int pos;
+    get_tag(&ops_3, i, &tag, &tagsize);
+    pos = get_pos_of_tag(&ops_1, tag, tagsize);
+    if (pos != -1 && pos < ops_1.end_rops_2) {
+      nfillin_instr(pos, 0, &i, 1);
+    } else {
+      pos = get_pos_of_tag(&ops_2, tag, tagsize);
+      assert(pos != -1 && pos < ops_2.end_rops_2);
+      nfillin_instr(0, pos, &i, 1);
+    }
+  }
+
+  /* double operator */
+  for (i = ops_3.end_rops_1 ; i < ops_3.end_rops_2 ; ++i) {
+    int tagsize;
+    int *tag;
+    int pos;
+    get_tag(&ops_3, i, &tag, &tagsize);
+    assert(tagsize == 2);
+    if ((pos = get_pos_of_tag(&ops_1, tag, tagsize)) != -1 && pos < ops_1.end_rops_2)
+      nfillin_instr(pos, 0, &i, 1);
+    else if ((pos = get_pos_of_tag(&ops_2, tag, tagsize)) != -1 && pos < ops_2.end_rops_2)
+      nfillin_instr(0, pos, &i, 1);
+    else if ((pos = get_pos_of_tag(&ops_1, tag, 1)) != -1 && pos < ops_1.end_rops_2) {
+      int pos2 = get_pos_of_tag(&ops_2, tag + SIZE_TAG, 1);
+      nfillin_instr(pos, pos2, &i, 1);
+      assert(pos2 < ops_2.end_rops_2);
+    } else {
+      int pos1 = get_pos_of_tag(&ops_1, tag + SIZE_TAG, 1);
+      int pos2 = get_pos_of_tag(&ops_2, tag, 1);
+      nfillin_instr(pos1, pos2, &i, -1);
+      assert(pos1 < ops_1.end_rops_2);
+      assert(pos2 < ops_2.end_rops_2);
+    }
+  }
+
+  /* compl double operator */
+  for (i = ops_3.end_rops_2 ; i < ops_3.end_cops_2 ; ++i) {
+    int tagsize;
+    int *tag;
+    int pos;
+    int j;
+    get_tag(&ops_3, i, &tag, &tagsize);
+
+    if ((pos = get_pos_of_tag(&ops_1, tag, tagsize)) != -1 && pos >= ops_1.end_rops_2) {
+      nfillin_instr(pos, 0, &i, 1);
+    } else {
+      for (j = ops_1.end_rops_1 ; j < ops_1.end_rops_2 ; ++j) {
+        int tagsize2;
+        int *tag2;
+        get_tag(&ops_1, j, &tag2, &tagsize2);
+        assert(tagsize2 == 2);
+        /* cl+cl+ ->  opcc */
+        fillin_interact(tag2, tag2 + SIZE_TAG, tag, tag + SIZE_TAG, j, 0, &i);
+        /* cl+cl -> opc+c */
+        fillin_interact(tag, tag2, tag2 + SIZE_TAG, tag + SIZE_TAG, j, 0, &i);
+        /* clcl ->  opc+c+ */
+        fillin_interact(tag, tag + SIZE_TAG, tag2, tag2 + SIZE_TAG, j, 0, &i);
+      }
+    }
+
+    if ((pos = get_pos_of_tag(&ops_2, tag, tagsize)) != -1 && pos >= ops_2.end_rops_2) {
+      nfillin_instr(0, pos, &i, 1);
+    } else {
+      for (j = ops_2.end_rops_1 ; j < ops_2.end_rops_2 ; ++j) {
+        int tagsize2;
+        int *tag2;
+        get_tag(&ops_2, j, &tag2, &tagsize2);
+        assert(tagsize2 == 2);
+        /* cl+cl+ ->  opcc */
+        fillin_interact(tag2, tag2 + SIZE_TAG, tag, tag + SIZE_TAG, 0, j, &i);
+        /* cl+cl -> opc+c */
+        fillin_interact(tag, tag2, tag2 + SIZE_TAG, tag + SIZE_TAG, 0, j, &i);
+        /* clcl ->  opc+c+ */
+        fillin_interact(tag, tag + SIZE_TAG, tag2, tag2 + SIZE_TAG, 0, j, &i);
+      }
+    }
+
+    /* The terms where there is one operator on every leg. */
+    for (j = ops_1.end_unity ; j < ops_1.end_rops_1 ; ++j) {
+      int tagsize2;
+      int *tag2;
+      int k;
+      get_tag(&ops_1, j, &tag2, &tagsize2);
+      assert(tagsize2 == 1);
+      for (k = ops_2.end_unity ; k < ops_2. end_rops_1 ; ++k) {
+        int tagsize3;
+        int *tag3;
+        get_tag(&ops_2, k, &tag3, &tagsize3);
+        assert(tagsize3 == 1);
+        /* cl+cl+ ->  opcc */
+        fillin_interact(tag2, tag3, tag, tag + SIZE_TAG, j, k, &i);
+        /* cl+cl -> opc+c */
+        fillin_interact(tag, tag2, tag3, tag + SIZE_TAG, j, k, &i);
+        /* clcl+ -> opc+c */
+        fillin_interact(tag, tag3, tag + SIZE_TAG, tag2, j, k, &i);
+        /* clcl ->  opc+c+ */
+        fillin_interact(tag, tag + SIZE_TAG, tag2, tag3, j, k, &i);
+      }
+    }
+  }
+
+  /* triple operators */
+  for (i = ops_3.end_cops_2 ; i < ops_3.end_cops_3 ; ++i) {
+    int tagsize;
+    int *tag;
+    int pos;
+    int j;
+    get_tag(&ops_3, i, &tag, &tagsize);
+    assert(tagsize == 1);
+
+    if ((pos = get_pos_of_tag(&ops_1, tag, tagsize)) != -1 && pos >= ops_1.end_rops_2)
+      nfillin_instr(pos, 0, &i, 1);
+
+    if ((pos = get_pos_of_tag(&ops_2, tag, tagsize)) != -1 && pos >= ops_2.end_rops_2)
+      nfillin_instr(0, pos, &i, 1);
+
+    for (j = ops_1.end_unity ; j < ops_1.end_rops_1 ; ++j) {
+      int tagsize2;
+      int *tag2;
+      get_tag(&ops_1, j, &tag2, &tagsize2);
+      assert(tagsize2 == 1);
+
+      /* c + ops_cc -> ops_c */
+      copy_tag(tag, temptag, tagsize);
+      copy_tag(tag2, temptag + tagsize * SIZE_TAG, tagsize2);
+      if ((pos = get_pos_of_tag(&ops_2, temptag, tagsize + tagsize2)) != -1)
+        nfillin_instr(j, pos, &i, -1);
+
+      /* c + ops_cc -> ops_c */
+      copy_tag(tag2, temptag, tagsize2);
+      copy_tag(tag, temptag + tagsize2 * SIZE_TAG, tagsize);
+      if ((pos = get_pos_of_tag(&ops_2, temptag, tagsize + tagsize2)) != -1)
+        nfillin_instr(j, pos, &i, 1);
+    }
+
+    for (j = ops_2.end_unity ; j < ops_2.end_rops_1 ; ++j) {
+      int tagsize2;
+      int *tag2;
+      get_tag(&ops_2, j, &tag2, &tagsize2);
+      assert(tagsize2 == 1);
+
+      /* ops_cc + c -> ops_c */
+      copy_tag(tag, temptag, tagsize);
+      copy_tag(tag2, temptag + tagsize * SIZE_TAG, tagsize2);
+      if ((pos = get_pos_of_tag(&ops_1, temptag, tagsize + tagsize2)) != -1)
+        nfillin_instr(pos, j, &i, -1);
+
+      /* ops_cc + c -> ops_c */
+      copy_tag(tag2, temptag, tagsize2);
+      copy_tag(tag, temptag + tagsize2 * SIZE_TAG, tagsize);
+      if ((pos = get_pos_of_tag(&ops_1, temptag, tagsize + tagsize2)) != -1)
+        nfillin_instr(pos, j, &i, 1);
+    }
+  }
+
+  /* quadruple operators */
+  if (ops_1.nr_H)
+    nfillin_instr(ops_1.end_cops_3, 0, &(ops_3.end_cops_3), 1);
+
+  if (ops_2.nr_H)
+    nfillin_instr(0, ops_2.end_cops_3, &(ops_3.end_cops_3), 1);
+
+  for (i = ops_1.end_rops_2; i < ops_1.end_cops_3 ; ++i) {
+    int tagsize;
+    int *tag;
+    int pos;
+    get_tag(&ops_1, i, &tag, &tagsize);
+    if ((pos = get_pos_of_tag(&ops_2, tag, tagsize)) != -1 && pos < ops_2.end_rops_2)
+      nfillin_instr(i, pos, &(ops_3.end_cops_3), 1);
+  }
+
+  for (i = ops_2.end_rops_2; i < ops_2.end_cops_3 ; ++i) {
+    int tagsize;
+    int *tag;
+    double pr;
+    int pos;
+    get_tag(&ops_2, i, &tag, &tagsize);
+    pr = (tagsize == 1) ? -1 : 1;
+    if ((pos = get_pos_of_tag(&ops_1, tag, tagsize)) != -1 && pos < ops_1.end_rops_2)
+      nfillin_instr(pos, i, &(ops_3.end_cops_3), pr);
+  }
+
+  if (*instructions != NULL && *nr_instructions != get_nrinstr()) {
+    fprintf(stderr, "The calculated number of instructions are not the same as the given ones.\n");
+    exit(EXIT_FAILURE);
+  }
+  *nr_instructions = get_nrinstr();
+
+  destroy_ops_type(&ops_1, 'e');
+  destroy_ops_type(&ops_2, 'e');
+  destroy_ops_type(&ops_3, 'c');
 }
 
 static void merge_make_r_count( int ** instructions, double ** prefactors, int * nr_instructions,

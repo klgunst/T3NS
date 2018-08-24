@@ -47,7 +47,6 @@ void safe_free_helper(void *ptr, const char *ptrname, const char *file, int line
         filname == NULL ? file : filname, line, func, ptrname);
     exit(EXIT_FAILURE);
   }
-
   safe_free(ptr);
 }
 

@@ -27,8 +27,7 @@
  * qnumberbonds = alpha beta/i gamma |
  * coupling     = ket(alpha) ket(beta/i) ket(gamma*)  // asterisk means it is an outward bond.
  */
-struct siteTensor
-{
+struct siteTensor {
   int nrsites;                /**< The number of sites of the sitetensor. */
   int * sites;                /**< The sites of the sitetensor. */
 

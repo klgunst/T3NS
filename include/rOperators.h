@@ -42,7 +42,7 @@
  *     The indices array is given by : 
  *      ---[ bra(beta), ket(beta), MPO ]
  *     The coupling array is given by :
- *      ---[ bra(beta)*, MPO*, ket(beta) ]        ===> Should couple to the trivial irrep or singlet
+ *      ---[ bra(beta)*, MPO, ket(beta) ]        ===> Should couple to the trivial irrep or singlet
  *     The qnumberbonds array is given by :
  *      ---[ bra(beta), ket(beta), MPO ]
  *
@@ -151,6 +151,10 @@ void init_vacuum_rOperators( struct rOperators * const rops, const int bond_of_o
  */
 void init_rOperators( struct rOperators * const rops, int ***tmp_nkappa_begin, 
     const int bond_of_operator, const int is_left, const int P_operator );
+
+void sum_unique_rOperators( struct rOperators * const newrops, const struct rOperators * const 
+    uniquerops, const int * const instructions, const int * const hamsymsec_new, const double * 
+    const prefactors, const int nr_instructions );
 
 /* ====================================== MISC ================================================= */
 /**
@@ -268,4 +272,15 @@ void append_physical_to_rOperators( struct rOperators * const newrops, const str
  */
 void update_rOperators_physical( struct rOperators * const rops, const struct siteTensor * 
     const tens, const struct symsecs * const internalss );
+
+/**
+ * \brief Updates two rOperators to a new rOperator through the use of a branching tensor.
+ *
+ * \param [out] newops The new rOperators struct.
+ * \param [in] Operator1 The first rOperators.
+ * \param [in] Operator2 The second rOperators.
+ * \param [in] tens The branching tensor.
+ */
+void update_rOperators_branching(struct rOperators * const newops, const struct rOperators
+    Operator[2], const struct siteTensor * const tens);
 #endif

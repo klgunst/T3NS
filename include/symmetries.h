@@ -152,4 +152,7 @@ double calculate_mirror_coupling( int * irrep_arr[], const enum symmetrygroup * 
 
 double calculate_prefactor_DMRG_matvec( int * irrep_arr[], const enum symmetrygroup * const sgs, 
     const int nr_symmetries );
+
+double prefactor_update_branch(int * const irrep_arr[3][3], const int updateCase,
+    const enum symmetrygroup * const sgs, const int nr_symmetries);
 #endif

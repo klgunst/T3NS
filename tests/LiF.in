@@ -1,0 +1,6 @@
+! This is a template for the input file
+networkfile 	LiFDMRG.netw
+symm 		u1 u1 c2v
+ts 		3 3 0
+
+interaction 	LiF3_05.FCIDUMP
