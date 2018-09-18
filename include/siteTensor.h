@@ -226,6 +226,8 @@ int siteTensor_give_nr_externalbonds( const struct siteTensor * const tens );
  */
 void siteTensor_give_externalbonds( const struct siteTensor * const tens, int externalbonds[] );
 
+int siteTensor_get_size(const struct siteTensor * const tens);
+
 /* ==================================== DECOMPOSE ============================================== */
 /**
  * \brief Execute a QR decomposition on a one-site tensor.

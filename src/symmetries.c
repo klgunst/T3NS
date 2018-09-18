@@ -459,6 +459,57 @@ double prefactor_update_branch(int * const irrep_arr[3][3], const int updateCase
   return prefactor;
 }
 
+double prefactor_add_P_operator(int * const irreps[2][3], const int isleft, 
+    const enum symmetrygroup * const sgs, const int nr_symmetries)
+{
+  int i, j, k;
+  int symvalues[2][3];
+  double prefactor = 1;
+  for (i = 0 ; i < nr_symmetries ; ++i) {
+    switch(sgs[i]) {
+      case Z2 :
+        for (j = 0 ; j < 2 ; ++j)
+          for (k = 0 ; k < 3 ; ++k)
+            symvalues[j][k] = (irreps[j][k])[i];
+
+        prefactor *= Z2_prefactor_add_P_operator(symvalues, isleft);
+        break;
+      case SU2 :
+      case U1 :
+      default :
+        break;
+    }
+  }
+  return prefactor;
+}
+
+double prefactor_combine_MPOs(int * const irreps[2][3], int * const irrMPO[3], 
+    const enum symmetrygroup * const sgs, const int nr_symmetries)
+{
+  int i, j, k;
+  int symvalues[2][3];
+  int symvaluesMPO[3];
+  double prefactor = 1;
+  for (i = 0 ; i < nr_symmetries ; ++i) {
+    switch(sgs[i]) {
+      case Z2 :
+        for (j = 0 ; j < 2 ; ++j)
+          for (k = 0 ; k < 3 ; ++k)
+            symvalues[j][k] = (irreps[j][k])[i];
+        for (k = 0 ; k < 3 ; ++k)
+          symvaluesMPO[k] = (irrMPO[k])[i];
+
+        prefactor *= Z2_prefactor_combine_MPOs(symvalues, symvaluesMPO);
+        break;
+      case SU2 :
+      case U1 :
+      default :
+        break;
+    }
+  }
+  return prefactor;
+}
+
 /* ============================================================================================ */
 /* ================================ DEFINITION STATIC FUNCTIONS =============================== */
 /* ============================================================================================ */

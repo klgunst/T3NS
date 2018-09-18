@@ -155,4 +155,10 @@ double calculate_prefactor_DMRG_matvec( int * irrep_arr[], const enum symmetrygr
 
 double prefactor_update_branch(int * const irrep_arr[3][3], const int updateCase,
     const enum symmetrygroup * const sgs, const int nr_symmetries);
+
+double prefactor_add_P_operator(int * const irreps[2][3], const int isleft, 
+    const enum symmetrygroup * const sgs, const int nr_symmetries);
+
+double prefactor_combine_MPOs(int * const irreps[2][3], int * const irrMPO[3], 
+    const enum symmetrygroup * const sgs, const int nr_symmetries);
 #endif

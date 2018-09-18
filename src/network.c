@@ -22,6 +22,15 @@ static void create_nr_left_psites(void);
 
 static void create_order_psites(void);
 
+static void get_common_with_next(const int sites_opt[4], int common_nxt[4], const int maxsites, 
+    const int next_state);
+
+static void get_sites_to_opt(int sites_next[4], const int maxsites, const int curr_state);
+
+static void get_bonds_involved(int bonds_involved[3], const int sites_opt[4]);
+
+static inline void swap(int * const a, int * const b);
+
 /* ============================================================================================ */
 
 void init_netw(void)
@@ -40,20 +49,19 @@ void readnetwork(char netwf[])
   char kind;
   FILE *fp = fopen(netwf, "r");
 
-  if (fp == NULL)
-  {
+  if (fp == NULL) {
     fprintf(stderr, "ERROR : Failed reading networkfile %s.\n", netwf);
     exit(EXIT_FAILURE);
   }
 
   ln_cnt = 0;
 
-  while(fgets(buffer, sizeof buffer, fp) != NULL)
-  {
+  while (fgets(buffer, sizeof buffer, fp) != NULL) {
     ln_cnt++;
     sscanf(buffer, " NR_SITES = %d ", &netw.sites);
     sscanf(buffer, " NR_PHYS_SITES = %d ", &netw.psites);
     sscanf(buffer, " NR_BONDS = %d ", &netw.nr_bonds);
+    sscanf(buffer, " SWEEP_LENGTH = %d ", &netw.sweeplength);
     if (!(strcmp_ign_ws(buffer, "&END") && strcmp_ign_ws(buffer, "/END") && 
           strcmp_ign_ws(buffer, "/")))
       break;
@@ -62,43 +70,65 @@ void readnetwork(char netwf[])
   netw.sitetoorb = safe_calloc(netw.sites, int);
   ln_cnt++;
   site_cnt = 0;
-  while((kind = getc(fp)) != '\n')
-  {
+  while ((kind = getc(fp)) != '\n') {
     int value = kind - '0';
-    if (kind == ' ')
-    {
+    if (kind == ' ') {
       if (netw.sitetoorb[site_cnt] < 0)
         netw.sitetoorb[site_cnt] = -1;
       site_cnt++;
-    }
-    else if ((value <= 9) && (value >= 0))
+    } else if ((value <= 9) && (value >= 0)) {
       netw.sitetoorb[site_cnt] = 10 * netw.sitetoorb[site_cnt] + value;
-    else if (kind == '*')
+    } else if (kind == '*') {
       netw.sitetoorb[site_cnt] = -1;
-    else
-    {
+    } else {
       fprintf(stderr, "Wrong format of the sitetoorb array at line %d!\n", ln_cnt);
       exit(EXIT_FAILURE);
     }
   }
 
-  if (site_cnt != netw.sites)
-  {
+  if (site_cnt != netw.sites) {
     fprintf(stderr, "Wrong number of sites in the sitetoorb array at line %d!\n", ln_cnt);
     exit(EXIT_FAILURE);
   }
 
   site_cnt = 0;
   for (cnt = 0 ; cnt < netw.sites ; cnt++) site_cnt += netw.sitetoorb[cnt] >= 0;
-  if (site_cnt != netw.psites)
-  {
+  if (site_cnt != netw.psites) {
     fprintf(stderr, "Wrong number of psites in the sitetoorb array at line %d!\n", ln_cnt);
     exit(EXIT_FAILURE);
   }
 
   /* skipping all the rest until start of the network definition */
-  while(fgets(buffer, sizeof buffer, fp) != NULL)
-  {
+  while (fgets(buffer, sizeof buffer, fp) != NULL) {
+    ln_cnt++;
+    if (!(strcmp_ign_ws(buffer, "&END") && strcmp_ign_ws(buffer, "/END") && 
+          strcmp_ign_ws(buffer, "/")))
+      break;
+  }
+
+  netw.sweep = safe_calloc(netw.sweeplength, int);
+  ln_cnt++;
+  site_cnt = 0;
+  while ((kind = getc(fp)) != '\n') {
+    int value = kind - '0';
+    if (kind == ' ') {
+      site_cnt++;
+    } else if ((value <= 9) && (value >= 0)) {
+      netw.sweep[site_cnt] = 10 * netw.sweep[site_cnt] + value;
+    } else {
+      fprintf(stderr, "Wrong format of the sweep array at line %d!\n", ln_cnt);
+      exit(EXIT_FAILURE);
+    }
+  }
+
+  if(site_cnt != netw.sweeplength){
+    fprintf(stderr, "Wrong number of sweep instructions in the sweep_order array at line %d!\n", 
+        ln_cnt);
+    exit(EXIT_FAILURE);
+  }
+
+  /* skipping all the rest until start of the network definition */
+  while (fgets(buffer, sizeof buffer, fp) != NULL) {
     ln_cnt++;
     if (!(strcmp_ign_ws(buffer, "&END") && strcmp_ign_ws(buffer, "/END") && 
           strcmp_ign_ws(buffer, "/")))
@@ -108,25 +138,21 @@ void readnetwork(char netwf[])
   netw.bonds = safe_malloc(2 * netw.nr_bonds, int);
 
   site_cnt = 0;
-  while(fgets(buffer, sizeof buffer, fp) != NULL)
-  {
+  while (fgets(buffer, sizeof buffer, fp) != NULL) {
     cnt = sscanf(buffer, " %d %d ", &starting, &ending);
     ln_cnt++;
-    if (site_cnt >= netw.nr_bonds)
-    {
+    if (site_cnt >= netw.nr_bonds) {
       fprintf(stderr, "More bonds given then defined!\n");
       exit(EXIT_FAILURE);
     }
  
-    if (cnt != 2)
-    {
+    if (cnt != 2) {
       fprintf(stderr, "Error in reading network : wrong formatting at line %d!\n", ln_cnt);
       exit(EXIT_FAILURE);
     }
 
     /* check if the inputted site numbering is legal */
-    if (starting < -1 || starting >= netw.sites || ending < -1 || ending >= netw.sites)
-    {
+    if (starting < -1 || starting >= netw.sites || ending < -1 || ending >= netw.sites) {
       fprintf(stderr, "At line %d in file %s, illegal site is inputted!\n", ln_cnt, netwf);
       fprintf(stderr, "This can be a site label higher than the number of sites or a label" 
           " smaller than 0!\n");
@@ -140,15 +166,13 @@ void readnetwork(char netwf[])
   fclose(fp);
 
   /* check if the number of sites given in header correspond with those in the network. */
-  if (site_cnt != netw.nr_bonds)
-  {
+  if (site_cnt != netw.nr_bonds) {
     fprintf(stderr, "The number of bonds given in the header does not correspond with the number"
          "of bonds defined in the network! (%d neq %d)\n", site_cnt, netw.nr_bonds);
     exit(EXIT_FAILURE);
   }
 
-  if (check_network())
-  {
+  if (check_network()) {
     fprintf(stderr, "Something is wrong with your network, check the network file (%s)!", netwf);
     exit(EXIT_FAILURE);
   }
@@ -163,6 +187,7 @@ void destroy_network(void)
   safe_free(netw.sitetoorb);
   safe_free(netw.nr_left_psites);
   safe_free(netw.order_psites);
+  safe_free(netw.sweep);
 }
 
 void print_network(void)
@@ -173,8 +198,7 @@ void print_network(void)
           "###################\n\n");
 
   printf("Site to orbital: \n");
-  for (i = 0 ; i < netw.sites ; i++)
-  {
+  for (i = 0 ; i < netw.sites ; i++) {
     if (is_psite (i))
       printf("%d ", netw.sitetoorb[i]);
     else
@@ -321,37 +345,22 @@ void get_string_of_bond(char buffer[], const int bond)
   }
 }
 
-int next_opt_step(const int maxsites, int bonds_involved[], int sites_opt[], int common_nxt[])
+int next_opt_step(const int maxsites, int bonds_involved[3], int sites_opt[4], int common_nxt[4])
 {
-  /* Only DMRG implemented atm, just sweep from right to left and back. Always 2 site opt */
-  static int curr_state = -1;
-  static int to_the_left = 1;
+  /* only two-site optimization implemented atm */
+  static int curr_state = 0;
   /* end of a sweep */
-  if (curr_state == netw.nr_bonds - 2 && to_the_left == 0)
-  {
-    to_the_left = 1;
+  if (curr_state == netw.sweeplength) {
+    curr_state = 0;
     return 0;
   }
 
-  if (curr_state == -1) curr_state = netw.nr_bonds - 2;
+  get_sites_to_opt(sites_opt, maxsites, curr_state);
+  get_bonds_involved(bonds_involved, sites_opt);
 
-  bonds_involved[0] = curr_state - 1;
-  bonds_involved[1] = curr_state + 1;
-  bonds_involved[2] = -1;
-  sites_opt[0] = netw.bonds[2 * curr_state];
-  sites_opt[1] = netw.bonds[2 * curr_state + 1];
-  assert(sites_opt[0] != -1 && sites_opt[1] != -1);
-  sites_opt[2] = -1;
-  sites_opt[3] = -1;
-
-  if (curr_state == 1) to_the_left = 0;
-  curr_state += to_the_left ? -1 : 1;
-
-  common_nxt[0] = to_the_left;
-  common_nxt[1] = !to_the_left;
-  common_nxt[2] = -1;
-  common_nxt[3] = -1;
-
+  ++curr_state;
+  get_common_with_next(sites_opt, common_nxt, maxsites, curr_state == netw.sweeplength ? 0 : 
+      curr_state);
   return 1;
 }
 
@@ -428,9 +437,9 @@ static int strcmp_ign_ws(const char *s1, const char *s2)
   const unsigned char *p1 = (const unsigned char *)s1;
   const unsigned char *p2 = (const unsigned char *)s2;
   
-  while(*p1)
+  while (*p1)
   {
-    while(isspace(*p1)) p1++;
+    while (isspace(*p1)) p1++;
     if (!*p1) break;
                                       
     while (isspace(*p2)) p2++;
@@ -464,7 +473,7 @@ static void create_nr_left_psites(void)
       int new_site;
       for (curr_bnd = 0 ; curr_bnd < netw.nr_bonds ; ++curr_bnd) temp[curr_bnd] = 0;
       curr_bnd = bond;
-      while((new_site = netw.bonds[curr_bnd * 2 + 1]) != -1)
+      while ((new_site = netw.bonds[curr_bnd * 2 + 1]) != -1)
       {
         int prev_bnd = curr_bnd;
 
@@ -564,4 +573,99 @@ static void create_order_psites(void)
       }
     }
   }
+}
+
+static void get_common_with_next(const int sites_opt[4], int common_nxt[4], const int maxsites, 
+    const int next_state)
+{
+  int i;
+  int sites_next[4];
+  get_sites_to_opt(sites_next, maxsites, next_state);
+
+  for (i = 0 ; i < 4 ; ++i) {
+    int j;
+
+    if(sites_opt[i] == -1)
+      break;
+
+    common_nxt[i] = 0;
+    for (j = 0 ; j < 4 ; ++j) {
+      if (sites_opt[i] == sites_next[j]) {
+        common_nxt[i] = 1;
+        break;
+      }
+    }
+  }
+  for (; i < 4 ; ++i)
+    common_nxt[i] = -1;
+}
+
+static void get_sites_to_opt(int sites_opt[4], const int maxsites, const int curr_state)
+{
+  const int current_bond = netw.sweep[curr_state];
+  const int siteL = netw.bonds[2 * current_bond];
+  const int siteR = netw.bonds[2 * current_bond + 1];
+  const int is_dmrg = is_psite(siteL) && is_psite(siteR);
+
+  if (is_dmrg) {
+    sites_opt[0] = siteL;
+    sites_opt[1] = siteR;
+    assert(sites_opt[0] != -1 && sites_opt[1] != -1);
+    sites_opt[2] = -1;
+    sites_opt[3] = -1;
+  } else { /* For two site optimisation */
+    sites_opt[0] = siteL;
+    sites_opt[1] = siteR;
+    assert(sites_opt[0] != -1 && sites_opt[1] != -1);
+    sites_opt[2] = -1;
+    sites_opt[3] = -1;
+  }
+}
+
+static void get_bonds_involved(int bonds_involved[3], const int sites_opt[4])
+{
+  int allbonds[12];
+  int nr_sites;
+  int i;
+  int cnt = 0;
+
+  for (nr_sites = 0 ; nr_sites < 4 ; ++nr_sites) {
+    if (sites_opt[nr_sites] == -1)
+      break;
+    get_bonds_of_site(sites_opt[nr_sites], &allbonds[3 * nr_sites]);
+  }
+
+  for (i = 0 ; i < 3 * nr_sites ; ++i) {
+    int j;
+    if (is_psite(sites_opt[i / 3]) && i % 3 == 1) /* physical bond */
+      continue;
+
+    for (j = 0 ; j < 3 * nr_sites ; ++j) {
+      if(allbonds[i] == allbonds[j] && i != j)
+        break;
+    }
+    if (j == 3 * nr_sites) {
+      assert(cnt < 3);
+      bonds_involved[cnt] = allbonds[i];
+      ++cnt;
+    }
+  }
+  assert((cnt == 3 || (is_psite(sites_opt[0]) && is_psite(sites_opt[1]) 
+        && sites_opt[2] == -1 && sites_opt[3] == -1)) && "optimisation is a branching opt or DMRG");
+  for(; cnt < 3 ; ++cnt) bonds_involved[cnt] = -1;
+
+  /* sort array */
+  if (bonds_involved[0] > bonds_involved[1]) 
+    swap(&bonds_involved[0], &bonds_involved[1]);
+  if (bonds_involved[1] > bonds_involved[2] && bonds_involved[2] != -1) 
+    swap(&bonds_involved[1], &bonds_involved[2]);
+  if (bonds_involved[0] > bonds_involved[1])
+    swap(&bonds_involved[0], &bonds_involved[1]);
+}
+
+static inline void swap(int * const a, int * const b)
+{
+  const int temp = *a;
+  *a = *b;
+  *b = temp;
 }

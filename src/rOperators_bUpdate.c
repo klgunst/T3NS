@@ -1,5 +1,6 @@
 #include <stdlib.h>
 #include <stdio.h>
+#include <omp.h>
 
 #include "rOperators.h"
 #include "debug.h"
@@ -110,6 +111,9 @@ struct indexhelper {
   int id_ops[3];
   int maxdims[3][3];
   struct symsecs symarr[3][3];
+  int looptype;
+  QN_TYPE * qnumbertens;
+  QN_TYPE divide;
 } idh;
 
 enum tensor_type {OPS1, OPS2, NEWOPS, TENS, ADJ, WORKBRA, WORKKET};
@@ -128,7 +132,7 @@ struct update_data {
   EL_TYPE * tels[7];
 };
 
-struct contract_info {
+struct contractinfo {
   int dgemm;
   char TRANS[2];
   int M;
@@ -151,7 +155,8 @@ static int check_correctness(const struct rOperators Operator[2], const struct s
 static int prepare_update_branching(struct rOperators * const newops, const struct rOperators 
     Operator[2], const struct siteTensor* const tens);
 
-static void initialize_indexhelper(const int updateCase, const int site);
+static void initialize_indexhelper(const int updateCase, const int site, const struct siteTensor *
+    const tens);
 
 static void clean_indexhelper(const int site);
 
@@ -172,18 +177,15 @@ static void update_newblock_w_MPO_set(const int* const hss_ops, const struct rOp
     struct rOperators * const newops, const struct siteTensor * const tens, struct update_data * 
     const data, const int updateCase, const struct instructionset * const instructions);
 
-static inline void create_qntomatch_divide_tens(QN_TYPE * const qntomatch, QN_TYPE * const divide, 
-    const int looptype, const struct update_data * const data);
-
-static int next_sb_tens(int *sb, const QN_TYPE qntomatch, const QN_TYPE divide, const int second_op,
-    const struct siteTensor * const tens, const int looptype, struct update_data * const data);
+static int next_sb_tens(int *sb, const QN_TYPE qntomatch, const int second_op,
+    const struct siteTensor * const tens, struct update_data * const data);
 
 static int next_sb_sec_op(int *sb, const QN_TYPE qntomatch, const int divide, 
     const struct rOperators * const Operator, const int second_op, struct update_data * const data);
 
 static void find_block_adj(const struct siteTensor * const tens, struct update_data * const data);
 
-static void how_to_update(struct update_data * const data, struct contract_info cinfo[3], 
+static void how_to_update(struct update_data * const data, struct contractinfo cinfo[3], 
     int workmem_size[2] );
 
 static int calc_contract(const enum tensor_type tens[3][3], const int td[3][2], int wd[3][2]);
@@ -193,7 +195,7 @@ static void get_dims(const enum tensor_type t, int rd[3], const int td[3][2], co
 static int operationsneeded(const enum tensor_type t, const int bondtocontract, 
     const enum bond_type btype, const int d1[3], const int d2[3], int wd[3][2]);
 
-static void fillin_cinfo(struct contract_info cinfo[3], const enum tensor_type tens[3][3], 
+static void fillin_cinfo(struct contractinfo cinfo[3], const enum tensor_type tens[3][3], 
     const int td[3][2], int wd[3][2]);
 
 static void update_selected_blocks(const struct rOperators Operator[2], struct rOperators * const 
@@ -203,12 +205,12 @@ static void update_selected_blocks(const struct rOperators Operator[2], struct r
 static int get_tels_operators(struct update_data * const data, const int * const ops, const int 
     curr_unique, const struct rOperators Operator[2], const struct rOperators * const newops);
 
-static void update_ops_block(const struct contract_info * const cinfo, EL_TYPE * tels[7]);
+static void update_ops_block(const struct contractinfo * const cinfo, EL_TYPE * tels[7]);
 
-static void update_last_step(const struct contract_info * const cinfo, const double prefactor,
+static void update_last_step(const struct contractinfo * const cinfo, const double prefactor,
     EL_TYPE * tels[7]);
 
-static void print_cinfo(const struct contract_info * const cinfo);
+static void print_cinfo(const struct contractinfo * const cinfo);
 
 static void print_data(const struct update_data * const data);
 
@@ -234,7 +236,6 @@ void update_rOperators_branching(struct rOperators * const newops, const struct 
 
   destroy_rOperators(&uniqueOperators);
   destroy_instructionset(&instructions);
-  print_rOperators(newops);
 }
 
 /* ============================================================================================ */
@@ -331,7 +332,8 @@ static int prepare_update_branching(struct rOperators * const newops, const stru
   return updateCase;
 }
 
-static void initialize_indexhelper(const int updateCase, const int site)
+static void initialize_indexhelper(const int updateCase, const int site, const struct siteTensor *
+    const tens)
 {
   int tmpbonds[3];
   int bonds[3];
@@ -340,6 +342,7 @@ static void initialize_indexhelper(const int updateCase, const int site)
   idh.id_ops[0] = updateCase == 0 ? 1 : 0;
   idh.id_ops[1] = updateCase == 2 ? 1 : 2;
   idh.id_ops[2] = updateCase;
+  idh.looptype = updateCase == 0;
 
   get_bonds_of_site(site, tmpbonds);
   /* bra(X) ket(X) MPO(X) */
@@ -351,6 +354,17 @@ static void initialize_indexhelper(const int updateCase, const int site)
     get_symsecs_arr(idh.symarr[i], bonds, 3);
     for (j = 0 ; j < 3 ; ++j)
       idh.maxdims[i][j] = idh.symarr[i][j].nr_symsec;
+  }
+
+  idh.qnumbertens = safe_malloc(tens->nrblocks, QN_TYPE);
+  if (idh.looptype) {
+    idh.divide = idh.maxdims[0][KET] * idh.maxdims[1][KET];
+    for (i = 0 ; i < tens->nrblocks ; ++i)
+      idh.qnumbertens[i] = tens->qnumbers[i] % idh.divide;
+  } else {
+    idh.divide = idh.maxdims[0][KET];
+    for (i = 0 ; i < tens->nrblocks ; ++i)
+      idh.qnumbertens[i] = tens->qnumbers[i] / idh.divide;
   }
 }
 
@@ -368,6 +382,7 @@ static void clean_indexhelper(const int site)
     bonds[MPO] = get_hamiltonianbond(tmpbonds[i]);
     clean_symsecs_arr(idh.symarr[i], bonds, 3);
   }
+  safe_free(idh.qnumbertens);
 }
 
 static void fill_indexes(struct update_data * const data, const enum tensor_type operator, 
@@ -415,8 +430,9 @@ static void update_unique_ops_T3NS(struct rOperators * const newops, const struc
   const int site = tens->sites[0];
   int new_sb;
 
-  initialize_indexhelper(updateCase, site);
+  initialize_indexhelper(updateCase, site, tens);
 
+#pragma omp parallel for schedule(dynamic) default(none) shared(Operator) private(new_sb)
   for (new_sb = 0 ; new_sb < newops->begin_blocks_of_hss[newops->nrhss] ; ++new_sb) {
     struct update_data data;
     int prod, nr_of_prods, *possible_prods;
@@ -444,22 +460,26 @@ static void update_newblock_w_MPO_set(const int* const hss_ops, const struct rOp
 {
   /* For CASE I Operator[0] is first looped over and after that Operator[1].
    * For all other cases its vice versa. */
-  const int looptype = updateCase == 0;
-  const int first_op  = looptype ? OPS1 : OPS2;
-  const int second_op = looptype ? OPS2 : OPS1;
+  const int first_op  = idh.looptype ? OPS1 : OPS2;
+  const int second_op = idh.looptype ? OPS2 : OPS1;
 
   const int nr_bl_op = rOperators_give_nr_blocks_for_hss(&Operator[first_op], hss_ops[first_op]);
   const QN_TYPE * qn_op = rOperators_give_qnumbers_for_hss(&Operator[first_op], hss_ops[first_op]);
 
   for (data->sb_op[first_op] = 0 ; data->sb_op[first_op] < nr_bl_op ; ++data->sb_op[first_op]) {
     int sb_tens = -1;
-    QN_TYPE qntomatch, divide;
+    QN_TYPE qntomatch;
     fill_indexes(data, first_op, qn_op[data->sb_op[first_op]]);
     assert(hss_ops[first_op] == get_id(data, first_op, MPO));
     fill_index(hss_ops[second_op], data, second_op, MPO);
-    create_qntomatch_divide_tens(&qntomatch, &divide, looptype, data);
 
-    while (next_sb_tens(&sb_tens, qntomatch, divide, second_op, tens, looptype, data)) {
+    if (idh.looptype) {
+      qntomatch = data->id[0][KET] + data->id[1][KET] * idh.maxdims[0][KET];
+    } else {
+      qntomatch = data->id[1][KET] + data->id[2][KET] * idh.maxdims[1][KET];
+    }
+
+    while (next_sb_tens(&sb_tens, qntomatch, second_op, tens, data)) {
       /* qntomatch is ket + MPO * dim_ket
        * to divide is dim_bra */
       const QN_TYPE qntomatch2 = data->id[idh.id_ops[second_op]][KET] + 
@@ -477,20 +497,8 @@ static void update_newblock_w_MPO_set(const int* const hss_ops, const struct rOp
   }
 }
 
-static inline void create_qntomatch_divide_tens(QN_TYPE * const qntomatch, QN_TYPE * const divide, 
-    const int looptype, const struct update_data * const data)
-{
-  if (looptype) {
-    *qntomatch = data->id[0][KET] + data->id[1][KET] * idh.maxdims[0][KET];
-    *divide = idh.maxdims[0][KET] * idh.maxdims[1][KET];
-  } else {
-    *qntomatch = data->id[1][KET] + data->id[2][KET] * idh.maxdims[1][KET];
-    *divide = idh.maxdims[0][KET];
-  }
-}
-
-static int next_sb_tens(int *sb, const QN_TYPE qntomatch, const QN_TYPE divide, const int second_op,
-    const struct siteTensor * const tens, const int looptype, struct update_data * const data)
+static int next_sb_tens(int *sb, const QN_TYPE qntomatch, const int second_op,
+    const struct siteTensor * const tens, struct update_data * const data)
 {
   /* Two looptypes possible. looptype = 1 for Case I, otherwise looptype = 0.
    * For looptype = 1
@@ -500,25 +508,18 @@ static int next_sb_tens(int *sb, const QN_TYPE qntomatch, const QN_TYPE divide, 
   int ket_to_be_found;
 
   ++*sb;
-  if (looptype) {
-    for (; *sb < tens->nrblocks ; ++*sb) {
-      const QN_TYPE qnmatched = tens->qnumbers[*sb] % divide;
-      ket_to_be_found         = tens->qnumbers[*sb] / divide;
-      if (qnmatched == qntomatch)
-        break;
-    }
+  if (!idh.looptype) {
+    for (; *sb < tens->nrblocks ; ++*sb) if(idh.qnumbertens[*sb] >= qntomatch) break;
+    if (*sb == tens->nrblocks)
+      return 0;
+    if(idh.qnumbertens[*sb] > qntomatch) return 0;
+    ket_to_be_found = tens->qnumbers[*sb] % idh.divide;
   } else {
-    for (; *sb < tens->nrblocks ; ++*sb) {
-      const QN_TYPE qnmatched = tens->qnumbers[*sb] / divide;
-      ket_to_be_found         = tens->qnumbers[*sb] % divide;
-      if (qnmatched == qntomatch)
-        break;
-      else if (qnmatched > qntomatch)
-        return 0;
-    }
+    for (; *sb < tens->nrblocks ; ++*sb) if(idh.qnumbertens[*sb] == qntomatch) break;
+    if (*sb == tens->nrblocks)
+      return 0;
+    ket_to_be_found = tens->qnumbers[*sb] / idh.divide;
   }
-  if (*sb == tens->nrblocks)
-    return 0;
 
   fill_index(ket_to_be_found, data, second_op, KET);
   data->tels[TENS] = get_tel_block(&tens->blocks, *sb);
@@ -534,17 +535,16 @@ static int next_sb_sec_op(int *sb, const QN_TYPE qntomatch, const int divide,
 
   const int nr_bl_op = rOperators_give_nr_blocks_for_hss(Operator, get_id(data, second_op, MPO));
   const QN_TYPE * qn_op = rOperators_give_qnumbers_for_hss(Operator, get_id(data, second_op, MPO));
-  int bra_to_be_found;
+  int bra_to_be_found = -1;
+  QN_TYPE qnmatched;
   ++*sb;
   for (; *sb < nr_bl_op ; ++*sb) {
-    const QN_TYPE qnmatched = qn_op[*sb] / divide;
-    bra_to_be_found         = qn_op[*sb] % divide;
-    if (qnmatched == qntomatch)
+    qnmatched       = qn_op[*sb] / divide;
+    bra_to_be_found = qn_op[*sb] % divide;
+    if (qnmatched >= qntomatch)
       break;
-    else if (qnmatched > qntomatch)
-      return 0;
   }
-  if (*sb == nr_bl_op)
+  if (qnmatched > qntomatch || *sb == nr_bl_op)
     return 0;
 
   fill_index(bra_to_be_found, data, second_op, BRA);
@@ -582,7 +582,7 @@ static enum tensor_type ways_to_update[6][3][3] = {
   {{OPS2, TENS, WORKKET}, {OPS1, ADJ, WORKBRA}, {WORKBRA, WORKKET, NEWOPS}}
 };
 
-static void how_to_update(struct update_data * const data, struct contract_info cinfo[3], 
+static void how_to_update(struct update_data * const data, struct contractinfo cinfo[3], 
     int workmem_size[2] )
 {
   int i;
@@ -658,7 +658,7 @@ static int operationsneeded(const enum tensor_type t, const int bondtocontract,
   }
 }
 
-static void fillin_cinfo(struct contract_info cinfo[3], const enum tensor_type tens[3][3], 
+static void fillin_cinfo(struct contractinfo cinfo[3], const enum tensor_type tens[3][3], 
     const int td[3][2], int wd[3][2])
 {
   int i;
@@ -762,10 +762,10 @@ static void update_selected_blocks(const struct rOperators Operator[2], struct r
   const double prefactor = prefactor_update_branch(data->irreps, updateCase, bookie.sgs, 
       bookie.nr_symmetries);
 
-  struct contract_info cinfo[3];
+  struct contractinfo cinfo[3];
   int curr_unique = 0;
   int curr_instr = -1;
-  int worksize[2];
+  int worksize[2] = {-1, -1};
   how_to_update(data, cinfo, worksize);
   data->tels[WORKBRA] = safe_malloc(worksize[BRA], EL_TYPE);
   data->tels[WORKKET] = safe_malloc(worksize[KET], EL_TYPE);
@@ -817,7 +817,7 @@ static int get_tels_operators(struct update_data * const data, const int * const
   return 1;
 }
 
-static void update_ops_block(const struct contract_info * const cinfo, EL_TYPE * tels[7])
+static void update_ops_block(const struct contractinfo * const cinfo, EL_TYPE * tels[7])
 {
   const double D_ONE = 1;
   const double ZERO  = 0;
@@ -842,7 +842,7 @@ static void update_ops_block(const struct contract_info * const cinfo, EL_TYPE *
   }
 }
 
-static void update_last_step(const struct contract_info * const cinfo, const double prefactor,
+static void update_last_step(const struct contractinfo * const cinfo, const double prefactor,
     EL_TYPE * tels[7])
 {
   const double D_ONE = 1;
@@ -869,7 +869,7 @@ static void update_last_step(const struct contract_info * const cinfo, const dou
   }
 }
 
-static void print_cinfo(const struct contract_info * const cinfo)
+static void print_cinfo(const struct contractinfo * const cinfo)
 {
   const char * names[] = {"OPS1", "OPS2", "NEWOPS", "TENS", "ADJ", "WORKBRA", "WORKKET"};
   int i;

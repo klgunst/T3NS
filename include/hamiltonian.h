@@ -84,4 +84,6 @@ void get_string_of_rops( char buffer[], const int ropsindex, const int bond, con
     const char o );
 
 void get_string_of_siteops( char buffer[], const int siteindex, const int site );
+
+int MPO_couples_to_singlet(const int n, const int MPO[n]);
 #endif

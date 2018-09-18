@@ -252,6 +252,8 @@ void rOperators_give_couplings( const struct rOperators * const rops, int coupli
  */
 void rOperators_give_is_in( const struct rOperators * const rops, int is_in[] );
 
+int rOperators_site_to_attach(const struct rOperators * const operator);
+
 /* ============================== MANIPULATION OF ROPERATORS =================================== */
 
 /**

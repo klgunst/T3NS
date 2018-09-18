@@ -67,4 +67,5 @@ void QC_get_string_of_rops( char buffer[], const int ropsindex, const int bond,
 
 void QC_get_string_of_siteops( char buffer[], const int siteindex, const int site );
 
+int QC_MPO_couples_to_singlet(const int n, const int MPO[n]);
 #endif

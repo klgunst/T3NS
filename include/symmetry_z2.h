@@ -54,4 +54,8 @@ double Z2_calculate_mirror_coupling( int symvalues[] );
 double Z2_calculate_prefactor_DMRG_matvec( const int symvalues[] );
 
 double Z2_prefactor_update_branch(const int symvalues[3][3], const int updateCase);
+
+double Z2_prefactor_add_P_operator(const int symvalues[2][3], const int isleft);
+
+double Z2_prefactor_combine_MPOs(const int symvalues[2][3], const int symvaluesMPO[3]);
 #endif

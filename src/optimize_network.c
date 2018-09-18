@@ -37,7 +37,7 @@ static double execute_sweep_in_regime(struct siteTensor * const T3NS, struct rOp
 
 /* This preprocesses the needed rOperators for the current optimization */
 static void preprocess_rOperators(struct rOperators Operators[], const struct rOperators * const 
-    rops, const int bonds_involved[], struct symsecs internalss[]);
+    rops, const int bonds_involved[]);
 
 /* Optimization step */
 static double optimize_siteTensor(struct siteTensor * tens, struct siteTensor * const T3NS, 
@@ -46,11 +46,16 @@ static double optimize_siteTensor(struct siteTensor * tens, struct siteTensor * 
 
 /* This postprocesses the used rOperators for the current optimization */
 static void postprocess_rOperators(struct rOperators Operators[], struct rOperators * const rops,
-    const struct siteTensor * const T3NS, const int site_opt[], const int common_nxt[], const int
-    bonds_involved[], struct symsecs internalss[]);
+    const struct siteTensor * const T3NS, const int site_opt[], const int common_nxt[], 
+    struct symsecs internalss[], const int internalbonds[]);
 
 /* print different timers */
 static void print_timers(void);
+
+static void copy_internal_symsecs(const struct siteTensor * const tens, 
+    struct symsecs internalss[3], int internalbonds[3]);
+
+static int find_in_array(const int size, const int array[size], const int id);
 
 /* ============================================================================================ */
 
@@ -60,14 +65,14 @@ void random_init(struct siteTensor ** const T3NS, struct rOperators ** const rop
   init_null_T3NS(T3NS);
   init_null_rops(rops);
 
-  for(i = 0 ; i < netw.nr_bonds ; ++i)
+  for (i = 0 ; i < netw.nr_bonds ; ++i)
   {
     const int siteL = netw.bonds[2 * i];
     const int siteR = netw.bonds[2 * i + 1];
     struct siteTensor *tens = NULL;
 
     /* The site tensor should be initialized */
-    if(siteL != -1)
+    if (siteL != -1)
     {
       tens = &(*T3NS)[siteL];
 
@@ -77,7 +82,7 @@ void random_init(struct siteTensor ** const T3NS, struct rOperators ** const rop
       init_1siteTensor(tens, siteL, 'r');
       QR(tens, NULL);
 
-      if(siteR == -1) /* normalize the last tensor */
+      if (siteR == -1) /* normalize the last tensor */
       {
         const int ONE = 1;
         const int N = tens->blocks.beginblock[tens->nrblocks];
@@ -87,7 +92,7 @@ void random_init(struct siteTensor ** const T3NS, struct rOperators ** const rop
       }
     }
   }
-  for(i = 0 ; i < netw.nr_bonds ; ++i)
+  for (i = 0 ; i < netw.nr_bonds ; ++i)
   {
     struct siteTensor * tens = &(*T3NS)[netw.bonds[2 * i]];
     init_rops(*rops, tens, i);
@@ -101,10 +106,10 @@ void execute_optScheme(struct siteTensor * const T3NS, struct rOperators * const
   int i;
 
   printf("============================================================================\n");
-  for(i = 0 ; i < scheme->nrRegimes ; ++i)
+  for (i = 0 ; i < scheme->nrRegimes ; ++i)
   {
     double current_energy = execute_regime(T3NS, rops, &scheme->regimes[i], i + 1);
-    if(current_energy  < energy) energy = current_energy;
+    if (current_energy  < energy) energy = current_energy;
   }
 
   printf("============================================================================\n"
@@ -130,14 +135,14 @@ static void init_null_T3NS(struct siteTensor ** const T3NS)
 {
   int i;
   *T3NS = safe_malloc(netw.sites, struct siteTensor);
-  for(i = 0 ; i < netw.sites ; ++i) init_null_siteTensor(&(*T3NS)[i]);
+  for (i = 0 ; i < netw.sites ; ++i) init_null_siteTensor(&(*T3NS)[i]);
 }
 
 static void init_null_rops(struct rOperators ** const rops)
 {
   int i;
   *rops = safe_malloc(netw.nr_bonds, struct rOperators);
-  for(i = 0 ; i < netw.nr_bonds ; ++i) init_null_rOperators(&(*rops)[i]);
+  for (i = 0 ; i < netw.nr_bonds ; ++i) init_null_rOperators(&(*rops)[i]);
 }
 
 static void init_rops(struct rOperators * const rops, const struct siteTensor * const tens, 
@@ -154,7 +159,7 @@ static void init_rops(struct rOperators * const rops, const struct siteTensor * 
     int * tempdim = bookie.list_of_symsecs[bond].dims;
     int i;
     bookie.list_of_symsecs[bond].dims = safe_malloc(bookie.list_of_symsecs[bond].nr_symsec, int);
-    for(i = 0 ; i < bookie.list_of_symsecs[bond].nr_symsec ; ++i)
+    for (i = 0 ; i < bookie.list_of_symsecs[bond].nr_symsec ; ++i)
       bookie.list_of_symsecs[bond].dims[i] = 1;
 
     get_bonds_of_site(siteL, bonds);
@@ -185,7 +190,7 @@ static double execute_regime(struct siteTensor * const T3NS, struct rOperators *
   struct timeval t_start, t_end;
   double energy = 3000;
 
-  while(flag && sweepnrs < reg->max_sweeps)
+  while (flag && sweepnrs < reg->max_sweeps)
   {
     double sweep_energy;
 
@@ -204,12 +209,12 @@ static double execute_regime(struct siteTensor * const T3NS, struct rOperators *
     printf("============================================================================\n\n");
 
     flag = fabs(energy - sweep_energy) > reg->energy_conv;
-    if(sweep_energy < energy) energy = sweep_energy;
+    if (sweep_energy < energy) energy = sweep_energy;
   }
 
   printf("============================================================================\n"  );
   printf("END OF REGIME %d AFTER %d/%d SWEEPS.\n", regnumber, sweepnrs, reg->max_sweeps    );
-  if(flag)
+  if (flag)
     printf("THE ENERGY DID NOT CONVERGE UP TO ASKED TOLERANCE OF %e\n", reg->energy_conv   );
   printf("MINIMUM ENERGY ENCOUNTERED : %.16lf\n", energy                                   );
   printf("============================================================================\n\n");
@@ -222,94 +227,96 @@ static double execute_sweep_in_regime(struct siteTensor * const T3NS, struct rOp
   double sweep_energy = 3000;
   int bonds_involved[3], sites_opt[4], common_nxt[4];
 
-  while(next_opt_step(reg->sitesize, bonds_involved, sites_opt, common_nxt))
-  {
+  while (next_opt_step(reg->sitesize, bonds_involved, sites_opt, common_nxt)) {
     struct rOperators Operators[3];
     double curr_energy;
     struct siteTensor tens;
     struct symsecs internalss[3];
+    int internalbonds[3];
     int i;
 
     printf("**\tOptimize sites %d", sites_opt[0]);
-    for(i = 1 ; i < 4 && sites_opt[i] != -1 ; ++i) printf(" & %d", sites_opt[i]);
+    for (i = 1 ; i < 4 && sites_opt[i] != -1 ; ++i) printf(" & %d", sites_opt[i]);
     printf(" :\n");
     /* The order of makesiteTensor and preprocess_rOperators is really important!
      * In makesiteTensor the symsec is set to an internal symsec. This is what you need also for
      * preprocess_rOperators */
     makesiteTensor(&tens, T3NS, sites_opt);
-    preprocess_rOperators(Operators, rops, bonds_involved, internalss);
+    preprocess_rOperators(Operators, rops, bonds_involved);
+    copy_internal_symsecs(&tens, internalss, internalbonds);
 
     curr_energy = optimize_siteTensor(&tens, T3NS, Operators, sites_opt, common_nxt, reg);
 
-    postprocess_rOperators(Operators, rops, T3NS, sites_opt, common_nxt, bonds_involved, 
-        internalss);
+    postprocess_rOperators(Operators, rops, T3NS, sites_opt, common_nxt, internalss, internalbonds);
 
-    if(sweep_energy > curr_energy) sweep_energy = curr_energy;
+    if (sweep_energy > curr_energy) sweep_energy = curr_energy;
   }
   return sweep_energy;
 }
 
 static void preprocess_rOperators(struct rOperators Operators[], const struct rOperators * const 
-    rops, const int bonds_involved[], struct symsecs internalss[])
+    rops, const int bonds_involved[])
 {
-  if(bonds_involved[2] == -1) /* DMRG step */
-  {
-    assert(is_psite(netw.bonds[2 * bonds_involved[0] + 1]) && 
-        is_psite(netw.bonds[2 * bonds_involved[1]]));
-    assert(!rops[bonds_involved[0]].P_operator && !rops[bonds_involved[1]].P_operator);
-    assert(rops[bonds_involved[0]].is_left && !rops[bonds_involved[1]].is_left);
-
-    append_physical_to_rOperators(&Operators[0], &rops[bonds_involved[0]]);
-    append_physical_to_rOperators(&Operators[1], &rops[bonds_involved[1]]);
-    deep_copy_symsecs_from_bookie(internalss, &Operators[0].bond_of_operator, 1);
-    init_null_rOperators(&Operators[2]);
-    assert(Operators[0].P_operator && Operators[1].P_operator);
-    assert(Operators[0].is_left && !Operators[1].is_left);
-  }
-  else
-  {
-    fprintf(stderr, "%s@%s: Not T3NS yet implemented.\n", __FILE__, __func__);
-    exit(EXIT_FAILURE);
+  int i;
+  for (i = 0 ; i < 3 ; ++i) {
+    const int bond = bonds_involved[i];
+    if (bond != -1) {
+      const int isdmrg = is_psite(netw.bonds[2 * bond + rops[bond].is_left]);
+      assert(!rops[bond].P_operator);
+      if (isdmrg)
+        append_physical_to_rOperators(&Operators[i], &rops[bond]);
+      else
+        Operators[i] = rops[bond];
+    } else {
+      assert(i == 2);
+      assert(Operators[0].is_left && !Operators[1].is_left);
+      init_null_rOperators(&Operators[i]);
+    }
   }
 }
 
 static double optimize_siteTensor(struct siteTensor * tens, struct siteTensor * const T3NS, 
     const struct rOperators Operators[], const int site_opt[], const int common_nxt[], 
     const struct regime * const reg)
-{ long long t_elapsed;
+{ 
+  long long t_elapsed;
   double d_elapsed;
   struct timeval t_start, t_end;
 
-  struct matvec_data mv_dat;
   double energy;
   EL_TYPE *diagonal;
   int size;
 
   gettimeofday(&t_start, NULL);
 
-  /* preparing optimization */
-  size = tens->blocks.beginblock[tens->nrblocks];
-  init_matvec_data(&mv_dat, Operators, tens);
-  diagonal = make_diagonal(&mv_dat);
 
   /* optimize bond */
-  if(Operators[2].bond_of_operator != -1) /* T3NS */
-    assert(0);
-  /*
-    sparse_eigensolve(tens->blocks.tel, size, &energy, matvecT3NS, diagonal, NULL,
-        reg->davidson_rtl, reg->davidson_max_its, "D", DAVIDSON_KEEP_DEFLATE, DAVIDSON_MAX_VECS, 
-        &mv_dat);
-        */
-  else /* DMRG */
-    sparse_eigensolve(tens->blocks.tel, size, &energy, matvecDMRG, diagonal, NULL,
-        reg->davidson_rtl, reg->davidson_max_its, "D", DAVIDSON_KEEP_DEFLATE, DAVIDSON_MAX_VECS, 
-        &mv_dat);
+  if (Operators[2].bond_of_operator != -1) {/* T3NS */
+    int i;
+    struct T3NSdata mv_dat;
+    size = tens->blocks.beginblock[tens->nrblocks];
+    init_T3NSdata(&mv_dat, Operators, tens);
+    //diagonal = safe_malloc(size, double);
+    //for (i = 0 ; i < size ; ++i) diagonal[i] = 1;
+    diagonal = make_diagonal(&mv_dat, 0);
+    sparse_eigensolve(tens->blocks.tel, size, &energy, matvecT3NS, diagonal, reg->davidson_rtl, 
+        reg->davidson_max_its, "D", DAVIDSON_KEEP_DEFLATE, DAVIDSON_MAX_VECS, &mv_dat);
+    destroy_T3NSdata(&mv_dat);
+    safe_free(diagonal);
+  } else { /* DMRG */
+    /* preparing optimization */
+    struct matvec_data mv_dat;
+    size = tens->blocks.beginblock[tens->nrblocks];
+    init_matvec_data(&mv_dat, Operators, tens);
+    diagonal = make_diagonal(&mv_dat, 1);
+    sparse_eigensolve(tens->blocks.tel, size, &energy, matvecDMRG, diagonal, reg->davidson_rtl, 
+        reg->davidson_max_its, "D", DAVIDSON_KEEP_DEFLATE, DAVIDSON_MAX_VECS, &mv_dat);
+    destroy_matvec_data(&mv_dat);
+    safe_free(diagonal);
+  }
 
-  destroy_matvec_data(&mv_dat);
-  safe_free(diagonal);
 
-  decomposesiteObject(tens, T3NS, site_opt, common_nxt, reg->minD, reg->maxD, 
-    reg->truncerror);
+  decomposesiteObject(tens, T3NS, site_opt, common_nxt, reg->minD, reg->maxD, reg->truncerror);
   destroy_siteTensor(tens);
 
   gettimeofday(&t_end, NULL);
@@ -321,33 +328,65 @@ static double optimize_siteTensor(struct siteTensor * tens, struct siteTensor * 
 }
 
 static void postprocess_rOperators(struct rOperators Operators[], struct rOperators * const rops,
-    const struct siteTensor * const T3NS, const int site_opt[], const int common_nxt[], const int
-    bonds_involved[], struct symsecs internalss[])
+    const struct siteTensor * const T3NS, const int site_opt[], const int common_nxt[], 
+    struct symsecs internalss[], const int internalbonds[])
 {
-  if(bonds_involved[2] == -1) /* DMRG step */
-  {
-    /* if common_nxt[0] = 0, the zeroth site int sit_opt is uncommon, 
-     * else the 1st site is uncommon */
-    const int uncommon = common_nxt[0]; 
-    const struct siteTensor * const tens =  &T3NS[site_opt[uncommon]];
-    struct rOperators * const new_operator = &rops[Operators[uncommon].bond_of_operator];
+  int i;
+  int unupdated, unupdatedbond;
 
-    assert(is_psite(netw.bonds[2 * bonds_involved[0] + 1]) && 
-        is_psite(netw.bonds[2 * bonds_involved[1]]));
-    assert(Operators[0].P_operator && Operators[1].P_operator);
-    assert(Operators[0].is_left && !Operators[1].is_left);
-    assert(common_nxt[0] ^ common_nxt[1]);
+  /* first do all dmrg updates possible */
+  for (i = 0 ; i < 3 ; ++i) {
+    if (Operators[i].P_operator == 1) {
+      const int site = netw.bonds[Operators[i].bond_of_operator * 2 + !Operators[i].is_left];
+      const int siteid = find_in_array(4, site_opt, site);
+      assert(siteid != -1);
+      assert(is_psite(site));
+      if (!common_nxt[siteid]) {
+        const struct siteTensor * const tens = &T3NS[site];
+        struct rOperators * const new_operator = &rops[Operators[i].bond_of_operator];
+        const int internalid = find_in_array(3, internalbonds, Operators[i].bond_of_operator);
 
-    destroy_rOperators(&Operators[!uncommon]);
-    destroy_rOperators(new_operator);
-    *new_operator = Operators[uncommon];
-    update_rOperators_physical(new_operator, tens, &internalss[0]);
-    destroy_symsecs(&internalss[0]);
+        assert(internalid != -1);
+
+        destroy_rOperators(new_operator);
+        update_rOperators_physical(&Operators[i], tens, &internalss[internalid]);
+        *new_operator = Operators[i];
+      } else {
+        /* This Operator is not updated since it has a common site with the next step */
+        unupdated = i;
+        unupdatedbond = Operators[unupdated].bond_of_operator;
+        destroy_rOperators(&Operators[unupdated]);
+      }
+    }
   }
-  else
-  {
-    fprintf(stderr, "%s@%s: Not TTNS yet implemented.\n", __FILE__, __func__);
-    exit(EXIT_FAILURE);
+
+  /* now do the possible T3NS update. */
+  for (i = 0 ; i < 4 ; ++i) {
+    const int site = site_opt[i];
+    if (site == -1) {
+      break;
+    } else if (!is_psite(site) && !common_nxt[i]) {
+      const struct siteTensor * const tens = &T3NS[site];
+      struct rOperators * const new_operator = &rops[unupdatedbond];
+      int bonds[3];
+      get_bonds_of_site(site, bonds);
+
+      destroy_rOperators(new_operator);
+      struct rOperators ops[2] = {Operators[unupdated == 0], Operators[unupdated == 2 ? 1 : 2]};
+
+      assert(unupdated == 0 || Operators[0].bond_of_operator == bonds[0]);
+      assert(unupdated == 1 || Operators[1].bond_of_operator == bonds[1]);
+      assert(unupdated == 2 || Operators[2].bond_of_operator == bonds[2]);
+
+      assert(!ops[0].P_operator && !ops[1].P_operator);
+
+      update_rOperators_branching(new_operator, ops, tens);
+    }
+  }
+
+  for (i = 0 ; i < 3 ; ++i) {
+    if (internalbonds[i] != -1)
+      destroy_symsecs(&internalss[i]);
   }
 }
 
@@ -356,4 +395,24 @@ static void print_timers(void)
   printf("\n\n");
   printf("** TIMERS FOR OPTIMIZATION SCHEME **\n");
   printf("\n");
+}
+
+static void copy_internal_symsecs(const struct siteTensor * const tens, 
+    struct symsecs internalss[3], int internalbonds[3])
+{
+  const int nr_internal = siteTensor_give_nr_internalbonds(tens);
+  int i;
+  assert(nr_internal <= 3);
+  siteTensor_give_internalbonds(tens, internalbonds);
+  deep_copy_symsecs_from_bookie(internalss, internalbonds, nr_internal);
+  for (i = nr_internal ; i < 3 ; ++i) internalbonds[i] = -1;
+}
+
+static int find_in_array(const int size, const int array[size], const int id)
+{
+  int i;
+  for (i = 0 ; i < size ; ++i)
+    if (array[i] == id)
+      return i;
+  return -1;
 }

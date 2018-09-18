@@ -203,6 +203,19 @@ void destroy_hamiltonian( void )
   }
 }
 
+int MPO_couples_to_singlet(const int n, const int MPO[n])
+{
+  switch( ham )
+  {
+    case QC :
+      return QC_MPO_couples_to_singlet(n, MPO);
+    case QCSU2 :
+    default:
+      fprintf( stderr, "%s@%s: Not defined for the given hamiltonian.\n", __FILE__, __func__ );
+      exit( EXIT_FAILURE );
+  }
+}
+
 /* ============================================================================================ */
 /* ================================ DEFINITION STATIC FUNCTIONS =============================== */
 /* ============================================================================================ */
