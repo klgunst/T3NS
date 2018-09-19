@@ -80,4 +80,4 @@ if (BUILD_DOXYGEN)
 endif(BUILD_DOXYGEN)
 
 add_executable(T3NS ${SOURCES})
-target_link_libraries(T3NS  ${LAPACK_LIBRARIES} ${HDF5_LIBRARIES} m)
+target_link_libraries(T3NS gsl gslcblas ${LAPACK_LIBRARIES} ${HDF5_LIBRARIES} m)

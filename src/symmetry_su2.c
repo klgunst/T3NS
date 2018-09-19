@@ -46,5 +46,5 @@ int SU2_which_irrep( char buffer[], int *irr )
 double SU2_calculate_mirror_coupling( int symvalues[] )
 {
   assert( symvalues[ 0 ] + symvalues[ 1 ] + symvalues[ 2 ] % 2 == 0 );
-  return symvalues[ 0 ] + symvalues[ 1 ] + symvalues[ 2 ] % 4 ? 1 : -1;
+  return (symvalues[ 0 ] + symvalues[ 1 ] + symvalues[ 2 ]) % 4 ? 1 : -1;
 }

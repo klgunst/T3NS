@@ -144,7 +144,7 @@ void read_inputfile( char inputfile[] )
 
   { /* For the path to the interactions file. */
     ro = read_option( "interaction", inputfile, buffer );
-    if( ro != 1 )
+    if( ro == 0 )
     {
       fprintf( stderr, "No valid interaction specified in %s.\n", inputfile );
       exit( EXIT_FAILURE );

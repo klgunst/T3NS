@@ -3,6 +3,7 @@
 
 #include "instructions.h"
 #include "instructions_qc.h"
+#include "instructions_nn_hubbard.h"
 #include "hamiltonian.h"
 #include "sort.h"
 #include "macros.h"
@@ -42,8 +43,13 @@ void fetch_DMRG_make_ops(int ** const instructions, double ** const prefactors, 
       fprintf(stderr, "Instructions not yet defined for SU2 QC.\n");
       exit(EXIT_FAILURE);
       break;
+
+    case NN_HUBBARD :
+      NN_H_fetch_DMRG_make_ops(instructions, prefactors, hamsymsecs_of_new, nr_instructions, bond, 
+          is_left);
+      break;
     default:
-      fprintf(stderr, "Unrecognized Hamiltonian.\n");
+      fprintf(stderr, "%s@%s: Unrecognized Hamiltonian.\n", __FILE__, __func__);
       exit(EXIT_FAILURE);
   }
   sort_instructionsx(instructions, prefactors, *nr_instructions, 3);
@@ -59,8 +65,12 @@ void fetch_T3NS_update(struct instructionset * const instructions, const int bon
       fprintf(stderr, "Instructions not yet defined for SU2 QC.\n");
       exit(EXIT_FAILURE);
       break;
+
+    case NN_HUBBARD :
+      NN_H_fetch_T3NS_update(instructions);
+      break;
     default:
-      fprintf(stderr, "Unrecognized Hamiltonian.\n");
+      fprintf(stderr, "%s@%s: Unrecognized Hamiltonian.\n", __FILE__, __func__);
       exit(EXIT_FAILURE);
   }
   sort_instructions(instructions);
@@ -78,8 +88,12 @@ void fetch_merge(int ** const instructions, int * const nr_instructions, double*
       fprintf(stderr, "Instructions not yet defined for SU2 QC.\n");
       exit(EXIT_FAILURE);
       break;
+
+    case NN_HUBBARD :
+      NN_H_fetch_merge(instructions, nr_instructions, prefactors, bond);
+      break;
     default:
-      fprintf(stderr, "Unrecognized Hamiltonian.\n");
+      fprintf(stderr, "%s@%s: Unrecognized Hamiltonian.\n", __FILE__, __func__);
       exit(EXIT_FAILURE);
   }
 }
