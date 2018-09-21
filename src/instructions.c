@@ -39,11 +39,6 @@ void fetch_DMRG_make_ops(int ** const instructions, double ** const prefactors, 
       QC_fetch_DMRG_make_ops(instructions, prefactors, hamsymsecs_of_new, nr_instructions, bond, 
           is_left);
       break;
-    case QCSU2 :
-      fprintf(stderr, "Instructions not yet defined for SU2 QC.\n");
-      exit(EXIT_FAILURE);
-      break;
-
     case NN_HUBBARD :
       NN_H_fetch_DMRG_make_ops(instructions, prefactors, hamsymsecs_of_new, nr_instructions, bond, 
           is_left);
@@ -61,11 +56,6 @@ void fetch_T3NS_update(struct instructionset * const instructions, const int bon
     case QC :
       QC_fetch_T3NS_update(instructions, bond, isleft);
       break;
-    case QCSU2 :
-      fprintf(stderr, "Instructions not yet defined for SU2 QC.\n");
-      exit(EXIT_FAILURE);
-      break;
-
     case NN_HUBBARD :
       NN_H_fetch_T3NS_update(instructions);
       break;
@@ -84,11 +74,6 @@ void fetch_merge(int ** const instructions, int * const nr_instructions, double*
     case QC :
       QC_fetch_merge(instructions, nr_instructions, prefactors, bond);
       break;
-    case QCSU2 :
-      fprintf(stderr, "Instructions not yet defined for SU2 QC.\n");
-      exit(EXIT_FAILURE);
-      break;
-
     case NN_HUBBARD :
       NN_H_fetch_merge(instructions, nr_instructions, prefactors, bond);
       break;

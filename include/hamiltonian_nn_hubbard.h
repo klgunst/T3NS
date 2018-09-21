@@ -27,4 +27,8 @@ void NN_H_hamiltonian_tensor_products(int * const nr_of_prods, int ** const poss
 int NN_H_MPO_couples_to_singlet(const int n, const int MPO[n]);
 
 void NN_H_get_interactions(double * const t, double * const U);
+
+int NN_H_has_su2(void);
+
+void NN_H_get_string_of_rops(char buffer[], const int ropsindex);
 #endif

@@ -194,10 +194,10 @@ static void initialize_example_scheme(struct optScheme * const scheme)
   //struct regime regime2  = { .minD = 200, .maxD = 400, .truncerror = 1e-6, .sitesize = 2, 
   //  .davidson_rtl = SOLVER_TOL, .davidson_max_its = SOLVER_MAX_ITS, .max_sweeps = 20, 
   //  .energy_conv = 1e-6 };
-  struct regime regime1 = { .minD = 400, .maxD = 1000, .truncerror = 1e-5, .sitesize = 2, 
+  struct regime regime1 = { .minD = 100, .maxD = 400, .truncerror = 1e-5, .sitesize = 2, 
     .davidson_rtl = SOLVER_TOL, .davidson_max_its = 4, .max_sweeps = 4, 
     .energy_conv = 1e-5 };
-  struct regime regime2  = { .minD = 400, .maxD = 1000, .truncerror = 1e-6, .sitesize = 2, 
+  struct regime regime2  = { .minD = 200, .maxD = 1000, .truncerror = 1e-6, .sitesize = 2, 
     .davidson_rtl = SOLVER_TOL, .davidson_max_its = SOLVER_MAX_ITS, .max_sweeps = 20, 
     .energy_conv = 1e-6 };
 

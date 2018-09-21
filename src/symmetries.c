@@ -276,10 +276,7 @@ double calculate_sympref_append_phys(const int symvalues[], const int is_left, c
   switch(sg) {
     case Z2 :
       return Z2_calculate_sympref_append_phys(symvalues, is_left);
-    case U1 :
-      return 1;
     case SU2 :
-      fprintf(stderr, "ERROR: SU2 not fully implemented yet\n");
       return SU2_calculate_sympref_append_phys(symvalues, is_left);
     default :
       return 1;
@@ -309,8 +306,6 @@ double calculate_prefactor_adjoint_tensor(const int * irrep_arr[], const char c,
         for (j = 0 ; j < 3 ; ++j) symvalues[j] = irrep_arr[j][i];
         prefactor *= Z2_calculate_prefactor_adjoint_tensor(symvalues, c);
         break;
-      case U1 :
-      case SU2 :
       default :
         break;
     }
@@ -358,8 +353,6 @@ double calculate_prefactor_update_physical_rops(const int * irrep_arr[], const i
         /* only Z2 needs a sign change for this contract */
         prefactor *= Z2_calculate_prefactor_update_physical_rops(symvalues, is_left);
         break;
-      case SU2 :
-      case U1 :
       default :
         break;
     }
@@ -382,7 +375,6 @@ double calculate_mirror_coupling(int * irrep_arr[], const enum symmetrygroup * c
       case SU2 :
         for (j = 0 ; j < 3 ; ++j) symvalues[j] = irrep_arr[j][i];
         prefactor *= SU2_calculate_mirror_coupling(symvalues);
-      case U1 :
       default :
         break;
     }
@@ -399,12 +391,13 @@ double calculate_prefactor_DMRG_matvec(int * irrep_arr[], const enum symmetrygro
   for (i = 0 ; i < nr_symmetries ; ++i) {
     switch(sgs[i]) {
       case Z2 :
-        /* only Z2 needs a sign change for this contract */
         for (j = 0 ; j < 12 ; ++j) symvalues[j] = irrep_arr[j][i];
         prefactor *= Z2_calculate_prefactor_DMRG_matvec(symvalues);
         break;
       case SU2 :
-      case U1 :
+        for (j = 0 ; j < 12 ; ++j) symvalues[j] = irrep_arr[j][i];
+        prefactor *= SU2_calculate_prefactor_DMRG_matvec(symvalues);
+        break;
       default :
         break;
     }
@@ -433,7 +426,8 @@ double prefactor_update_branch(int * const irrep_arr[3][3], const int updateCase
           for (k = 0 ; k < 3 ; ++k)
             symvalues[j][k] = (irrep_arr[j][k])[i];
 
-        prefactor *= SU2_prefactor_update_branch(symvalues, updateCase);
+        assert(0);
+        //prefactor *= SU2_prefactor_update_branch(symvalues, updateCase);
         break;
 
       case U1 :
@@ -464,7 +458,8 @@ double prefactor_add_P_operator(int * const irreps[2][3], const int isleft,
           for (k = 0 ; k < 3 ; ++k)
             symvalues[j][k] = (irreps[j][k])[i];
 
-        prefactor *= SU2_prefactor_add_P_operator(symvalues, isleft);
+        assert(0);
+        //prefactor *= SU2_prefactor_add_P_operator(symvalues, isleft);
         break;
 
       case U1 :
@@ -500,7 +495,8 @@ double prefactor_combine_MPOs(int * const irreps[2][3], int * const irrMPO[3],
         for (k = 0 ; k < 3 ; ++k)
           symvaluesMPO[k] = (irrMPO[k])[i];
 
-        prefactor *= SU2_prefactor_combine_MPOs(symvalues, symvaluesMPO);
+        assert(0);
+        //prefactor *= SU2_prefactor_combine_MPOs(symvalues, symvaluesMPO);
         break;
       case U1 :
       default :

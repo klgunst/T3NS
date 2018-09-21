@@ -315,7 +315,6 @@ static double optimize_siteTensor(struct siteTensor * tens, struct siteTensor * 
     safe_free(diagonal);
   }
 
-
   decomposesiteObject(tens, T3NS, site_opt, common_nxt, reg->minD, reg->maxD, reg->truncerror);
   destroy_siteTensor(tens);
 
@@ -323,7 +322,7 @@ static double optimize_siteTensor(struct siteTensor * tens, struct siteTensor * 
   t_elapsed = (t_end.tv_sec - t_start.tv_sec) * 1000000LL + t_end.tv_usec - t_start.tv_usec;
   d_elapsed = t_elapsed * 1e-6;
 
-  printf("**  \t\tEnergy : %.16lf\n", energy);
+  printf("**  \t\tEnergy : %.16lf\n\n", energy);
   return energy;
 }
 

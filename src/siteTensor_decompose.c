@@ -201,7 +201,7 @@ void decomposesiteObject( struct siteTensor * const siteObject, struct siteTenso
   selection = select_best_decompose(nr_of_orders, nr_of_SVDs, truncerrlist, symseclist, &mxtr,&mxD);
   printf( "   * SVD sequence no. %d selected with\n", selection + 1 );
   printf( "          - maximal dimension %d\n", mxD );
-  printf( "          - maximal truncation error %.4e\n\n", mxtr );
+  printf( "          - maximal truncation error %.4e\n", mxtr );
 
   change_symsecs_to_best( selection, nr_of_orders, nr_of_SVDs, symseclist, bonds );
   change_tensors_to_best( selection, nr_of_orders, siteObject->nrsites, T3NS, tensorlist );

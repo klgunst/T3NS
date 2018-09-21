@@ -1,9 +1,14 @@
 #include <stdlib.h>
 #include <stdio.h>
+#include <math.h>
+#include <gsl/gsl_sf_coupling.h>
 
 #include "symmetry_su2.h"
 #include "macros.h"
 #include "debug.h"
+
+static inline double bracket(const int twoj)    {return sqrt(twoj + 1);}
+static inline double divbracket(const int twoj) {return 1 / bracket(twoj);}
 
 int SU2_get_max_irrep( int *prop1, int nr1, int *prop2, int nr2, int inc )
 {
@@ -45,6 +50,29 @@ int SU2_which_irrep( char buffer[], int *irr )
 
 double SU2_calculate_mirror_coupling( int symvalues[] )
 {
-  assert( symvalues[ 0 ] + symvalues[ 1 ] + symvalues[ 2 ] % 2 == 0 );
-  return (symvalues[ 0 ] + symvalues[ 1 ] + symvalues[ 2 ]) % 4 ? 1 : -1;
+  assert( (symvalues[ 0 ] + symvalues[ 1 ] + symvalues[ 2 ]) % 2 == 0 );
+  const double STUPIDFIX_ = bracket(symvalues[0]);
+  return STUPIDFIX_ * ((symvalues[ 0 ] + symvalues[ 1 ] + symvalues[ 2 ]) % 4 ? 1 : -1);
+}
+
+double SU2_calculate_sympref_append_phys(const int symvalues[], const int is_left)
+{
+  assert(symvalues[8] + symvalues[7] - symvalues[6] >= 0);
+  if (is_left)
+    return bracket(symvalues[2]) * bracket(symvalues[5]) * 
+      gsl_sf_coupling_9j(symvalues[0], symvalues[3], symvalues[6],
+                         symvalues[1], symvalues[4], symvalues[7],
+                         symvalues[2], symvalues[5], symvalues[8]);
+  else
+    return 
+      ((symvalues[8] + symvalues[7] - symvalues[6]) % 4 ? -1 : 1) * 
+      bracket(symvalues[0]) * bracket(symvalues[3]) * 
+      gsl_sf_coupling_9j(symvalues[0], symvalues[3], symvalues[6],
+                         symvalues[1], symvalues[4], symvalues[7],
+                         symvalues[2], symvalues[5], symvalues[8]);
+}
+
+double SU2_calculate_prefactor_DMRG_matvec(const int symvalues[])
+{
+  return divbracket(symvalues[2]) * divbracket(symvalues[8]);
 }

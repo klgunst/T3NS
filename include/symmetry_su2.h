@@ -50,4 +50,8 @@ void SU2_get_irrstring( char buffer[], int irr );
 int SU2_which_irrep( char buffer[], int *irr );
 
 double SU2_calculate_mirror_coupling( int symvalues[] );
+
+double SU2_calculate_sympref_append_phys(const int symvalues[], const int is_left);
+
+double SU2_calculate_prefactor_DMRG_matvec(const int symvalues[]);
 #endif
