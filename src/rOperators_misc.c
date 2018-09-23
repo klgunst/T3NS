@@ -17,7 +17,7 @@ static void print_couplings(const struct rOperators * const rops);
 
 static void print_qnumberbonds(const struct rOperators * const rops);
 
-static void print_operators(const struct rOperators * const rops);
+static void print_operators(const struct rOperators * const rops, const int givename);
 
 static void print_blocks(const struct rOperators * const rops, const int op);
 
@@ -28,7 +28,7 @@ static void rOperators_give_coupling_to_qnumberbonds(const struct rOperators * c
 
 /* ============================================================================================ */
 
-void print_rOperators(const struct rOperators * const rops)
+void print_rOperators(const struct rOperators * const rops, const int givename)
 {
   printf("--------------------------------------------------------------------------------\n");
   printf("%srOperators @ bond %d to the %s\n", rops->P_operator ? "Physical " : "",  
@@ -38,7 +38,7 @@ void print_rOperators(const struct rOperators * const rops)
   printf("\n");
   print_qnumberbonds(rops);
   printf("\n");
-  print_operators(rops);
+  print_operators(rops, givename);
   printf("\n");
 }
 
@@ -249,15 +249,17 @@ static void print_qnumberbonds(const struct rOperators * const rops)
   }
 }
 
-static void print_operators(const struct rOperators * const rops)
+static void print_operators(const struct rOperators * const rops, const int givename)
 {
   char buffer[100];
   int op;
   printf("Operators :\n");
   for (op = 0 ; op < rops->nrops ; ++op)
   {
-    get_string_of_rops(buffer, op, rops->bond_of_operator, rops->is_left, 'e');
-    printf("Operator %d :%s\n", op, buffer);
+    if(givename) {
+      get_string_of_rops(buffer, op, rops->bond_of_operator, rops->is_left, 'e');
+    }
+    printf("Operator %d :%s\n", op, givename ? buffer : "");
     print_blocks(rops, op);
     printf("\n");
   }

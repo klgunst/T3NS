@@ -57,7 +57,7 @@ void fetch_T3NS_update(struct instructionset * const instructions, const int bon
       QC_fetch_T3NS_update(instructions, bond, isleft);
       break;
     case NN_HUBBARD :
-      NN_H_fetch_T3NS_update(instructions);
+      NN_H_fetch_T3NS_update(instructions, bond, isleft);
       break;
     default:
       fprintf(stderr, "%s@%s: Unrecognized Hamiltonian.\n", __FILE__, __func__);

@@ -19,7 +19,7 @@ static void H_fetch_DMRG(int ** const instructions, double ** const prefactors,
 static void H_fetch_merge(int ** const instructions, int * const nr_instructions, double ** const 
     prefactors, const int bond);
 
-static void H_fetch_T3NS(struct instructionset * const instructions);
+static void H_fetch_T3NS(struct instructionset * const instructions, const int updateCase);
 
 /* SU2 */
 
@@ -29,7 +29,7 @@ static void H_fetch_DMRG_su2(int ** const instructions, double ** const prefacto
 static void H_fetch_merge_su2(int ** const instructions, int * const nr_instructions, double ** 
     const prefactors, const int bond);
 
-static void H_fetch_T3NS_su2(struct instructionset * const instructions);
+static void H_fetch_T3NS_su2(struct instructionset * const instructions, const int updateCase);
 
 /* ============================================================================================ */
 
@@ -51,12 +51,17 @@ void NN_H_fetch_merge(int ** const instructions, int * const nr_instructions,
     H_fetch_merge(instructions, nr_instructions, prefactors, bond);
 }
 
-void NN_H_fetch_T3NS_update(struct instructionset * const instructions)
+void NN_H_fetch_T3NS_update(struct instructionset * const instructions, const int bond, const int 
+    is_left)
 {
+  int bondz[3];
+  get_bonds_of_site(netw.bonds[2 * bond + !is_left], bondz);
+  const int updateCase = !is_left ? bondz[1] == bond : 2;
+
   if(NN_H_has_su2())
-    H_fetch_T3NS_su2(instructions);
+    H_fetch_T3NS_su2(instructions, updateCase);
   else
-    H_fetch_T3NS(instructions);
+    H_fetch_T3NS(instructions, updateCase);
 }
 
 /* ============================================================================================ */
@@ -79,6 +84,7 @@ static void H_fetch_DMRG(int ** const instructions, double ** const prefactors,
     int ** const hamsymsecs_of_new, int * const nr_instructions, const int bond, const int is_left)
 {
   const int is_border = netw.bonds[2 * bond + !is_left] == -1;
+  const int sign = is_left ? 1 : -1;
 
   double U, t;
   int i;
@@ -104,13 +110,13 @@ static void H_fetch_DMRG(int ** const instructions, double ** const prefactors,
 
   if (!is_border) {
     (*instructions)[3*6] = 1; (*instructions)[3*6+1] = 20; (*instructions)[3*6+2] = 5;
-    (*prefactors)[6] = -t;
+    (*prefactors)[6] = -sign * t;
     (*instructions)[3*7] = 2; (*instructions)[3*7+1] = 21; (*instructions)[3*7+2] = 5;
-    (*prefactors)[7] = -t;
+    (*prefactors)[7] = -sign * t;
     (*instructions)[3*8] = 3; (*instructions)[3*8+1] = 10; (*instructions)[3*8+2] = 5;
-    (*prefactors)[8] = t;
+    (*prefactors)[8] = sign * t;
     (*instructions)[3*9] = 4; (*instructions)[3*9+1] = 11; (*instructions)[3*9+2] = 5;
-    (*prefactors)[9] = t;
+    (*prefactors)[9] = sign * t;
     (*instructions)[3*10] = 5; (*instructions)[3*10+1] = 0; (*instructions)[3*10+2] = 5;
     (*prefactors)[10] = 1;
   }
@@ -160,12 +166,13 @@ static void H_fetch_merge(int ** const instructions, int * const nr_instructions
   }
 }
 
-static void H_fetch_T3NS(struct instructionset * const instructions)
+static void H_fetch_T3NS(struct instructionset * const instructions, const int updateCase)
 {
   double U, t;
 
   int * instr;
   double * pref;
+  const int sign = updateCase == 1 ? -1 : 1;
 
   NN_H_get_interactions(&t, &U);
   instructions->nr_instr = 15;
@@ -216,7 +223,6 @@ static void H_fetch_DMRG_su2(int ** const instructions, double ** const prefacto
 
   double U, t;
   int i;
-  const int sign = 0 ? 1 : -1;
 
   NN_H_get_interactions(&t, &U);
   *nr_instructions = 4 + !is_border * 3;
@@ -231,17 +237,17 @@ static void H_fetch_DMRG_su2(int ** const instructions, double ** const prefacto
 
   (*instructions)[3*0 + 1] = 0;
   (*instructions)[3*1 + 1] = 1;
-  (*prefactors)[1] = sign * sqrt2;
+  (*prefactors)[1] = -sqrt2;
   (*instructions)[3*2 + 1] = 2;
-  (*prefactors)[2] = sign * sqrt2;
+  (*prefactors)[2] = -sqrt2;
   (*instructions)[3*3 + 1] = 8;
   (*prefactors)[3] = -U;
 
   if (!is_border) {
     (*instructions)[3*4] = 1; (*instructions)[3*4+1] = 2; (*instructions)[3*4+2] = 3;
-    (*prefactors)[4] = -sign * sqrt2 * t;
+    (*prefactors)[4] = sqrt2 * t;
     (*instructions)[3*5] = 2; (*instructions)[3*5+1] = 1; (*instructions)[3*5+2] = 3;
-    (*prefactors)[5] = -sign * sqrt2 * t;
+    (*prefactors)[5] = sqrt2 * t;
     (*instructions)[3*6] = 3; (*instructions)[3*6+1] = 0; (*instructions)[3*6+2] = 3;
     (*prefactors)[6] = 1;
   }
@@ -253,6 +259,7 @@ static void H_fetch_merge_su2(int** const instructions, int * const nr_instructi
     prefactors, const int bond)
 {
   double U, t;
+  const double sqrt2 = sqrt(2);
   NN_H_get_interactions(&t, &U);
 
   if (is_dmrg_bond(bond)) {
@@ -271,21 +278,23 @@ static void H_fetch_merge_su2(int** const instructions, int * const nr_instructi
     *prefactors = safe_malloc(*nr_instructions, double);
 
     (*instructions)[1] = 0; (*instructions)[2] = 3;   (*prefactors)[0] = 1;
-    (*instructions)[4] = 1; (*instructions)[5] = 2;   (*prefactors)[1] = -t;
-    (*instructions)[7] = 2; (*instructions)[8] = 1;   (*prefactors)[2] = -t;
+    (*instructions)[4] = 1; (*instructions)[5] = 2;   (*prefactors)[1] = -t * sqrt2;
+    (*instructions)[7] = 2; (*instructions)[8] = 1;   (*prefactors)[2] = -t * sqrt2;
     (*instructions)[10] = 3; (*instructions)[11] = 0; (*prefactors)[3] = 1;
 
-    (*instructions)[12] = 1; (*instructions)[14] = 2; (*prefactors)[4] = -t;
-    (*instructions)[15] = 1; (*instructions)[16] = 2; (*prefactors)[5] = -t;
-    (*instructions)[18] = 2; (*instructions)[20] = 1; (*prefactors)[6] = -t;
-    (*instructions)[21] = 2; (*instructions)[22] = 1; (*prefactors)[7] = -t;
+    (*instructions)[12] = 1; (*instructions)[14] = 2; (*prefactors)[4] = t * sqrt2;
+    (*instructions)[15] = 1; (*instructions)[16] = 2; (*prefactors)[5] = -t * sqrt2;
+    (*instructions)[18] = 2; (*instructions)[20] = 1; (*prefactors)[6] = t * sqrt2;
+    (*instructions)[21] = 2; (*instructions)[22] = 1; (*prefactors)[7] = -t * sqrt2;
     (*instructions)[24] = 3; (*instructions)[25] = 0; (*prefactors)[8] = 1;
   }
 }
 
-static void H_fetch_T3NS_su2(struct instructionset * const instructions)
+static void H_fetch_T3NS_su2(struct instructionset * const instructions, const int updateCase)
 {
   double U, t;
+  const double sqrt2 = sqrt(2);
+  const int sign = updateCase == 2 ? -1 : 1;
 
   int * instr;
   double * pref;
@@ -299,15 +308,15 @@ static void H_fetch_T3NS_su2(struct instructionset * const instructions)
   pref = instructions->pref;
 
   instr[0] = 0;  instr[1] = 0;  instr[2] = 0;  pref[0] = 1;
-  instr[3] = 0;  instr[4] = 1;  instr[5] = 1;  pref[1] = 1;
-  instr[6] = 0;  instr[7] = 2;  instr[8] = 2;  pref[2] = 1;
+  instr[3] = 0;  instr[4] = 1;  instr[5] = 1;  pref[1] = -sign * sqrt2;
+  instr[6] = 0;  instr[7] = 2;  instr[8] = 2;  pref[2] = -sign * sqrt2;
   instr[9] = 0;  instr[10] = 3; instr[11] = 3; pref[3] = 1;
 
-  instr[12] = 1; instr[13] = 0; instr[14] = 1; pref[4] = 1;
-  instr[15] = 1; instr[16] = 2; instr[17] = 3; pref[5] = -t;
+  instr[12] = 1; instr[13] = 0; instr[14] = 1; pref[4] = sign * sqrt2;
+  instr[15] = 1; instr[16] = 2; instr[17] = 3; pref[5] = -t * sqrt2;
   
-  instr[18] = 2; instr[19] = 0; instr[20] = 2; pref[6] = 1;
-  instr[21] = 2; instr[22] = 1; instr[23] = 3; pref[7] = -t;
+  instr[18] = 2; instr[19] = 0; instr[20] = 2; pref[6] = sign * sqrt2;
+  instr[21] = 2; instr[22] = 1; instr[23] = 3; pref[7] = -t * sqrt2;
 
   instr[24] = 3; instr[25] = 0; instr[26] = 3; pref[8] = 1;
 

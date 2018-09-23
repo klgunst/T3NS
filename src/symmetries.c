@@ -382,8 +382,8 @@ double calculate_mirror_coupling(int * irrep_arr[], const enum symmetrygroup * c
   return prefactor;
 }
 
-double calculate_prefactor_DMRG_matvec(int * irrep_arr[], const enum symmetrygroup * const sgs, 
-    const int nr_symmetries)
+double calculate_prefactor_DMRG_matvec(int * irrep_arr[], int * MPO, 
+    const enum symmetrygroup * const sgs, const int nr_symmetries)
 {
   int i, j;
   int symvalues[12];
@@ -396,7 +396,7 @@ double calculate_prefactor_DMRG_matvec(int * irrep_arr[], const enum symmetrygro
         break;
       case SU2 :
         for (j = 0 ; j < 12 ; ++j) symvalues[j] = irrep_arr[j][i];
-        prefactor *= SU2_calculate_prefactor_DMRG_matvec(symvalues);
+        prefactor *= SU2_calculate_prefactor_DMRG_matvec(symvalues, MPO[i]);
         break;
       default :
         break;
@@ -426,8 +426,7 @@ double prefactor_update_branch(int * const irrep_arr[3][3], const int updateCase
           for (k = 0 ; k < 3 ; ++k)
             symvalues[j][k] = (irrep_arr[j][k])[i];
 
-        assert(0);
-        //prefactor *= SU2_prefactor_update_branch(symvalues, updateCase);
+        prefactor *= SU2_prefactor_update_branch(symvalues, updateCase);
         break;
 
       case U1 :
@@ -458,8 +457,7 @@ double prefactor_add_P_operator(int * const irreps[2][3], const int isleft,
           for (k = 0 ; k < 3 ; ++k)
             symvalues[j][k] = (irreps[j][k])[i];
 
-        assert(0);
-        //prefactor *= SU2_prefactor_add_P_operator(symvalues, isleft);
+        prefactor *= SU2_prefactor_add_P_operator(symvalues, isleft);
         break;
 
       case U1 :
@@ -495,8 +493,7 @@ double prefactor_combine_MPOs(int * const irreps[2][3], int * const irrMPO[3],
         for (k = 0 ; k < 3 ; ++k)
           symvaluesMPO[k] = (irrMPO[k])[i];
 
-        assert(0);
-        //prefactor *= SU2_prefactor_combine_MPOs(symvalues, symvaluesMPO);
+        prefactor *= SU2_prefactor_combine_MPOs(symvalues, symvaluesMPO);
         break;
       case U1 :
       default :

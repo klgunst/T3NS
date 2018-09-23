@@ -70,7 +70,8 @@ double Z2_calculate_sympref_append_phys(const int symvalues[], const int is_left
   if (is_left)
     return symvalues[4] && symvalues[6] ? -1 : 1;
   else
-    return (symvalues[7] * symvalues[5]  + symvalues[7] + symvalues[7] * symvalues[8]) % 2 ? -1 : 1;
+    return (symvalues[7] * symvalues[5]  + symvalues[7]) % 2 ? -1 : 1;
+    //return (symvalues[7] * symvalues[5]  + symvalues[7] + symvalues[7] * symvalues[8]) % 2 ? -1 : 1;
 }
 
 double Z2_calculate_prefactor_adjoint_tensor(const int symvalues[], const char c)
@@ -156,6 +157,8 @@ double Z2_prefactor_update_branch(const int symvalues[3][3], const int updateCas
       //return (symvalues[1][1] * symvalues[-][0] + symvalues[0][1] * symvalues[1][2]) % 2 ? -1 : 1;
       return (symvalues[2][1] * symvalues[1][2] + symvalues[1][0]) % 2 ? -1 : 1;
     case 1:
+      //return (symvalues[0][1] * symvalues[2][2]) % 2 ? -1 : 1;
+      //return (symvalues[0][1] * symvalues[2][2] + symvalues[0][0]) % 2 ? -1 : 1;
       return (symvalues[0][1] * symvalues[2][2] + symvalues[0][0] + symvalues[0][2] * symvalues[1][2]) % 2 ? -1 : 1;
     case 2:
       return (symvalues[1][1] && symvalues[0][2]) ? -1 : 1;

@@ -235,10 +235,10 @@ static int is_valid_tproduct(const int i, const int j, const int other_irr)
 
   if (hdat.su2)
   {
-    return irr_of_hss[i*2 + 0] + irr_of_hss[j*2 + 0] == irr_of_hss[other_irr*2 + 0] &&
-      (irr_of_hss[i*2 + 1] + irr_of_hss[j*2 + 1] + irr_of_hss[other_irr*2 +1]) % 2 == 0 &&
-        irr_of_hss[other_irr*2 + 1] <= irr_of_hss[i*2 + 1] + irr_of_hss[j*2 + 1] &&
-        irr_of_hss[other_irr*2 + 1] >= abs(irr_of_hss[i*2 + 1] - irr_of_hss[j*2 + 1]);
+    return (irr_of_hss[i*2 + 0] + irr_of_hss[j*2 + 0] == irr_of_hss[other_irr*2 + 0]) &&
+      ((irr_of_hss[i*2 + 1] + irr_of_hss[j*2 + 1] + irr_of_hss[other_irr*2 +1]) % 2 == 0) &&
+        (irr_of_hss[other_irr*2 + 1] <= (irr_of_hss[i*2 + 1] + irr_of_hss[j*2 + 1])) &&
+        (irr_of_hss[other_irr*2 + 1] >= abs(irr_of_hss[i*2 + 1] - irr_of_hss[j*2 + 1]));
   }
   else
   {

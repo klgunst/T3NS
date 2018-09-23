@@ -53,5 +53,11 @@ double SU2_calculate_mirror_coupling( int symvalues[] );
 
 double SU2_calculate_sympref_append_phys(const int symvalues[], const int is_left);
 
-double SU2_calculate_prefactor_DMRG_matvec(const int symvalues[]);
+double SU2_calculate_prefactor_DMRG_matvec(const int symvalues[], const int MPO);
+
+double SU2_prefactor_add_P_operator(const int symvalues[2][3], const int isleft);
+
+double SU2_prefactor_combine_MPOs(const int symvalues[2][3], const int symvaluesMPO[3]);
+
+double SU2_prefactor_update_branch(const int symvalues[3][3], const int updateCase);
 #endif

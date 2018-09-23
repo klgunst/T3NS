@@ -128,6 +128,8 @@ void matvecDMRG(double * vec, double * result, void * vdata)
   const QN_TYPE innerdimsq = data->maxdims[2] * data->maxdims[2];
   int indexes[12];
   int * irreparr[12];
+  struct symsecs MPOss;
+  get_hamiltoniansymsecs(&MPOss, 0);
 
   /* for dgemm */
   const double ONE   = 1;
@@ -140,7 +142,7 @@ void matvecDMRG(double * vec, double * result, void * vdata)
   for (i = 0 ; i < tens.blocks.beginblock[tens.nrblocks] ; ++i) result[i] = 0;
 
   /* looping over all new symmetry blocks */
-#pragma omp parallel for schedule(dynamic) default(none) shared(vec, result, bookie) \
+#pragma omp parallel for schedule(dynamic) default(none) shared(vec, result, bookie, MPOss) \
   private(indexes, irreparr, new_sb, i)
   for (new_sb = 0 ; new_sb < tens.nrblocks ; ++new_sb)
   {
@@ -182,9 +184,6 @@ void matvecDMRG(double * vec, double * result, void * vdata)
       for (i = 6 ; i < 12 ; ++i) 
         irreparr[i] = &data->symarr[i - 6].irreps[bookie.nr_symmetries * indexes[i]];
 
-      /* possible I need way less than al these irreps */
-      prefsym = calculate_prefactor_DMRG_matvec(irreparr, bookie.sgs, bookie.nr_symmetries);
-
       Nold = 1;
       for (i = 6 ; i < 8 ; ++i) Nold *= data->symarr[i - 6].dims[indexes[i]];
       Mold = 1;
@@ -213,9 +212,14 @@ void matvecDMRG(double * vec, double * result, void * vdata)
         { { newqn[0], oldqn[0], innerdims + hss[0] * innerdimsq }, 
           { newqn[1], oldqn[1], innerdims + hss[1] * innerdimsq } };
         int Opsb[2];
+        int * irrepMPO = &MPOss.irreps[bookie.nr_symmetries * hss[1]];
 
         if (instr == endinstr)
           continue;
+
+        /* possible I need way less than al these irreps */
+        prefsym = calculate_prefactor_DMRG_matvec(irreparr, irrepMPO, bookie.sgs, 
+            bookie.nr_symmetries);
 
         /* find the blocks */
         Opsb[0] = qnumbersSearch(qnofOperators[0], 3, 
@@ -674,6 +678,9 @@ static double * make_diagonal_DMRG(struct matvec_data * const data)
   const int ONE = 1;
   const double D_ONE = 1;
 
+  struct symsecs MPOss;
+  get_hamiltoniansymsecs(&MPOss, 0);
+
   const QN_TYPE innerdimsq = data->maxdims[2] * data->maxdims[2];
   assert(tens.nrsites == 2);
 
@@ -710,8 +717,6 @@ static double * make_diagonal_DMRG(struct matvec_data * const data)
       irreparr[i + 6] = irreparr[i];
     }
 
-    /* possible I need way less than al these irreps */
-    prefsym = calculate_prefactor_DMRG_matvec(irreparr, bookie.sgs, bookie.nr_symmetries);
 
     /* Loop over all MPO combos that can give diagonal elements. */
     nrMPOcombos = data->nrMPOcombos[indexes[2]][indexes[2]];
@@ -732,10 +737,14 @@ static double * make_diagonal_DMRG(struct matvec_data * const data)
       { { qn[0], qn[0], innerdims + hss[0] * innerdimsq }, 
         { qn[1], qn[1], innerdims + hss[1] * innerdimsq } };
 
+      int * irrepMPO = &MPOss.irreps[bookie.nr_symmetries * hss[1]];
       int Opsb[2];
 
       if (instr == endinstr)
         continue;
+
+      /* possible I need way less than al these irreps */
+      prefsym = calculate_prefactor_DMRG_matvec(irreparr, irrepMPO,bookie.sgs, bookie.nr_symmetries);
 
       /* find the blocks */
       Opsb[0] = qnumbersSearch(qnofOperators[0], 3, 

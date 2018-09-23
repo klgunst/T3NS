@@ -162,7 +162,7 @@ void sum_unique_rOperators( struct rOperators * const newrops, const struct rOpe
  *
  * \param [in] rops The rOperators to print.
  */
-void print_rOperators( const struct rOperators * const rops );
+void print_rOperators( const struct rOperators * const rops, const int givename);
 
 /* HELPERS */
 /**

@@ -57,7 +57,6 @@ double SU2_calculate_mirror_coupling( int symvalues[] )
 
 double SU2_calculate_sympref_append_phys(const int symvalues[], const int is_left)
 {
-  assert(symvalues[8] + symvalues[7] - symvalues[6] >= 0);
   if (is_left)
     return bracket(symvalues[2]) * bracket(symvalues[5]) * 
       gsl_sf_coupling_9j(symvalues[0], symvalues[3], symvalues[6],
@@ -65,14 +64,45 @@ double SU2_calculate_sympref_append_phys(const int symvalues[], const int is_lef
                          symvalues[2], symvalues[5], symvalues[8]);
   else
     return 
-      ((symvalues[8] + symvalues[7] - symvalues[6]) % 4 ? -1 : 1) * 
+      //((symvalues[0] + symvalues[3] + symvalues[6]) % 4 ? -1 : 1) * 
+      //bracket(symvalues[0]) * bracket(symvalues[3]) * 
+      //gsl_sf_coupling_9j(symvalues[0], symvalues[3], symvalues[6],
+      //                   symvalues[1], symvalues[4], symvalues[7],
+      //                   symvalues[2], symvalues[5], symvalues[8]);
+      ((symvalues[1] + symvalues[4] + symvalues[7]) % 4 ? -1 : 1) * 
       bracket(symvalues[0]) * bracket(symvalues[3]) * 
       gsl_sf_coupling_9j(symvalues[0], symvalues[3], symvalues[6],
-                         symvalues[1], symvalues[4], symvalues[7],
-                         symvalues[2], symvalues[5], symvalues[8]);
+                         symvalues[2], symvalues[5], symvalues[8],
+                         symvalues[1], symvalues[4], symvalues[7]);
 }
 
-double SU2_calculate_prefactor_DMRG_matvec(const int symvalues[])
+double SU2_calculate_prefactor_DMRG_matvec(const int symvalues[], const int MPO)
 {
-  return divbracket(symvalues[2]) * divbracket(symvalues[8]);
+  return divbracket(symvalues[2]) * divbracket(symvalues[8]) * 
+    ((symvalues[2] + symvalues[8] + MPO) % 4 ? -1 : 1);
+}
+
+double SU2_prefactor_add_P_operator(const int symvalues[2][3], const int isleft)
+{
+  return 1;
+}
+
+double SU2_prefactor_combine_MPOs(const int symvalues[2][3], const int symvaluesMPO[3])
+{
+  return ((symvalues[0][2] + symvalues[1][2] + symvaluesMPO[2]) % 4 ? -1 : 1) *
+      gsl_sf_coupling_9j(symvalues[0][0], symvalues[1][0], symvaluesMPO[0],
+                         symvalues[0][1], symvalues[1][1], symvaluesMPO[1],
+                         symvalues[0][2], symvalues[1][2], symvaluesMPO[2]);
+}
+
+double SU2_prefactor_update_branch(const int symvalues[3][3], const int updateCase)
+{
+  const int sign = (symvalues[2][0] + symvalues[2][1] + symvalues[2][2] + 
+      symvalues[updateCase][0] + symvalues[updateCase][1] + symvalues[updateCase][2]) % 4 ? -1 : 1;
+
+  return sign * bracket(symvalues[updateCase][0]) * bracket(symvalues[updateCase][1]) *
+    (updateCase == 1 && (symvalues[0][2] + symvalues[1][2] + symvalues[2][2]) % 4 ? -1 : 1) *
+      gsl_sf_coupling_9j(symvalues[0][0], symvalues[0][1], symvalues[0][2],
+                         symvalues[1][0], symvalues[1][1], symvalues[1][2],
+                         symvalues[2][0], symvalues[2][1], symvalues[2][2]);
 }

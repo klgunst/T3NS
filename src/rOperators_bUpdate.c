@@ -183,7 +183,7 @@ static int next_sb_tens(int *sb, const QN_TYPE qntomatch, const int second_op,
 static int next_sb_sec_op(int *sb, const QN_TYPE qntomatch, const int divide, 
     const struct rOperators * const Operator, const int second_op, struct update_data * const data);
 
-static void find_block_adj(const struct siteTensor * const tens, struct update_data * const data);
+static int find_block_adj(const struct siteTensor * const tens, struct update_data * const data);
 
 static void how_to_update(struct update_data * const data, struct contractinfo cinfo[3], 
     int workmem_size[2] );
@@ -490,8 +490,8 @@ static void update_newblock_w_MPO_set(const int* const hss_ops, const struct rOp
       while (next_sb_sec_op(&data->sb_op[second_op], qntomatch2, divide2, &Operator[second_op], 
             second_op, data)) {
         /* all indexes should be initialized */
-        find_block_adj(tens, data);
-        update_selected_blocks(Operator, newops, data, instructions, updateCase);
+        if (find_block_adj(tens, data))
+          update_selected_blocks(Operator, newops, data, instructions, updateCase);
       }
     }
   }
@@ -551,7 +551,7 @@ static int next_sb_sec_op(int *sb, const QN_TYPE qntomatch, const int divide,
   return 1;
 }
 
-static void find_block_adj(const struct siteTensor * const tens, struct update_data * const data)
+static int find_block_adj(const struct siteTensor * const tens, struct update_data * const data)
 {
   QN_TYPE qn = 0;
   int i;
@@ -563,9 +563,13 @@ static void find_block_adj(const struct siteTensor * const tens, struct update_d
   }
   /* find the qnumber */
   block = qnumbersSearch(&qn, 1, tens->qnumbers, 1, tens->nrblocks);
+  if (block == -1)
+    return 0;
+
   data->tels[ADJ] = get_tel_block(&tens->blocks, block);
   assert(get_size_block(&tens->blocks, block) == data->teldims[0][BRA] * data->teldims[1][BRA] *
       data->teldims[2][BRA] );
+  return 1;
 }
 
 /* Different ways to execute the update.
