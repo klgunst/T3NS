@@ -52,6 +52,7 @@ double SU2_calculate_mirror_coupling( int symvalues[] )
 {
   assert( (symvalues[ 0 ] + symvalues[ 1 ] + symvalues[ 2 ]) % 2 == 0 );
   const double STUPIDFIX_ = bracket(symvalues[0]);
+  return -STUPIDFIX_;
   return STUPIDFIX_ * ((symvalues[ 0 ] + symvalues[ 1 ] + symvalues[ 2 ]) % 4 ? 1 : -1);
 }
 
