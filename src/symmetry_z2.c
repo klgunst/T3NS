@@ -65,13 +65,10 @@ double Z2_calculate_sympref_append_phys(const int symvalues[], const int is_left
    *
    *           symvalues = 1 for odd, 0 for even
    */
-  /* symvalues[7] * symvalues[8] cuz in instructions I always paste the site operator to the end
-   * of the operator string */
   if (is_left)
     return symvalues[4] && symvalues[6] ? -1 : 1;
   else
     return (symvalues[7] * symvalues[5]  + symvalues[7]) % 2 ? -1 : 1;
-    //return (symvalues[7] * symvalues[5]  + symvalues[7] + symvalues[7] * symvalues[8]) % 2 ? -1 : 1;
 }
 
 double Z2_calculate_prefactor_adjoint_tensor(const int symvalues[], const char c)

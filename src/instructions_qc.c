@@ -126,6 +126,7 @@ static void DMRG_make_ops_make_r_count(int ** const instructions, double ** cons
 
   const int site  = netw.bonds[2 * bond + is_left];
   const int psite = netw.sitetoorb[site];
+  const int sign = is_left ? 1 : -1;
   assert(psite >= 0);
   get_bonds_of_site(site, bonds);
   ops_out = get_op_type_list(bonds[2 * is_left], is_left, 'c');
@@ -173,7 +174,7 @@ static void DMRG_make_ops_make_r_count(int ** const instructions, double ** cons
       prevops = get_pos_of_tag(&ops_in, tag, tagsize - 1);
       siteops = QC_tag_to_site_operator(tag + SIZE_TAG, 1);
       assert(prevops >= 0);
-      nfillin_instr(prevops, siteops, &nextops, 1);
+      nfillin_instr(prevops, siteops, &nextops, sign);
     }
     else if (tag[1] == psite && tag[4] != psite)
     {
@@ -181,7 +182,7 @@ static void DMRG_make_ops_make_r_count(int ** const instructions, double ** cons
       prevops = get_pos_of_tag(&ops_in, tag + SIZE_TAG, tagsize - 1);
       siteops = QC_tag_to_site_operator(tag, 1);
       assert(prevops >= 0);
-      nfillin_instr(prevops, siteops, &nextops, -1);
+      nfillin_instr(prevops, siteops, &nextops, -sign);
     }
     else
     {
@@ -244,23 +245,35 @@ static void DMRG_make_ops_make_r_count(int ** const instructions, double ** cons
          * automatically give zero */
         temptag[0] = 1;
         siteops = QC_tag_to_site_operator(temptag, 1);
-        fillin_interact(tag2, temptag, tag, tag + SIZE_TAG, prevops, siteops, &nextops);
+        if (sign == 1)
+          fillin_interact(tag2, temptag, tag, tag + SIZE_TAG, prevops, siteops, &nextops);
+        else
+          fillin_interact(tag2, temptag, tag + SIZE_TAG, tag, prevops, siteops, &nextops);
 
         /* This is for op2c+c+ but it doenst matter that it also checks for op2c+c cuz it will 
          * automatically give zero */
         temptag[0] = 0;
         siteops = QC_tag_to_site_operator(temptag, 1);
-        fillin_interact(tag, tag + SIZE_TAG, tag2, temptag, prevops, siteops, &nextops);
+        if (sign == 1)
+          fillin_interact(tag, tag + SIZE_TAG, tag2, temptag, prevops, siteops, &nextops);
+        else
+          fillin_interact(tag, tag + SIZE_TAG, temptag, tag2, prevops, siteops, &nextops);
 
         /* This is for op2c+c but it doenst matter that it also checks for op2cc cuz it will 
          * automatically give zero */
         temptag[0] = 1;
         siteops = QC_tag_to_site_operator(temptag, 1);
-        fillin_interact(tag, temptag, tag + SIZE_TAG, tag2, prevops, siteops, &nextops);
+        if (sign == 1)
+          fillin_interact(tag, temptag, tag + SIZE_TAG, tag2, prevops, siteops, &nextops);
+        else
+          fillin_interact(tag, temptag, tag2, tag + SIZE_TAG, prevops, siteops, &nextops);
 
         temptag[0] = 0;
         siteops = QC_tag_to_site_operator(temptag, 1);
-        fillin_interact(tag, tag2, temptag, tag + SIZE_TAG, prevops, siteops, &nextops);
+        if (sign == 1)
+          fillin_interact(tag, tag2, temptag, tag + SIZE_TAG, prevops, siteops, &nextops);
+        else
+          fillin_interact(tag, tag2, tag + SIZE_TAG, temptag, prevops, siteops, &nextops);
       }
     }
 
@@ -337,7 +350,7 @@ static void DMRG_make_ops_make_r_count(int ** const instructions, double ** cons
         int *tag2;
         get_tag(&ops_in, prevops, &tag2, &tagsize2);
         assert(tagsize2 == 2);
-        
+
         for (temptag[2] = 0 ; temptag[2] < DOF ; ++temptag[2])
         {
           /* So only if the matrix element V is not zero */
@@ -482,8 +495,12 @@ static void DMRG_make_ops_make_r_count(int ** const instructions, double ** cons
         for (temptag[8] = temptag[5] + 1 ; temptag[8] < DOF ; ++temptag[8])
         {
           siteops = QC_tag_to_site_operator(temptag, 3);
-          fillin_interact(tag, temptag, &temptag[SIZE_TAG], &temptag[2 * SIZE_TAG], prevops,
-              siteops, &(ops_out.end_cops_3));
+          if (sign == 1)
+            fillin_interact(tag, temptag, &temptag[SIZE_TAG], &temptag[2 * SIZE_TAG], prevops,
+                siteops, &(ops_out.end_cops_3));
+          else
+            fillin_interact(tag, temptag, &temptag[2 * SIZE_TAG], &temptag[SIZE_TAG], prevops,
+                siteops, &(ops_out.end_cops_3));
         }
   }
   /* clcs+cs+cs */
@@ -497,8 +514,12 @@ static void DMRG_make_ops_make_r_count(int ** const instructions, double ** cons
         for (temptag[8] = 0 ; temptag[8] < DOF ; ++temptag[8])
         {
           siteops = QC_tag_to_site_operator(temptag, 3);
-          fillin_interact(temptag, &temptag[SIZE_TAG], tag, &temptag[2 * SIZE_TAG], prevops,
-              siteops, &(ops_out.end_cops_3));
+          if (sign == 1)
+            fillin_interact(temptag, &temptag[SIZE_TAG], tag, &temptag[2 * SIZE_TAG], prevops,
+                siteops, &(ops_out.end_cops_3));
+          else
+            fillin_interact(temptag, &temptag[SIZE_TAG], &temptag[2 * SIZE_TAG], tag, prevops,
+                siteops, &(ops_out.end_cops_3));
         }
   }
 
@@ -575,7 +596,7 @@ static void DMRG_make_ops_make_r_count(int ** const instructions, double ** cons
         }
     }
   }
-    
+
   for (prevops = ops_in.end_cops_2 ; prevops < ops_in.end_cops_3 ; ++prevops)
   {
     get_tag(&ops_in, prevops, &tag, &tagsize);
@@ -584,7 +605,7 @@ static void DMRG_make_ops_make_r_count(int ** const instructions, double ** cons
     if (tag[1] == psite)
     {
       siteops = QC_tag_to_site_operator(tag, tagsize);
-      nfillin_instr(prevops, siteops, &(ops_out.end_cops_3), 1);
+      nfillin_instr(prevops, siteops, &(ops_out.end_cops_3), sign);
     }
   }
 
