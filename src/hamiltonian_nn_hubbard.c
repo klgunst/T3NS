@@ -384,6 +384,7 @@ static void get_irr_hss(int irreps_of_hss[2], const int siteoperator)
 
 static double g_s_el_su2(const int siteoperator, const int braindex, const int ketindex)
 {
+  /* dont forget the |ket(i)||MPO(i)| !!! see qchem hamiltonian s elements (originates from Z2) */
   const double sqrt2 = sqrt(2);
   const double sqrt6 = sqrt(6);
 
@@ -397,12 +398,12 @@ static double g_s_el_su2(const int siteoperator, const int braindex, const int k
       if (braindex == 1 && ketindex == 0)
         return sqrt2;
       if (braindex == 2 && ketindex == 1)
-        return -sqrt2;
+        return sqrt2;
       return 0;
 
     case 2 : /* c : {-c_d, c_u}: sqrt2 |0><1| + sqrt2 |1><2| */
       if (braindex == 0 && ketindex == 1)
-        return sqrt2;
+        return -sqrt2;
       if (braindex == 1 && ketindex == 2)
         return sqrt2;
       return 0;

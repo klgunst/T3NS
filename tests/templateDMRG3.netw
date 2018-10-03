@@ -1,0 +1,13 @@
+NR_SITES = 3
+NR_PHYS_SITES = 3
+NR_BONDS = 4
+SWEEP_LENGTH = 2
+/ 
+0 1 2 
+/
+2 1 
+/
+-1 0
+0 1
+1 2
+2 -1
