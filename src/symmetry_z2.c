@@ -151,12 +151,9 @@ double Z2_prefactor_update_branch(const int symvalues[3][3], const int updateCas
    */
   switch (updateCase) {
     case 0:
-      //return (symvalues[1][1] * symvalues[-][0] + symvalues[0][1] * symvalues[1][2]) % 2 ? -1 : 1;
       return (symvalues[2][1] * symvalues[1][2] + symvalues[1][0]) % 2 ? -1 : 1;
     case 1:
-      //return (symvalues[0][1] * symvalues[2][2]) % 2 ? -1 : 1;
-      //return (symvalues[0][1] * symvalues[2][2] + symvalues[0][0]) % 2 ? -1 : 1;
-      return (symvalues[0][1] * symvalues[2][2] + symvalues[0][0] + symvalues[0][2] * symvalues[1][2]) % 2 ? -1 : 1;
+      return (symvalues[0][1] * symvalues[2][2] + symvalues[0][0]) % 2 ? -1 : 1;
     case 2:
       return (symvalues[1][1] && symvalues[0][2]) ? -1 : 1;
     default:
@@ -248,8 +245,8 @@ double Z2_prefactor_combine_MPOs(const int symvalues[2][3], const int symvaluesM
    *
    * recombine to: 
    * bra(alpha) bra(beta) bra(gamma)
-   * with sign: ket(beta)MPO(alpha)
+   * with sign: ket(beta)MPO(alpha) + ket(gamma) + MPO(gamma) * bra(gamma)
    */
-  //return (symvalues[0][1] * symvalues[0][0] + symvalues[1][1] * symvaluesMPO[0] + symvalues[1][2] + symvalues[0][2] * symvaluesMPO[2]) ? -1 : 1;
-  return (symvalues[1][1] * symvaluesMPO[0] + symvalues[1][2] + symvalues[0][2] * symvaluesMPO[2]) % 2 ? -1 : 1;
+  return (symvalues[1][1] * symvaluesMPO[0] + symvalues[1][2] + symvalues[0][2] * symvaluesMPO[2]) 
+    % 2 ? -1 : 1;
 }
