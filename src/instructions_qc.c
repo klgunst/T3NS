@@ -24,7 +24,7 @@ static void fillin_interact(const int * const tag1, const int * const tag2, cons
     const int * const tag4, const int instr1, const int instr2, const int * const instr3);
 
 static void T3NS_update_make_r_count(int **instructions, double **prefactors, int *nr_instructions,
-    const int bond, const int is_left);
+    const int bond, const int updateCase);
 
 static void merge_make_r_count(int ** instructions, double ** prefactors, int * nr_instructions,
     int * step, const int bond);
@@ -57,15 +57,19 @@ void QC_fetch_T3NS_update(struct instructionset * const instructions, const int 
     const int is_left)
 {
   /* first count the nr of instructions needed */
+  int bondz[3];
+  get_bonds_of_site(netw.bonds[2 * bond + !is_left], bondz);
+  const int updateCase = !is_left ? bondz[1] == bond : 2;
+
   instructions->step = 3;
   instructions->instr = NULL;
   instructions->pref  = NULL;
   T3NS_update_make_r_count(&instructions->instr, &instructions->pref, &instructions->nr_instr, bond, 
-      is_left);
+      updateCase);
   instructions->instr = safe_malloc(3 * instructions->nr_instr, int);
   instructions->pref  = safe_malloc(instructions->nr_instr, double);
   T3NS_update_make_r_count(&instructions->instr, &instructions->pref, &instructions->nr_instr, bond, 
-      is_left);
+      updateCase);
   QC_get_hss_of_operators(&instructions->hss_of_new, bond, is_left, 'c');
 }
 
@@ -621,8 +625,11 @@ static void DMRG_make_ops_make_r_count(int ** const instructions, double ** cons
 }
 
 static void T3NS_update_make_r_count(int **instructions, double **prefactors, int *nr_instructions,
-    const int bond, const int is_left)
+    const int bond, const int updateCase)
 {
+  const int is_left = updateCase == 2;
+  const int sign = updateCase == 1 ? -1 : 1;
+
   int i, temptag[SIZE_TAG * 2];
   struct ops_type ops_1, ops_2, ops_3;
   int bonds[3];
@@ -650,7 +657,7 @@ static void T3NS_update_make_r_count(int **instructions, double **prefactors, in
     get_tag(&ops_3, i, &tag, &tagsize);
     pos = get_pos_of_tag(&ops_1, tag, tagsize);
     if (pos != -1 && pos < ops_1.end_rops_2) {
-      nfillin_instr(pos, 0, &i, 1);
+      nfillin_instr(pos, 0, &i, sign);
     } else {
       pos = get_pos_of_tag(&ops_2, tag, tagsize);
       assert(pos != -1 && pos < ops_2.end_rops_2);
@@ -758,7 +765,7 @@ static void T3NS_update_make_r_count(int **instructions, double **prefactors, in
     assert(tagsize == 1);
 
     if ((pos = get_pos_of_tag(&ops_1, tag, tagsize)) != -1 && pos >= ops_1.end_rops_2)
-      nfillin_instr(pos, 0, &i, 1);
+      nfillin_instr(pos, 0, &i, sign);
 
     if ((pos = get_pos_of_tag(&ops_2, tag, tagsize)) != -1 && pos >= ops_2.end_rops_2)
       nfillin_instr(0, pos, &i, 1);
@@ -773,13 +780,13 @@ static void T3NS_update_make_r_count(int **instructions, double **prefactors, in
       copy_tag(tag, temptag, tagsize);
       copy_tag(tag2, temptag + tagsize * SIZE_TAG, tagsize2);
       if ((pos = get_pos_of_tag(&ops_2, temptag, tagsize + tagsize2)) != -1)
-        nfillin_instr(j, pos, &i, -1);
+        nfillin_instr(j, pos, &i, -sign);
 
       /* c + ops_cc -> ops_c */
       copy_tag(tag2, temptag, tagsize2);
       copy_tag(tag, temptag + tagsize2 * SIZE_TAG, tagsize);
       if ((pos = get_pos_of_tag(&ops_2, temptag, tagsize + tagsize2)) != -1)
-        nfillin_instr(j, pos, &i, 1);
+        nfillin_instr(j, pos, &i, sign);
     }
 
     for (j = ops_2.end_unity ; j < ops_2.end_rops_1 ; ++j) {
