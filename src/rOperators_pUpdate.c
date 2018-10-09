@@ -9,9 +9,9 @@
 #include "lapack.h"
 #include "sort.h"
 
-/* ============================================================================================ */
-/* =============================== DECLARATION STATIC FUNCTIONS =============================== */
-/* ============================================================================================ */
+/* ========================================================================== */
+/* ==================== DECLARATION STATIC FUNCTIONS ======================== */
+/* ========================================================================== */
 
 static void unique_append_physical_to_rOperators( struct rOperators * const uniquerops,
      const int * const instructions, const int * const hamsymsecs_of_new, const int nr_instructions,
@@ -23,9 +23,6 @@ static void initialize_unique_append_physical_to_rOperators( struct rOperators *
 
 static double calculate_prefactor_append_physical( const int indexes[], const struct symsecs 
     symarr[], const int is_left );
-
-static int consistency_check_for_update_physical( const struct rOperators * const rops, 
-    const struct siteTensor * const tens );
 
 static void get_separate_qnumbers( int indexes[], const QN_TYPE * const qnumbers, int maxdims[], 
     const int couplings );
@@ -42,7 +39,12 @@ static QN_TYPE change_old_to_new_site( const QN_TYPE old, const int dimold, cons
 
 static int * make_oldtonew( const struct symsecs * const internalss, const int bond );
 
-/* ============================================================================================ */
+#ifdef DEBUG
+static int consistency_check_for_update_physical( const struct rOperators * const rops, 
+    const struct siteTensor * const tens );
+#endif
+
+/* ========================================================================== */
 
 void append_physical_to_rOperators( struct rOperators * const newrops, const struct rOperators * 
     const oldrops )
@@ -134,7 +136,7 @@ void update_rOperators_physical( struct rOperators * const rops, const struct si
   const double ONE = 1;
   const double ZERO = 0;
 
-  const int dimoldint = internalss->nr_symsec; 
+  const int dimoldint = internalss->nrSecs; 
   int * oldtonew = make_oldtonew( internalss, rops->bond_of_operator );
   int maxdims[ 3 ];
   int indices[ 3 ];
@@ -147,7 +149,7 @@ void update_rOperators_physical( struct rOperators * const rops, const struct si
    * right correspondence and all other weird as shit. ten should be a 1 site tensor and so on ...*/
   assert( consistency_check_for_update_physical( rops, tens ) );
 
-  for( i = 0 ; i < 3 ; ++i ) maxdims[ i ] = symarr[ i ].nr_symsec;
+  for( i = 0 ; i < 3 ; ++i ) maxdims[ i ] = symarr[ i ].nrSecs;
 
   /* initialize the three-indexed renormalized operator */
   init_rOperators( &updated_rops, &tmpblockbegin, rops->bond_of_operator, is_left, 0 );
@@ -218,13 +220,13 @@ void update_rOperators_physical( struct rOperators * const rops, const struct si
           ( T3NSqnumber / maxdims[ 0 ] ) / maxdims[ 1 ],
           newhss };
         const int * irrep_arr[ 7 ] = 
-        { symarr[ 0 ].irreps + bookie.nr_symmetries * ind_arr[ 0 ],
-          symarr[ 1 ].irreps + bookie.nr_symmetries * ind_arr[ 1 ],
-          symarr[ 2 ].irreps + bookie.nr_symmetries * ind_arr[ 2 ],
-          symarr[ 0 ].irreps + bookie.nr_symmetries * ind_arr[ 3 ],
-          symarr[ 1 ].irreps + bookie.nr_symmetries * ind_arr[ 4 ],
-          symarr[ 2 ].irreps + bookie.nr_symmetries * ind_arr[ 5 ],
-          symarr[ 3 ].irreps + bookie.nr_symmetries * ind_arr[ 6 ] };
+        { symarr[ 0 ].irreps + bookie.nrSyms * ind_arr[ 0 ],
+          symarr[ 1 ].irreps + bookie.nrSyms * ind_arr[ 1 ],
+          symarr[ 2 ].irreps + bookie.nrSyms * ind_arr[ 2 ],
+          symarr[ 0 ].irreps + bookie.nrSyms * ind_arr[ 3 ],
+          symarr[ 1 ].irreps + bookie.nrSyms * ind_arr[ 4 ],
+          symarr[ 2 ].irreps + bookie.nrSyms * ind_arr[ 5 ],
+          symarr[ 3 ].irreps + bookie.nrSyms * ind_arr[ 6 ] };
 
         /* new_sb is size of NxN'
          * old_sb is size of MxM'
@@ -253,10 +255,10 @@ void update_rOperators_physical( struct rOperators * const rops, const struct si
             get_size_block( &tens->blocks, tens_herm_sb ) == N * M );
 
         workmem = safe_malloc( dgemm_order ? M * N2 : N * M2, double );
-        prefactor  = calculate_prefactor_adjoint_tensor( irrep_arr, is_left ? 'l' : 'r', bookie.sgs, 
-            bookie.nr_symmetries );
-        prefactor *= calculate_prefactor_update_physical_rops( irrep_arr, is_left, bookie.sgs, 
-            bookie.nr_symmetries );
+        prefactor  = prefactor_adjoint( irrep_arr, is_left ? 'l' : 'r', bookie.sgs, 
+            bookie.nrSyms );
+        prefactor *= prefactor_pUpdate( irrep_arr, is_left, bookie.sgs, 
+            bookie.nrSyms );
 
         /* Now the intensive part happens...
          * 
@@ -313,9 +315,9 @@ void update_rOperators_physical( struct rOperators * const rops, const struct si
     kick_zero_blocks( &rops->operators[ i ], rOperators_give_nr_blocks_for_operator( rops, i ) );
 }
 
-/* ============================================================================================ */
-/* ================================ DEFINITION STATIC FUNCTIONS =============================== */
-/* ============================================================================================ */
+/* ========================================================================== */
+/* ===================== DEFINITION STATIC FUNCTIONS ======================== */
+/* ========================================================================== */
 
 static void unique_append_physical_to_rOperators( struct rOperators * const uniquerops,
     const int * const instructions, const int * const hamsymsecs_of_new, const int nr_instructions,
@@ -403,7 +405,7 @@ static void unique_append_physical_to_rOperators( struct rOperators * const uniq
      * Hamsymsecnew. This can be pretty much hardcoded sinds this is only hameltonianspecific.
      * The site is also passed to say that the second bond is a site operator bond, cuz I will need 
      * the same function for operatormerging at a branching tensor */
-    hamiltonian_tensor_products( &nr_of_prods, &possible_prods, hamsymsec_new, site );
+    tprods_ham( &nr_of_prods, &possible_prods, hamsymsec_new, site );
 
     for( prod = 0 ; prod < nr_of_prods ; ++prod )
     {
@@ -449,7 +451,6 @@ static void unique_append_physical_to_rOperators( struct rOperators * const uniq
       {
         const int prevoperator = curr_instr[ 0 ];
         const int siteoperator = curr_instr[ 1 ];
-        const int nextoperator = curr_instr[ 2 ];
         const struct sparseblocks * const prevBlock = &prevrops->operators[ prevoperator ];
 
         assert( prevoperator < prevrops->nrops );
@@ -470,7 +471,7 @@ static void unique_append_physical_to_rOperators( struct rOperators * const uniq
 
           /* This function gets the bra(i), ket(i) element of siteoperator
            * in symsec specified by indexes[ 1 ] and indexes[ 4 ] */
-          const double site_el = prefactor * get_site_element( siteoperator, indexes[ 1 ], 
+          const double site_el = prefactor * el_siteop( siteoperator, indexes[ 1 ], 
               indexes[ 4 ] );
           int j;
           EL_TYPE * const prevTel = get_tel_block( prevBlock, oldblock );
@@ -565,60 +566,16 @@ static double calculate_prefactor_append_physical( const int indexes[], const st
   int symvalues[ 9 ];
   int i, j;
 
- for( i = 0 ; i < bookie.nr_symmetries ; ++i )
+ for( i = 0 ; i < bookie.nrSyms ; ++i )
   {
     for( j = 0 ; j < 9 ; ++j )
     {
-      symvalues[ j ] = symarr[ j ].irreps[ indexes[ j ] * bookie.nr_symmetries + i ];
+      symvalues[ j ] = symarr[ j ].irreps[ indexes[ j ] * bookie.nrSyms + i ];
     }
-    prefactor *= calculate_sympref_append_phys( symvalues, is_left, bookie.sgs[ i ] );
+    prefactor *= prefactor_pAppend( symvalues, is_left, bookie.sgs[ i ] );
   }
 
   return prefactor;
-}
-
-static int consistency_check_for_update_physical( const struct rOperators * const rops, 
-    const struct siteTensor * const tens )
-{
-  /* I will check with this if the siteTensor is indeed a 1 site tensor and rops is a physical one. 
-   * Also that the qnumberbonds and the indices of both tens and rops correspond. */
-  int indicestens[ 3 ];
-  int qnumbertens[ 3 ];
-  int indicesrops[ 7 ];
-  int qnumberrops[ 9 ];
-  int i;
-  if( tens->nrsites != 1 )
-  {
-    fprintf( stderr, "%s@%s: nrsites of tens is not equal to 1 but %d.\n", __FILE__, __func__, 
-        tens->nrsites );
-    return 0;
-  }
-  if( rops->P_operator != 1 )
-  {
-    fprintf( stderr, "%s@%s: rops is not a P_operator.\n", __FILE__, __func__ );
-    return 0;
-  }
-
-  siteTensor_give_indices( tens, indicestens );
-  siteTensor_give_qnumberbonds( tens, qnumbertens );
-  rOperators_give_indices( rops, indicesrops );
-  rOperators_give_qnumberbonds( rops, qnumberrops );
-  for( i = 0 ; i < 3 ; ++i )
-  {
-    if( !are_bra_and_ket_bonds( indicesrops[ i ], indicestens[ i ] ) || 
-        indicestens[ i ] != indicesrops[ i + 3 ] ) 
-    {
-      fprintf( stderr, "%s@%s: Something wrong with the indices array.\n", __FILE__, __func__ );
-      return 0;
-    }
-    if( !are_bra_and_ket_bonds( qnumberrops[ i ], qnumbertens[ i ] ) || 
-        qnumbertens[ i ] != qnumberrops[ i + 3 ] ) 
-    {
-      fprintf( stderr, "%s@%s: Something wrong with the qnumber array.\n", __FILE__, __func__ );
-      return 0;
-    }
-  }
-  return 1;
 }
 
 static void get_separate_qnumbers( int indexes[], const QN_TYPE * const qnumbers, int maxdims[], 
@@ -668,7 +625,7 @@ static int get_compressed_instructions( const int * const instructions, const in
     (*compr_instr)[ 3 * nrinstr + 2 ] = instructions[ instr * 3 + 2 ];
 
     (*compr_hss)[ 3 * nrinstr + 0 ] = prev_hss[ prevoperator ];
-    (*compr_hss)[ 3 * nrinstr + 1 ] = get_hamsymsec_site( siteoperator, site );
+    (*compr_hss)[ 3 * nrinstr + 1 ] = symsec_siteop( siteoperator, site );
     (*compr_hss)[ 3 * nrinstr + 2 ] = new_hss[ nextoperator ];
     ++nrinstr;
   }
@@ -720,22 +677,22 @@ static QN_TYPE change_old_to_new_site( const QN_TYPE old, const int dimold, cons
 static int * make_oldtonew( const struct symsecs * const internalss, const int bond )
 {
   struct symsecs newss;
-  int * result = safe_malloc( internalss->nr_symsec, int );
+  int * result = safe_malloc( internalss->nrSecs, int );
   int cnt = 0;
   int i = 0;
   get_symsecs( &newss, bond );
-  assert( internalss->nr_symsec >= newss.nr_symsec );
+  assert( internalss->nrSecs >= newss.nrSecs );
 
-  for( i = 0 ; i < newss.nr_symsec ; ++i )
+  for( i = 0 ; i < newss.nrSecs ; ++i )
   {
-    for( ; cnt < internalss->nr_symsec ; ++cnt )
+    for( ; cnt < internalss->nrSecs ; ++cnt )
     {
       int j;
-      for( j = 0 ; j < bookie.nr_symmetries ; ++j )
-        if( internalss->irreps[ cnt * bookie.nr_symmetries + j ] != 
-            newss.irreps[ i * bookie.nr_symmetries + j ] )
+      for( j = 0 ; j < bookie.nrSyms ; ++j )
+        if( internalss->irreps[ cnt * bookie.nrSyms + j ] != 
+            newss.irreps[ i * bookie.nrSyms + j ] )
           break;
-      if( j == bookie.nr_symmetries )
+      if( j == bookie.nrSyms )
       {
         result[ cnt ] = i;
         ++cnt;
@@ -744,14 +701,60 @@ static int * make_oldtonew( const struct symsecs * const internalss, const int b
       else
         result[ cnt ] = -1;
     }
-    assert( cnt < internalss->nr_symsec || 
-        ( cnt == internalss->nr_symsec && i == newss.nr_symsec - 1 ) );
+    assert( cnt < internalss->nrSecs || 
+        ( cnt == internalss->nrSecs && i == newss.nrSecs - 1 ) );
   }
-    assert( cnt < internalss->nr_symsec || 
-        ( cnt == internalss->nr_symsec && i == newss.nr_symsec ) );
-  for( ; cnt < internalss->nr_symsec ; ++cnt )
+    assert( cnt < internalss->nrSecs || 
+        ( cnt == internalss->nrSecs && i == newss.nrSecs ) );
+  for( ; cnt < internalss->nrSecs ; ++cnt )
     result[ cnt ] = -1;
 
   clean_symsecs( &newss, bond );
   return result;
 }
+
+#ifdef DEBUG
+static int consistency_check_for_update_physical( const struct rOperators * const rops, 
+    const struct siteTensor * const tens )
+{
+  /* I will check with this if the siteTensor is indeed a 1 site tensor and rops is a physical one. 
+   * Also that the qnumberbonds and the indices of both tens and rops correspond. */
+  int indicestens[ 3 ];
+  int qnumbertens[ 3 ];
+  int indicesrops[ 7 ];
+  int qnumberrops[ 9 ];
+  int i;
+  if( tens->nrsites != 1 )
+  {
+    fprintf( stderr, "%s@%s: nrsites of tens is not equal to 1 but %d.\n", __FILE__, __func__, 
+        tens->nrsites );
+    return 0;
+  }
+  if( rops->P_operator != 1 )
+  {
+    fprintf( stderr, "%s@%s: rops is not a P_operator.\n", __FILE__, __func__ );
+    return 0;
+  }
+
+  siteTensor_give_indices( tens, indicestens );
+  siteTensor_give_qnumberbonds( tens, qnumbertens );
+  rOperators_give_indices( rops, indicesrops );
+  rOperators_give_qnumberbonds( rops, qnumberrops );
+  for( i = 0 ; i < 3 ; ++i )
+  {
+    if( !are_bra_and_ket_bonds( indicesrops[ i ], indicestens[ i ] ) || 
+        indicestens[ i ] != indicesrops[ i + 3 ] ) 
+    {
+      fprintf( stderr, "%s@%s: Something wrong with the indices array.\n", __FILE__, __func__ );
+      return 0;
+    }
+    if( !are_bra_and_ket_bonds( qnumberrops[ i ], qnumbertens[ i ] ) || 
+        qnumbertens[ i ] != qnumberrops[ i + 3 ] ) 
+    {
+      fprintf( stderr, "%s@%s: Something wrong with the qnumber array.\n", __FILE__, __func__ );
+      return 0;
+    }
+  }
+  return 1;
+}
+#endif

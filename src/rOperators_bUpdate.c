@@ -28,7 +28,7 @@
  *   The qnumberbonds array is given by :
  *    ---[ bra(alpha), bra(beta), bra(gamma) ]
  *   
- * To form this adjoint, you need an extra prefactor through calculate_prefactor_adjoint_tensor
+ * To form this adjoint, you need an extra prefactor through prefactor_adjoint
  * Type of adjoint is for case I, II, III respectively 'r', 'R', 'l'.
  *
  * case I:
@@ -142,15 +142,12 @@ struct contractinfo {
   enum tensor_type tensneeded[3];
 };
 
-/* ============================================================================================ */
-/* =============================== DECLARATION STATIC FUNCTIONS =============================== */
-/* ============================================================================================ */
+/* ========================================================================== */
+/* ==================== DECLARATION STATIC FUNCTIONS ======================== */
+/* ========================================================================== */
 
 static void init_uniqueOperators(struct rOperators * const uniqueOps, const struct instructionset * 
     const instructions);
-
-static int check_correctness(const struct rOperators Operator[2], const struct siteTensor * 
-    const tens);
 
 static int prepare_update_branching(struct rOperators * const newops, const struct rOperators 
     Operator[2], const struct siteTensor* const tens);
@@ -210,11 +207,16 @@ static void update_ops_block(const struct contractinfo * const cinfo, EL_TYPE * 
 static void update_last_step(const struct contractinfo * const cinfo, const double prefactor,
     EL_TYPE * tels[7]);
 
+#ifdef DEBUG
+static int check_correctness(const struct rOperators Operator[2], const struct siteTensor * 
+    const tens);
+
 static void print_cinfo(const struct contractinfo * const cinfo);
 
 static void print_data(const struct update_data * const data);
+#endif
 
-/* ============================================================================================ */
+/* ========================================================================== */
 
 void update_rOperators_branching(struct rOperators * const newops, const struct rOperators
     Operator[2], const struct siteTensor * const tens)
@@ -238,9 +240,9 @@ void update_rOperators_branching(struct rOperators * const newops, const struct 
   destroy_instructionset(&instructions);
 }
 
-/* ============================================================================================ */
-/* ================================ DEFINITION STATIC FUNCTIONS =============================== */
-/* ============================================================================================ */
+/* ========================================================================== */
+/* ===================== DEFINITION STATIC FUNCTIONS ======================== */
+/* ========================================================================== */
 
 static void init_uniqueOperators(struct rOperators * const uniqueOps, const struct instructionset * 
     const instructions)
@@ -280,34 +282,6 @@ static void init_uniqueOperators(struct rOperators * const uniqueOps, const stru
   for(count = 0 ; count < uniqueOps->nrhss ; ++count)
     safe_free(nkappa_begin[count]);
   safe_free(nkappa_begin);
-}
-
-static int check_correctness(const struct rOperators Operator[2], const struct siteTensor * 
-    const tens)
-{
-  int bonds[3];
-  int i;
-  if (Operator[0].P_operator || Operator[1].P_operator)
-    return 0;
-
-  if (tens->nrsites != 1 || is_psite(tens->sites[0]))
-    return 0;
-
-  get_bonds_of_site(tens->sites[0], bonds);
-  for (i = 0 ; i < 3 ; ++i)
-    if (bonds[i] == Operator[0].bond_of_operator)
-      break;
-
-  if(i == 3)
-    return 0;
-
-  for (i = 0 ; i < 3 ; ++i)
-    if (bonds[i] == Operator[1].bond_of_operator)
-      break;
-
-  if (i == 3)
-    return 0;
-  return 1;
 }
 
 static int prepare_update_branching(struct rOperators * const newops, const struct rOperators 
@@ -353,7 +327,7 @@ static void initialize_indexhelper(const int updateCase, const int site, const s
     bonds[MPO] = get_hamiltonianbond(tmpbonds[i]);
     get_symsecs_arr(idh.symarr[i], bonds, 3);
     for (j = 0 ; j < 3 ; ++j)
-      idh.maxdims[i][j] = idh.symarr[i][j].nr_symsec;
+      idh.maxdims[i][j] = idh.symarr[i][j].nrSecs;
   }
 
   idh.qnumbertens = safe_malloc(tens->nrblocks, QN_TYPE);
@@ -401,7 +375,7 @@ static void fill_indexes(struct update_data * const data, const enum tensor_type
   assert(qn < mdims[2]);
 
   for ( i = 0 ; i < 3 ; ++i ) {
-    data->irreps[opmap][i] = &idh.symarr[opmap][i].irreps[bookie.nr_symmetries * idarr[i]];
+    data->irreps[opmap][i] = &idh.symarr[opmap][i].irreps[bookie.nrSyms * idarr[i]];
     if (i != MPO)
       data->teldims[opmap][i] = idh.symarr[opmap][i].dims[idarr[i]];
   }
@@ -412,7 +386,7 @@ static inline void fill_index(const int val, struct update_data * const data,
 {
   const int opmap = idh.id_ops[operator];
   data->id[opmap][bondtype] = val;
-  data->irreps[opmap][bondtype] = &idh.symarr[opmap][bondtype].irreps[bookie.nr_symmetries * val];
+  data->irreps[opmap][bondtype] = &idh.symarr[opmap][bondtype].irreps[bookie.nrSyms * val];
   if (bondtype != MPO)
     data->teldims[opmap][bondtype] = idh.symarr[opmap][bondtype].dims[val];
 }
@@ -442,7 +416,7 @@ static void update_unique_ops_T3NS(struct rOperators * const newops, const struc
 
     /* This function decides which hss_1 and hss_2 I need for the possible making of newhss. */
     /* WATCH OUT! Are inward and outward bonds correct? */
-    hamiltonian_tensor_products(&nr_of_prods, &possible_prods, get_id(&data, NEWOPS, MPO), site);
+    tprods_ham(&nr_of_prods, &possible_prods, get_id(&data, NEWOPS, MPO), site);
 
     for (prod = 0 ; prod < nr_of_prods ; ++prod) {
       update_newblock_w_MPO_set(&possible_prods[prod * 2], Operator, newops, tens, &data, 
@@ -536,7 +510,7 @@ static int next_sb_sec_op(int *sb, const QN_TYPE qntomatch, const int divide,
   const int nr_bl_op = rOperators_give_nr_blocks_for_hss(Operator, get_id(data, second_op, MPO));
   const QN_TYPE * qn_op = rOperators_give_qnumbers_for_hss(Operator, get_id(data, second_op, MPO));
   int bra_to_be_found = -1;
-  QN_TYPE qnmatched;
+  QN_TYPE qnmatched = 0;
   ++*sb;
   for (; *sb < nr_bl_op ; ++*sb) {
     qnmatched       = qn_op[*sb] / divide;
@@ -763,8 +737,8 @@ static void update_selected_blocks(const struct rOperators Operator[2], struct r
     newops, struct update_data * const data, const struct instructionset * const instructions, 
     const int updateCase)
 {
-  const double prefactor = prefactor_update_branch(data->irreps, updateCase, bookie.sgs, 
-      bookie.nr_symmetries);
+  const double prefactor = prefactor_bUpdate(data->irreps, updateCase, bookie.sgs, 
+      bookie.nrSyms);
 
   struct contractinfo cinfo[3];
   int curr_unique = 0;
@@ -873,6 +847,35 @@ static void update_last_step(const struct contractinfo * const cinfo, const doub
   }
 }
 
+#ifdef DEBUG
+static int check_correctness(const struct rOperators Operator[2], const struct siteTensor * 
+    const tens)
+{
+  int bonds[3];
+  int i;
+  if (Operator[0].P_operator || Operator[1].P_operator)
+    return 0;
+
+  if (tens->nrsites != 1 || is_psite(tens->sites[0]))
+    return 0;
+
+  get_bonds_of_site(tens->sites[0], bonds);
+  for (i = 0 ; i < 3 ; ++i)
+    if (bonds[i] == Operator[0].bond_of_operator)
+      break;
+
+  if(i == 3)
+    return 0;
+
+  for (i = 0 ; i < 3 ; ++i)
+    if (bonds[i] == Operator[1].bond_of_operator)
+      break;
+
+  if (i == 3)
+    return 0;
+  return 1;
+}
+
 static void print_cinfo(const struct contractinfo * const cinfo)
 {
   const char * names[] = {"OPS1", "OPS2", "NEWOPS", "TENS", "ADJ", "WORKBRA", "WORKKET"};
@@ -896,8 +899,8 @@ static void print_data(const struct update_data * const data)
         idh.maxdims[i][1], data->id[i][2], idh.maxdims[i][2]);
 
   printf("UpdateCase: %d\n", idh.id_ops[NEWOPS]);
-  printf("prefactor: %.6f\n", prefactor_update_branch(data->irreps, idh.id_ops[NEWOPS], bookie.sgs, 
-      bookie.nr_symmetries));
+  printf("prefactor: %.6f\n", prefactor_bUpdate(data->irreps, idh.id_ops[NEWOPS], bookie.sgs, 
+      bookie.nrSyms));
 
   printf("dimensions\n");
   for (i = 0 ; i < 3 ; ++i)
@@ -910,3 +913,4 @@ static void print_data(const struct update_data * const data)
   printf("sitetensor blocks\n");
   printf("%p, adjoint: %p\n\n", data->tels[TENS], data->tels[ADJ]);
 }
+#endif

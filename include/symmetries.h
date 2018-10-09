@@ -138,22 +138,22 @@ int valid_sgs( enum symmetrygroup *sgs, int nr_symmetries );
  */
 int consistent_state( enum symmetrygroup *sgs, int *ts, int nr_symmetries );
 
-double calculate_sympref_append_phys( const int symvalues[], const int is_left, const enum 
+double prefactor_pAppend( const int symvalues[], const int is_left, const enum 
     symmetrygroup sg );
 
-double calculate_prefactor_adjoint_tensor( const int * irrep_arr[], const char c, const enum
+double prefactor_adjoint( const int * irrep_arr[], const char c, const enum
     symmetrygroup * const sgs, const int nr_symmetries );
 
-double calculate_prefactor_update_physical_rops( const int * irrep_arr[], const int is_left, 
+double prefactor_pUpdate( const int * irrep_arr[], const int is_left, 
     const enum symmetrygroup * const sgs, const int nr_symmetries );
 
-double calculate_mirror_coupling( int * irrep_arr[], const enum symmetrygroup * const sgs, 
+double prefactor_mirror_coupling( int * irrep_arr[], const enum symmetrygroup * const sgs, 
     const int nr_symmetries );
 
-double calculate_prefactor_DMRG_matvec(int * irrep_arr[], int * MPO, 
+double prefactor_DMRGmatvec(int * irrep_arr[], int * MPO, 
     const enum symmetrygroup * const sgs, const int nr_symmetries);
 
-double prefactor_update_branch(int * const irrep_arr[3][3], const int updateCase,
+double prefactor_bUpdate(int * const irrep_arr[3][3], const int updateCase,
     const enum symmetrygroup * const sgs, const int nr_symmetries);
 
 double prefactor_add_P_operator(int * const irreps[2][3], const int isleft, 

@@ -18,9 +18,9 @@
 #include "network.h"
 #include "hamiltonian.h"
 #include "instructions.h"
-/* ============================================================================================ */
-/* =============================== DECLARATION STATIC FUNCTIONS =============================== */
-/* ============================================================================================ */
+/* ========================================================================== */
+/* ==================== DECLARATION STATIC FUNCTIONS ======================== */
+/* ========================================================================== */
 
 static inline void find_indexes(QN_TYPE qn, const int * const maxdims, int * indexes);
 
@@ -37,10 +37,6 @@ static void makeqnumbersarr_from_operator(int **** const qnumbersarray, const st
     const Operator, const int internaldim);
 
 static void destroyqnumbersarr(int **** const qnumbersarray, const int internaldim);
-
-static void print_blocktoblock(const struct siteTensor * const tens, int * const nr_oldsb, 
-    int ** const oldsb_ar, int ** const nrMPOcombos, int *** const MPOs, int * const MPOinstr, 
-    const int nrMPOinstr, const int internaldim, struct symsecs * const internalss);
 
 static double * make_diagonal_DMRG(struct matvec_data * const data);
 
@@ -66,13 +62,20 @@ static int find_next_index(int * const id, const int dim, int ** qnumberarray);
 static void count_or_make_MPOcombos(int * const nrMPOs, int ** const MPO, const int n, 
     int * MPOarr[n], const int hssdim);
 
+#ifdef DEBUG
 static void printMPO(const struct T3NSdata * const data);
 
-#ifdef DEBUG
+static void print_blocktoblock(const struct siteTensor * const tens, 
+                               int * const nr_oldsb, int ** const oldsb_ar, 
+                               int ** const nrMPOcombos, int *** const MPOs, 
+                               int * const MPOinstr, const int nrMPOinstr, 
+                               const int internaldim, struct symsecs * 
+                               const internalss);
+
 static void check_diagonal(void * const data, double * diagonal, const int isdmrg);
 #endif
 
-/* ============================================================================================ */
+/* ========================================================================== */
 
 void matvecDMRG(double * vec, double * result, void * vdata)
 {
@@ -158,7 +161,7 @@ void matvecDMRG(double * vec, double * result, void * vdata)
     find_indexes(newqn[1], &data->maxdims[3], &indexes[3]);
     assert(indexes[2] == indexes[3]); /* inner bond is equal */
     for (i = 0 ; i < 6 ; ++i) 
-      irreparr[i] = &data->symarr[i].irreps[bookie.nr_symmetries * indexes[i]];
+      irreparr[i] = &data->symarr[i].irreps[bookie.nrSyms * indexes[i]];
 
     Nnew = 1;
     for (i = 0 ; i < 2 ; ++i) Nnew *= data->symarr[i].dims[indexes[i]];
@@ -182,7 +185,7 @@ void matvecDMRG(double * vec, double * result, void * vdata)
       find_indexes(oldqn[1], &data->maxdims[3], &indexes[9]);
       assert(indexes[8] == indexes[9]); /* inner bond is equal */
       for (i = 6 ; i < 12 ; ++i) 
-        irreparr[i] = &data->symarr[i - 6].irreps[bookie.nr_symmetries * indexes[i]];
+        irreparr[i] = &data->symarr[i - 6].irreps[bookie.nrSyms * indexes[i]];
 
       Nold = 1;
       for (i = 6 ; i < 8 ; ++i) Nold *= data->symarr[i - 6].dims[indexes[i]];
@@ -212,14 +215,14 @@ void matvecDMRG(double * vec, double * result, void * vdata)
         { { newqn[0], oldqn[0], innerdims + hss[0] * innerdimsq }, 
           { newqn[1], oldqn[1], innerdims + hss[1] * innerdimsq } };
         int Opsb[2];
-        int * irrepMPO = &MPOss.irreps[bookie.nr_symmetries * hss[1]];
+        int * irrepMPO = &MPOss.irreps[bookie.nrSyms * hss[1]];
 
         if (instr == endinstr)
           continue;
 
         /* possible I need way less than al these irreps */
-        prefsym = calculate_prefactor_DMRG_matvec(irreparr, irrepMPO, bookie.sgs, 
-            bookie.nr_symmetries);
+        prefsym = prefactor_DMRGmatvec(irreparr, irrepMPO, bookie.sgs, 
+            bookie.nrSyms);
 
         /* find the blocks */
         Opsb[0] = qnumbersSearch(qnofOperators[0], 3, 
@@ -273,8 +276,6 @@ void init_matvec_data(struct matvec_data * const data, const struct rOperators O
     const struct siteTensor * const siteObject)
 {
   /* ONLY FOR DMRG ATM */
-  const int isdmrg = 1;
-  assert(isdmrg);
   assert(siteObject->nrsites == 2);
   int bonds[siteObject->nrsites * 3];
   int ***qnumbersarray;
@@ -368,10 +369,10 @@ void destroy_matvec_data(struct matvec_data * const data)
   safe_free(data->oldsb_ar);
   safe_free(data->nr_oldsb);
 
-  for (i = 0 ; i < data->symarr[2].nr_symsec ; ++i)
+  for (i = 0 ; i < data->symarr[2].nrSecs ; ++i)
   {
     int j;
-    for (j = 0 ; j < data->symarr[2].nr_symsec ; ++j)
+    for (j = 0 ; j < data->symarr[2].nrSecs ; ++j)
       safe_free(data->MPOs[i][j]);
     safe_free(data->nrMPOcombos[i]);
     safe_free(data->MPOs[i]);
@@ -434,9 +435,9 @@ double * make_diagonal(void * const data, const int isdmrg)
   return res;
 }
 
-/* ============================================================================================ */
-/* ================================ DEFINITION STATIC FUNCTIONS =============================== */
-/* ============================================================================================ */
+/* ========================================================================== */
+/* ===================== DEFINITION STATIC FUNCTIONS ======================== */
+/* ========================================================================== */
 
 static inline void find_indexes(QN_TYPE qn, const int * const maxdims, int * indexes)
 {
@@ -515,7 +516,7 @@ static void makeMPOcombosDMRG(int ***nrMPOcombos, int ****MPOs, int ***qnumbersa
          * Thus  qnumbersarray[i][j] corresponds with the MPObondlefts.
          */
         int MPOindex = qnumbersarray[i][j][k + 1];
-        (*MPOs)[i][j][k] = MPOindex + give_hermhamsymsec(MPOindex) * MPOdim;
+        (*MPOs)[i][j][k] = MPOindex + hermitian_symsec(MPOindex) * MPOdim;
       }
     }
   }
@@ -627,47 +628,6 @@ static void destroyqnumbersarr(int **** const qnumbersarray, const int internald
   safe_free(*qnumbersarray);
 }
 
-static void print_blocktoblock(const struct siteTensor * const tens, int * const nr_oldsb, 
-    int ** const oldsb_ar, int ** const nrMPOcombos, int *** const MPOs, int * const MPOinstr, 
-    const int nrMPOinstr, const int internaldim, struct symsecs * const internalss)
-{
-  char buffernew[255];
-  char bufferold[255];
-  char bufferMPO1[255];
-  char bufferMPO2[255];
-  struct symsecs MPOss;
-  int newsb;
-  int dimhss;
-  get_symsecs(&MPOss, -1);
-  dimhss = MPOss.nr_symsec;
-  print_siteTensor(tens);
-
-  for (newsb = 0 ; newsb < tens->nrblocks ; ++newsb)
-  {
-    int * oldsb;
-    int newinternal = tens->qnumbers[2 * newsb + 1] % internaldim;
-    get_sectorstring(internalss, newinternal, buffernew);
-    for (oldsb = oldsb_ar[newsb] ; oldsb < &oldsb_ar[newsb][nr_oldsb[newsb]] ; ++oldsb)
-    {
-      int * currMPO;
-      int oldinternal = tens->qnumbers[2 * *oldsb + 1] % internaldim;
-      get_sectorstring(internalss, oldinternal, bufferold);
-      for (currMPO = MPOs[newinternal][oldinternal] ; 
-          currMPO < &MPOs[newinternal][oldinternal][nrMPOcombos[newinternal][oldinternal]] ;
-          ++currMPO)
-      {
-        int MPOind = MPOinstr[*currMPO];
-        int MPO1 = MPOind % dimhss;
-        int MPO2 = MPOind / dimhss;
-        get_sectorstring(&MPOss, MPO1, bufferMPO1);
-        get_sectorstring(&MPOss, MPO2, bufferMPO2);
-        printf("Block %d to Block %d:\t %14s X %14s X %14s ==> %14s (MPO : %d)\n", *oldsb, newsb,
-            bufferMPO1, bufferold, bufferMPO2, buffernew, *currMPO);
-      }
-    }
-  }
-}
-
 static double * make_diagonal_DMRG(struct matvec_data * const data)
 {
   struct siteTensor tens = data->siteObject;
@@ -713,7 +673,7 @@ static double * make_diagonal_DMRG(struct matvec_data * const data)
 
     for (i = 0 ; i < 6 ; ++i) 
     {
-      irreparr[i] = &data->symarr[i].irreps[bookie.nr_symmetries * indexes[i]];
+      irreparr[i] = &data->symarr[i].irreps[bookie.nrSyms * indexes[i]];
       irreparr[i + 6] = irreparr[i];
     }
 
@@ -737,14 +697,14 @@ static double * make_diagonal_DMRG(struct matvec_data * const data)
       { { qn[0], qn[0], innerdims + hss[0] * innerdimsq }, 
         { qn[1], qn[1], innerdims + hss[1] * innerdimsq } };
 
-      int * irrepMPO = &MPOss.irreps[bookie.nr_symmetries * hss[1]];
+      int * irrepMPO = &MPOss.irreps[bookie.nrSyms * hss[1]];
       int Opsb[2];
 
       if (instr == endinstr)
         continue;
 
       /* possible I need way less than al these irreps */
-      prefsym = calculate_prefactor_DMRG_matvec(irreparr, irrepMPO,bookie.sgs, bookie.nr_symmetries);
+      prefsym = prefactor_DMRGmatvec(irreparr, irrepMPO,bookie.sgs, bookie.nrSyms);
 
       /* find the blocks */
       Opsb[0] = qnumbersSearch(qnofOperators[0], 3, 
@@ -782,8 +742,8 @@ static void make_qnBdatas(struct T3NSdata * const data)
 {
   int i;
   int ***qnumbersarray[3];
-  const int internaldims[3] = {data->symarr[data->posB][0].nr_symsec, 
-    data->symarr[data->posB][1].nr_symsec, data->symarr[data->posB][2].nr_symsec};
+  const int internaldims[3] = {data->symarr[data->posB][0].nrSecs, 
+    data->symarr[data->posB][1].nrSecs, data->symarr[data->posB][2].nrSecs};
 
   data->qnB_arr = safe_malloc(data->siteObject.nrblocks, QN_TYPE);
   for (i = 0 ; i < data->siteObject.nrblocks ; ++i) 
@@ -825,7 +785,7 @@ static void make_qnB_arr(struct T3NSdata * const data, const int internaldims[3]
     int *** qnumberarray[3])
 {
   int i;
-  const int hssdim = data->MPOsymsec.nr_symsec;
+  const int hssdim = data->MPOsymsec.nrSecs;
   const QN_TYPE bigdim = internaldims[0] * internaldims[1];
   int * lastind;
   QN_TYPE * helperarray = make_helperarray(data->nr_qnB,data->qnB_arr,bigdim,&lastind);
@@ -971,7 +931,7 @@ static void count_or_make_MPOcombos(int * const nrMPOs, int ** const MPO, const 
       for (k = 0 ; k < MPOarr[2][0] ; ++k) {
         const int MPO2 = MPOarr[2][1 + k];
 
-        MPOs[2] = give_hermhamsymsec(MPO2);
+        MPOs[2] = hermitian_symsec(MPO2);
         if (MPO_couples_to_singlet(3, MPOs)) {
           if (MPO != NULL)
             *MPO[*nrMPOs] = temp + MPO2 * hssdimsq;
@@ -982,11 +942,56 @@ static void count_or_make_MPOcombos(int * const nrMPOs, int ** const MPO, const 
   }
 }
 
+#ifdef DEBUG
+static void print_blocktoblock(const struct siteTensor * const tens, 
+                               int * const nr_oldsb, int ** const oldsb_ar, 
+                               int ** const nrMPOcombos, int *** const MPOs, 
+                               int * const MPOinstr, const int nrMPOinstr, 
+                               const int internaldim, 
+                               struct symsecs * const internalss)
+{
+  char buffernew[255];
+  char bufferold[255];
+  char bufferMPO1[255];
+  char bufferMPO2[255];
+  struct symsecs MPOss;
+  int newsb;
+  int dimhss;
+  get_symsecs(&MPOss, -1);
+  dimhss = MPOss.nrSecs;
+  print_siteTensor(tens);
+
+  for (newsb = 0 ; newsb < tens->nrblocks ; ++newsb)
+  {
+    int * oldsb;
+    int newinternal = tens->qnumbers[2 * newsb + 1] % internaldim;
+    get_sectorstring(internalss, newinternal, buffernew);
+    for (oldsb = oldsb_ar[newsb] ; oldsb < &oldsb_ar[newsb][nr_oldsb[newsb]] ; ++oldsb)
+    {
+      int * currMPO;
+      int oldinternal = tens->qnumbers[2 * *oldsb + 1] % internaldim;
+      get_sectorstring(internalss, oldinternal, bufferold);
+      for (currMPO = MPOs[newinternal][oldinternal] ; 
+          currMPO < &MPOs[newinternal][oldinternal][nrMPOcombos[newinternal][oldinternal]] ;
+          ++currMPO)
+      {
+        int MPOind = MPOinstr[*currMPO];
+        int MPO1 = MPOind % dimhss;
+        int MPO2 = MPOind / dimhss;
+        get_sectorstring(&MPOss, MPO1, bufferMPO1);
+        get_sectorstring(&MPOss, MPO2, bufferMPO2);
+        printf("Block %d to Block %d:\t %14s X %14s X %14s ==> %14s (MPO : %d)\n", *oldsb, newsb,
+            bufferMPO1, bufferold, bufferMPO2, buffernew, *currMPO);
+      }
+    }
+  }
+}
+
 static void printMPO(const struct T3NSdata * const data)
 {
   print_siteTensor(&data->siteObject);
 
-  const int dimhss = data->MPOsymsec.nr_symsec;
+  const int dimhss = data->MPOsymsec.nrSecs;
   int newqnB_id;
   for (newqnB_id = 0 ; newqnB_id < data->nr_qnB ; ++newqnB_id) {
 
@@ -1021,7 +1026,6 @@ static void printMPO(const struct T3NSdata * const data)
   }
 }
 
-#ifdef DEBUG
 static void check_diagonal(void * const data, double * diagonal, const int isdmrg)
 {
   int i;

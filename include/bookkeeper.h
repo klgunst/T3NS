@@ -20,7 +20,7 @@
 struct bookkeeper
 {
   enum symmetrygroup* sgs;   /**< An array with the different symmetries in the system. */
-  int nr_symmetries;         /**< The number of symmetries. */
+  int nrSyms;                /**< The number of symmetries. */
   int *target_state;         /**< The irreps of the state we target. */
   int nr_bonds;              /**< The number of TNSd, TNSu bonds in the network. */
   struct symsecs *list_of_symsecs;/**< List with the different symsecs for the different bonds.

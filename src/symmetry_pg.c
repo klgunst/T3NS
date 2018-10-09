@@ -6,54 +6,55 @@
 #include "macros.h"
 #include "debug.h"
 
-/* make sure the ordering is the same as in the macro POINT_GROUP_SYMMETRY !!!! */
-const int nr_irreps_pg[ 8 ] = { 1, 2, 2, 2, 4, 4, 4, 8 };
-const char *irrepnames[][ 8 ] = {
-  { "A" }, 
-  { "Ag", "Au" }, 
-  { "A", "B" }, 
-  { "A\'", "A\'\'" }, 
-  { "A", "B1", "B2", "B3" }, 
-  { "A1", "A2", "B1", "B2" }, 
-  { "Ag", "Bg", "Au", "Bu" }, 
-  { "Ag", "B1g", "B2g", "B3g", "Au", "B1u", "B2u", "B3u" }
+/* make sure the ordering is the same as in the macro POINT_GROUP_SYMMETRY !! */
+const int nr_irreps_pg[8] = {1, 2, 2, 2, 4, 4, 4, 8};
+const char *irrepnames[][8] = {
+        {"A"}, 
+        {"Ag", "Au"}, 
+        {"A", "B"}, 
+        {"A\'", "A\'\'"}, 
+        {"A", "B1", "B2", "B3"}, 
+        {"A1", "A2", "B1", "B2"}, 
+        {"Ag", "Bg", "Au", "Bu"}, 
+        {"Ag", "B1g", "B2g", "B3g", "Au", "B1u", "B2u", "B3u"}
 };
-const int fcidumptopsi4[ 5 ][ 8 ] = {
-  { 0 },    // for C1
-  { 0, 1 }, // for Ci, C2 and Cs
-  { 0, 3, 2, 1 }, // for D2
-  { 0, 2, 3, 1 }, // for C2v and C2h
-  { 0, 7, 6, 1, 5, 2, 3, 4 } // for D2h
+const int fcidumptopsi4[5][8] = {
+        {0},    // for C1
+        {0, 1}, // for Ci, C2 and Cs
+        {0, 3, 2, 1}, // for D2
+        {0, 2, 3, 1}, // for C2v and C2h
+        {0, 7, 6, 1, 5, 2, 3, 4} // for D2h
 };
 
-int PG_get_max_irrep( int pg )
+int PG_get_max_irrep(int pg)
 {
-  return nr_irreps_pg[ pg ];
+        return nr_irreps_pg[pg];
 }
 
-void PG_tensprod_irrep( int *min_irrep, int *nr_irreps, int *step, int irrep1, int irrep2 )
+void PG_tensprod_irrep(int *min_irrep, int *nr_irreps, int *step, 
+                       int irrep1, int irrep2)
 {
-  *nr_irreps = 1;
-  *step = 1;
-  *min_irrep = irrep1 ^ irrep2;
+        *nr_irreps = 1;
+        *step = 1;
+        *min_irrep = irrep1 ^ irrep2;
 }
 
-void PG_get_irrstring( char buffer[], int pg, int irr )
+void PG_get_irrstring(char buffer[], int pg, int irr)
 {
-  if( irr >= 0 && irr < nr_irreps_pg[ pg ] )
-    sprintf( buffer, irrepnames[ pg ][ irr ] );
-  else
-    sprintf( buffer, "INVALID" );
+        if(irr >= 0 && irr < nr_irreps_pg[pg])
+                sprintf(buffer, irrepnames[pg][irr]);
+        else
+                sprintf(buffer, "INVALID");
 }
 
-int PG_which_irrep( char buffer[], int pg, int *irr )
+int PG_which_irrep(char buffer[], int pg, int *irr)
 {
-  const int length = nr_irreps_pg[ pg ];
-  return find_str_in_array( buffer, irrepnames[ pg ], length, irr );
+        const int length = nr_irreps_pg[pg];
+        return find_str_in_array(buffer, irrepnames[pg], length, irr);
 }
 
-int fcidump_to_psi4( const int fcidumpirrep, const int pg_symm )
+int fcidump_to_psi4(const int fcidumpirrep, const int pg_symm)
 {
-  const int pg_symm_to_array[ 8 ] = { 0, 1, 1, 1, 2, 3, 3, 4 };
-  return fcidumptopsi4[ pg_symm_to_array[ pg_symm ] ][ fcidumpirrep ];
+        const int pg_symm_to_array[8] = {0, 1, 1, 1, 2, 3, 3, 4};
+        return fcidumptopsi4[pg_symm_to_array[pg_symm]][fcidumpirrep];
 }

@@ -10,39 +10,39 @@
 #include "macros.h"
 #include "debug.h"
 
-/* ============================================================================================ */
-/* =============================== DECLARATION STATIC FUNCTIONS =============================== */
-/* ============================================================================================ */
+/* ========================================================================== */
+/* ==================== DECLARATION STATIC FUNCTIONS ======================== */
+/* ========================================================================== */
 
-/* ============================================================================================ */
+/* ========================================================================== */
 
 void print_symsecs( struct symsecs *currsymsec, int fci )
 {
   char buffer[ 255 ];
   int i;
-  for( i = 0 ; i < currsymsec->nr_symsec ; i++ )
+  for( i = 0 ; i < currsymsec->nrSecs ; i++ )
   {
     int j;
-    int *irrep = currsymsec->irreps + i * bookie.nr_symmetries;
+    int *irrep = currsymsec->irreps + i * bookie.nrSyms;
 
     printf( "(" );
-    for( j = 0 ; j < bookie.nr_symmetries ; j++ )
+    for( j = 0 ; j < bookie.nrSyms ; j++ )
     {
       get_irrstring( buffer, bookie.sgs[ j ], irrep[ j ] );
-      printf( "%s%s", buffer, j == bookie.nr_symmetries - 1 ? ": " : "," );
+      printf( "%s%s", buffer, j == bookie.nrSyms - 1 ? ": " : "," );
     }
     if( fci )
     {
       if( currsymsec->fcidims[ i ] > 1000 )
         printf( "%.2e)%s", currsymsec->fcidims[ i ], 
-            i == currsymsec->nr_symsec - 1 ? " " : ", " );
+            i == currsymsec->nrSecs - 1 ? " " : ", " );
       else
         printf( "%.0f)%s", currsymsec->fcidims[ i ],
-            i == currsymsec->nr_symsec - 1 ? " " : ", " );
+            i == currsymsec->nrSecs - 1 ? " " : ", " );
     }
     else
       printf( "%d)%s", currsymsec->dims[ i ],
-          i == currsymsec->nr_symsec - 1 ? " " : ", " );
+          i == currsymsec->nrSecs - 1 ? " " : ", " );
   }
   printf( "\ntotal dims: %d\n", currsymsec->totaldims );
 }
@@ -100,7 +100,7 @@ void clean_symsecs( struct symsecs *symarr, int bond )
   if( bond >= 2 * bookie.nr_bonds )
     destroy_symsecs( symarr );
 
-  symarr->nr_symsec = 0;
+  symarr->nrSecs = 0;
   symarr->irreps    = NULL;
   symarr->fcidims   = NULL;
   symarr->dims      = NULL;
@@ -121,33 +121,32 @@ int search_symmsec( int* symmsec, const struct symsecs *sectors )
    */
   int i;
 
-  for( i = 0 ; i < sectors->nr_symsec ; i++ )
+  for( i = 0 ; i < sectors->nrSecs ; i++ )
   {
     int j;
-    for( j = 0 ; j < bookie.nr_symmetries ; j++ )
-      if( symmsec[ j ] != sectors->irreps[ i * bookie.nr_symmetries + j ] )
+    for( j = 0 ; j < bookie.nrSyms ; j++ )
+      if( symmsec[ j ] != sectors->irreps[ i * bookie.nrSyms + j ] )
         break;
 
-    if( j == bookie.nr_symmetries )
+    if( j == bookie.nrSyms )
       break;
   }
 
-  return i == sectors->nr_symsec ? -1 : i;
+  return i == sectors->nrSecs ? -1 : i;
 }
 
-void get_sectorstring( struct symsecs *symsec, int ind, char buffer[] )
+void get_sectorstring(const struct symsecs* const symsec, int id, char buffer[])
 {
   int i;
-  char tempbuffer[ 20 ];
-  int *irrep = &symsec->irreps[ ind * bookie.nr_symmetries ];
-  buffer[ 0 ] = '\0';
-  for( i = 0 ; i < bookie.nr_symmetries ; i++ )
-  {
-    get_irrstring( tempbuffer, bookie.sgs[ i ], irrep[ i ] );
-    strcat( buffer, tempbuffer );
-    strcat( buffer, "," );
+  char tempbuffer[20];
+  int *irrep = &symsec->irreps[id * bookie.nrSyms];
+  buffer[0] = '\0';
+  for (i = 0 ; i < bookie.nrSyms ; ++i) {
+    get_irrstring(tempbuffer, bookie.sgs[i], irrep[i]);
+    strcat(buffer, tempbuffer);
+    strcat(buffer, ",");
   }
-  buffer[ strlen( buffer ) - 1 ] = '\0';
+  buffer[strlen(buffer) - 1] = '\0';
 }
 
 void get_maxdims_of_bonds( int maxdims[], int bonds[], const int nr )
@@ -157,7 +156,7 @@ void get_maxdims_of_bonds( int maxdims[], int bonds[], const int nr )
 
   get_symsecs_arr( symarr, bonds, nr );
   for( i = 0 ; i < nr ; ++i )
-    maxdims[ i ] = symarr[ i ].nr_symsec;
+    maxdims[ i ] = symarr[ i ].nrSecs;
   clean_symsecs_arr( symarr, bonds, nr );
 }
 
@@ -167,7 +166,7 @@ int is_set_to_internal_symsec( const int bond )
   int i;
   get_symsecs( &symsec, get_ketT3NSbond( bond ) );
 
-  for( i = 0 ; i < symsec.nr_symsec ; ++i )
+  for( i = 0 ; i < symsec.nrSecs ; ++i )
     if( symsec.dims[ i ] != 1 )
     {
       clean_symsecs( &symsec, get_ketT3NSbond( bond ) );
@@ -183,16 +182,16 @@ void kick_empty_symsecs( struct symsecs *sectors, char o )
 
   int cnt = 0;
   if( o == 'n' ) sectors->totaldims = 0;
-  for( i = 0 ; i < sectors->nr_symsec ; i++ )
+  for( i = 0 ; i < sectors->nrSecs ; i++ )
   {
     int j;
     if( sectors->fcidims[ i ] < 0.5 )
       continue;
 
-    for( j = 0 ; j < bookie.nr_symmetries ; j++ )
+    for( j = 0 ; j < bookie.nrSyms ; j++ )
     {
-      sectors->irreps[ cnt * bookie.nr_symmetries + j ] = 
-        sectors->irreps[ i * bookie.nr_symmetries + j ];
+      sectors->irreps[ cnt * bookie.nrSyms + j ] = 
+        sectors->irreps[ i * bookie.nrSyms + j ];
     }
     sectors->fcidims[ cnt ] = sectors->fcidims[ i ];
     if( o == 'n' )
@@ -203,8 +202,8 @@ void kick_empty_symsecs( struct symsecs *sectors, char o )
     ++cnt;
   }
 
-  sectors->nr_symsec = cnt;
-  sectors->irreps  = realloc( sectors->irreps, cnt * bookie.nr_symmetries * sizeof( int ) );
+  sectors->nrSecs = cnt;
+  sectors->irreps  = realloc( sectors->irreps, cnt * bookie.nrSyms * sizeof( int ) );
   sectors->fcidims = realloc( sectors->fcidims, cnt * sizeof( double ) );
   if( o == 'n' ) sectors->dims = realloc( sectors->dims, cnt * sizeof( int ) );
   if( !sectors->irreps )
@@ -222,15 +221,15 @@ void kick_empty_symsecs( struct symsecs *sectors, char o )
 void deep_copy_symsecs( struct symsecs * const copy, const struct symsecs * const tocopy )
 {
   int i;
-  copy->nr_symsec = tocopy->nr_symsec;
-  copy->irreps    = safe_malloc( copy->nr_symsec * bookie.nr_symmetries, int );
-  copy->fcidims   = safe_malloc( copy->nr_symsec, double );
-  copy->dims      = safe_malloc( copy->nr_symsec, int );
+  copy->nrSecs = tocopy->nrSecs;
+  copy->irreps    = safe_malloc( copy->nrSecs * bookie.nrSyms, int );
+  copy->fcidims   = safe_malloc( copy->nrSecs, double );
+  copy->dims      = safe_malloc( copy->nrSecs, int );
   copy->totaldims = tocopy->totaldims;
-  for( i = 0 ; i < tocopy->nr_symsec * bookie.nr_symmetries ; ++i ) 
+  for( i = 0 ; i < tocopy->nrSecs * bookie.nrSyms ; ++i ) 
     copy->irreps[ i ] = tocopy->irreps[ i ];
-  for( i = 0 ; i < tocopy->nr_symsec ; ++i ) copy->fcidims[ i ] = tocopy->fcidims[ i ];
-  for( i = 0 ; i < tocopy->nr_symsec ; ++i ) copy->dims[ i ] = tocopy->dims[ i ];
+  for( i = 0 ; i < tocopy->nrSecs ; ++i ) copy->fcidims[ i ] = tocopy->fcidims[ i ];
+  for( i = 0 ; i < tocopy->nrSecs ; ++i ) copy->dims[ i ] = tocopy->dims[ i ];
 }
 
 void deep_copy_symsecs_from_bookie( struct symsecs symarr[], const int bonds[], const int nrel )
@@ -253,6 +252,6 @@ void deep_copy_symsecs_to_bookie( const struct symsecs symarr[], const int bonds
     deep_copy_symsecs( &bookie.list_of_symsecs[ bonds[ i ] ], &symarr[ i ] );
 }
 
-/* ============================================================================================ */
-/* ================================ DEFINITION STATIC FUNCTIONS =============================== */
-/* ============================================================================================ */
+/* ========================================================================== */
+/* ===================== DEFINITION STATIC FUNCTIONS ======================== */
+/* ========================================================================== */

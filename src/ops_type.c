@@ -13,9 +13,9 @@ static struct ops_type * ops_compressed_array = NULL;
 static struct ops_type * ops_expanded_array   = NULL;
 
 
-/* ============================================================================================ */
-/* =============================== DECLARATION STATIC FUNCTIONS =============================== */
-/* ============================================================================================ */
+/* ========================================================================== */
+/* ==================== DECLARATION STATIC FUNCTIONS ======================== */
+/* ========================================================================== */
 
 static void make_ends_and_tags(struct ops_type * const inp);
 
@@ -31,7 +31,7 @@ static inline void copy_tag_and_move(int ** const copy, int ** const tocopy, con
 
 static inline void print_tag(const int * const tag);
 
-/* ============================================================================================ */
+/* ========================================================================== */
 
 void get_tag(const struct ops_type * const input, int i, int ** const tag, int * const tagsize)
 {
@@ -366,7 +366,7 @@ void QC_get_hss_of_operators(int ** const hamsymsec_of_new, const int bond, cons
   {
     int *tag, tagsize;
     get_tag(&ops, i, &tag, &tagsize);
-    (*hamsymsec_of_new)[i] = QC_give_hermhamsymsec(QC_get_hamsymsec_from_tag(tag, tagsize));
+    (*hamsymsec_of_new)[i] = QC_hermitian_symsec(QC_get_hamsymsec_from_tag(tag, tagsize));
   }
 
   for (; i < ops.end_H; ++i)
@@ -398,9 +398,9 @@ void get_string_tg(char buffer[], const int * tag, const int tagsize, const int 
     sprintf(buffer + strlen(buffer), "(%d,%d,%d)", tag[0], tag[1], tag[2]);
 }
 
-/* ============================================================================================ */
-/* ================================ DEFINITION STATIC FUNCTIONS =============================== */
-/* ============================================================================================ */
+/* ========================================================================== */
+/* ===================== DEFINITION STATIC FUNCTIONS ======================== */
+/* ========================================================================== */
 
 static void make_ends_and_tags(struct ops_type * const inp)
 {

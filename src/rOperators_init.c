@@ -10,9 +10,9 @@
 #include "sort.h"
 #include "hamiltonian.h"
 
-/* ============================================================================================ */
-/* =============================== DECLARATION STATIC FUNCTIONS =============================== */
-/* ============================================================================================ */
+/* ========================================================================== */
+/* ==================== DECLARATION STATIC FUNCTIONS ======================== */
+/* ========================================================================== */
 
 static void make_unitOperator( struct rOperators * const ops, const int op );
 
@@ -26,7 +26,7 @@ static void initialize_sum_unique_rOperators( struct rOperators * const newrops,
     rOperators * const uniquerops, const int * const instructions, const int * const 
     hamsymsec_of_new, const int nr_instructions );
 
-/* ============================================================================================ */
+/* ========================================================================== */
 void init_null_rOperators( struct rOperators * const rops )
 {
   rops->bond_of_operator    = -1;
@@ -125,9 +125,9 @@ void sum_unique_rOperators( struct rOperators * const newrops, const struct rOpe
     kick_zero_blocks( &newrops->operators[ i ], rOperators_give_nr_blocks_for_operator(newrops,i) );
 }
 
-/* ============================================================================================ */
-/* ================================ DEFINITION STATIC FUNCTIONS =============================== */
-/* ============================================================================================ */
+/* ========================================================================== */
+/* ===================== DEFINITION STATIC FUNCTIONS ======================== */
+/* ========================================================================== */
 
 static void make_unitOperator( struct rOperators * const ops, const int op )
 {
@@ -184,15 +184,15 @@ static void make_unitOperator( struct rOperators * const ops, const int op )
     /* only for halfindexes == 1 */
     for( j = 0 ; j < halfindexes ; ++j )
     {
-      irrep_arr[ j ] = symarr[ j ].irreps + bookie.nr_symmetries * (ind % maxdims[ j ]);
+      irrep_arr[ j ] = symarr[ j ].irreps + bookie.nrSyms * (ind % maxdims[ j ]);
       irrep_arr[ 2 - j ] = irrep_arr[ j ];
       ind         = ind / maxdims[ j ];
     }
-    irrep_arr[ 1 ] = symMPO.irreps + bookie.nr_symmetries * get_trivialhamsymsec();
+    irrep_arr[ 1 ] = symMPO.irreps + bookie.nrSyms * get_trivialhamsymsec();
     /* coupling is bra MPO ket and should be ket MPO bra for right rops, so you should mirror the
      * coupling. For left rops, nothing should be changed. */
     if( !ops->is_left )
-      prefactor *= calculate_mirror_coupling( irrep_arr, bookie.sgs, bookie.nr_symmetries );
+      prefactor *= prefactor_mirror_coupling( irrep_arr, bookie.sgs, bookie.nrSyms );
 
     /* diagonal */
     for( j = 0 ; j < D ; ++j )
@@ -225,7 +225,7 @@ static void init_nP_rOperators( struct rOperators * const rops, int ***tmp_nkapp
 
   /* expects a is_in of 001 or 110  for find_goodqnumbersectors */
   get_symsecs_arr( symarr, indexes, 3 );
-  assert( symarr[ 0 ].nr_symsec == rops->nrhss && "Something wrong with the hamsymsec" );
+  assert( symarr[ 0 ].nrSecs == rops->nrhss && "Something wrong with the hamsymsec" );
   find_goodqnumbersectors( &dimarray, &qnumbersarray, &total, symarr, 1 );
 
   rops->begin_blocks_of_hss[ 0 ] = 0;
@@ -233,7 +233,7 @@ static void init_nP_rOperators( struct rOperators * const rops, int ***tmp_nkapp
   {
     int i;
     rops->begin_blocks_of_hss[ hss + 1 ] = rops->begin_blocks_of_hss[ hss ];
-    for( i = 0 ; i < symarr[ 1 ].nr_symsec ; ++i )
+    for( i = 0 ; i < symarr[ 1 ].nrSecs ; ++i )
       rops->begin_blocks_of_hss[ hss + 1 ] += qnumbersarray[ hss ][ i ][ 0 ];
   }
   rops->qnumbers    = safe_malloc( rops->begin_blocks_of_hss[ rops->nrhss ], QN_TYPE );
@@ -252,7 +252,7 @@ static void init_nP_rOperators( struct rOperators * const rops, int ***tmp_nkapp
     int i, j, curr = 0;
 
     (*tmp_nkappa_begin)[ hss ] = safe_malloc( N + 1, int );
-    for( i = 0 ; i < symarr[ 1 ].nr_symsec ; ++i )
+    for( i = 0 ; i < symarr[ 1 ].nrSecs ; ++i )
     {
       for( j = 0 ; j < qnumbersarray[ hss ][ i ][ 0 ] ; ++j, ++curr )
       {
@@ -261,16 +261,16 @@ static void init_nP_rOperators( struct rOperators * const rops, int ***tmp_nkapp
           /* Symarr is ordered MPO, ket, bra, and I need the index ordered as bra ket MPO */
           const int bra_index = qnumbersarray[ hss ][ i ][ 1 + j ];
           const int ket_index = i;
-          qnumberstemp[ curr ] = bra_index + ket_index * symarr[ 2 ].nr_symsec + 
-            hss * symarr[ 1 ].nr_symsec * symarr[ 2 ].nr_symsec;
+          qnumberstemp[ curr ] = bra_index + ket_index * symarr[ 2 ].nrSecs + 
+            hss * symarr[ 1 ].nrSecs * symarr[ 2 ].nrSecs;
         }
         else
         {
           /* Symarr is ordered MPO, bra, ket, and I need the index ordered as bra ket MPO */
           const int ket_index = qnumbersarray[ hss ][ i ][ 1 + j ];
           const int bra_index = i;
-          qnumberstemp[ curr ] = bra_index + ket_index * symarr[ 1 ].nr_symsec + 
-            hss * symarr[ 1 ].nr_symsec * symarr[ 2 ].nr_symsec;
+          qnumberstemp[ curr ] = bra_index + ket_index * symarr[ 1 ].nrSecs + 
+            hss * symarr[ 1 ].nrSecs * symarr[ 2 ].nrSecs;
         }
 
         dimtemp[ curr ] = dimarray[ hss ][ i ][ j ];
@@ -339,7 +339,7 @@ static void init_P_rOperators( struct rOperators * const rops, int ***nkappa_beg
   bonds[ 1 ] = qnumberbonds[ 6 + is_left ];  /* the inner bond that is going out */
   bonds[ 2 ] = qnumberbonds[ 6 + !is_left ]; /* the inner bond that is going in */
   get_symsecs_arr( symarr_internal, bonds, 3 );
-  assert( symarr_internal[ 0 ].nr_symsec == rops->nrhss && "Something wrong with the hamsymsec" );
+  assert( symarr_internal[ 0 ].nrSecs == rops->nrhss && "Something wrong with the hamsymsec" );
   find_goodqnumbersectors( &dimarray_internal, &qnumbersarray_internal, &total_internal, 
       symarr_internal, 1 );
 
@@ -357,7 +357,7 @@ static void init_P_rOperators( struct rOperators * const rops, int ***nkappa_beg
      * So bra(internal) for right rops and ket(internal) for left rops. */
     int internal_out;
     rops->begin_blocks_of_hss[ hamss + 1 ] = rops->begin_blocks_of_hss[ hamss ];
-    for( internal_out = 0 ; internal_out < symarr_internal[ 1 ].nr_symsec ; ++internal_out )
+    for( internal_out = 0 ; internal_out < symarr_internal[ 1 ].nrSecs ; ++internal_out )
     {
       const int nr_of_prods =  qnumbersarray_internal[ hamss ][ internal_out ][ 0 ];
       int internal_in;
@@ -407,7 +407,7 @@ static void init_P_rOperators( struct rOperators * const rops, int ***nkappa_beg
     qnumberstmp                   = safe_malloc( N * couplings, QN_TYPE );
     dimtmp                        = safe_malloc( N, int );
 
-    for( internal_out = 0 ; internal_out < symarr_internal[ 1 ].nr_symsec ; ++internal_out )
+    for( internal_out = 0 ; internal_out < symarr_internal[ 1 ].nrSecs ; ++internal_out )
     {
       const int nr_of_prods =  qnumbersarray_internal[ hamss ][ internal_out ][ 0 ];
       int internal_in;
@@ -419,9 +419,9 @@ static void init_P_rOperators( struct rOperators * const rops, int ***nkappa_beg
           qnumbersarray_internal[ hamss ][ internal_out ][ 1 + internal_in ];
 
         /* qnumber for bra(internal) ket(internal) MPO where dim_bra == dim_ket */
-        assert( symarr_internal[ 1 ].nr_symsec == symarr_internal[ 2 ].nr_symsec );
-        QN_TYPE MPOqnumber = bra_internal + ket_internal * symarr_internal[ 1 ].nr_symsec
-          + hamss * symarr_internal[ 1 ].nr_symsec * symarr_internal[ 1 ].nr_symsec;
+        assert( symarr_internal[ 1 ].nrSecs == symarr_internal[ 2 ].nrSecs );
+        QN_TYPE MPOqnumber = bra_internal + ket_internal * symarr_internal[ 1 ].nrSecs
+          + hamss * symarr_internal[ 1 ].nrSecs * symarr_internal[ 1 ].nrSecs;
 
         int     * little_dimarray;
         QN_TYPE * little_qnumbersarray;
@@ -483,10 +483,10 @@ static void init_P_rOperators( struct rOperators * const rops, int ***nkappa_beg
     safe_free( dimtmp );
   }
 
-  for( i = 0 ; i < symarr[ 0 ].nr_symsec ; ++i )
+  for( i = 0 ; i < symarr[ 0 ].nrSecs ; ++i )
   {
     int j;
-    for( j = 0 ; j < symarr[ 1 ].nr_symsec ; ++j )
+    for( j = 0 ; j < symarr[ 1 ].nrSecs ; ++j )
     {
       safe_free( qnumbersarray[ i ][ j ] );
       safe_free( dimarray[ i ][ j ] );
@@ -498,10 +498,10 @@ static void init_P_rOperators( struct rOperators * const rops, int ***nkappa_beg
   safe_free( dimarray );
   clean_symsecs_arr( symarr, qnumberbonds, 3 );
 
-  for( i = 0 ; i < symarr_internal[ 0 ].nr_symsec ; ++i )
+  for( i = 0 ; i < symarr_internal[ 0 ].nrSecs ; ++i )
   {
     int j;
-    for( j = 0 ; j < symarr_internal[ 1 ].nr_symsec ; ++j )
+    for( j = 0 ; j < symarr_internal[ 1 ].nrSecs ; ++j )
     {
       safe_free( qnumbersarray_internal[ i ][ j ] );
       safe_free( dimarray_internal[ i ][ j ] );

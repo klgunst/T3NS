@@ -13,22 +13,22 @@
  */
 struct symsecs
 {
-  int nr_symsec;    /**< The number of different symmetry sectors possible in the bond. */
+  int nrSecs;    /**< The number of different symmetry sectors possible in the bond. */
   int* irreps;      /**< The irreps that specify every symmetry sector
-                     *   Array with length nr_symsec * nr_symmetries,
+                     *   Array with length nrSecs * nr_symmetries,
                      *
                      *   the irrep- labels should be sorted, from low to high
                      *   and from left symmetry to right symmetry.
                      */
   double* fcidims;  /**< The dimension of each symmetry sector in FCI.
-                     *   Array with length nr_symsec.
+                     *   Array with length nrSecs.
                      *   I make this double, because fcidims can become very large,
                      *   The loss of accuracy (becomes not accurate up to 1 with big numbers)
                      *   will only occur for very large bond dimensions.
                      *   Not for bond dimensions that we ever hope to handle.
                      */
   int* dims;        /**< The dimension of each symmetry sector in the tensor network bond.
-                     *   Array with length nr_symsec.
+                     *   Array with length nrSecs.
                      */
   int totaldims;    /**< Total bond dimension in the bond. */
 };
@@ -101,7 +101,7 @@ int search_symmsec( int* symmsec, const struct symsecs *sectors );
  * \param [in] ind The index of the sector.
  * \param [out] buffer The buffer in which the string is passed.
  */
-void get_sectorstring( struct symsecs *symsec, int ind, char buffer[] );
+void get_sectorstring(const struct symsecs* const symsec, int id, char buffer[]);
 
 /**
  * \brief Returns the maxdims of each bond passed.

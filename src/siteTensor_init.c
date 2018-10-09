@@ -236,12 +236,12 @@ static void make_1sblocks( struct siteTensor * const tens, int ***dimarray, int 
   tens->blocks.beginblock = safe_malloc( tens->nrblocks + 1, int );
   assert( tens->nrsites == 1 && "make_1sblocks not defined for more than 1 site" );
 
-  for( sym1 = 0 ; sym1 < symarr[ 0 ].nr_symsec ; ++sym1  )
+  for( sym1 = 0 ; sym1 < symarr[ 0 ].nrSecs ; ++sym1  )
   {
-    for( sym2 = 0 ; sym2 < symarr[ 1 ].nr_symsec ; ++sym2 )
+    for( sym2 = 0 ; sym2 < symarr[ 1 ].nrSecs ; ++sym2 )
     {
-      const QN_TYPE ind = sym1 + sym2 * symarr[ 0 ].nr_symsec;
-      const QN_TYPE increment = symarr[ 0 ].nr_symsec * symarr[ 1 ].nr_symsec;
+      const QN_TYPE ind = sym1 + sym2 * symarr[ 0 ].nrSecs;
+      const QN_TYPE increment = symarr[ 0 ].nrSecs * symarr[ 1 ].nrSecs;
 
       for( sym3 = 0 ; sym3 < qnumbersarray[ sym1 ][ sym2 ][ 0 ] ; ++sym3 )
       {
@@ -340,7 +340,7 @@ static void make_new_internalsymsecs_and_tensor( struct siteTensor * const tens,
       if( j != nr_internal )
       {
         int ss;
-        for( ss = 0 ; ss < internalsymsec[ j ].nr_symsec ; ++ss )
+        for( ss = 0 ; ss < internalsymsec[ j ].nrSecs ; ++ss )
         {
           int length;
           find_qnumbers_with_index_in_array( ss, i, qnumbersarray, dimarray, symsec, NULL, NULL, 
@@ -510,9 +510,9 @@ static void make_qnumbers_and_dims( int ***qnumbersarray[], int ***dimarray[], s
     *dim_of_blocks = safe_malloc( tens->nrblocks, int );
   }
 
-  for( sym[ 0 ] = 0 ; sym[ 0 ] < all_symarr[ internal_site * 3 ].nr_symsec ; ++sym[ 0 ] )
+  for( sym[ 0 ] = 0 ; sym[ 0 ] < all_symarr[ internal_site * 3 ].nrSecs ; ++sym[ 0 ] )
   {
-    for( sym[ 1 ] = 0 ; sym[ 1 ] < all_symarr[ internal_site * 3 + 1 ].nr_symsec ; ++sym[ 1 ] )
+    for( sym[ 1 ] = 0 ; sym[ 1 ] < all_symarr[ internal_site * 3 + 1 ].nrSecs ; ++sym[ 1 ] )
     {
       for( sym[ 2 ] = 0 ; sym[ 2 ] < qnumbersarray[ internal_site ][ sym[ 0 ] ][ sym[ 1 ] ][ 0 ] ;
           ++sym[ 2 ] )
@@ -541,9 +541,9 @@ static void make_qnumbers_and_dims( int ***qnumbersarray[], int ***dimarray[], s
           int indexes[ tens->nrsites ];
           int upper_bound = curr_nr_blocks + curr_block_size;
           int internal_dim = dimarray[ internal_site ][ sym[ 0 ] ][ sym[ 1 ] ][ sym[ 2 ] ];
-          QN_TYPE internal_qnumber = sym[ 0 ] + sym[ 1 ] * all_symarr[ internal_site * 3 ].nr_symsec
+          QN_TYPE internal_qnumber = sym[ 0 ] + sym[ 1 ] * all_symarr[ internal_site * 3 ].nrSecs
             + qnumbersarray[ internal_site ][ sym[ 0 ] ][ sym[ 1 ] ][ sym[ 2 ] + 1 ] *
-            all_symarr[ internal_site * 3 ].nr_symsec * all_symarr[ internal_site * 3+1].nr_symsec;
+            all_symarr[ internal_site * 3 ].nrSecs * all_symarr[ internal_site * 3+1].nrSecs;
 
           for( i = 0 ; i < tens->nrsites ; ++i ) indexes[ i ] = 0;
 
@@ -665,9 +665,9 @@ static void contractsiteTensors( struct siteTensor * const tens, struct siteTens
       oldqnumeros[ i ] = tens->qnumbers[ tens->nrsites * resblock + i ];
 
     oldqnumeros[ 0 ] = change_newtooldqnumber( oldqnumeros[ 0 ], newtoold, &maxdims[ 0 ],
-        internalsymsec[ 0 ].nr_symsec, map[ 0 ] );
+        internalsymsec[ 0 ].nrSecs, map[ 0 ] );
     oldqnumeros[ 1 ] = change_newtooldqnumber( oldqnumeros[ 1 ], newtoold, &maxdims[ 3 ],
-        internalsymsec[ 0 ].nr_symsec, map[ 1 ] );
+        internalsymsec[ 0 ].nrSecs, map[ 1 ] );
 
     if( oldqnumeros[ 0 ] < 0 || oldqnumeros[ 1 ] < 0 )
       continue;
@@ -756,23 +756,23 @@ static QN_TYPE change_newtooldqnumber( QN_TYPE new, int * newtoold, int * maxdim
 static int * make_newtoold( const struct symsecs * const internalss, const int bond )
 {
   struct symsecs newss;
-  int * result = safe_malloc( internalss->nr_symsec, int );
+  int * result = safe_malloc( internalss->nrSecs, int );
   int i = 0;
   int currj = 0;
   get_symsecs( &newss, bond );
 
-  for( i = 0 ; i < internalss->nr_symsec ; ++i )
+  for( i = 0 ; i < internalss->nrSecs ; ++i )
   {
     int j;
     result[ i ] = -1;
-    for( j = currj ; j < newss.nr_symsec ; ++j )
+    for( j = currj ; j < newss.nrSecs ; ++j )
     {
       int k;
-      for( k = 0 ; k < bookie.nr_symmetries ; ++k )
-        if( internalss->irreps[ i * bookie.nr_symmetries + k ] != 
-            newss.irreps[ j * bookie.nr_symmetries + k ] )
+      for( k = 0 ; k < bookie.nrSyms ; ++k )
+        if( internalss->irreps[ i * bookie.nrSyms + k ] != 
+            newss.irreps[ j * bookie.nrSyms + k ] )
           break;
-      if( k == bookie.nr_symmetries )
+      if( k == bookie.nrSyms )
       {
         result[ i ] = j;
         currj = j + 1;

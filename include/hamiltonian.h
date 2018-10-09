@@ -47,7 +47,7 @@ int consistencynetworkinteraction(void);
  * \param [in] ketindex The ket-index.
  * \return The matrix-element.
  */
-double get_site_element(const int siteoperator, const int braindex, const int ketindex);
+double el_siteop(const int siteoperator, const int braindex, const int ketindex);
 
 /**
  * \brief Returns the hamsymsec index of the passed siteoperator at this site.
@@ -56,7 +56,7 @@ double get_site_element(const int siteoperator, const int braindex, const int ke
  * \param [in] site The site.
  * \return The hamsymsec of the operator.
  */
-int get_hamsymsec_site(const int siteoperator, const int site);
+int symsec_siteop(const int siteoperator, const int site);
 
 /**
  * \brief Returns the number of possible hamsymsecs.
@@ -67,7 +67,7 @@ int get_nr_hamsymsec(void);
 
 int get_trivialhamsymsec(void);
 
-int give_hermhamsymsec(const int orighamsymsec);
+int hermitian_symsec(const int orig_symsec);
 
 /**
  * \brief The possible products of the hamiltonian symsecs that can result in the passed hamsymsec.
@@ -77,7 +77,7 @@ int give_hermhamsymsec(const int orighamsymsec);
  * \param [in] resulting_hamsymsec The hamsymsec that the found products should result into.
  * \param [in] site The networksite where the product happens.
  */
-void hamiltonian_tensor_products(int * const nr_of_prods, int ** const possible_prods, const int
+void tprods_ham(int * const nr_of_prods, int ** const possible_prods, const int
     resulting_hamsymsec, const int site);
 
 void get_string_of_rops(char buffer[], const int ropsindex, const int bond, const int is_left, 

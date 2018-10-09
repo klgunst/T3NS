@@ -6,14 +6,14 @@
 #include "debug.h"
 #include "lapack.h"
 
-/* ============================================================================================ */
-/* =============================== DECLARATION STATIC FUNCTIONS =============================== */
-/* ============================================================================================ */
+/* ========================================================================== */
+/* ==================== DECLARATION STATIC FUNCTIONS ======================== */
+/* ========================================================================== */
 
 static void change_virt_dim( struct sparseblocks * const blocks, const int start, const int finish, 
     const int total, int * const N );
 
-/* ============================================================================================ */
+/* ========================================================================== */
 
 void init_null_sparseblocks( struct sparseblocks * const blocks )
 {
@@ -60,7 +60,10 @@ void kick_zero_blocks( struct sparseblocks * const blocks, const int nr_blocks )
 {
   int i, j;
   int start = blocks->beginblock[ 0 ];
+
+#ifdef DEBUG
   const int prevsize = blocks->beginblock[ nr_blocks ];
+#endif
 
   for( i = 0 ; i < nr_blocks ; ++i )
   {
@@ -229,9 +232,9 @@ void QR_blocks( struct sparseblocks * const blocks, const int start, const int f
   safe_free( mem );
 }
 
-/* ============================================================================================ */
-/* ================================ DEFINITION STATIC FUNCTIONS =============================== */
-/* ============================================================================================ */
+/* ========================================================================== */
+/* ===================== DEFINITION STATIC FUNCTIONS ======================== */
+/* ========================================================================== */
 
 static void change_virt_dim( struct sparseblocks * const blocks, const int start, const int finish, 
     const int total, int * const N )

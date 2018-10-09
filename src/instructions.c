@@ -11,9 +11,9 @@
 #include "debug.h"
 #include "bookkeeper.h"
 
-/* ============================================================================================ */
-/* =============================== DECLARATION STATIC FUNCTIONS =============================== */
-/* ============================================================================================ */
+/* ========================================================================== */
+/* ==================== DECLARATION STATIC FUNCTIONS ======================== */
+/* ========================================================================== */
 
 static void sort_instructions(struct instructionset * const instructions);
 
@@ -29,7 +29,7 @@ static void print_T3NS_instructions(int * const instructions, double * const pre
 static void print_merge_instructions(int * const instructions, double * const prefactors, 
     const int nr_instructions, const int bond);
 
-/* ============================================================================================ */
+/* ========================================================================== */
 
 void fetch_DMRG_make_ops(int ** const instructions, double ** const prefactors, int ** const 
     hamsymsecs_of_new, int * const nr_instructions, const int bond, const int is_left)
@@ -221,9 +221,9 @@ void print_instructions(int * const instructions, double * const prefactors, int
   }
 }
 
-/* ============================================================================================ */
-/* ================================ DEFINITION STATIC FUNCTIONS =============================== */
-/* ============================================================================================ */
+/* ========================================================================== */
+/* ===================== DEFINITION STATIC FUNCTIONS ======================== */
+/* ========================================================================== */
 
 static void sort_instructions(struct instructionset * const instructions)
 {

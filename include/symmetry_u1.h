@@ -48,5 +48,5 @@ void U1_get_irrstring( char buffer[], int irr );
  * \param [out] irr The irrep.
  * \return 1 if successful, 0 otherwise.
  */
-const int U1_which_irrep( char buffer[], int *irr );
+int U1_which_irrep( char buffer[], int *irr );
 #endif

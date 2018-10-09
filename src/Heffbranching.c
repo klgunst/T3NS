@@ -43,9 +43,9 @@ struct contractinfo {
   int L;
 };
 
-/* ============================================================================================ */
-/* =============================== DECLARATION STATIC FUNCTIONS =============================== */
-/* ============================================================================================ */
+/* ========================================================================== */
+/* ==================== DECLARATION STATIC FUNCTIONS ======================== */
+/* ========================================================================== */
 
 static void make_map(struct indexdata * const idd, const struct T3NSdata * const data);
 
@@ -76,7 +76,7 @@ static void do_contract(const struct contractinfo * const cinfo, EL_TYPE * const
 
 static double calc_prefactor(const struct indexdata * const idd, const struct T3NSdata *const data);
 
-/* ============================================================================================ */
+/* ========================================================================== */
 
 void matvecT3NS(double * vec, double * result, void * vdata)
 {
@@ -195,9 +195,9 @@ double * make_diagonal_T3NS(struct T3NSdata * const data)
   return result;
 }
 
-/* ============================================================================================ */
-/* ================================ DEFINITION STATIC FUNCTIONS =============================== */
-/* ============================================================================================ */
+/* ========================================================================== */
+/* ===================== DEFINITION STATIC FUNCTIONS ======================== */
+/* ========================================================================== */
 
 static void make_map(struct indexdata * const idd, const struct T3NSdata * const data)
 {
@@ -230,17 +230,17 @@ static void fill_indexes(const int sb, const struct T3NSdata * const data, struc
   for (i = 0 ; i < nrsites ; ++i) {
     QN_TYPE qn = qn_arr[i];
     idd->qn[i][tp] = qn;
-    idd->id[i][tp][0] = qn % data->symarr[i][0].nr_symsec;
-    qn                = qn / data->symarr[i][0].nr_symsec;
-    idd->irreps[i][tp][0] = &data->symarr[i][0].irreps[bookie.nr_symmetries * idd->id[i][tp][0]];
+    idd->id[i][tp][0] = qn % data->symarr[i][0].nrSecs;
+    qn                = qn / data->symarr[i][0].nrSecs;
+    idd->irreps[i][tp][0] = &data->symarr[i][0].irreps[bookie.nrSyms * idd->id[i][tp][0]];
 
-    idd->id[i][tp][1] = qn % data->symarr[i][1].nr_symsec;
-    qn                = qn / data->symarr[i][1].nr_symsec;
-    idd->irreps[i][tp][1] = &data->symarr[i][1].irreps[bookie.nr_symmetries * idd->id[i][tp][1]];
+    idd->id[i][tp][1] = qn % data->symarr[i][1].nrSecs;
+    qn                = qn / data->symarr[i][1].nrSecs;
+    idd->irreps[i][tp][1] = &data->symarr[i][1].irreps[bookie.nrSyms * idd->id[i][tp][1]];
 
     idd->id[i][tp][2] = qn;
-    assert(qn < data->symarr[i][2].nr_symsec);
-    idd->irreps[i][tp][2] = &data->symarr[i][2].irreps[bookie.nr_symmetries * idd->id[i][tp][2]];
+    assert(qn < data->symarr[i][2].nrSecs);
+    idd->irreps[i][tp][2] = &data->symarr[i][2].irreps[bookie.nrSyms * idd->id[i][tp][2]];
   }
 
   for (i = 0 ; i < 3 ; ++i) {
@@ -272,9 +272,9 @@ static void fill_MPO_indexes(struct indexdata * const idd, const int * const ins
   idd->idMPO[1] = data->Operators[1].hss_of_ops[instr[1]];
   idd->idMPO[2] = data->Operators[2].hss_of_ops[instr[2]];
 
-  idd->irrMPO[0] = &data->MPOsymsec.irreps[bookie.nr_symmetries * idd->idMPO[0]];
-  idd->irrMPO[1] = &data->MPOsymsec.irreps[bookie.nr_symmetries * idd->idMPO[1]];
-  idd->irrMPO[2] = &data->MPOsymsec.irreps[bookie.nr_symmetries * idd->idMPO[2]];
+  idd->irrMPO[0] = &data->MPOsymsec.irreps[bookie.nrSyms * idd->idMPO[0]];
+  idd->irrMPO[1] = &data->MPOsymsec.irreps[bookie.nrSyms * idd->idMPO[1]];
+  idd->irrMPO[2] = &data->MPOsymsec.irreps[bookie.nrSyms * idd->idMPO[2]];
 }
 
 static void find_operator_sb(struct indexdata * const idd, const struct T3NSdata * const data)
@@ -284,7 +284,7 @@ static void find_operator_sb(struct indexdata * const idd, const struct T3NSdata
 
   for (i = 0 ; i < 3 ; ++i) {
     const int site = data->rOperators_on_site[i];
-    const int diminner = data->symarr[data->posB][i].nr_symsec;
+    const int diminner = data->symarr[data->posB][i].nrSecs;
     const QN_TYPE qninner = idd->id[data->posB][NEW][i] + idd->id[data->posB][OLD][i] * diminner + 
       idd->idMPO[i] * diminner * diminner;
 
@@ -443,23 +443,23 @@ static double calc_prefactor(const struct indexdata * const idd, const struct T3
   if (data->rOperators_on_site[0] != data->posB)
   {
     prefactor *= prefactor_add_P_operator(idd->irreps[data->rOperators_on_site[0]], 1, bookie.sgs, 
-        bookie.nr_symmetries);
+        bookie.nrSyms);
   }
   assert(data->Operators[1].P_operator == (data->rOperators_on_site[1] != data->posB));
   if (data->rOperators_on_site[1] != data->posB)
   {
     prefactor *= prefactor_add_P_operator(idd->irreps[data->rOperators_on_site[1]], 1, bookie.sgs, 
-        bookie.nr_symmetries);
+        bookie.nrSyms);
   }
   assert(data->Operators[2].P_operator == (data->rOperators_on_site[2] != data->posB));
   if (data->rOperators_on_site[2] != data->posB)
   {
     prefactor *= prefactor_add_P_operator(idd->irreps[data->rOperators_on_site[2]], 0, bookie.sgs, 
-        bookie.nr_symmetries);
+        bookie.nrSyms);
   }
 
   prefactor *= prefactor_combine_MPOs(idd->irreps[data->posB], idd->irrMPO, bookie.sgs, 
-      bookie.nr_symmetries);
+      bookie.nrSyms);
 
   return prefactor;
 }

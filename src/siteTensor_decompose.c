@@ -9,9 +9,9 @@
 #include "bookkeeper.h"
 #include "lapack.h"
 
-/* ============================================================================================ */
-/* =============================== DECLARATION STATIC FUNCTIONS =============================== */
-/* ============================================================================================ */
+/* ========================================================================== */
+/* ==================== DECLARATION STATIC FUNCTIONS ======================== */
+/* ========================================================================== */
 
 /* This function gives you the different orders in which the sites can be split of the multiSite
  * tensor. */
@@ -95,7 +95,7 @@ static void clean_splitOfSite( double **U, double **S, double **V, int **centerd
     QN_TYPE **centerqn, int *centernrqn, int **orthodims, QN_TYPE **orthoqn, int *orthonrqn, 
     const int nrss, int * ss_array );
 
-/* ============================================================================================ */
+/* ========================================================================== */
 
 void QR( struct siteTensor * const tens, void * const R )
 {
@@ -123,12 +123,12 @@ void QR( struct siteTensor * const tens, void * const R )
 
   get_symsecs_arr( symarr, indices, nrind );
 
-  Ldim = symarr[ 0 ].nr_symsec * symarr[ 1 ].nr_symsec;
+  Ldim = symarr[ 0 ].nrSecs * symarr[ 1 ].nrSecs;
   start = 0;
 
   
   /* This you can parallelize */
-  for( sym3 = 0 ; sym3 < symarr[ 2 ].nr_symsec ; ++sym3 )
+  for( sym3 = 0 ; sym3 < symarr[ 2 ].nrSecs ; ++sym3 )
   {
     int finish = start;
 
@@ -160,9 +160,9 @@ void decomposesiteObject( struct siteTensor * const siteObject, struct siteTenso
   struct symsecs originalsymsecs[ nr_of_SVDs ]; //ordered according to bonds[ 0 ][ ]
 
   int i;
-  int selection;
-  int mxD;
-  double mxtr;
+  int selection = 0;
+  int mxD = 0;
+  double mxtr = 0;
 
   get_orders( nr_of_orders, nr_of_SVDs, siteObject->nrsites, orders, bonds, sitelist, common_nxt );
   deep_copy_symsecs_from_bookie( originalsymsecs, bonds[ 0 ], nr_of_SVDs );
@@ -207,9 +207,9 @@ void decomposesiteObject( struct siteTensor * const siteObject, struct siteTenso
   change_tensors_to_best( selection, nr_of_orders, siteObject->nrsites, T3NS, tensorlist );
 }
 
-/* ============================================================================================ */
-/* ================================ DEFINITION STATIC FUNCTIONS =============================== */
-/* ============================================================================================ */
+/* ========================================================================== */
+/* ===================== DEFINITION STATIC FUNCTIONS ======================== */
+/* ========================================================================== */
 
 static void get_orders( const int nr_of_orders, const int nr_of_SVDs, const int nr_of_sites, 
     int order[ nr_of_orders ][ nr_of_SVDs ], int bonds[ nr_of_orders ][ nr_of_SVDs ], 
@@ -401,7 +401,7 @@ static double splitOfSite( const int siteToSplit, const int splittedBond, struct
   int bonds[ 3 * original.nrsites ];
   int * ss_array;
   struct symsecs * newSymsec = &bookie.list_of_symsecs[ splittedBond ];
-  const int nrss = newSymsec->nr_symsec;
+  const int nrss = newSymsec->nrSecs;
 
   const int tensnr = check_correct_input_splitOfSite( siteToSplit, splittedBond, &original );
 
@@ -449,7 +449,7 @@ static double splitOfSite( const int siteToSplit, const int splittedBond, struct
       &orthoqn, &orthonrqn, center, ortho, posbond1, posbond2 );
 
   clean_splitOfSite(U, S, V, centerdims, centerqn, centernrqn, orthodims, orthoqn, orthonrqn, 
-      newSymsec->nr_symsec, ss_array );
+      newSymsec->nrSecs, ss_array );
 
   return truncerr;
 }
@@ -585,6 +585,7 @@ static void get_block_for_svd( double ** mem, const int * const centerdims, cons
     QN_TYPE * qnmbr = &original->qnumbers[ original->nrsites * block ];
     int orthocnt, orthostart = 0;
     int centercnt, centerstart = 0;
+
     int P, Q, R;
     double *currmem;
     double *blocktel = get_tel_block( &original->blocks, block );
@@ -710,7 +711,7 @@ static double truncateBond( double **S, struct symsecs * const newSymsec, const 
 
   assert( runupto >= minimalto );
 
-  for( ss = 0 ; ss < newSymsec->nr_symsec ; ++ss )
+  for( ss = 0 ; ss < newSymsec->nrSecs ; ++ss )
   {
     int i;
     for( i = 0 ; i < newSymsec->dims[ ss ] ; ++i, ++currS )
@@ -740,7 +741,7 @@ static double truncateBond( double **S, struct symsecs * const newSymsec, const 
   safe_free( tempS );
 
   newSymsec->totaldims = 0;
-  for( ss = 0 ; ss < newSymsec->nr_symsec ; ++ss )
+  for( ss = 0 ; ss < newSymsec->nrSecs ; ++ss )
   {
     int i;
     for( i = 0 ; i < newSymsec->dims[ ss ] ; ++i )
@@ -792,16 +793,16 @@ static void adapt_symsec_and_others( double ***U, double ***S, double ***V,
   int cnt = 0;
   int neworthodims[ 3 ];
   int newcenterdims[ 3 ];
-  assert( orthomd[ orthobondcut ] == newSymsec->nr_symsec );
+  assert( orthomd[ orthobondcut ] == newSymsec->nrSecs );
 
-  newSymsec->nr_symsec = 0;
+  newSymsec->nrSecs = 0;
   for( ss = 0 ; ss < orthomd[ orthobondcut ] ; ++ss ) 
-    newSymsec->nr_symsec += ( newSymsec->dims[ ss ] != 0 );
+    newSymsec->nrSecs += ( newSymsec->dims[ ss ] != 0 );
 
   for( i = 0 ; i < 3 ; ++i ) neworthodims[ i ]  = orthomd[ i ];
   for( i = 0 ; i < 3 ; ++i ) newcenterdims[ i ] = centermd[ i ];
-  neworthodims[ orthobondcut ]   = newSymsec->nr_symsec;
-  newcenterdims[ centerbondcut ] = newSymsec->nr_symsec;
+  neworthodims[ orthobondcut ]   = newSymsec->nrSecs;
+  newcenterdims[ centerbondcut ] = newSymsec->nrSecs;
 
   for( ss = 0 ; ss < orthomd[ orthobondcut ] ; ++ss )
   {
@@ -866,33 +867,33 @@ static void adapt_symsec_and_others( double ***U, double ***S, double ***V,
       }
 
       /*adapt newSymsec */
-      for( i = 0 ; i < bookie.nr_symmetries ; ++i )
-        newSymsec->irreps[ cnt * bookie.nr_symmetries + i ] = 
-          newSymsec->irreps[ ss * bookie.nr_symmetries + i ];
+      for( i = 0 ; i < bookie.nrSyms ; ++i )
+        newSymsec->irreps[ cnt * bookie.nrSyms + i ] = 
+          newSymsec->irreps[ ss * bookie.nrSyms + i ];
       newSymsec->fcidims[ cnt ] = newSymsec->fcidims[ ss ];
       newSymsec->dims[ cnt ]    = newSymsec->dims[ ss ];
 
       ++cnt;
     }
   }
-  assert( cnt == newSymsec->nr_symsec );
+  assert( cnt == newSymsec->nrSecs );
 
   /* Do all reallocs */
-  *U = realloc( *U, newSymsec->nr_symsec * sizeof(double*) );
-  *S = realloc( *S, newSymsec->nr_symsec * sizeof(double*) );
-  *V = realloc( *V, newSymsec->nr_symsec * sizeof(double*) );
+  *U = realloc( *U, newSymsec->nrSecs * sizeof(double*) );
+  *S = realloc( *S, newSymsec->nrSecs * sizeof(double*) );
+  *V = realloc( *V, newSymsec->nrSecs * sizeof(double*) );
 
-  *orthodims  = realloc( *orthodims, newSymsec->nr_symsec * sizeof(int*) );
-  *orthoqn    = realloc( *orthoqn  , newSymsec->nr_symsec * sizeof(int*) );
-  *orthonrqn  = realloc( *orthonrqn, newSymsec->nr_symsec * sizeof(int ) );
-  *centerdims = realloc( *centerdims, newSymsec->nr_symsec * sizeof(int*) );
-  *centerqn   = realloc( *centerqn  , newSymsec->nr_symsec * cnrsites * sizeof(int*) );
-  *centernrqn = realloc( *centernrqn, newSymsec->nr_symsec * sizeof(int ) );
+  *orthodims  = realloc( *orthodims, newSymsec->nrSecs * sizeof(int*) );
+  *orthoqn    = realloc( *orthoqn  , newSymsec->nrSecs * sizeof(int*) );
+  *orthonrqn  = realloc( *orthonrqn, newSymsec->nrSecs * sizeof(int ) );
+  *centerdims = realloc( *centerdims, newSymsec->nrSecs * sizeof(int*) );
+  *centerqn   = realloc( *centerqn  , newSymsec->nrSecs * cnrsites * sizeof(int*) );
+  *centernrqn = realloc( *centernrqn, newSymsec->nrSecs * sizeof(int ) );
 
-  newSymsec->irreps = realloc( newSymsec->irreps, newSymsec->nr_symsec * bookie.nr_symmetries * 
+  newSymsec->irreps = realloc( newSymsec->irreps, newSymsec->nrSecs * bookie.nrSyms * 
       sizeof(int) );
-  newSymsec->fcidims = realloc( newSymsec->fcidims, newSymsec->nr_symsec * sizeof( double ));
-  newSymsec->dims    = realloc( newSymsec->dims, newSymsec->nr_symsec * sizeof( int ));
+  newSymsec->fcidims = realloc( newSymsec->fcidims, newSymsec->nrSecs * sizeof( double ));
+  newSymsec->dims    = realloc( newSymsec->dims, newSymsec->nrSecs * sizeof( int ));
 }
 
 static void create_ortho_and_center( const struct symsecs * const newSymsec, struct siteTensor * 
@@ -947,7 +948,7 @@ static int * make_and_sort( struct siteTensor * tens, int **dim, QN_TYPE **qn, i
   QN_TYPE *tempqn;
   QN_TYPE *p_qn;
   tens->nrblocks = 0;
-  for( ss = 0 ; ss < newSymsec->nr_symsec ; ++ss ) 
+  for( ss = 0 ; ss < newSymsec->nrSecs ; ++ss ) 
     tens->nrblocks += ( newSymsec->dims[ ss ] != 0 ) * nrqn[ ss ];
 
   tens->qnumbers = safe_malloc( tens->nrblocks * tens->nrsites, QN_TYPE );
@@ -956,14 +957,14 @@ static int * make_and_sort( struct siteTensor * tens, int **dim, QN_TYPE **qn, i
   tens->blocks.beginblock[ 0 ] = 0;
   p_qn = tempqn;
 
-  for( ss = 0 ; ss < newSymsec->nr_symsec ; ++ss )
+  for( ss = 0 ; ss < newSymsec->nrSecs ; ++ss )
     for( i = 0 ; i < ( newSymsec->dims[ ss ] != 0 ) * nrqn[ ss ] * tens->nrsites ; ++i, ++p_qn ) 
       *p_qn = qn[ ss ][ i ];
   perm = qnumbersSort( tempqn, tens->nrsites, tens->nrblocks );
   perm = inverse_permutation( perm, tens->nrblocks );
 
   cnt = 0;
-  for( ss = 0 ; ss < newSymsec->nr_symsec ; ++ss )
+  for( ss = 0 ; ss < newSymsec->nrSecs ; ++ss )
   {
     const int dimss = newSymsec->dims[ ss ];
     if( dimss == 0 )
@@ -989,7 +990,7 @@ static void multiplySV( const struct symsecs * const newSymsec, double **U, doub
     int ** centerdim, int ** orthodim, int * centernrqn, int * orthonrqn )
 {
   int ss;
-  for( ss = 0 ; ss < newSymsec->nr_symsec ; ++ss )
+  for( ss = 0 ; ss < newSymsec->nrSecs ; ++ss )
   {
     const int dimss = newSymsec->dims[ ss ];
     int M = 0;
@@ -1029,7 +1030,7 @@ static void make_tensor( struct siteTensor * tens, int * perm, const struct syms
   get_maxdims_of_bonds( maxdims, bonds, tens->nrsites * 3 );
   get_symsecs_arr( symarr, bonds, tens->nrsites * 3 );
 
-  for( ss = 0 ; ss < newSymsec->nr_symsec ; ++ss )
+  for( ss = 0 ; ss < newSymsec->nrSecs ; ++ss )
   {
     int i;
     const int dimss = newSymsec->dims[ ss ];
@@ -1043,7 +1044,6 @@ static void make_tensor( struct siteTensor * tens, int * perm, const struct syms
     {
       int j;
       int p, q, s;
-      const int blocksize = get_size_block( &tens->blocks, perm[ cnt ] );
       double * const b_el = get_tel_block( &tens->blocks, perm[ cnt ] );
       int P = 1;
       int Q = 1;
@@ -1067,7 +1067,8 @@ static void make_tensor( struct siteTensor * tens, int * perm, const struct syms
       for( j = gotoindex + 1 ; j < tens->nrsites * 3 ; ++j )
         Q *= symarr[ j ].dims[ indices[ j ] ];
 
-      assert( blocksize == P * Q * dimss && P * Q == dim[ ss ][ i ] );
+      assert(get_size_block(&tens->blocks, perm[cnt]) == P * Q * dimss && 
+              P * Q == dim[ss][i]);
 
       /* Now the matrix is ordered as PQS for U and SPQ for V
        * and should be permuted to PSQ for U and PSQ for V */

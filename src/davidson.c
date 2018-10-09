@@ -11,9 +11,9 @@
 
 #define DAVIDIT
 
-/* ============================================================================================ */
-/* =============================== DECLARATION STATIC FUNCTIONS =============================== */
-/* ============================================================================================ */
+/* ========================================================================== */
+/* ==================== DECLARATION STATIC FUNCTIONS ======================== */
+/* ========================================================================== */
 
 static void new_search_vector(double* V, double* vec_t, int basis_size, int m);
 
@@ -29,7 +29,7 @@ static void create_new_vec_t( double* const residue, double* const diagonal, con
 static void deflate(double* sub_matrix, double* V, double* VA, int max_vectors, int basis_size, 
     int keep_deflate, double* eigv);
 
-/* ============================================================================================ */
+/* ========================================================================== */
 
 /* For algorithm see http://people.inf.ethz.ch/arbenz/ewp/Lnotes/chapter12.pdf, algorithm 12.1 */
 int davidson(double* result, double* energy, int max_vectors, int keep_deflate, \
@@ -131,9 +131,9 @@ int davidson(double* result, double* energy, int max_vectors, int keep_deflate, 
   return (its >= max_its);
 }
 
-/* ============================================================================================ */
-/* ================================ DEFINITION STATIC FUNCTIONS =============================== */
-/* ============================================================================================ */
+/* ========================================================================== */
+/* ===================== DEFINITION STATIC FUNCTIONS ======================== */
+/* ========================================================================== */
 static void new_search_vector(double* V, double* vec_t, int basis_size, int m){
   int ONE = 1;
   double *Vi = V;

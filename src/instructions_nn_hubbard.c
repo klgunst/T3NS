@@ -9,9 +9,9 @@
 #include "debug.h"
 #include "macros.h"
 
-/* ============================================================================================ */
-/* =============================== DECLARATION STATIC FUNCTIONS =============================== */
-/* ============================================================================================ */
+/* ========================================================================== */
+/* ==================== DECLARATION STATIC FUNCTIONS ======================== */
+/* ========================================================================== */
 
 static void H_fetch_DMRG(int ** const instructions, double ** const prefactors, 
     int ** const hamsymsecs_of_new, int * const nr_instructions, const int bond, const int is_left);
@@ -31,7 +31,7 @@ static void H_fetch_merge_su2(int ** const instructions, int * const nr_instruct
 
 static void H_fetch_T3NS_su2(struct instructionset * const instructions, const int updateCase);
 
-/* ============================================================================================ */
+/* ========================================================================== */
 
 void NN_H_fetch_DMRG_make_ops(int ** const instructions, double ** const prefactors, 
     int ** const hamsymsecs_of_new, int * const nr_instructions, const int bond, const int is_left)
@@ -64,19 +64,19 @@ void NN_H_fetch_T3NS_update(struct instructionset * const instructions, const in
     H_fetch_T3NS(instructions, updateCase);
 }
 
-/* ============================================================================================ */
-/* ================================ DEFINITION STATIC FUNCTIONS =============================== */
-/* ============================================================================================ */
+/* ========================================================================== */
+/* ===================== DEFINITION STATIC FUNCTIONS ======================== */
+/* ========================================================================== */
 
 static int * get_hss_of_rops(void)
 {
   int * result = safe_malloc(6, int);
-  result[0] = NN_H_get_hamsymsec_site(0);
-  result[1] = NN_H_get_hamsymsec_site(10);
-  result[2] = NN_H_get_hamsymsec_site(11);
-  result[3] = NN_H_get_hamsymsec_site(20);
-  result[4] = NN_H_get_hamsymsec_site(21);
-  result[5] = NN_H_get_hamsymsec_site(8);
+  result[0] = NN_H_symsec_siteop(0);
+  result[1] = NN_H_symsec_siteop(10);
+  result[2] = NN_H_symsec_siteop(11);
+  result[3] = NN_H_symsec_siteop(20);
+  result[4] = NN_H_symsec_siteop(21);
+  result[5] = NN_H_symsec_siteop(8);
   return result;
 }
 
@@ -208,10 +208,10 @@ static void H_fetch_T3NS(struct instructionset * const instructions, const int u
 static int * get_hss_of_rops_su2(void)
 {
   int * result = safe_malloc(4, int);
-  result[0] = NN_H_get_hamsymsec_site(0);
-  result[1] = NN_H_get_hamsymsec_site(1);
-  result[2] = NN_H_get_hamsymsec_site(2);
-  result[3] = NN_H_get_hamsymsec_site(8);
+  result[0] = NN_H_symsec_siteop(0);
+  result[1] = NN_H_symsec_siteop(1);
+  result[2] = NN_H_symsec_siteop(2);
+  result[3] = NN_H_symsec_siteop(8);
   return result;
 }
 

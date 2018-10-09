@@ -13,9 +13,9 @@
 #include "Heff.h"
 #include "wrapper_solvers.h"
 
-/* ============================================================================================ */
-/* =============================== DECLARATION STATIC FUNCTIONS =============================== */
-/* ============================================================================================ */
+/* ========================================================================== */
+/* ==================== DECLARATION STATIC FUNCTIONS ======================== */
+/* ========================================================================== */
 
 /* Initializes the T3NS array on null siteTensors */
 static void init_null_T3NS(struct siteTensor ** const T3NS);
@@ -57,7 +57,7 @@ static void copy_internal_symsecs(const struct siteTensor * const tens,
 
 static int find_in_array(const int size, const int array[size], const int id);
 
-/* ============================================================================================ */
+/* ========================================================================== */
 
 void random_init(struct siteTensor ** const T3NS, struct rOperators ** const rops)
 {
@@ -127,9 +127,9 @@ void destroy_optScheme(struct optScheme * scheme)
   safe_free(scheme->regimes);
 }
 
-/* ============================================================================================ */
-/* ================================ DEFINITION STATIC FUNCTIONS =============================== */
-/* ============================================================================================ */
+/* ========================================================================== */
+/* ===================== DEFINITION STATIC FUNCTIONS ======================== */
+/* ========================================================================== */
 
 static void init_null_T3NS(struct siteTensor ** const T3NS)
 {
@@ -158,8 +158,8 @@ static void init_rops(struct rOperators * const rops, const struct siteTensor * 
     int bonds[3];
     int * tempdim = bookie.list_of_symsecs[bond].dims;
     int i;
-    bookie.list_of_symsecs[bond].dims = safe_malloc(bookie.list_of_symsecs[bond].nr_symsec, int);
-    for (i = 0 ; i < bookie.list_of_symsecs[bond].nr_symsec ; ++i)
+    bookie.list_of_symsecs[bond].dims = safe_malloc(bookie.list_of_symsecs[bond].nrSecs, int);
+    for (i = 0 ; i < bookie.list_of_symsecs[bond].nrSecs ; ++i)
       bookie.list_of_symsecs[bond].dims[i] = 1;
 
     get_bonds_of_site(siteL, bonds);
@@ -279,20 +279,12 @@ static double optimize_siteTensor(struct siteTensor * tens, struct siteTensor * 
     const struct rOperators Operators[], const int site_opt[], const int common_nxt[], 
     const struct regime * const reg)
 { 
-  long long t_elapsed;
-  double d_elapsed;
-  struct timeval t_start, t_end;
-
   double energy;
   EL_TYPE *diagonal;
   int size;
 
-  gettimeofday(&t_start, NULL);
-
-
   /* optimize bond */
   if (Operators[2].bond_of_operator != -1) {/* T3NS */
-    int i;
     struct T3NSdata mv_dat;
     size = tens->blocks.beginblock[tens->nrblocks];
     init_T3NSdata(&mv_dat, Operators, tens);
@@ -318,10 +310,6 @@ static double optimize_siteTensor(struct siteTensor * tens, struct siteTensor * 
   decomposesiteObject(tens, T3NS, site_opt, common_nxt, reg->minD, reg->maxD, reg->truncerror);
   destroy_siteTensor(tens);
 
-  gettimeofday(&t_end, NULL);
-  t_elapsed = (t_end.tv_sec - t_start.tv_sec) * 1000000LL + t_end.tv_usec - t_start.tv_usec;
-  d_elapsed = t_elapsed * 1e-6;
-
   printf("**  \t\tEnergy : %.16lf\n\n", energy);
   return energy;
 }
@@ -331,7 +319,7 @@ static void postprocess_rOperators(struct rOperators Operators[], struct rOperat
     struct symsecs internalss[], const int internalbonds[])
 {
   int i;
-  int unupdated, unupdatedbond;
+  int unupdated, unupdatedbond = 0;
 
   /* first do all dmrg updates possible */
   for (i = 0 ; i < 3 ; ++i) {

@@ -43,17 +43,17 @@ void  Z2_get_irrstring( char buffer[], int irr );
  */
 int Z2_which_irrep( char buffer[], int *irr );
 
-double Z2_calculate_prefactor_update_physical_rops( const int symvalues[], const int is_left );
+double Z2_prefactor_pUpdate( const int symvalues[], const int is_left );
 
-double Z2_calculate_sympref_append_phys( const int symvalues[], const int is_left );
+double Z2_prefactor_pAppend( const int symvalues[], const int is_left );
 
-double Z2_calculate_prefactor_adjoint_tensor( const int symvalues[], const char c );
+double Z2_prefactor_adjoint( const int symvalues[], const char c );
 
-double Z2_calculate_mirror_coupling( int symvalues[] );
+double Z2_prefactor_mirror_coupling( int symvalues[] );
 
-double Z2_calculate_prefactor_DMRG_matvec( const int symvalues[] );
+double Z2_prefactor_DMRGmatvec( const int symvalues[] );
 
-double Z2_prefactor_update_branch(const int symvalues[3][3], const int updateCase);
+double Z2_prefactor_bUpdate(const int symvalues[3][3], const int updateCase);
 
 double Z2_prefactor_add_P_operator(const int symvalues[2][3], const int isleft);
 

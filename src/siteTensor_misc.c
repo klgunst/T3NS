@@ -7,9 +7,9 @@
 #include "bookkeeper.h"
 #include "sort.h"
 
-/* ============================================================================================ */
-/* =============================== DECLARATION STATIC FUNCTIONS =============================== */
-/* ============================================================================================ */
+/* ========================================================================== */
+/* ==================== DECLARATION STATIC FUNCTIONS ======================== */
+/* ========================================================================== */
 
 static void print_bonds(const struct siteTensor * const tens);
 
@@ -22,7 +22,7 @@ static void print_qnumber(const struct siteTensor * const tens, const int block)
 static void siteTensor_give_coupling_to_qnumberbonds(const struct siteTensor * const tens, 
     int mapping_coup_to_qnumber[]);
 
-/* ============================================================================================ */
+/* ========================================================================== */
 
 void print_siteTensor(const struct siteTensor * const tens)
 {
@@ -143,9 +143,9 @@ int siteTensor_get_size(const struct siteTensor * const tens)
   return tens->blocks.beginblock[tens->nrblocks];
 }
 
-/* ============================================================================================ */
-/* ================================ DEFINITION STATIC FUNCTIONS =============================== */
-/* ============================================================================================ */
+/* ========================================================================== */
+/* ===================== DEFINITION STATIC FUNCTIONS ======================== */
+/* ========================================================================== */
 
 static void print_bonds(const struct siteTensor * const tens)
 {
@@ -216,8 +216,8 @@ static void print_qnumber(const struct siteTensor * const tens, const int block)
     int currind[3];
     for (bond = 0 ; bond < 3 ; ++bond)
     {
-      currind[bond] = ind % symarr[bond + 3 * coup].nr_symsec;
-      ind             = ind / symarr[bond + 3 * coup].nr_symsec;
+      currind[bond] = ind % symarr[bond + 3 * coup].nrSecs;
+      ind             = ind / symarr[bond + 3 * coup].nrSecs;
     }
     assert(ind == 0);
     for (bond = 0 ; bond < 3 ; ++bond)

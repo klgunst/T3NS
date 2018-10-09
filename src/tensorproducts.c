@@ -6,16 +6,16 @@
 #include "debug.h"
 #include "hamiltonian.h"
 
-/* ============================================================================================ */
-/* =============================== DECLARATION STATIC FUNCTIONS =============================== */
-/* ============================================================================================ */
+/* ========================================================================== */
+/* ==================== DECLARATION STATIC FUNCTIONS ======================== */
+/* ========================================================================== */
 
 /* Builds a naive sectors list, just a direct product of the different ranges possible from the 
  * other symmsectors */
 static void build_all_sectors( struct symsecs * const res, const struct symsecs * const sectors1, 
     const struct symsecs * const sectors2 );
 
-/* ============================================================================================ */
+/* ========================================================================== */
 
 void find_goodqnumbersectors( int ****dimarray, int ****qnumbersarray, int *total, 
     const struct symsecs symarr[], const int sign )
@@ -25,49 +25,49 @@ void find_goodqnumbersectors( int ****dimarray, int ****qnumbersarray, int *tota
    * after that, do it for all the rest.
    */
   int sym1, sym2, i;
-  int prevsym[ 2 ][ bookie.nr_symmetries ];
-  int min_irrep[ bookie.nr_symmetries ];
-  int nr_irreps[ bookie.nr_symmetries ];
-  int step     [ bookie.nr_symmetries ];
-  int max_irrep[ bookie.nr_symmetries ];
+  int prevsym[ 2 ][ bookie.nrSyms ];
+  int min_irrep[ bookie.nrSyms ];
+  int nr_irreps[ bookie.nrSyms ];
+  int step     [ bookie.nrSyms ];
+  int max_irrep[ bookie.nrSyms ];
 
-  *dimarray      = safe_malloc( symarr[ 0 ].nr_symsec, int** );
-  *qnumbersarray = safe_malloc( symarr[ 0 ].nr_symsec, int** );
+  *dimarray      = safe_malloc( symarr[ 0 ].nrSecs, int** );
+  *qnumbersarray = safe_malloc( symarr[ 0 ].nrSecs, int** );
   *total = 0;
 
-  for( i = 0 ; i < bookie.nr_symmetries ; i++ )
+  for( i = 0 ; i < bookie.nrSyms ; i++ )
   {
-    prevsym[ 0 ][ i ] = symarr[ 0 ].irreps[ 0 * bookie.nr_symmetries + i ];
-    prevsym[ 1 ][ i ] = symarr[ 1 ].irreps[ 0 * bookie.nr_symmetries + i ];
+    prevsym[ 0 ][ i ] = symarr[ 0 ].irreps[ 0 * bookie.nrSyms + i ];
+    prevsym[ 1 ][ i ] = symarr[ 1 ].irreps[ 0 * bookie.nrSyms + i ];
     tensprod_irrep( &min_irrep[ i ], &nr_irreps[ i ], &step[ i ], prevsym[ 0 ][ i ],
         prevsym[ 1 ][ i ], sign, bookie.sgs[ i ] );
     max_irrep[ i ] = min_irrep[ i ] + step[ i ] * ( nr_irreps[ i ] - 1 );
   }
 
-  for( sym1 = 0 ; sym1 < symarr[ 0 ].nr_symsec ; sym1++ )
+  for( sym1 = 0 ; sym1 < symarr[ 0 ].nrSecs ; sym1++ )
   {
     (*dimarray)[ sym1 ]      = NULL;
     (*qnumbersarray)[ sym1 ] = NULL;
     if( symarr[ 0 ].dims[ sym1 ] == 0 )
       continue;
 
-    (*dimarray)[ sym1 ]      = safe_malloc( symarr[ 1 ].nr_symsec, int* );
-    (*qnumbersarray)[ sym1 ] = safe_malloc( symarr[ 1 ].nr_symsec, int* );
+    (*dimarray)[ sym1 ]      = safe_malloc( symarr[ 1 ].nrSecs, int* );
+    (*qnumbersarray)[ sym1 ] = safe_malloc( symarr[ 1 ].nrSecs, int* );
 
-    for( i = 0 ; i < bookie.nr_symmetries ;i++ )
+    for( i = 0 ; i < bookie.nrSyms ;i++ )
     {
-      if( symarr[ 0 ].irreps[ sym1 * bookie.nr_symmetries + i ] != prevsym[ 0 ][ i ] )
+      if( symarr[ 0 ].irreps[ sym1 * bookie.nrSyms + i ] != prevsym[ 0 ][ i ] )
       {
-        prevsym[ 0 ][ i ] = symarr[ 0 ].irreps[ sym1 * bookie.nr_symmetries + i ];
+        prevsym[ 0 ][ i ] = symarr[ 0 ].irreps[ sym1 * bookie.nrSyms + i ];
         tensprod_irrep( &min_irrep[ i ], &nr_irreps[ i ], &step[ i ], prevsym[ 0 ][ i ],
             prevsym[ 1 ][ i ], sign, bookie.sgs[ i ] );
         max_irrep[ i ] = min_irrep[ i ] + step[ i ] * ( nr_irreps[ i ] - 1 );
       }
     }
 
-    for( sym2 = 0 ; sym2 < symarr[ 1 ].nr_symsec ; sym2++ )
+    for( sym2 = 0 ; sym2 < symarr[ 1 ].nrSecs ; sym2++ )
     {
-      int irrep[ bookie.nr_symmetries ];
+      int irrep[ bookie.nrSyms ];
       int dim         = symarr[ 0 ].dims[ sym1 ] * symarr[ 1 ].dims[ sym2 ];
       int totalirreps = 1;
       int count       = -1;
@@ -77,11 +77,11 @@ void find_goodqnumbersectors( int ****dimarray, int ****qnumbersarray, int *tota
       if( symarr[ 1 ].dims[ sym2 ] == 0 )
         continue;
 
-      for( i = 0 ; i < bookie.nr_symmetries ;i++ )
+      for( i = 0 ; i < bookie.nrSyms ;i++ )
       {
-        if( symarr[ 1 ].irreps[ sym2 * bookie.nr_symmetries + i ] != prevsym[ 1 ][ i ] )
+        if( symarr[ 1 ].irreps[ sym2 * bookie.nrSyms + i ] != prevsym[ 1 ][ i ] )
         {
-          prevsym[ 1 ][ i ] = symarr[ 1 ].irreps[ sym2 * bookie.nr_symmetries + i ];
+          prevsym[ 1 ][ i ] = symarr[ 1 ].irreps[ sym2 * bookie.nrSyms + i ];
           tensprod_irrep( &min_irrep[ i ], &nr_irreps[ i ], &step[ i ], prevsym[ 0 ][ i ],
               prevsym[ 1 ][ i ], sign, bookie.sgs[ i ] );
           max_irrep[ i ] = min_irrep[ i ] + step[ i ] * ( nr_irreps[ i ] - 1 );
@@ -106,7 +106,7 @@ void find_goodqnumbersectors( int ****dimarray, int ****qnumbersarray, int *tota
           ++curr;
         }
 
-        for( i = 0 ; i < bookie.nr_symmetries ; i++ )
+        for( i = 0 ; i < bookie.nrSyms ; i++ )
         {
           if( ( irrep[ i ] += step[ i ] ) > max_irrep[ i ] )
             irrep[ i ] = min_irrep[ i ];
@@ -114,8 +114,8 @@ void find_goodqnumbersectors( int ****dimarray, int ****qnumbersarray, int *tota
             break;
         }
       }
-      assert( i == bookie.nr_symmetries );
-      assert( irrep[ bookie.nr_symmetries - 1 ]  == min_irrep[ bookie.nr_symmetries - 1 ] );
+      assert( i == bookie.nrSyms );
+      assert( irrep[ bookie.nrSyms - 1 ]  == min_irrep[ bookie.nrSyms - 1 ] );
 
       if( curr == 0 )
         safe_free( (*dimarray)[ sym1 ][ sym2 ] );
@@ -141,11 +141,11 @@ void destroy_dim_and_qnumbersarray( int ****dimarray, int ****qnumbersarray, con
 {
   int i;
 
-  for( i = 0 ; i < symarr[ 0 ].nr_symsec ; ++i )
+  for( i = 0 ; i < symarr[ 0 ].nrSecs ; ++i )
   {
     int j;
 
-    for( j = 0 ; j < symarr[ 1 ].nr_symsec ; ++j )
+    for( j = 0 ; j < symarr[ 1 ].nrSecs ; ++j )
     {
       safe_free( (*dimarray)[ i ][ j ] );
       safe_free( (*qnumbersarray)[ i ][ j ] );
@@ -163,8 +163,8 @@ void find_qnumbers_with_index_in_array( const int id, const int idnr, int *** qn
 {
   int sym1, sym2, sym3;
   int counter;
-  const int dim1 = symarr[ 0 ].nr_symsec;
-  const int dim2 = symarr[ 0 ].nr_symsec * symarr[ 1 ].nr_symsec;
+  const int dim1 = symarr[ 0 ].nrSecs;
+  const int dim2 = symarr[ 0 ].nrSecs * symarr[ 1 ].nrSecs;
   const int NULLflag = ( res_qnumbers == NULL ) && ( res_dim == NULL );
 
   assert( ( res_qnumbers == NULL ) == ( res_dim == NULL ) &&
@@ -174,9 +174,9 @@ void find_qnumbers_with_index_in_array( const int id, const int idnr, int *** qn
   switch ( idnr )
   {
     case 0:
-      assert( id < symarr[ 0 ].nr_symsec );
+      assert( id < symarr[ 0 ].nrSecs );
       sym1 = id;
-      for( sym2 = 0 ; sym2 < symarr[ 1 ].nr_symsec ; ++sym2 )
+      for( sym2 = 0 ; sym2 < symarr[ 1 ].nrSecs ; ++sym2 )
       {
         *length += qnumbersarray[ sym1 ][ sym2 ][ 0 ];
       }
@@ -187,7 +187,7 @@ void find_qnumbers_with_index_in_array( const int id, const int idnr, int *** qn
       *res_dim      = safe_malloc( *length, int );
 
       counter = 0;
-      for( sym2 = 0 ; sym2 < symarr[ 1 ].nr_symsec ; ++sym2 )
+      for( sym2 = 0 ; sym2 < symarr[ 1 ].nrSecs ; ++sym2 )
       {
         QN_TYPE ind = sym1 + dim1 * sym2;
         for( sym3 = 0 ; sym3 < qnumbersarray[ sym1 ][ sym2 ][ 0 ] ; ++sym3 )
@@ -199,9 +199,9 @@ void find_qnumbers_with_index_in_array( const int id, const int idnr, int *** qn
       }
       break;
     case 1:
-      assert( id < symarr[ 1 ].nr_symsec );
+      assert( id < symarr[ 1 ].nrSecs );
       sym2 = id;
-      for( sym1 = 0 ; sym1 < symarr[ 0 ].nr_symsec ; ++sym1 )
+      for( sym1 = 0 ; sym1 < symarr[ 0 ].nrSecs ; ++sym1 )
       {
         *length += qnumbersarray[ sym1 ][ sym2 ][ 0 ];
       }
@@ -212,7 +212,7 @@ void find_qnumbers_with_index_in_array( const int id, const int idnr, int *** qn
       *res_dim      = safe_malloc( *length, int );
 
       counter = 0;
-      for( sym1 = 0 ; sym1 < symarr[ 0 ].nr_symsec ; ++sym1 )
+      for( sym1 = 0 ; sym1 < symarr[ 0 ].nrSecs ; ++sym1 )
       {
         QN_TYPE ind = sym1 + dim1 * sym2;
         for( sym3 = 0 ; sym3 < qnumbersarray[ sym1 ][ sym2 ][ 0 ] ; ++sym3 )
@@ -224,10 +224,10 @@ void find_qnumbers_with_index_in_array( const int id, const int idnr, int *** qn
       }
       break;
     case 2:
-      assert( id < symarr[ 2 ].nr_symsec );
+      assert( id < symarr[ 2 ].nrSecs );
 
-      for( sym1 = 0 ; sym1 < symarr[ 0 ].nr_symsec ; ++sym1 )
-        for( sym2 = 0 ; sym2 < symarr[ 1 ].nr_symsec ; ++sym2 )
+      for( sym1 = 0 ; sym1 < symarr[ 0 ].nrSecs ; ++sym1 )
+        for( sym2 = 0 ; sym2 < symarr[ 1 ].nrSecs ; ++sym2 )
           for( sym3 = 0 ; sym3 < qnumbersarray[ sym1 ][ sym2 ][ 0 ] ; ++sym3 )
           {
             *length += qnumbersarray[ sym1 ][ sym2 ][ 1 + sym3 ] == id;
@@ -239,8 +239,8 @@ void find_qnumbers_with_index_in_array( const int id, const int idnr, int *** qn
       *res_dim      = safe_malloc( *length, int );
 
       counter = 0;
-      for( sym1 = 0 ; sym1 < symarr[ 0 ].nr_symsec ; ++sym1 )
-        for( sym2 = 0 ; sym2 < symarr[ 1 ].nr_symsec ; ++sym2 ){
+      for( sym1 = 0 ; sym1 < symarr[ 0 ].nrSecs ; ++sym1 )
+        for( sym2 = 0 ; sym2 < symarr[ 1 ].nrSecs ; ++sym2 ){
           QN_TYPE ind = sym1 + dim1 * sym2;
           for( sym3 = 0 ; sym3 < qnumbersarray[ sym1 ][ sym2 ][ 0 ] ; ++sym3 )
             if( qnumbersarray[ sym1 ][ sym2 ][ 1 + sym3 ] == id )
@@ -268,7 +268,7 @@ void tensprod_symsecs( struct symsecs * const res, const struct symsecs * const 
   int i;
   assert( o == 'f' || o == 'n' );
 
-  res->nr_symsec = 0;
+  res->nrSecs = 0;
   res->irreps    = NULL;
   res->fcidims   = NULL;
   res->dims      = NULL;
@@ -276,17 +276,17 @@ void tensprod_symsecs( struct symsecs * const res, const struct symsecs * const 
 
   /* This function will give a rough first irreps array with also a lot of forbidden symmsecs. */
   build_all_sectors( res, sectors1, sectors2 );
-  res->fcidims = safe_calloc( res->nr_symsec,  double );
-  if( o == 'n' ) res->dims = safe_calloc( res->nr_symsec,  int );
+  res->fcidims = safe_calloc( res->nrSecs,  double );
+  if( o == 'n' ) res->dims = safe_calloc( res->nrSecs,  int );
 
-  for( i = 0 ; i < sectors1->nr_symsec ; i++ )
+  for( i = 0 ; i < sectors1->nrSecs ; i++ )
   {
     int j;
     /* zero dimension symmsec */
     if( ( o == 'f' && sectors1->fcidims[ i ] < 0.5 ) || ( o == 'n' && sectors1->dims[ i ] == 0 ) )
       continue;
 
-    for( j = 0 ; j < sectors2->nr_symsec ; j++ )
+    for( j = 0 ; j < sectors2->nrSecs ; j++ )
     {
       int nr_symmsecs;
       int *resultsymmsec;
@@ -295,13 +295,13 @@ void tensprod_symsecs( struct symsecs * const res, const struct symsecs * const 
 
       /* for non-abelian symmetries, like SU(2), there are multiple irreps that are valid as
        * result of the tensorproduct of two irreps */
-      tensprod_symmsec( &resultsymmsec, &nr_symmsecs, &sectors1->irreps[ i * bookie.nr_symmetries ], 
-                        &sectors2->irreps[ j * bookie.nr_symmetries ], sign, bookie.sgs,
-                        bookie.nr_symmetries );
+      tensprod_symmsec( &resultsymmsec, &nr_symmsecs, &sectors1->irreps[ i * bookie.nrSyms ], 
+                        &sectors2->irreps[ j * bookie.nrSyms ], sign, bookie.sgs,
+                        bookie.nrSyms );
 
       for( nr_symmsecs-- ; nr_symmsecs >= 0 ; nr_symmsecs-- )
       {
-        int pos_symmsec = search_symmsec( resultsymmsec + bookie.nr_symmetries * nr_symmsecs, res );
+        int pos_symmsec = search_symmsec( resultsymmsec + bookie.nrSyms * nr_symmsecs, res );
         if( pos_symmsec < 0 )
           break;
         if( o == 'f' )
@@ -320,40 +320,40 @@ void tensprod_symsecs( struct symsecs * const res, const struct symsecs * const 
   kick_empty_symsecs( res, o );
 }
 
-/* ============================================================================================ */
-/* ================================ DEFINITION STATIC FUNCTIONS =============================== */
-/* ============================================================================================ */
+/* ========================================================================== */
+/* ===================== DEFINITION STATIC FUNCTIONS ======================== */
+/* ========================================================================== */
 
 static void build_all_sectors( struct symsecs * const res, const struct symsecs * const sectors1, 
     const struct symsecs * const sectors2 )
 {
-  int max_irrep[ bookie.nr_symmetries ];
-  int indices[ bookie.nr_symmetries ];
+  int max_irrep[ bookie.nrSyms ];
+  int indices[ bookie.nrSyms ];
   int i;
   int cnt;
   int cnt2;
-  int nr_symsec = 1;
+  int nrSecs = 1;
   res->irreps    = NULL;
   res->dims      = NULL;
   res->fcidims   = NULL;
   res->totaldims = 0;
 
-  for( i = 0 ; i < bookie.nr_symmetries ; i++ )
+  for( i = 0 ; i < bookie.nrSyms ; i++ )
   {
     indices[ i ] = 0;
-    max_irrep[ i ] = get_max_irrep( sectors1->irreps + i, sectors1->nr_symsec, sectors2->irreps + i, 
-        sectors2->nr_symsec, bookie.nr_symmetries, bookie.sgs[ i ] );
+    max_irrep[ i ] = get_max_irrep( sectors1->irreps + i, sectors1->nrSecs, sectors2->irreps + i, 
+        sectors2->nrSecs, bookie.nrSyms, bookie.sgs[ i ] );
 
-    nr_symsec *= max_irrep[ i ];
+    nrSecs *= max_irrep[ i ];
   }
 
-  res->nr_symsec = 0;
+  res->nrSecs = 0;
   cnt = 0;
-  while( cnt != nr_symsec )
+  while( cnt != nrSecs )
   {
-    res->nr_symsec += consistent_state( bookie.sgs, indices, bookie.nr_symmetries );
+    res->nrSecs += consistent_state( bookie.sgs, indices, bookie.nrSyms );
 
-    for( i = 0 ; i < bookie.nr_symmetries ; i++ )
+    for( i = 0 ; i < bookie.nrSyms ; i++ )
     {
       indices[ i ]++;
       if( indices[ i ] == max_irrep[ i ] )
@@ -363,20 +363,20 @@ static void build_all_sectors( struct symsecs * const res, const struct symsecs 
     }
     cnt++;
   }
-  res->irreps = safe_malloc( res->nr_symsec * bookie.nr_symmetries, int );
+  res->irreps = safe_malloc( res->nrSecs * bookie.nrSyms, int );
 
   cnt = 0;
   cnt2 = 0;
-  while( cnt != nr_symsec )
+  while( cnt != nrSecs )
   {
-    if( consistent_state( bookie.sgs, indices, bookie.nr_symmetries ) )
+    if( consistent_state( bookie.sgs, indices, bookie.nrSyms ) )
     {
-      for( i = 0 ; i < bookie.nr_symmetries ; i++ )
-        res->irreps[ cnt2 * bookie.nr_symmetries + i ] = indices[ i ];
+      for( i = 0 ; i < bookie.nrSyms ; i++ )
+        res->irreps[ cnt2 * bookie.nrSyms + i ] = indices[ i ];
       cnt2++;
     }
 
-    for( i = 0 ; i < bookie.nr_symmetries ; i++ )
+    for( i = 0 ; i < bookie.nrSyms ; i++ )
     {
       indices[ i ]++;
       if( indices[ i ] == max_irrep[ i ] )
@@ -386,5 +386,5 @@ static void build_all_sectors( struct symsecs * const res, const struct symsecs 
     }
     cnt++;
   }
-  assert( ( i == bookie.nr_symmetries ) && ( indices[ i - 1 ] == 0 ) && "Not all symmsecs looped" );
+  assert( ( i == bookie.nrSyms ) && ( indices[ i - 1 ] == 0 ) && "Not all symmsecs looped" );
 }

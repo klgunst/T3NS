@@ -40,22 +40,22 @@ int QC_get_nr_hamsymsec( void );
 
 int QC_get_trivialhamsymsec( void );
 
-int QC_give_hermhamsymsec( const int orighamsymsec );
+int QC_hermitian_symsec( const int orig_symsec );
 
 int QC_get_dof( void );
 
-int QC_tag_to_site_operator( const int * const tag, const int tagsize );
+int QC_tag_to_siteop( const int * const tag, const int tagsize );
 
-int QC_get_hamsymsec_site( const int siteoperator, const int site );
+int QC_symsec_siteop( const int siteoperator, const int site );
 
-double QC_get_site_element( const int siteoperator, const int braindex, const int ketindex );
+double QC_el_siteop( const int siteoperator, const int braindex, const int ketindex );
 
 double get_V( const int * const tag1, const int * const tag2, const int * const tag3, 
     const int * const tag4 );
 
 double get_core( void );
 
-void QC_hamiltonian_tensor_products( int * const nr_of_prods, int ** const possible_prods, const int
+void QC_tprods_ham( int * const nr_of_prods, int ** const possible_prods, const int
     resulting_hamsymsec, const int site );
 
 int QC_get_hamsymsec_from_tag( const int * const tag, const int tagsize );

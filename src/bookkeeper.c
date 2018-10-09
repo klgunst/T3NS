@@ -12,9 +12,9 @@
 
 struct bookkeeper bookie;
 
-/* ============================================================================================ */
-/* =============================== DECLARATION STATIC FUNCTIONS =============================== */
-/* ============================================================================================ */
+/* ========================================================================== */
+/* ==================== DECLARATION STATIC FUNCTIONS ======================== */
+/* ========================================================================== */
 
 /* calculates the fci-dimensions of the symmetry sectors with a given target state */
 static void calc_fcidims( void );
@@ -41,7 +41,7 @@ static int is_equal_symsector( struct symsecs *sectors1, int i, struct symsecs *
 /* kicks impossible symmetry sectors for the target out of it. */
 static void kick_impossibles( struct symsecs * const sector );
 
-/* ============================================================================================ */
+/* ========================================================================== */
 
 void create_list_of_symsecs( int max_dim )
 {
@@ -55,7 +55,7 @@ void create_list_of_symsecs( int max_dim )
 void init_bookie( void )
 {
   bookie.sgs = NULL;
-  bookie.nr_symmetries = 0;
+  bookie.nrSyms = 0;
   bookie.target_state = NULL;
   bookie.nr_bonds = 0;
   bookie.list_of_symsecs = NULL;
@@ -116,7 +116,7 @@ int get_particlestarget( void )
   int i;
   int N = 0;
   int flag = 0;
-  for( i = 0 ; i < bookie.nr_symmetries ; i++ )
+  for( i = 0 ; i < bookie.nrSyms ; i++ )
   {
     if ( bookie.sgs[ i ] == U1 )
     {
@@ -134,7 +134,7 @@ int get_particlestarget( void )
 int get_pg_symmetry( void )
 {
   int i;
-  for( i = 0 ; i < bookie.nr_symmetries ; i++ )
+  for( i = 0 ; i < bookie.nrSyms ; i++ )
     if ( bookie.sgs[ i ] >= C1 )
       return bookie.sgs[ i ];
   return -1;
@@ -147,7 +147,7 @@ void get_sgsstring( int sg, char buffer[] )
 
   if( sg == -1 )
   {
-    for( i = 0 ; i < bookie.nr_symmetries ; i++ )
+    for( i = 0 ; i < bookie.nrSyms ; i++ )
     {
       if( bookie.sgs[ i ] == Z2 )
         strcat( buffer, "(Z2)\t" );
@@ -160,7 +160,7 @@ void get_sgsstring( int sg, char buffer[] )
   }
   else
   {
-    for( i = sg != bookie.nr_symmetries ; i < bookie.nr_symmetries ; i++ )
+    for( i = sg != bookie.nrSyms ; i < bookie.nrSyms ; i++ )
     {
       strcat( buffer, get_symstring( bookie.sgs[ i ] ) );
       strcat( buffer, "\t" );
@@ -173,7 +173,7 @@ void get_tsstring( char buffer[] )
   int i;
   char buffer2[ 255 ];
   buffer[ 0 ] = '\0';
-  for( i = 0 ; i < bookie.nr_symmetries ; i++ )
+  for( i = 0 ; i < bookie.nrSyms ; i++ )
   {
     get_irrstring( buffer2, bookie.sgs[ i ], bookie.target_state[ i ] );
     strcat( buffer, buffer2 );
@@ -181,9 +181,9 @@ void get_tsstring( char buffer[] )
   }
 }
 
-/* ============================================================================================ */
-/* ================================ DEFINITION STATIC FUNCTIONS =============================== */
-/* ============================================================================================ */
+/* ========================================================================== */
+/* ===================== DEFINITION STATIC FUNCTIONS ======================== */
+/* ========================================================================== */
 
 static void calc_fcidims( void )
 {
@@ -192,7 +192,7 @@ static void calc_fcidims( void )
   /* For safety initialize to 0 symsecs */
   for ( bond = 0 ; bond < bookie.nr_bonds ; bond++  )
   {
-    bookie.list_of_symsecs[ bond ].nr_symsec = 0;
+    bookie.list_of_symsecs[ bond ].nrSecs = 0;
     bookie.list_of_symsecs[ bond ].irreps    = NULL;
     bookie.list_of_symsecs[ bond ].dims      = NULL;
     bookie.list_of_symsecs[ bond ].fcidims   = NULL;
@@ -231,8 +231,8 @@ static void calc_fcidims( void )
       }
 
       /* Hopefully I retrieved two correct symsecs */
-      assert( sectors1.nr_symsec != 0 );
-      assert( sectors2.nr_symsec != 0 );
+      assert( sectors1.nrSecs != 0 );
+      assert( sectors2.nrSecs != 0 );
 
       /** The important stuff **/
       tensprod_symsecs( sectors, &sectors1, &sectors2 , +1, 'f' );
@@ -275,8 +275,8 @@ static void calc_fcidims( void )
       }
 
       /* Hopefully I retrieved two correct symsecs */
-      assert( sectors1.nr_symsec != 0 );
-      assert( sectors2p->nr_symsec != 0 );
+      assert( sectors1.nrSecs != 0 );
+      assert( sectors2p->nrSecs != 0 );
 
       /** The important stuff **/
       /* to the right of the bond is a physical tensor.  */
@@ -315,10 +315,10 @@ static void calc_fcidims( void )
 static void init_vacuumstate( struct symsecs *sectors )
 { /* initialize the vacuum state */
   int i;
-  sectors->nr_symsec = 1;
-  sectors->irreps    = safe_malloc( sectors->nr_symsec * bookie.nr_symmetries, int );
-  for( i = 0 ; i < bookie.nr_symmetries ; i++ ) sectors->irreps[ i ] = 0; /* The vacuum state */
-  sectors->fcidims      = safe_malloc( sectors->nr_symsec, double );
+  sectors->nrSecs = 1;
+  sectors->irreps    = safe_malloc( sectors->nrSecs * bookie.nrSyms, int );
+  for( i = 0 ; i < bookie.nrSyms ; i++ ) sectors->irreps[ i ] = 0; /* The vacuum state */
+  sectors->fcidims      = safe_malloc( sectors->nrSecs, double );
   sectors->fcidims[ 0 ] = 1;
   sectors->dims         = NULL;
 }
@@ -327,11 +327,11 @@ static void init_targetstate( struct symsecs *sectors )
 { 
   int i;
   destroy_symsecs( sectors );
-  sectors->nr_symsec = 1;
-  sectors->irreps = safe_malloc(sectors->nr_symsec * bookie.nr_symmetries, int);
+  sectors->nrSecs = 1;
+  sectors->irreps = safe_malloc(sectors->nrSecs * bookie.nrSyms, int);
   /* The target state */
-  for( i = 0 ; i < bookie.nr_symmetries ; i++ ) sectors->irreps[i] = bookie.target_state[i]; 
-  sectors->fcidims    = safe_malloc(sectors->nr_symsec, double);
+  for( i = 0 ; i < bookie.nrSyms ; i++ ) sectors->irreps[i] = bookie.target_state[i]; 
+  sectors->fcidims    = safe_malloc(sectors->nrSecs, double);
   sectors->fcidims[0] = 1;
   sectors->dims = NULL;
 }
@@ -344,12 +344,12 @@ static void scale_dims( int max_dim )
     double ratio, totalfcidims = 0;
     int i;
     struct symsecs * const sectors = &bookie.list_of_symsecs[ bnd ];
-    for( i = 0 ; i < sectors->nr_symsec ; i++ ) totalfcidims += sectors->fcidims[ i ];
+    for( i = 0 ; i < sectors->nrSecs ; i++ ) totalfcidims += sectors->fcidims[ i ];
 
-    sectors->dims = safe_malloc( sectors->nr_symsec, int );
+    sectors->dims = safe_malloc( sectors->nrSecs, int );
     ratio = max_dim < totalfcidims ? max_dim * 1. / totalfcidims : 1;
     sectors->totaldims = 0;
-    for( i = 0 ; i < sectors->nr_symsec ; i++)
+    for( i = 0 ; i < sectors->nrSecs ; i++)
     {
       sectors->dims[i] = ceil( ratio * sectors->fcidims[i] );
       if( sectors->dims[i] == 0 )
@@ -363,40 +363,40 @@ static void scale_dims( int max_dim )
 static int is_equal_symsector( struct symsecs *sectors1, int i, struct symsecs *sectors2, int j )
 {
   int k;
-  for( k = 0 ; k < bookie.nr_symmetries ; k++ )
-    if( sectors1->irreps[ i * bookie.nr_symmetries + k ] 
-        != sectors2->irreps[ j * bookie.nr_symmetries + k ] )
+  for( k = 0 ; k < bookie.nrSyms ; k++ )
+    if( sectors1->irreps[ i * bookie.nrSyms + k ] 
+        != sectors2->irreps[ j * bookie.nrSyms + k ] )
       return 0;
   return 1;
 }
 
 static void kick_impossibles( struct symsecs * const sector )
 {
-  int nr_symsecs = 0;
+  int nrSecss = 0;
   int i,j;
-  for( i = 0 ; i < sector->nr_symsec ; i++ )
+  for( i = 0 ; i < sector->nrSecs ; i++ )
   {
     int flag = 1;
-    for( j = 0 ; j < bookie.nr_symmetries ; j++ )
+    for( j = 0 ; j < bookie.nrSyms ; j++ )
     {
       if( bookie.sgs[ j ] == U1 && 
-          sector->irreps[ i * bookie.nr_symmetries + j ] > bookie.target_state[ j ] )
+          sector->irreps[ i * bookie.nrSyms + j ] > bookie.target_state[ j ] )
       {
         flag = 0;
         break;
       }
     }
-    nr_symsecs += flag;
+    nrSecss += flag;
   }
 
-  nr_symsecs = 0;
-  for( i = 0 ; i < sector->nr_symsec ; i++ )
+  nrSecss = 0;
+  for( i = 0 ; i < sector->nrSecs ; i++ )
   {
     int flag = 1;
-    for( j = 0 ; j < bookie.nr_symmetries ; j++ )
+    for( j = 0 ; j < bookie.nrSyms ; j++ )
     {
       if( bookie.sgs[ j ] == U1 && 
-          sector->irreps[ i * bookie.nr_symmetries + j ] > bookie.target_state[ j ] )
+          sector->irreps[ i * bookie.nrSyms + j ] > bookie.target_state[ j ] )
       {
         flag = 0;
         break;
@@ -404,17 +404,17 @@ static void kick_impossibles( struct symsecs * const sector )
     }
     if( flag )
     {
-      for( j = 0 ; j < bookie.nr_symmetries ; j++ )
-        sector->irreps[ nr_symsecs * bookie.nr_symmetries + j ] = 
-          sector->irreps[ i * bookie.nr_symmetries + j ];
-      sector->fcidims[ nr_symsecs ] = sector->fcidims[ i ];
-      nr_symsecs++;
+      for( j = 0 ; j < bookie.nrSyms ; j++ )
+        sector->irreps[ nrSecss * bookie.nrSyms + j ] = 
+          sector->irreps[ i * bookie.nrSyms + j ];
+      sector->fcidims[ nrSecss ] = sector->fcidims[ i ];
+      nrSecss++;
     }
   }
 
-  sector->nr_symsec = nr_symsecs;
-  sector->irreps  = realloc( sector->irreps, nr_symsecs * bookie.nr_symmetries * sizeof( int ) );
-  sector->fcidims = realloc( sector->fcidims, nr_symsecs * sizeof( double ) );
+  sector->nrSecs = nrSecss;
+  sector->irreps  = realloc( sector->irreps, nrSecss * bookie.nrSyms * sizeof( int ) );
+  sector->fcidims = realloc( sector->fcidims, nrSecss * sizeof( double ) );
   if( !sector->irreps )
   {
     fprintf( stderr, "ERROR : Reallocation of irreps array failed.\n" );
@@ -432,17 +432,17 @@ static int select_lowest( struct symsecs *sectors1, struct symsecs *sectors2 )
   int i ;
   int return_val = 1;
 
-  for ( i = 0 ; i < sectors1->nr_symsec ; i++ )
+  for ( i = 0 ; i < sectors1->nrSecs ; i++ )
   {
     int j;
 
     /* loop  over the symmsectors of sectors 2 */
-    for ( j = 0 ; j < sectors2->nr_symsec ; j++ )
+    for ( j = 0 ; j < sectors2->nrSecs ; j++ )
       if( is_equal_symsector( sectors1, i, sectors2, j ) )
         break;
 
     /* if the symmetrysector i of sectors1 is not found in sectors2 */
-    if( j == sectors2->nr_symsec )
+    if( j == sectors2->nrSecs )
     {
       sectors1->fcidims[ i ] = 0;
       return_val = 0;

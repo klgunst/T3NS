@@ -14,9 +14,9 @@
 
 #define STRTOKSEP " ,\t\n"
 
-/* ============================================================================================ */
-/* =============================== DECLARATION STATIC FUNCTIONS =============================== */
-/* ============================================================================================ */
+/* ========================================================================== */
+/* ==================== DECLARATION STATIC FUNCTIONS ======================== */
+/* ========================================================================== */
 
 /* Returns 1 if the buffer line is a comment or empty, otherwise returns 0.
  * A comment can start with: '!', '#', '"', '//' */
@@ -34,7 +34,7 @@ static int* read_symmetries( char line[], int sg );
  * Returns 1 if successful, 0 if not. */
 static int read_targetstate( char line[], int *permarray, int no_irr, int sg );
 
-/* ============================================================================================ */
+/* ========================================================================== */
 
 void read_inputfile( char inputfile[] )
 {
@@ -54,9 +54,9 @@ void read_inputfile( char inputfile[] )
         fprintf( stderr, "The default initialization is not fixed yet\n" );
         exit( EXIT_FAILURE );
         /** SHOULD FIX THIS
-        bookie.nr_symmetries = defaults.nr_symmetries;
-        bookie.sgs = safe_malloc( bookie.nr_symmetries, enum symmetrygroup );
-        for( i = 0 ; i < bookie.nr_symmetries ; i++ )
+        bookie.nrSyms = defaults.nr_symmetries;
+        bookie.sgs = safe_malloc( bookie.nrSyms, enum symmetrygroup );
+        for( i = 0 ; i < bookie.nrSyms ; i++ )
           bookie.sgs[ i ] = defaults.sgs[ i ];
         */
         break;
@@ -67,17 +67,17 @@ void read_inputfile( char inputfile[] )
 
         if( bookie.sgs[ 0 ] != Z2 )
         { /* Z2 symmetry was not included! */
-          enum symmetrygroup *tempsgs = safe_malloc( bookie.nr_symmetries + 1, enum symmetrygroup );
-          int *temppermarray = safe_malloc( bookie.nr_symmetries + 1, int );
+          enum symmetrygroup *tempsgs = safe_malloc( bookie.nrSyms + 1, enum symmetrygroup );
+          int *temppermarray = safe_malloc( bookie.nrSyms + 1, int );
 
           tempsgs[ 0 ] = Z2;
           temppermarray[ 0 ] = -1;
-          for( i = 0 ; i < bookie.nr_symmetries ; i++ )
+          for( i = 0 ; i < bookie.nrSyms ; i++ )
           {
             tempsgs[ i + 1 ]       = bookie.sgs[ i ];
             temppermarray[ i + 1 ] = permarray[ i ];
           }
-          bookie.nr_symmetries++;
+          bookie.nrSyms++;
           safe_free( bookie.sgs );
           safe_free( permarray );
           bookie.sgs = tempsgs;
@@ -85,9 +85,9 @@ void read_inputfile( char inputfile[] )
         }
     }
 
-    if( !valid_sgs( bookie.sgs, bookie.nr_symmetries ) )
+    if( !valid_sgs( bookie.sgs, bookie.nrSyms ) )
     {
-      get_sgsstring( bookie.nr_symmetries, buffer );
+      get_sgsstring( bookie.nrSyms, buffer );
       fprintf( stderr, 
           "Error in reading input : Invalid combination of symmetry groups.\n"
           "                         Following  symmetries were inputted:\n"
@@ -95,7 +95,7 @@ void read_inputfile( char inputfile[] )
       exit( EXIT_FAILURE );
     }
 
-    get_sgsstring( bookie.nr_symmetries, buffer );
+    get_sgsstring( bookie.nrSyms, buffer );
     printf( "Symmetries  = %s\n", buffer );
   }
 
@@ -111,10 +111,10 @@ void read_inputfile( char inputfile[] )
     if( !read_targetstate( buffer, permarray, ro, sg ) )
       exit( EXIT_FAILURE );
 
-    if( !consistent_state( bookie.sgs, bookie.target_state, bookie.nr_symmetries ) )
+    if( !consistent_state( bookie.sgs, bookie.target_state, bookie.nrSyms ) )
     {
       char buffer2[ buflen ];
-      get_sgsstring( bookie.nr_symmetries, buffer );
+      get_sgsstring( bookie.nrSyms, buffer );
       get_tsstring( buffer2 );
       fprintf( stderr, 
           "Error in reading input : Invalid combination of irreps of the target state.\n"
@@ -205,9 +205,9 @@ int read_option( char option[], char inputfile[], char buffer[] )
   return nr_options;
 }
 
-/* ============================================================================================ */
-/* ================================ DEFINITION STATIC FUNCTIONS =============================== */
-/* ============================================================================================ */
+/* ========================================================================== */
+/* ===================== DEFINITION STATIC FUNCTIONS ======================== */
+/* ========================================================================== */
 
 static int is_comment( char buffer[] )
 {
@@ -261,9 +261,9 @@ static int* read_symmetries( char line[], int sg )
   int *idx;
   enum symmetrygroup *tempsgs;
   int i;
-  bookie.nr_symmetries = sg;
-  tempsgs    = safe_malloc( bookie.nr_symmetries, enum symmetrygroup );
-  bookie.sgs = safe_malloc( bookie.nr_symmetries, enum symmetrygroup );
+  bookie.nrSyms = sg;
+  tempsgs    = safe_malloc( bookie.nrSyms, enum symmetrygroup );
+  bookie.sgs = safe_malloc( bookie.nrSyms, enum symmetrygroup );
 
   i = 0;
   pch = strtok( line, STRTOKSEP );
@@ -279,9 +279,9 @@ static int* read_symmetries( char line[], int sg )
     i++;
   }
 
-  idx = quickSort( (int* ) tempsgs, bookie.nr_symmetries );
+  idx = quickSort( (int* ) tempsgs, bookie.nrSyms );
 
-  for( i = 0 ; i < bookie.nr_symmetries ; i++ )
+  for( i = 0 ; i < bookie.nrSyms ; i++ )
     bookie.sgs[ i ] = tempsgs[ idx[ i ] ];
 
   safe_free( tempsgs );
@@ -295,11 +295,11 @@ static int read_targetstate( char line[], int *permarray, int no_irr, int sg )
   int i;
   assert( ( sg == -1 ) ^ ( permarray != NULL ) );
 
-  bookie.target_state = safe_malloc( bookie.nr_symmetries, int );
+  bookie.target_state = safe_malloc( bookie.nrSyms, int );
 
   if( sg == -1 )
   { /* default symmetries were inserted */
-    if( no_irr != bookie.nr_symmetries || no_irr != bookie.nr_symmetries - 1 )
+    if( no_irr != bookie.nrSyms || no_irr != bookie.nrSyms - 1 )
     {
       get_sgsstring( sg, buffer );
       fprintf( stderr,
@@ -309,7 +309,7 @@ static int read_targetstate( char line[], int *permarray, int no_irr, int sg )
       return 0;
     }
 
-    i = bookie.nr_symmetries != no_irr;
+    i = bookie.nrSyms != no_irr;
     pch = strtok( line, STRTOKSEP );
     while( pch )
     {
@@ -354,8 +354,8 @@ static int read_targetstate( char line[], int *permarray, int no_irr, int sg )
     }
   }
 
-  if( no_irr != bookie.nr_symmetries )
-    if( !find_Z2( bookie.sgs, bookie.target_state, bookie.nr_symmetries ) )
+  if( no_irr != bookie.nrSyms )
+    if( !find_Z2( bookie.sgs, bookie.target_state, bookie.nrSyms ) )
       return 0;
 
   return 1;

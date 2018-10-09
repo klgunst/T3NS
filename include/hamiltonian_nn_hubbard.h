@@ -15,13 +15,13 @@ int NN_H_get_nr_hamsymsec(void);
 
 int NN_H_get_trivialhamsymsec(void);
 
-int NN_H_give_hermhamsymsec(const int orighamsymsec);
+int NN_H_hermitian_symsec(const int orig_symsec);
 
-double NN_H_get_site_element(const int siteoperator, const int braindex, const int ketindex);
+double NN_H_el_siteop(const int siteoperator, const int braindex, const int ketindex);
 
-int NN_H_get_hamsymsec_site(const int siteoperator);
+int NN_H_symsec_siteop(const int siteoperator);
 
-void NN_H_hamiltonian_tensor_products(int * const nr_of_prods, int ** const possible_prods, const 
+void NN_H_tprods_ham(int * const nr_of_prods, int ** const possible_prods, const 
     int resulting_hamsymsec, const int site);
 
 int NN_H_MPO_couples_to_singlet(const int n, const int MPO[n]);

@@ -7,9 +7,9 @@
 #include "bookkeeper.h"
 #include "hamiltonian.h"
 
-/* ============================================================================================ */
-/* =============================== DECLARATION STATIC FUNCTIONS =============================== */
-/* ============================================================================================ */
+/* ========================================================================== */
+/* ==================== DECLARATION STATIC FUNCTIONS ======================== */
+/* ========================================================================== */
 
 static void print_bonds(const struct rOperators * const rops);
 
@@ -26,7 +26,7 @@ static void print_qnumber(const struct rOperators * const rops, const int op, co
 static void rOperators_give_coupling_to_qnumberbonds(const struct rOperators * const rops, 
     int mapping_coup_to_qnumber[]);
 
-/* ============================================================================================ */
+/* ========================================================================== */
 
 void print_rOperators(const struct rOperators * const rops, const int givename)
 {
@@ -195,9 +195,9 @@ int rOperators_site_to_attach(const struct rOperators * const operator)
     return netw.bonds[2 * operator->bond_of_operator + operator->is_left];
 }
 
-/* ============================================================================================ */
-/* ================================ DEFINITION STATIC FUNCTIONS =============================== */
-/* ============================================================================================ */
+/* ========================================================================== */
+/* ===================== DEFINITION STATIC FUNCTIONS ======================== */
+/* ========================================================================== */
 
 static void print_bonds(const struct rOperators * const rops)
 {
@@ -308,8 +308,8 @@ static void print_qnumber(const struct rOperators * const rops, const int op, co
     int currind[3];
     for (bond = 0 ; bond < 3 ; ++bond)
     {
-      currind[bond] = ind % symarr[bond + 3 * coup].nr_symsec;
-      ind             = ind / symarr[bond + 3 * coup].nr_symsec;
+      currind[bond] = ind % symarr[bond + 3 * coup].nrSecs;
+      ind             = ind / symarr[bond + 3 * coup].nrSecs;
       get_sectorstring(&symarr[bond + 3 * coup], currind[bond], buffer);
       printf("%14s %c", buffer,  bond != 2  ? '-' : '\n');
     }
