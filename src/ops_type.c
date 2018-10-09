@@ -393,7 +393,7 @@ void get_string_tg(char buffer[], const int * tag, const int tagsize, const int 
 {
   int i;
   buffer[0] = '\0';
-  sprintf(buffer, "%s", is_compl ? "C" : "" );
+  sprintf(buffer, "%s", is_compl ? "C" : "");
   for (i = 0 ; i < tagsize ; ++i, tag += SIZE_TAG)
     sprintf(buffer + strlen(buffer), "(%d,%d,%d)", tag[0], tag[1], tag[2]);
 }
@@ -444,7 +444,7 @@ static int need_ops2(const int bond, const int is_left, const int psite1, const 
     assert(cnt == 2);
 
     /* i and j are in different legs */
-    if ( site_is_left_of_bond(psite1, bonds[0]) != site_is_left_of_bond(psite2, bonds[0]))
+    if (site_is_left_of_bond(psite1, bonds[0]) != site_is_left_of_bond(psite2, bonds[0]))
       return 1;
 
     /* i and j are in the same legs.

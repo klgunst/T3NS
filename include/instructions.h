@@ -25,7 +25,7 @@ struct instructionset {
  * The instructions are as followed:
  *
  * <table>
- * <tr><td> index of renormalized operator in previous bond ( or -1 when unity ).
+ * <tr><td> index of renormalized operator in previous bond (or -1 when unity).
  * <td> index of site operator.
  * <td> index of new renormalized operator in the new bond.
  * <td> prefactor
@@ -37,29 +37,29 @@ struct instructionset {
  * \param [in] bond The bond where the merge has to happen.
  * \param [in] is_left Boolean saying if we are going 'left' or 'right'.
  */
-void fetch_DMRG_make_ops( int ** const instructions, double ** const prefactors, int ** const 
-    hamsymsecs_of_new, int * const nr_instructions, const int bond, const int is_left );
+void fetch_DMRG_make_ops(int ** const instructions, double ** const prefactors, int ** const 
+    hamsymsecs_of_new, int * const nr_instructions, const int bond, const int is_left);
 
 void fetch_T3NS_update(struct instructionset* const instructions, const int bond, const int isleft);
 
-void fetch_merge( int ** const instructions, int * const nr_instructions, double** const prefactors, 
-    const int bond );
+void fetch_merge(int ** const instructions, int * const nr_instructions, double** const prefactors, 
+    const int bond);
 
-void sortinstructions_toMPOcombos( int ** const instructions, int ** const instrbegin, 
+void sortinstructions_toMPOcombos(int ** const instructions, int ** const instrbegin, 
     double ** const prefactors, const int nr_instructions, const int step, 
-    int * const hss_of_Ops[ step ], int ** const MPOinstr, int * const nrMPOinstr );
+    int * const hss_of_Ops[step], int ** const MPOinstr, int * const nrMPOinstr);
 
 int get_next_unique_instr(int * const curr_instr, const struct instructionset * const instructions);
 
 void destroy_instructionset(struct instructionset * const instructions);
 
 /* NOT THREADSAFE!!! */
-void start_fillin_instr( int * const instrline_init, double * const pref_init );
+void start_fillin_instr(int * const instrline_init, double * const pref_init);
 
-void nfillin_instr( const int instr1, const int instr2, const int * const instr3, const double pr );
+void nfillin_instr(const int instr1, const int instr2, const int * const instr3, const double pr);
 
-int get_nrinstr( void );
+int get_nrinstr(void);
 
-void print_instructions( int * const instructions, double * const prefactors, int * const hss,
-    const int nr_instructions, const int bond, const int is_left, const char kind );
+void print_instructions(int * const instructions, double * const prefactors, int * const hss,
+    const int nr_instructions, const int bond, const int is_left, const char kind);
 #endif

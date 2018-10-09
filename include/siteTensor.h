@@ -48,9 +48,9 @@ struct siteTensor {
                                *
                                *   For a coupling originating from a T3NS:
                                *   qnumbers-element: 
-                               *     ( for branching T3NS-tensor )
+                               *     (for branching T3NS-tensor)
                                *        alpha + dim_alpha * beta + dim_alpha * dim_beta * gamma
-                               *     ( for physical T3NS-tensor )
+                               *     (for physical T3NS-tensor)
                                *        alpha + dim_alpha * i + dim_alpha * dim_i * beta
                                *
                                *   This for both couplings originating from the T3NS and its adjoint
@@ -58,7 +58,7 @@ struct siteTensor {
                                *   This in contrast when we do it for a renormalized operator.
                                *   For a coupling originating from a 3-legged renormalized operator:
                                *   qnumbers-element:
-                               *   bra( bond ) + dim_bond * ket( bond ) + dim_bond * dim_bond * MPO
+                               *   bra(bond) + dim_bond * ket(bond) + dim_bond * dim_bond * MPO
                                *
                                *   The order in which the different couplings are given is defined
                                *   by the sites-array.
@@ -74,7 +74,7 @@ struct siteTensor {
  *
  * \param [out] tens The pointer to the null-siteTensor struct.
  */
-void init_null_siteTensor( struct siteTensor * const tens );
+void init_null_siteTensor(struct siteTensor * const tens);
 
 /**
  * \brief Initializes a one-site tensor.
@@ -90,10 +90,10 @@ void init_null_siteTensor( struct siteTensor * const tens );
  * '0' Init on zeros.
  * 'm' Malloc allocation.
  */
-void init_1siteTensor( struct siteTensor * const tens, const int site, const char o );
+void init_1siteTensor(struct siteTensor * const tens, const int site, const char o);
 
 /**
- * \brief Makes the multi-site object ( maximal 4 sites ).
+ * \brief Makes the multi-site object (maximal 4 sites).
  * A side effect is that the symsecs of the internal bonds are made internal.
  * Thus, they are recalculated to take all possible symsecs into account with a dimension of 1.
  *
@@ -102,15 +102,15 @@ void init_1siteTensor( struct siteTensor * const tens, const int site, const cha
  * \param [in] sitelist The sites of which to make a product. maximal 4 and if less than four
  * a -1 sentinel is included.
  */
-void makesiteTensor( struct siteTensor * const tens, struct siteTensor * const T3NS, 
-    const int sitelist[] );
+void makesiteTensor(struct siteTensor * const tens, struct siteTensor * const T3NS, 
+    const int sitelist[]);
 
 /**
  * \brief Destroys a siteTensor struct.
  *
  * \param [in] tens The tensor to destroy.
  */
-void destroy_siteTensor( struct siteTensor * const tens );
+void destroy_siteTensor(struct siteTensor * const tens);
 
 /**
  * \brief Makes a deep copy of a siteTensor.
@@ -118,7 +118,7 @@ void destroy_siteTensor( struct siteTensor * const tens );
  * \param [out] copy The resulting copy.
  * \param [in] tocopy The siteTensor to copy.
  */
-void deep_copy_siteTensor( struct siteTensor * const copy, const struct siteTensor * const tocopy );
+void deep_copy_siteTensor(struct siteTensor * const copy, const struct siteTensor * const tocopy);
 
 /* ====================================== MISC ================================================= */
 /**
@@ -126,7 +126,7 @@ void deep_copy_siteTensor( struct siteTensor * const copy, const struct siteTens
  *
  * \param [in] tens The tensor to print.
  */
-void print_siteTensor( const struct siteTensor * const tens );
+void print_siteTensor(const struct siteTensor * const tens);
 
 /**
  * \brief Searches a certain qnumber in a siteTensor.
@@ -135,7 +135,7 @@ void print_siteTensor( const struct siteTensor * const tens );
  * \param [in] tens The siteTensor.
  * \return The location of the found qnumber. -1 if not found.
  */
-int siteTensor_search_qnumber( QN_TYPE qnumber, const struct siteTensor * const tens );
+int siteTensor_search_qnumber(QN_TYPE qnumber, const struct siteTensor * const tens);
 
 /* HELPERS */
 /**
@@ -144,7 +144,7 @@ int siteTensor_search_qnumber( QN_TYPE qnumber, const struct siteTensor * const 
  * \param [in] tens The siteTensor structure.
  * \return The number of couplings.
  */
-int siteTensor_give_nr_of_couplings( const struct siteTensor * const tens );
+int siteTensor_give_nr_of_couplings(const struct siteTensor * const tens);
 
 /**
  * \brief Gives the number of indices in the siteTensor.
@@ -153,7 +153,7 @@ int siteTensor_give_nr_of_couplings( const struct siteTensor * const tens );
  * \param [in] tens The siteTensor structure.
  * \return The number of indices.
  */
-int siteTensor_give_nr_of_indices( const struct siteTensor * const tens );
+int siteTensor_give_nr_of_indices(const struct siteTensor * const tens);
 
 /**
  * \brief Gives the indices in the siteTensor.
@@ -162,7 +162,7 @@ int siteTensor_give_nr_of_indices( const struct siteTensor * const tens );
  * \param [in] tens The siteTensor structure.
  * \param [out] indices The indices are stored here.
  */
-void siteTensor_give_indices( const struct siteTensor * const tens, int indices[] );
+void siteTensor_give_indices(const struct siteTensor * const tens, int indices[]);
 
 /**
  * \brief Gives the qnumberbonds in the siteTensor.
@@ -175,7 +175,7 @@ void siteTensor_give_indices( const struct siteTensor * const tens, int indices[
  * \param [in] tens The siteTensor structure.
  * \param [out] qnumberbonds The qnumberbonds are stored here.
  */
-void siteTensor_give_qnumberbonds( const struct siteTensor * const tens, int qnumberbonds[] );
+void siteTensor_give_qnumberbonds(const struct siteTensor * const tens, int qnumberbonds[]);
 
 /**
  * \brief Gives the couplings in the siteTensor.
@@ -184,7 +184,7 @@ void siteTensor_give_qnumberbonds( const struct siteTensor * const tens, int qnu
  * \param [in] tens The siteTensor structure.
  * \param [out] couplings The couplings are stored here.
  */
-void siteTensor_give_couplings( const struct siteTensor * const tens, int couplings[] );
+void siteTensor_give_couplings(const struct siteTensor * const tens, int couplings[]);
 
 /**
  * \brief Gives the is_in of the siteTensor.
@@ -194,14 +194,14 @@ void siteTensor_give_couplings( const struct siteTensor * const tens, int coupli
  * \param [in] tens The siteTensor structure.
  * \param [out] is_in The is_in is stored here.
  */
-void siteTensor_give_is_in( const struct siteTensor * const tens, int is_in[] );
+void siteTensor_give_is_in(const struct siteTensor * const tens, int is_in[]);
 
 /**
  * \brief Gives the number of internal bonds of the siteTensor.
  *
  * \param [in] tens The siteTensor structure.
  */
-int siteTensor_give_nr_internalbonds( const struct siteTensor * const tens );
+int siteTensor_give_nr_internalbonds(const struct siteTensor * const tens);
 
 /**
  * \brief Gives the internal bonds of the siteTensor.
@@ -209,14 +209,14 @@ int siteTensor_give_nr_internalbonds( const struct siteTensor * const tens );
  * \param [in] tens The siteTensor structure.
  * \param [out] internalbondsThe internalbonds array is stored here.
  */
-void siteTensor_give_internalbonds( const struct siteTensor * const tens, int internalbonds[] );
+void siteTensor_give_internalbonds(const struct siteTensor * const tens, int internalbonds[]);
 
 /**
  * \brief Gives the number of external bonds of the siteTensor.
  *
  * \param [in] tens The siteTensor structure.
  */
-int siteTensor_give_nr_externalbonds( const struct siteTensor * const tens );
+int siteTensor_give_nr_externalbonds(const struct siteTensor * const tens);
 
 /**
  * \brief Gives the external bonds of the siteTensor.
@@ -224,7 +224,7 @@ int siteTensor_give_nr_externalbonds( const struct siteTensor * const tens );
  * \param [in] tens The siteTensor structure.
  * \param [out] externalbondsThe externalbonds array is stored here.
  */
-void siteTensor_give_externalbonds( const struct siteTensor * const tens, int externalbonds[] );
+void siteTensor_give_externalbonds(const struct siteTensor * const tens, int externalbonds[]);
 
 int siteTensor_get_size(const struct siteTensor * const tens);
 
@@ -242,7 +242,7 @@ int siteTensor_get_size(const struct siteTensor * const tens);
  * \param [in,out] tens The one-site tensor to do QR on, Q is stored here.
  * \param [in,out] R R is stored here, or if NULL is inserted, R is just forgotten.
  */
-void QR( struct siteTensor * const tens, void * const R );
+void QR(struct siteTensor * const tens, void * const R);
 
 /**
  * \brief Decomposes the multisite object into the different components through SVD.
@@ -255,7 +255,7 @@ void QR( struct siteTensor * const tens, void * const R );
  * \param [in] maxd The maximal dimension.
  * \param [in] maxtrunc The maximal truncation error.
  */
-void decomposesiteObject( struct siteTensor * const siteObject, struct siteTensor * const T3NS, 
+void decomposesiteObject(struct siteTensor * const siteObject, struct siteTensor * const T3NS, 
     const int sitelist[], const int common_nxt[],  const int mind, const int maxd,
-    const double maxtrunc );
+    const double maxtrunc);
 #endif

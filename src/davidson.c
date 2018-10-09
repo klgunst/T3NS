@@ -20,11 +20,11 @@ static void new_search_vector(double* V, double* vec_t, int basis_size, int m);
 static void expand_submatrix(double* const submatrix, double* const V, double* const VA, 
     const int max_vectors, const int basis_size, const int m);
 
-static double calculate_residue( double* const residue, double* const result, double* const eigv, 
-    const double theta, double* const V, double* const VA, const int basis_size, const int m );
+static double calculate_residue(double* const residue, double* const result, double* const eigv, 
+    const double theta, double* const V, double* const VA, const int basis_size, const int m);
 
-static void create_new_vec_t( double* const residue, double* const diagonal, const double theta, 
-    const int size );
+static void create_new_vec_t(double* const residue, double* const diagonal, const double theta, 
+    const int size);
 
 static void deflate(double* sub_matrix, double* V, double* VA, int max_vectors, int basis_size, 
     int keep_deflate, double* eigv);
@@ -34,7 +34,7 @@ static void deflate(double* sub_matrix, double* V, double* VA, int max_vectors, 
 /* For algorithm see http://people.inf.ethz.ch/arbenz/ewp/Lnotes/chapter12.pdf, algorithm 12.1 */
 int davidson(double* result, double* energy, int max_vectors, int keep_deflate, \
     double davidson_tol, void (*matvec)(double*, double*, void*), double* diagonal, int basis_size,
-    int max_its, void *vdat )
+    int max_its, void *vdat)
 {
 
   /* LAPACK initialization */
@@ -53,7 +53,7 @@ int davidson(double* result, double* energy, int max_vectors, int keep_deflate, 
 
   int cnt_matvecs = 0;
   gettimeofday(&t_start, NULL);
-  printf("Dimension of davidson : %d\n", basis_size );
+  printf("Dimension of davidson : %d\n", basis_size);
   printf("IT\tINFO\tRESIDUE\tENERGY\n");
 #endif
 
@@ -65,14 +65,14 @@ int davidson(double* result, double* energy, int max_vectors, int keep_deflate, 
   double *WORK = safe_malloc(LWORK, double);
 
   /* store vectors and matrix * vectors */
-  double *V = safe_malloc( basis_size * max_vectors, double );
-  double *VA = safe_malloc(  basis_size * max_vectors, double );
+  double *V = safe_malloc(basis_size * max_vectors, double);
+  double *VA = safe_malloc( basis_size * max_vectors, double);
   double *vec_t = safe_malloc(basis_size, double); /* vec_t and residue vector */
   dcopy_(&basis_size, result, &ONE, vec_t, &ONE);
 
   *energy = 0;
 
-  while( (residue_norm > davidson_tol) && (its++ < max_its) ){
+  while ((residue_norm > davidson_tol) && (its++ < max_its)){
     int dims;
     int INFO = 0;
     new_search_vector(V, vec_t, basis_size, m);
@@ -83,7 +83,7 @@ int davidson(double* result, double* energy, int max_vectors, int keep_deflate, 
     dcopy_(&dims, sub_matrix, &ONE, eigv, &ONE);
     dsyev_(&JOBZ, &UPLO, &m, eigv, &max_vectors, eigvalues, WORK, &LWORK, &INFO);
 
-    if( m == max_vectors ){   /* deflation */
+    if (m == max_vectors){   /* deflation */
       deflate(sub_matrix, V, VA, max_vectors, basis_size, keep_deflate, eigv);
       m = keep_deflate;
       dims = m * max_vectors;
@@ -102,7 +102,7 @@ int davidson(double* result, double* energy, int max_vectors, int keep_deflate, 
   }
 
 #ifdef DAVIDIT
-  if(its <= max_its) 
+  if (its <= max_its) 
     printf("Davidson converged in %d iterations with %e residue and d_energy %e.\n", its, 
         residue_norm, d_energy);
   else 
@@ -140,7 +140,7 @@ static void new_search_vector(double* V, double* vec_t, int basis_size, int m){
   double a;
   int i;
 
-  for( i = 0 ; i < m ; i++ ){
+  for (i = 0 ; i < m ; i++){
     a = - ddot_(&basis_size, Vi, &ONE, vec_t, &ONE);
     daxpy_(&basis_size, &a, Vi, &ONE, vec_t, &ONE);
     Vi += basis_size;
@@ -152,18 +152,18 @@ static void new_search_vector(double* V, double* vec_t, int basis_size, int m){
 #ifdef DEBUG
   {
     /**
-     * Reorthonormalize if new V is wrong ( eg due to vec_t was very close to a certain V and
-     * and numerical errors dont assure orthogonalization )
+     * Reorthonormalize if new V is wrong (eg due to vec_t was very close to a certain V and
+     * and numerical errors dont assure orthogonalization)
      */
     int reortho = 1;
-    while(reortho){
+    while (reortho){
       Vi = V;
       reortho = 0;
-      for(i = 0 ; i < m ; i++){
+      for (i = 0 ; i < m ; i++){
         a = - ddot_(&basis_size, Vi, &ONE, vec_t, &ONE);
         daxpy_(&basis_size, &a, Vi, &ONE, vec_t, &ONE);
         Vi += basis_size;
-        if(fabs(a) > 1e-10){
+        if (fabs(a) > 1e-10){
           reortho = 1;
           printf("value of a[%d] = %e\n", i, a);
           assert(0);
@@ -188,31 +188,31 @@ static void expand_submatrix(double* const submatrix, double* const V, double* c
   double* const VAm = VA + basis_size * m;
   int i;
 
-#pragma omp parallel for default( none ) private(i) 
-  for( i = 0 ; i < m + 1 ; ++i )
+#pragma omp parallel for default(none) private(i) 
+  for (i = 0 ; i < m + 1 ; ++i)
   {
-    submatrix[ m * max_vectors + i ] = ddot_( &basis_size, V + basis_size * i, &I_ONE,
-        VAm, &I_ONE );
+    submatrix[m * max_vectors + i] = ddot_(&basis_size, V + basis_size * i, &I_ONE,
+        VAm, &I_ONE);
   }
 }
 
-static double calculate_residue( double* const residue, double* const result, double* const eigv, 
-    const double theta, double* const V, double* const VA, const int basis_size, const int m )
+static double calculate_residue(double* const residue, double* const result, double* const eigv, 
+    const double theta, double* const V, double* const VA, const int basis_size, const int m)
 {
   const int I_ONE = 1;
   int i;
   double norm2 = 0;
 
 #pragma omp parallel for default(none) private(i) reduction(+:norm2)
-  for( i = 0 ; i < basis_size ; ++i )
+  for (i = 0 ; i < basis_size ; ++i)
   {
-    result[ i ] = ddot_( &m, V + i, &basis_size, eigv, &I_ONE );
-    residue[ i ] = ddot_( &m, VA + i, &basis_size, eigv, &I_ONE );
-    residue[ i ] -= theta * result[ i ];
-    norm2 += residue[ i ] * residue[ i ];
+    result[i] = ddot_(&m, V + i, &basis_size, eigv, &I_ONE);
+    residue[i] = ddot_(&m, VA + i, &basis_size, eigv, &I_ONE);
+    residue[i] -= theta * result[i];
+    norm2 += residue[i] * residue[i];
   }
 
-  return sqrt( norm2 );
+  return sqrt(norm2);
 }
 
 static void create_new_vec_t(double* const residue, double* const diagonal, const double theta, 
@@ -222,8 +222,8 @@ static void create_new_vec_t(double* const residue, double* const diagonal, cons
   int i;
   const double cutoff = 1e-12;
 #pragma omp parallel for default(none) private(i)
-  for( i = 0 ; i < size ; i++)
-    if(fabs(diagonal[i] - theta) > cutoff)
+  for (i = 0 ; i < size ; i++)
+    if (fabs(diagonal[i] - theta) > cutoff)
       residue[i] = residue[i] / fabs(diagonal[i] - theta);
     else{
       residue[i] = residue[i] / cutoff;
@@ -255,6 +255,6 @@ static void deflate(double* sub_matrix, double* V, double* VA, int max_vectors, 
  
   safe_free(new_result);
 
-  for( i = 0 ; i < keep_deflate; i++)
+  for (i = 0 ; i < keep_deflate; i++)
     expand_submatrix(sub_matrix, V, VA, max_vectors, basis_size, i);
 }

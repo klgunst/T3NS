@@ -182,7 +182,7 @@ int NN_H_symsec_siteop(const int siteop)
         int irreps_of_hss[2];
         int i;
 
-        if(hdat.su2)
+        if (hdat.su2)
                 get_irr_hss_su2(irreps_of_hss, siteop);
         else 
                 get_irr_hss(irreps_of_hss, siteop);
@@ -435,7 +435,7 @@ static double g_s_el_su2(const int siteop, const int braid, const int ketid)
 
         switch (siteop) {
         case 0 : /* 1 : |0><0| - sqrt2 |1><1| + |2><2| */
-                if(braid == ketid)
+                if (braid == ketid)
                         return braid == 1 ? -sqrt2 : 1;
                 return 0;
 

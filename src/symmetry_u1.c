@@ -26,14 +26,14 @@ void U1_tensprod_irrep(int *min_irrep, int *nr_irreps, int *step,
 
 void U1_get_irrstring(char buffer[], int irr)
 {
-        sprintf(buffer, "%d", irr );
+        sprintf(buffer, "%d", irr);
 }
 
 int U1_which_irrep(char buffer[], int *irr)
 {
         *irr = atoi(buffer);
         /* no error in reading buffer */
-        if((*irr != 0) ^ (buffer[0] == '0'))
+        if ((*irr != 0) ^ (buffer[0] == '0'))
                 return *irr >= 0;
         return 0;
 }

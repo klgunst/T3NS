@@ -55,7 +55,7 @@
  * \param [in] pg The point group symmetry.
  * \return returns the maximal label of the irreps that can be generated.
  */
-int PG_get_max_irrep( int pg );
+int PG_get_max_irrep(int pg);
 
 /**
  * \brief Gives the resulting irreps from tensor product of two other irreps belonging to sg.
@@ -66,7 +66,7 @@ int PG_get_max_irrep( int pg );
  * \param [in] irrep1 The first irrep of the tensorproduct.
  * \param [in] irrep2 The second irrep of the tensorproduct.
  */
-void PG_tensprod_irrep( int *min_irrep, int *nr_irreps, int *step, int irrep1, int irrep2 );
+void PG_tensprod_irrep(int *min_irrep, int *nr_irreps, int *step, int irrep1, int irrep2);
 
 /**
  * \brief Returns the irrepstring, or INVALID if invalid.
@@ -75,7 +75,7 @@ void PG_tensprod_irrep( int *min_irrep, int *nr_irreps, int *step, int irrep1, i
  * \param [in] pg The point group symmetry.
  * \param [in] irr The irrep.
  */
-void  PG_get_irrstring( char buffer[], int pg, int irr );
+void  PG_get_irrstring(char buffer[], int pg, int irr);
 
 /**
  * \brief finds which irrep is given in the buffer.
@@ -85,7 +85,7 @@ void  PG_get_irrstring( char buffer[], int pg, int irr );
  * \param [out] irr The irrep.
  * \return 1 if successful, 0 otherwise.
  */
-const int PG_which_irrep( char buffer[], int pg, int *irr );
+const int PG_which_irrep(char buffer[], int pg, int *irr);
 
-int fcidump_to_psi4( const int fcidumpirrep, const int pg_symm );
+int fcidump_to_psi4(const int fcidumpirrep, const int pg_symm);
 #endif

@@ -37,7 +37,7 @@ struct optScheme
  * \param [out] T3NS Pointer to the siteTensor array representing the T3NS.
  * \param [out] rops Pointer to the rOperators array representing the renormalized operators.
  */
-void random_init( struct siteTensor ** const T3NS, struct rOperators ** const rops );
+void random_init(struct siteTensor ** const T3NS, struct rOperators ** const rops);
 
 /**
  * \brief Executes the optimization scheme for the tensor network.
@@ -46,13 +46,13 @@ void random_init( struct siteTensor ** const T3NS, struct rOperators ** const ro
  * \param [in, out] rops Pointer to the rOperators array representing the renormalized operators.
  * \param [in] scheme The optimization scheme to execute.
  */
-void execute_optScheme( struct siteTensor * const T3NS, struct rOperators * const rops, 
-    const struct optScheme * const  scheme );
+void execute_optScheme(struct siteTensor * const T3NS, struct rOperators * const rops, 
+    const struct optScheme * const  scheme);
 
 /**
  * \brief Destroys an optimization scheme.
  *
- * \param [ in,out ] scheme The scheme to destroy.
+ * \param [in,out] scheme The scheme to destroy.
  */
-void destroy_optScheme( struct optScheme * const scheme );
+void destroy_optScheme(struct optScheme * const scheme);
 #endif

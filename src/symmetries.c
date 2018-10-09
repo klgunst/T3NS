@@ -49,7 +49,7 @@ void tensprod_symmsec(int **resultsymmsec, int *nr_symmsecs, int *symmsec1,
         *resultsymmsec = safe_malloc(nr_symmetries * *nr_symmsecs, int);
 
         cnt = 0;
-        while(cnt != *nr_symmsecs) {
+        while (cnt != *nr_symmsecs) {
                 for (i = 0 ; i < nr_symmetries ; ++i)
                         (*resultsymmsec)[cnt * nr_symmetries + i] = 
                                 min_irrep[i] + indices[i] * step[i];
@@ -147,7 +147,7 @@ int find_str_in_array(char buffer[], const char* arr[], int length, int *ind)
         for (i = 0 ; i < length ; ++i) {
                 const char *b = buffer;
                 const char *s = arr[i];
-                while(*b && *s) {
+                while (*b && *s) {
                         if (tolower(*b) != tolower(*s))
                                 break;
                         b++;
@@ -348,7 +348,7 @@ double prefactor_pUpdate(const int * irrep_arr[], const int is_left,
          *   begin:
          *      ---[bra*(alpha), bra*(i), bra(beta)  ,
          *           bra(alpha) , MPO    , ket*(alpha),
-         *           ket*(beta) , ket(i) , ket(alpha) ]
+         *           ket*(beta) , ket(i) , ket(alpha)]
          *   end:
          *      ---[bra(alpha), MPO, ket*(alpha)]
          *

@@ -94,11 +94,11 @@ void sortinstructions_toMPOcombos(int ** const instructions, int ** const instrb
   int i;
   const int hssdim = get_nr_hamsymsec();
 
-  for(i = 0 ; i < nr_instructions ; ++i)
+  for (i = 0 ; i < nr_instructions ; ++i)
   {
     int j;
     temp[i] = 0;
-    for(j = step - 1 ; j >= 0 ; --j)
+    for (j = step - 1 ; j >= 0 ; --j)
       temp[i] = hss_of_Ops[j][(*instructions)[step * i + j]] + temp[i] * hssdim;
   }
 
@@ -112,18 +112,18 @@ void sortinstructions_toMPOcombos(int ** const instructions, int ** const instrb
   (*MPOinstr)  [(*nrMPOinstr)] = temp[idx[0]];
   ++(*nrMPOinstr);
   newpref[0] = (*prefactors)[idx[0]];
-  for(i = 0 ; i < step ; ++i)
+  for (i = 0 ; i < step ; ++i)
     newinstructions[0 * step + i] = (*instructions)[idx[0] * step + i];
-  for(i = 1 ; i < nr_instructions ; ++i)
+  for (i = 1 ; i < nr_instructions ; ++i)
   {
     int j;
     assert((*MPOinstr)[(*nrMPOinstr) - 1] <= temp[idx[i]]);
 
     newpref[i] = (*prefactors)[idx[i]];
-    for(j = 0 ; j < step ; ++j)
+    for (j = 0 ; j < step ; ++j)
       newinstructions[i * step + j] = (*instructions)[idx[i] * step + j];
 
-    if((*MPOinstr)[(*nrMPOinstr) - 1] != temp[idx[i]])
+    if ((*MPOinstr)[(*nrMPOinstr) - 1] != temp[idx[i]])
     {
       (*instrbegin)[(*nrMPOinstr)] = i;
       (*MPOinstr)  [(*nrMPOinstr)] = temp[idx[i]];
@@ -188,14 +188,14 @@ void start_fillin_instr(int * const instrline_init, double * const pref_init)
 
 void nfillin_instr(const int instr1, const int instr2, const int * const instr3, const double pr)
 {
-  if(cinstrline != NULL)
+  if (cinstrline != NULL)
   {
     cinstrline[0] = instr1;
     cinstrline[1] = instr2;
-    if(instr3 != NULL) cinstrline[2] = *instr3;
+    if (instr3 != NULL) cinstrline[2] = *instr3;
     cinstrline += 2 + (instr3 != NULL);
   }
-  if(cpref != NULL) *(cpref++) = pr;
+  if (cpref != NULL) *(cpref++) = pr;
 
   ++nr_instr;
 }
@@ -277,29 +277,29 @@ static void sort_instructionsx(int ** instructions, double ** prefactors, const 
   double *prefnew = prefactors == NULL ? NULL : safe_malloc(nr_instructions, double);
   int i, j;
 
-  for(i = 0 ; i < step; ++i)
+  for (i = 0 ; i < step; ++i)
   {
     max[i] = -1;
-    for(j = 0 ; j < nr_instructions ; ++j)
+    for (j = 0 ; j < nr_instructions ; ++j)
       max[i] = (max[i] < (*instructions)[j * step + i]+1) ? (*instructions)[j*step + i]+1 : max[i];
   }
-  for(i = step - 2 ; i >= 0 ; --i) max[i] *= max[i + 1];
-  for(i = 0 ; i < step - 1  ; ++i) max[i]  = max[i + 1];
+  for (i = step - 2 ; i >= 0 ; --i) max[i] *= max[i + 1];
+  for (i = 0 ; i < step - 1  ; ++i) max[i]  = max[i + 1];
   max[step - 1] = 1;
 
-  for(i = 0 ; i < nr_instructions ; ++i)
+  for (i = 0 ; i < nr_instructions ; ++i)
   {
     array[i] = 0;
-    for(j = 0 ; j < step ; ++j)
+    for (j = 0 ; j < step ; ++j)
       array[i] += max[j] * (*instructions)[i * step + j];
   }
   idx = quickSort(array, nr_instructions);
-  for(i = 0 ; i < nr_instructions ; i++)
+  for (i = 0 ; i < nr_instructions ; i++)
   {
-    for(j = 0 ; j < step ; ++j)
+    for (j = 0 ; j < step ; ++j)
       instr_new[i * step + j] = (*instructions)[idx[i] * step + j];
 
-    if(prefnew != NULL) prefnew[i] = (*prefactors)[idx[i]];
+    if (prefnew != NULL) prefnew[i] = (*prefactors)[idx[i]];
   }
   safe_free(*instructions);
   safe_free(*prefactors);
@@ -324,7 +324,7 @@ static void print_DMRG_instructions(int * const instructions, double * const pre
   printf("================================================================================\n" 
           "Printing DMRG instructions for bond %d going %s.\n", bond, is_left ? "left" : "right");
 
-  for(i = 0 ; i < nr_instructions ; ++i)
+  for (i = 0 ; i < nr_instructions ; ++i)
   {
     char buffer[255];
     get_string_of_rops(buffer, instructions[i * 3 + 0], bond, is_left, 'e');
@@ -375,7 +375,7 @@ static void print_T3NS_instructions(int * const instructions, double * const pre
           "Printing T3NS update  instructions for bond %d going %s.\n", bond, 
           is_left ? "left" : "right");
 
-  for(i = 0 ; i < nr_instructions ; ++i) {
+  for (i = 0 ; i < nr_instructions ; ++i) {
     char buffer[255];
     get_string_of_rops(buffer, instructions[i * 3 + 0], bond1, left1, 'e');
     printf("%10.4g * %-16s + ", prefactors[i], buffer);
@@ -401,7 +401,7 @@ static void print_merge_instructions(int * const instructions, double * const pr
   struct symsecs MPO;
   get_symsecs(&MPO, -1);
 
-  if(isdmrg)
+  if (isdmrg)
   {
     bonds[0] = bond;
     bonds[1] = bond;
@@ -422,12 +422,12 @@ static void print_merge_instructions(int * const instructions, double * const pr
   printf("================================================================================\n" 
           "Printing merge instructions for bond %d.\n", bond);
 
-  for(i = 0 ; i < nr_instructions ; ++i)
+  for (i = 0 ; i < nr_instructions ; ++i)
   {
     char buffer[255];
     int j;
     printf("%10.4g * ", prefactors[i]);
-    for(j = 0 ; j < step ; ++ j)
+    for (j = 0 ; j < step ; ++ j)
     {
       get_string_of_rops(buffer, instructions[i * step + j], bonds[j], isleft[j], 'e');
       printf("%-16s%s", buffer, j == step - 1 ? "\n" : " + ");

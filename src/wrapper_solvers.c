@@ -11,8 +11,8 @@ int sparse_eigensolve(double* vec, int dims, double* energy,
     char solver[], int davidson_keep, int davidson_max_vec, void* dat)
 {
   int res = -1;
-  if(strcmp(solver, "D") == 0)
-    res = davidson( vec, energy, davidson_max_vec, davidson_keep, tol, matvec, diagonal, dims,
-                    max_its, dat );
+  if (strcmp(solver, "D") == 0)
+    res = davidson(vec, energy, davidson_max_vec, davidson_keep, tol, matvec, diagonal, dims,
+                    max_its, dat);
   return res;
 }

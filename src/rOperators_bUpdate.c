@@ -14,97 +14,97 @@
 /**
  * tens:
  *   The indices array is given by :
- *    ---[ ket(alpha), ket(beta), ket(gamma) ]
+ *    ---[ket(alpha), ket(beta), ket(gamma)]
  *   The coupling array is given by :
- *    ---[ ket(alpha), ket(beta), ket(gamma)* ]
+ *    ---[ket(alpha), ket(beta), ket(gamma)*]
  *   The qnumberbonds array is given by :
- *    ---[ ket(alpha), ket(beta), ket(gamma) ]
+ *    ---[ket(alpha), ket(beta), ket(gamma)]
  * 
  * The adjoint tensor:
  *   The indices array is given by :
- *    ---[ bra(alpha), bra(beta), bra(gamma) ]
+ *    ---[bra(alpha), bra(beta), bra(gamma)]
  *   The coupling array is given by :
- *    ---[ bra(gamma), bra(beta)*, bra(alpha)* ]
+ *    ---[bra(gamma), bra(beta)*, bra(alpha)*]
  *   The qnumberbonds array is given by :
- *    ---[ bra(alpha), bra(beta), bra(gamma) ]
+ *    ---[bra(alpha), bra(beta), bra(gamma)]
  *   
  * To form this adjoint, you need an extra prefactor through prefactor_adjoint
  * Type of adjoint is for case I, II, III respectively 'r', 'R', 'l'.
  *
  * case I:
- * Operator1: ( left rOperators )
+ * Operator1: (left rOperators)
  *   The indices array is given by :
- *    ---[ bra(beta), ket(beta), MPO(beta) ]
+ *    ---[bra(beta), ket(beta), MPO(beta)]
  *   The coupling array is given by :
- *    ---[ bra(beta), MPO(beta)*, ket(beta)* ]
+ *    ---[bra(beta), MPO(beta)*, ket(beta)*]
  *   The qnumberbonds array is given by :
- *    ---[ bra(beta), ket(beta), MPO(beta) ]
+ *    ---[bra(beta), ket(beta), MPO(beta)]
  *    
- * Operator2: ( right rOperators )
+ * Operator2: (right rOperators)
  *   The indices array is given by :
- *    ---[ bra(gamma), ket(gamma), MPO(gamma) ]
+ *    ---[bra(gamma), ket(gamma), MPO(gamma)]
  *   The coupling array is given by :
- *    ---[ bra(gamma)*, MPO(gamma), ket(gamma) ]
+ *    ---[bra(gamma)*, MPO(gamma), ket(gamma)]
  *   The qnumberbonds array is given by :
- *    ---[ bra(gamma), ket(gamma), MPO(gamma) ]
+ *    ---[bra(gamma), ket(gamma), MPO(gamma)]
  *
- * newops: ( right rOperators )
+ * newops: (right rOperators)
  *   The indices array is given by :
- *    ---[ bra(alpha), ket(alpha), MPO(alpha) ]
+ *    ---[bra(alpha), ket(alpha), MPO(alpha)]
  *   The coupling array is given by :
- *    ---[ bra(alpha)*, MPO(alpha), ket(alpha) ]
+ *    ---[bra(alpha)*, MPO(alpha), ket(alpha)]
  *   The qnumberbonds array is given by :
- *    ---[ bra(alpha), ket(alpha), MPO(alpha) ]
+ *    ---[bra(alpha), ket(alpha), MPO(alpha)]
  *
  * case II:
- * Operator1: ( left rOperators )
+ * Operator1: (left rOperators)
  *   The indices array is given by :
- *    ---[ bra(alpha), ket(alpha), MPO(alpha) ]
+ *    ---[bra(alpha), ket(alpha), MPO(alpha)]
  *   The coupling array is given by :
- *    ---[ bra(alpha), MPO(alpha)*, ket(alpha)* ]
+ *    ---[bra(alpha), MPO(alpha)*, ket(alpha)*]
  *   The qnumberbonds array is given by :
- *    ---[ bra(alpha), ket(alpha), MPO(alpha) ]
+ *    ---[bra(alpha), ket(alpha), MPO(alpha)]
  *    
- * Operator2: ( right rOperators )
+ * Operator2: (right rOperators)
  *   The indices array is given by :
- *    ---[ bra(gamma), ket(gamma), MPO(gamma) ]
+ *    ---[bra(gamma), ket(gamma), MPO(gamma)]
  *   The coupling array is given by :
- *    ---[ bra(gamma)*, MPO(gamma), ket(gamma) ]
+ *    ---[bra(gamma)*, MPO(gamma), ket(gamma)]
  *   The qnumberbonds array is given by :
- *    ---[ bra(gamma), ket(gamma), MPO(gamma) ]
+ *    ---[bra(gamma), ket(gamma), MPO(gamma)]
  *
- * newops: ( right rOperators )
+ * newops: (right rOperators)
  *   The indices array is given by :
- *    ---[ bra(beta), ket(beta), MPO(beta) ]
+ *    ---[bra(beta), ket(beta), MPO(beta)]
  *   The coupling array is given by :
- *    ---[ bra(beta)*, MPO(beta), ket(beta) ]
+ *    ---[bra(beta)*, MPO(beta), ket(beta)]
  *   The qnumberbonds array is given by :
- *    ---[ bra(beta), ket(beta), MPO(beta) ]
+ *    ---[bra(beta), ket(beta), MPO(beta)]
  *
  * case III:
- * Operator1: ( left rOperators )
+ * Operator1: (left rOperators)
  *   The indices array is given by :
- *    ---[ bra(alpha), ket(alpha), MPO(alpha) ]
+ *    ---[bra(alpha), ket(alpha), MPO(alpha)]
  *   The coupling array is given by :
- *    ---[ bra(alpha), MPO(alpha)*, ket(alpha)* ]
+ *    ---[bra(alpha), MPO(alpha)*, ket(alpha)*]
  *   The qnumberbonds array is given by :
- *    ---[ bra(alpha), ket(alpha), MPO(alpha) ]
+ *    ---[bra(alpha), ket(alpha), MPO(alpha)]
  *    
- * Operator2: ( left rOperators )
+ * Operator2: (left rOperators)
  *   The indices array is given by :
- *    ---[ bra(beta), ket(beta), MPO(beta) ]
+ *    ---[bra(beta), ket(beta), MPO(beta)]
  *   The coupling array is given by :
- *    ---[ bra(beta), MPO(beta)*, ket(beta)* ]
+ *    ---[bra(beta), MPO(beta)*, ket(beta)*]
  *   The qnumberbonds array is given by :
- *    ---[ bra(beta), ket(beta), MPO(beta) ]
+ *    ---[bra(beta), ket(beta), MPO(beta)]
  *    
- * newops: ( left rOperators )
+ * newops: (left rOperators)
  *   The indices array is given by :
- *    ---[ bra(gamma), ket(gamma), MPO(gamma) ]
+ *    ---[bra(gamma), ket(gamma), MPO(gamma)]
  *   The coupling array is given by :
- *    ---[ bra(gamma), MPO(gamma)*, ket(gamma)* ]
+ *    ---[bra(gamma), MPO(gamma)*, ket(gamma)*]
  *   The qnumberbonds array is given by :
- *    ---[ bra(gamma), ket(gamma), MPO(gamma) ]
+ *    ---[bra(gamma), ket(gamma), MPO(gamma)]
  */
 
 struct indexhelper {
@@ -183,7 +183,7 @@ static int next_sb_sec_op(int *sb, const QN_TYPE qntomatch, const int divide,
 static int find_block_adj(const struct siteTensor * const tens, struct update_data * const data);
 
 static void how_to_update(struct update_data * const data, struct contractinfo cinfo[3], 
-    int workmem_size[2] );
+    int workmem_size[2]);
 
 static int calc_contract(const enum tensor_type tens[3][3], const int td[3][2], int wd[3][2]);
 
@@ -261,7 +261,7 @@ static void init_uniqueOperators(struct rOperators * const uniqueOps, const stru
   uniqueOps->nrops = count;
 
   /* initializing the hamsymsecs */
-  uniqueOps->hss_of_ops = safe_malloc( uniqueOps->nrops, int );
+  uniqueOps->hss_of_ops = safe_malloc(uniqueOps->nrops, int);
   count = 0;
   curr_instr = -1;
   while (get_next_unique_instr(&curr_instr, instructions))
@@ -274,12 +274,12 @@ static void init_uniqueOperators(struct rOperators * const uniqueOps, const stru
     /* The current operator and current hamsymsec */
     struct sparseblocks * const blocks = &uniqueOps->operators[count];
     const int currhss                  = uniqueOps->hss_of_ops[count]; 
-    const int N                        = rOperators_give_nr_blocks_for_hss( uniqueOps, currhss );
+    const int N                        = rOperators_give_nr_blocks_for_hss(uniqueOps, currhss);
 
     init_sparseblocks(blocks, nkappa_begin[currhss], N, 'c');
   }
 
-  for(count = 0 ; count < uniqueOps->nrhss ; ++count)
+  for (count = 0 ; count < uniqueOps->nrhss ; ++count)
     safe_free(nkappa_begin[count]);
   safe_free(nkappa_begin);
 }
@@ -374,7 +374,7 @@ static void fill_indexes(struct update_data * const data, const enum tensor_type
   idarr[2] = qn;
   assert(qn < mdims[2]);
 
-  for ( i = 0 ; i < 3 ; ++i ) {
+  for (i = 0 ; i < 3 ; ++i) {
     data->irreps[opmap][i] = &idh.symarr[opmap][i].irreps[bookie.nrSyms * idarr[i]];
     if (i != MPO)
       data->teldims[opmap][i] = idh.symarr[opmap][i].dims[idarr[i]];
@@ -483,13 +483,13 @@ static int next_sb_tens(int *sb, const QN_TYPE qntomatch, const int second_op,
 
   ++*sb;
   if (!idh.looptype) {
-    for (; *sb < tens->nrblocks ; ++*sb) if(idh.qnumbertens[*sb] >= qntomatch) break;
+    for (; *sb < tens->nrblocks ; ++*sb) if (idh.qnumbertens[*sb] >= qntomatch) break;
     if (*sb == tens->nrblocks)
       return 0;
-    if(idh.qnumbertens[*sb] > qntomatch) return 0;
+    if (idh.qnumbertens[*sb] > qntomatch) return 0;
     ket_to_be_found = tens->qnumbers[*sb] % idh.divide;
   } else {
-    for (; *sb < tens->nrblocks ; ++*sb) if(idh.qnumbertens[*sb] == qntomatch) break;
+    for (; *sb < tens->nrblocks ; ++*sb) if (idh.qnumbertens[*sb] == qntomatch) break;
     if (*sb == tens->nrblocks)
       return 0;
     ket_to_be_found = tens->qnumbers[*sb] / idh.divide;
@@ -542,7 +542,7 @@ static int find_block_adj(const struct siteTensor * const tens, struct update_da
 
   data->tels[ADJ] = get_tel_block(&tens->blocks, block);
   assert(get_size_block(&tens->blocks, block) == data->teldims[0][BRA] * data->teldims[1][BRA] *
-      data->teldims[2][BRA] );
+      data->teldims[2][BRA]);
   return 1;
 }
 
@@ -561,7 +561,7 @@ static enum tensor_type ways_to_update[6][3][3] = {
 };
 
 static void how_to_update(struct update_data * const data, struct contractinfo cinfo[3], 
-    int workmem_size[2] )
+    int workmem_size[2])
 {
   int i;
   int minimalops = 0;
@@ -826,7 +826,7 @@ static void update_last_step(const struct contractinfo * const cinfo, const doub
   const double D_ONE = 1;
   EL_TYPE * els[3] = {tels[cinfo->tensneeded[0]], tels[cinfo->tensneeded[1]], 
     tels[cinfo->tensneeded[2]]};
-  if(cinfo->dgemm) {
+  if (cinfo->dgemm) {
     /* contract over alpha, beta or beta, gamma */
     const int LDA = cinfo->TRANS[0] == 'N' ? cinfo->M : cinfo->K;
     const int LDB = cinfo->TRANS[1] == 'N' ? cinfo->K : cinfo->N;
@@ -864,7 +864,7 @@ static int check_correctness(const struct rOperators Operator[2], const struct s
     if (bonds[i] == Operator[0].bond_of_operator)
       break;
 
-  if(i == 3)
+  if (i == 3)
     return 0;
 
   for (i = 0 ; i < 3 ; ++i)

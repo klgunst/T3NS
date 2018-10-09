@@ -43,7 +43,7 @@ struct ops_type
  * \param [out] tag The tag of the operator.
  * \param [out] tagsize The size of the tag.
  */
-void get_tag( const struct ops_type * const input, int i, int ** const tag, int * const tagsize );
+void get_tag(const struct ops_type * const input, int i, int ** const tag, int * const tagsize);
 
 /**
  * \brief Gives the position of a given operator with a certain tag in the input.
@@ -53,9 +53,9 @@ void get_tag( const struct ops_type * const input, int i, int ** const tag, int 
  * \param [in] tagsize The size of the tag.
  * \return Returns the position of the operator with the given tag. Will be -1 if not found.
  */
-int get_pos_of_tag( const struct ops_type * const input, const int * const tag, const int tagsize );
+int get_pos_of_tag(const struct ops_type * const input, const int * const tag, const int tagsize);
 
-struct ops_type get_null_op_type( void );
+struct ops_type get_null_op_type(void);
 
 /**
  * \brief Givest the full list of the operators needed at the given bond.
@@ -65,28 +65,28 @@ struct ops_type get_null_op_type( void );
  * network is contracted with the particle flow up to this point.
  * \return Returns the ops_type structure.
  */
-struct ops_type get_op_type_list( const int bond, const int is_left, const char o );
+struct ops_type get_op_type_list(const int bond, const int is_left, const char o);
 
-void destroy_ops_type( struct ops_type * inp, const char o );
+void destroy_ops_type(struct ops_type * inp, const char o);
 
 /**
  * \brief Print the ops_type structure.
  *
  * \param [in] in The ops_type to print.
  */
-void print_ops_type( const struct ops_type * const in );
+void print_ops_type(const struct ops_type * const in);
 
 /**
  * \brief This makes the ops_types in the network object.
  */
-void init_ops_types( void );
+void init_ops_types(void);
 
-void QC_get_hss_of_operators( int ** const hamsymsec_of_new, const int bond, const int is_left,
-    const char o );
+void QC_get_hss_of_operators(int ** const hamsymsec_of_new, const int bond, const int is_left,
+    const char o);
 
-void get_string_tag( char buffer[], const struct ops_type * const input, int i );
+void get_string_tag(char buffer[], const struct ops_type * const input, int i);
 
-void get_string_tg( char buffer[], const int * tag, const int tagsize, const int is_compl );
+void get_string_tg(char buffer[], const int * tag, const int tagsize, const int is_compl);
 
-void clean_ops_type( void );
+void clean_ops_type(void);
 #endif

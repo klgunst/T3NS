@@ -40,24 +40,24 @@ extern struct bookkeeper bookie;
  *
  * \param [in] max_dim The maximal dimension of the bonds that is allowed.
  */
-void create_list_of_symsecs( int max_dim );
+void create_list_of_symsecs(int max_dim);
 
 /**
  * \brief initializes the bookie as empty.
  */
-void init_bookie( void );
+void init_bookie(void);
 
 /**
  * \brief Frees the memory allocated to the global bookie variable.
  */
-void destroy_bookkeeper( void );
+void destroy_bookkeeper(void);
 
 /**
  * \brief Prints the network and the bond dimensions.
  *
  * \param [in] fci Boolean if the fcidims or the current dims should be printed.
  */
-void print_bookkeeper( int fci );
+void print_bookkeeper(int fci);
 
 /**
  * \brief Returns the total number of particles in the target state.
@@ -65,14 +65,14 @@ void print_bookkeeper( int fci );
  *
  * \return The number of particles in the target state.
  */
-int get_particlestarget( void );
+int get_particlestarget(void);
 
 /**
  * \brief gives the defined pg_symmetry.
  *
  * \return Returns the pg symmetry.
  */
-int get_pg_symmetry( void );
+int get_pg_symmetry(void);
 
 /**
  * \brief Returns a correctly formatted string of the symmetries used.
@@ -80,12 +80,12 @@ int get_pg_symmetry( void );
  * \param [in] sg The number of symmetry groups or -1 if defaults were used.
  * \param [out] buffer The buffer where the string is stored.
  */
-void get_sgsstring( int sg, char buffer[] );
+void get_sgsstring(int sg, char buffer[]);
 
 /**
  * \brief Returns a correctly formatted string of the target state.
  *
  * \param [out] buffer The buffer where the string is stored.
  */
-void get_tsstring( char buffer[] );
+void get_tsstring(char buffer[]);
 #endif

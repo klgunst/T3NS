@@ -19,7 +19,7 @@
  * \param [in] inc increment between irreps in prop1 and prop2.
  * \return returns the maximal label of the irreps that can be generated.
  */
-int SU2_get_max_irrep( int *prop1, int nr1, int *prop2, int nr2, int inc );
+int SU2_get_max_irrep(int *prop1, int nr1, int *prop2, int nr2, int inc);
 
 /**
  * \brief Gives the resulting irreps from tensor product of two other irreps belonging to sg.
@@ -30,7 +30,7 @@ int SU2_get_max_irrep( int *prop1, int nr1, int *prop2, int nr2, int inc );
  * \param [in] irrep1 The first irrep of the tensorproduct.
  * \param [in] irrep2 The second irrep of the tensorproduct.
  */
-void SU2_tensprod_irrep( int *min_irrep, int *nr_irreps, int *step, int irrep1, int irrep2 );
+void SU2_tensprod_irrep(int *min_irrep, int *nr_irreps, int *step, int irrep1, int irrep2);
 
 /**
  * \brief Returns the irrepstring, or INVALID if invalid.
@@ -38,7 +38,7 @@ void SU2_tensprod_irrep( int *min_irrep, int *nr_irreps, int *step, int irrep1, 
  * \param[out] buffer The string.
  * \param[in] irr The irrep.
  */
-void SU2_get_irrstring( char buffer[], int irr );
+void SU2_get_irrstring(char buffer[], int irr);
 
 /**
  * \brief finds which irrep is given in the buffer.
@@ -47,9 +47,9 @@ void SU2_get_irrstring( char buffer[], int irr );
  * \param [out] irr The irrep.
  * \return 1 if successful, 0 otherwise.
  */
-int SU2_which_irrep( char buffer[], int *irr );
+int SU2_which_irrep(char buffer[], int *irr);
 
-double SU2_prefactor_mirror_coupling( int symvalues[] );
+double SU2_prefactor_mirror_coupling(int symvalues[]);
 
 double SU2_prefactor_pAppend(const int symvalues[], const int is_left);
 

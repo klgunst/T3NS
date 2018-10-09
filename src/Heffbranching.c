@@ -146,7 +146,7 @@ double * make_diagonal_T3NS(struct T3NSdata * const data)
         if (qnBtoqnB_arr[oldqnB_id] == qnB) break;
       assert(oldqnB_id != nr_qnBtoqnB);
 
-      if(oldqnB_id != nr_qnBtoqnB) {
+      if (oldqnB_id != nr_qnBtoqnB) {
         const int nrMPOcombos = data->nrMPOcombos[newqnB_id][oldqnB_id];
         const int * const MPOs = data->MPOs[newqnB_id][oldqnB_id];
         const int * MPO;

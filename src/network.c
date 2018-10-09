@@ -121,7 +121,7 @@ void readnetwork(char netwf[])
     }
   }
 
-  if(site_cnt != netw.sweeplength){
+  if (site_cnt != netw.sweeplength){
     fprintf(stderr, "Wrong number of sweep instructions in the sweep_order array at line %d!\n", 
         ln_cnt);
     exit(EXIT_FAILURE);
@@ -585,7 +585,7 @@ static void get_common_with_next(const int sites_opt[4], int common_nxt[4], cons
   for (i = 0 ; i < 4 ; ++i) {
     int j;
 
-    if(sites_opt[i] == -1)
+    if (sites_opt[i] == -1)
       break;
 
     common_nxt[i] = 0;
@@ -641,7 +641,7 @@ static void get_bonds_involved(int bonds_involved[3], const int sites_opt[4])
       continue;
 
     for (j = 0 ; j < 3 * nr_sites ; ++j) {
-      if(allbonds[i] == allbonds[j] && i != j)
+      if (allbonds[i] == allbonds[j] && i != j)
         break;
     }
     if (j == 3 * nr_sites) {
@@ -652,7 +652,7 @@ static void get_bonds_involved(int bonds_involved[3], const int sites_opt[4])
   }
   assert((cnt == 3 || (is_psite(sites_opt[0]) && is_psite(sites_opt[1]) 
         && sites_opt[2] == -1 && sites_opt[3] == -1)) && "optimisation is a branching opt or DMRG");
-  for(; cnt < 3 ; ++cnt) bonds_involved[cnt] = -1;
+  for (; cnt < 3 ; ++cnt) bonds_involved[cnt] = -1;
 
   /* sort array */
   if (bonds_involved[0] > bonds_involved[1]) 

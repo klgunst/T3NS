@@ -18,7 +18,7 @@ struct sparseblocks
                               *   This is allocated by this structure.
                               */
   EL_TYPE * tel;             /**< This stores the different elements of the sparse tensor.
-                              *   Length of this array is nkappa_begin[ nkappa_tot ].
+                              *   Length of this array is nkappa_begin[nkappa_tot].
                               *
                               *   The order of the elements in this are defined by the 
                               *   parent-structure.
@@ -32,7 +32,7 @@ struct sparseblocks
  *
  * \param [out] blocks The pointer to the null-struct.
  */
-void init_null_sparseblocks( struct sparseblocks * const blocks );
+void init_null_sparseblocks(struct sparseblocks * const blocks);
 
 /** 
  * \brief Makes a sparseblocks instance with malloc or calloc
@@ -42,8 +42,8 @@ void init_null_sparseblocks( struct sparseblocks * const blocks );
  * \param [in] nr_blocks The number of blocks.
  * \param [in] o o is 'c' if calloc, 'm' if malloc for tel.
  */
-void init_sparseblocks( struct sparseblocks * const blocks, const int * const beginblock, 
-    const int nr_blocks, char o );
+void init_sparseblocks(struct sparseblocks * const blocks, const int * const beginblock, 
+    const int nr_blocks, char o);
 
 /**
  * \brief Makes a deep copy of a sparseblock.
@@ -52,15 +52,15 @@ void init_sparseblocks( struct sparseblocks * const blocks, const int * const be
  * \param [in] tocopy The sparseblocks to copy
  * \param [in] nrblocks The number of sparse blocks.
  */
-void deep_copy_sparseblocks( struct sparseblocks * const copy, const struct sparseblocks * const 
-    tocopy, const int nrblocks );
+void deep_copy_sparseblocks(struct sparseblocks * const copy, const struct sparseblocks * const 
+    tocopy, const int nrblocks);
 
 /**
  * \brief Destroys a sparseblocks struct.
  *
  * \param [in] blocks The sparseblocks to destroy.
  */
-void destroy_sparseblocks( struct sparseblocks * const blocks );
+void destroy_sparseblocks(struct sparseblocks * const blocks);
 
 /**
  * \brief Kicks the zero-element blocks from the sparseblocks structure.
@@ -68,7 +68,7 @@ void destroy_sparseblocks( struct sparseblocks * const blocks );
  * \param [in,out] blocks The sparseblocks structure to kick zero-elements out of.
  * \param [in] nr_blocks The number of blocks in the sparseblocks object.
  */
-void kick_zero_blocks( struct sparseblocks * const blocks, const int nr_blocks );
+void kick_zero_blocks(struct sparseblocks * const blocks, const int nr_blocks);
 
 /**
  * \brief Returns the size of the given block.
@@ -79,7 +79,7 @@ void kick_zero_blocks( struct sparseblocks * const blocks, const int nr_blocks )
  * \param [in] id The block index.
  * \return The size of the block.
  */
-int get_size_block( const struct sparseblocks * const blocks, const int id );
+int get_size_block(const struct sparseblocks * const blocks, const int id);
 
 /**
  * \brief Returns the pointer of the start of the tensor elements of a given block.
@@ -88,7 +88,7 @@ int get_size_block( const struct sparseblocks * const blocks, const int id );
  * \param [in] id The block-id of which to return the tensor elements.
  * \return The pointer to the tensor elements of the asked block.
  */
-EL_TYPE * get_tel_block( const struct sparseblocks * const blocks, const int id );
+EL_TYPE * get_tel_block(const struct sparseblocks * const blocks, const int id);
 
 /**
  * \brief Prints the given block.
@@ -98,7 +98,7 @@ EL_TYPE * get_tel_block( const struct sparseblocks * const blocks, const int id 
  * \param [in] blocks The sparseblocks structure.
  * \param [in] id The block index.
  */
-void print_block( const struct sparseblocks * const blocks, const int id );
+void print_block(const struct sparseblocks * const blocks, const int id);
 
 /**
  * \brief makes a QR decomposition of the blocks running from start to finish.
@@ -113,6 +113,6 @@ void print_block( const struct sparseblocks * const blocks, const int id );
  * \param [in, out] N The size of the third dimension of the blocks. N can change if Q has 
  * zero-columns that should be kicked out.
  */
-void QR_blocks( struct sparseblocks * const blocks, const int start, const int finish, 
-    const int total, int * const N );
+void QR_blocks(struct sparseblocks * const blocks, const int start, const int finish, 
+    const int total, int * const N);
 #endif

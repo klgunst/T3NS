@@ -281,7 +281,7 @@ int QC_symsec_siteop(const int siteop, const int site)
         int i;
 
         assert(is_psite(site));
-        if(hdat.su2)
+        if (hdat.su2)
                 su2_irrep_of_siteop(irrep, siteop);
         else
                 u1_irrep_of_siteop(irrep, siteop);
@@ -1065,7 +1065,7 @@ static double su2_el_siteop(const int siteop, const int braid, const int ketid)
         /* dont forget the |ket(i)||MPO(i)| (originates from Z2) */
         switch (siteop) {
         case 0 : /* 1 : |0><0| - sqrt2 |1><1| + |2><2| */
-                if(braid == ketid)
+                if (braid == ketid)
                         return braid == 1 ? -sqrt(2) : 1;
                 return 0;
 

@@ -189,7 +189,7 @@ void rOperators_give_is_in(const struct rOperators * const rops, int is_in[])
 
 int rOperators_site_to_attach(const struct rOperators * const operator)
 {
-  if(operator->P_operator)
+  if (operator->P_operator)
     return netw.bonds[2 * operator->bond_of_operator + !operator->is_left];
   else
     return netw.bonds[2 * operator->bond_of_operator + operator->is_left];
@@ -256,7 +256,7 @@ static void print_operators(const struct rOperators * const rops, const int give
   printf("Operators :\n");
   for (op = 0 ; op < rops->nrops ; ++op)
   {
-    if(givename) {
+    if (givename) {
       get_string_of_rops(buffer, op, rops->bond_of_operator, rops->is_left, 'e');
     }
     printf("Operator %d :%s\n", op, givename ? buffer : "");

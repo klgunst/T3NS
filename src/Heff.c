@@ -109,7 +109,7 @@ void matvecDMRG(double * vec, double * result, void * vdata)
    *   The qnumberbonds array is given by :
    *    ---[bra(alpha), bra(i)   , bra(beta),  == newqn[0]
    *         ket(alpha), ket(i)   , ket(beta),  == oldqn[0]
-   *         bra(beta) , ket(beta), MPO      ]
+   *         bra(beta) , ket(beta), MPO     ]
    *
    *   The indices array is given by : 
    *    ---[bra(alpha), bra(i), bra(beta), ket(alpha), ket(i), ket(beta), MPO]
@@ -120,7 +120,7 @@ void matvecDMRG(double * vec, double * result, void * vdata)
    *   The qnumberbonds array is given by :
    *    ---[bra(beta), bra(j)    , bra(gamma),  == newqn[1]
    *         ket(beta), ket(j)    , ket(gamma),  == oldqn[1]
-   *         bra(beta), ket(beta), MPO      ]
+   *         bra(beta), ket(beta), MPO     ]
    */
 
   /* NOTE actually i could just store N and M for every block in the siteObject instead of 
@@ -295,7 +295,7 @@ void init_matvec_data(struct matvec_data * const data, const struct rOperators O
   get_symsecs_arr(data->symarr, bonds, siteObject->nrsites * 3);
   get_maxdims_of_bonds(data->maxdims, bonds, siteObject->nrsites * 3);
 
-  makeqnumbersarr_from_operator(&qnumbersarray, &Operators[0], data->maxdims[2] );
+  makeqnumbersarr_from_operator(&qnumbersarray, &Operators[0], data->maxdims[2]);
   makeoldsbmappingDMRG(qnumbersarray, siteObject, &data->nr_oldsb, &data->oldsb_ar, 
       data->maxdims[2]);
   makeMPOcombosDMRG(&data->nrMPOcombos, &data->MPOs, qnumbersarray, data->maxdims[2], hssdim);
@@ -456,7 +456,7 @@ static void makeoldsbmappingDMRG(int *** const qnumbersarray, const struct siteT
 {
   int block;
   int * interindex = safe_malloc(tens->nrblocks, int);
-  (*nr_oldsb) = safe_malloc(tens->nrblocks, int );
+  (*nr_oldsb) = safe_malloc(tens->nrblocks, int);
   (*oldsb_ar) = safe_malloc(tens->nrblocks, int*);
 
   for (block = 0 ; block < tens->nrblocks ; ++block) 
@@ -775,7 +775,7 @@ static void order_qnB_arr(QN_TYPE ** const array, const int el)
   int * idx = qnumbersSort(*array, 1, el);
   int i;
   QN_TYPE * temp = safe_malloc(el, QN_TYPE);
-  for(i = 0 ; i < el ; ++i) temp[i] = (*array)[idx[i]];
+  for (i = 0 ; i < el ; ++i) temp[i] = (*array)[idx[i]];
   safe_free(*array);
   safe_free(idx);
   *array = temp;
@@ -1019,7 +1019,7 @@ static void printMPO(const struct T3NSdata * const data)
         printf("\t");
         for (i = 0 ; i < 3 ; ++i) {
           get_sectorstring(&data->MPOsymsec, MPOinds[i], buffer);
-          printf("%12s%s", buffer, i != 2 ? " X " : "\n" );
+          printf("%12s%s", buffer, i != 2 ? " X " : "\n");
         }
       }
     }

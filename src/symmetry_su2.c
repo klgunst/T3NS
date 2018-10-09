@@ -35,7 +35,7 @@ void SU2_tensprod_irrep(int *min_irrep, int *nr_irreps, int *step,
 
 void SU2_get_irrstring(char buffer[], int irr)
 {
-        if(irr >= 0)
+        if (irr >= 0)
                 sprintf(buffer, "%d%s", irr % 2 ? irr : irr / 2, 
                         irr % 2 ? "/2" : "");
         else 
@@ -46,7 +46,7 @@ int SU2_which_irrep(char buffer[], int *irr)
 {
         *irr = atoi(buffer);
         /* no error in reading buffer */
-        if((*irr != 0) ^ (buffer[0] == '0'))
+        if ((*irr != 0) ^ (buffer[0] == '0'))
                 return *irr >= 0;
         return 0;
 }

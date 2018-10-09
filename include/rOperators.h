@@ -7,56 +7,56 @@
 #include "symsecs.h"
 
 /**
- * Sooo... every siteTensor ( so of the wave function ) has as indices:
- *     alpha, beta, gamma ( for branching ) or alpha, i, beta ( for physical )
+ * Sooo... every siteTensor (so of the wave function) has as indices:
+ *     alpha, beta, gamma (for branching) or alpha, i, beta (for physical)
  * The coupling is in the same order, so coupling array is given by:
- *     [ alpha, i, beta ] or [ alpha, beta, gamma ]
+ *     [alpha, i, beta] or [alpha, beta, gamma]
  * The is_in array is given by:
- *     [ 1, 1, 0 ]
+ *     [1, 1, 0]
  *     
  * I introduce a new notation now:
- *    with ket(alpha) I mean bond alpha of a T3NS tensor ( the ket wavefunction )
- *    with bra(alpha) I mean bond alpha of the hermitian of a T3NS tensor ( the bra wavefunction )
+ *    with ket(alpha) I mean bond alpha of a T3NS tensor (the ket wavefunction)
+ *    with bra(alpha) I mean bond alpha of the hermitian of a T3NS tensor (the bra wavefunction)
  *
  * Now for left renormalized operators without physical site added:
  *     The indices array is given by : 
- *      ---[ bra(alpha), ket(alpha), MPO ]
+ *      ---[bra(alpha), ket(alpha), MPO]
  *     The coupling array is given by :
- *      ---[ bra(alpha), MPO*, ket(alpha)* ]      ===> Should couple to the trivial irrep or singlet
+ *      ---[bra(alpha), MPO*, ket(alpha)*]      ===> Should couple to the trivial irrep or singlet
  *     The qnumberbonds array is given by :
- *      ---[ bra(alpha), ket(alpha), MPO ]
+ *      ---[bra(alpha), ket(alpha), MPO]
  *
- * Now for left renormalized operators with physical site added, ( beta is an inner bond )
+ * Now for left renormalized operators with physical site added, (beta is an inner bond)
  *     The indices array is given by : 
- *      ---[ bra(alpha), bra(i), bra(beta), ket(alpha), ket(i), ket(beta), MPO ]
+ *      ---[bra(alpha), bra(i), bra(beta), ket(alpha), ket(i), ket(beta), MPO]
  *     The coupling array is given by :
- *      ---[ bra(alpha), bra(i) , bra(beta)*,     ===> Should couple to the trivial irrep or singlet
+ *      ---[bra(alpha), bra(i) , bra(beta)*,     ===> Should couple to the trivial irrep or singlet
  *           bra(beta) , MPO*   , ket(beta)*,     ===> Should couple to the trivial irrep or singlet
- *           ket(beta) , ket(i)*, ket(alpha)* ]   ===> Should couple to the trivial irrep or singlet
+ *           ket(beta) , ket(i)*, ket(alpha)*]   ===> Should couple to the trivial irrep or singlet
  *     The qnumberbonds array is given by :
- *      ---[ bra(alpha), bra(i)   , bra(beta),
+ *      ---[bra(alpha), bra(i)   , bra(beta),
  *           ket(alpha), ket(i)   , ket(beta),
- *           bra(beta) , ket(beta), MPO       ]
+ *           bra(beta) , ket(beta), MPO      ]
  *
  * Now for right renormalized operators without physical site added:
  *     The indices array is given by : 
- *      ---[ bra(beta), ket(beta), MPO ]
+ *      ---[bra(beta), ket(beta), MPO]
  *     The coupling array is given by :
- *      ---[ bra(beta)*, MPO, ket(beta) ]        ===> Should couple to the trivial irrep or singlet
+ *      ---[bra(beta)*, MPO, ket(beta)]        ===> Should couple to the trivial irrep or singlet
  *     The qnumberbonds array is given by :
- *      ---[ bra(beta), ket(beta), MPO ]
+ *      ---[bra(beta), ket(beta), MPO]
  *
- * Now for right renormalized operators with physical site added, ( alpha is an inner bond )
+ * Now for right renormalized operators with physical site added, (alpha is an inner bond)
  *     The indices array is given by : 
- *      ---[ bra(alpha), bra(i), bra(beta), ket(alpha), ket(i), ket(beta), MPO ]
+ *      ---[bra(alpha), bra(i), bra(beta), ket(alpha), ket(i), ket(beta), MPO]
  *     The coupling array is given by :
- *      ---[ bra(alpha) , bra(i) , bra(beta)*,    ===> Should couple to the trivial irrep or singlet
+ *      ---[bra(alpha) , bra(i) , bra(beta)*,    ===> Should couple to the trivial irrep or singlet
  *           bra(alpha)*, MPO*   , ket(alpha),    ===> Should couple to the trivial irrep or singlet
- *           ket(beta)  , ket(i)*, ket(alpha)* ]  ===> Should couple to the trivial irrep or singlet
+ *           ket(beta)  , ket(i)*, ket(alpha)*]  ===> Should couple to the trivial irrep or singlet
  *     The qnumberbonds array is given by :
- *      ---[ bra(alpha), bra(i)    , bra(beta),
+ *      ---[bra(alpha), bra(i)    , bra(beta),
  *           ket(alpha), ket(i)    , ket(beta),
- *           bra(alpha), ket(alpha), MPO       ]
+ *           bra(alpha), ket(alpha), MPO      ]
  */
 
 /**
@@ -87,9 +87,9 @@ struct rOperators
                                *
                                *   For a coupling originating from a T3NS:
                                *   qnumbers-element: 
-                               *     ( for branching T3NS-tensor )
+                               *     (for branching T3NS-tensor)
                                *        alpha + dim_alpha * beta + dim_alpha * dim_beta * gamma
-                               *     ( for physical T3NS-tensor )
+                               *     (for physical T3NS-tensor)
                                *        alpha + dim_alpha * i + dim_alpha * dim_i * beta
                                *
                                *   This for both couplings originating from the T3NS and its adjoint
@@ -97,7 +97,7 @@ struct rOperators
                                *   This in contrast when we do it for a renormalized operator.
                                *   For a coupling originating from a 3-legged renormalized operator:
                                *   qnumbers-element:
-                               *   bra( bond ) + dim_bond * ket( bond ) + dim_bond * dim_bond * MPO
+                               *   bra(bond) + dim_bond * ket(bond) + dim_bond * dim_bond * MPO
                                *
                                *   The order in which the different couplings are given is defined
                                *   as:
@@ -120,14 +120,14 @@ struct rOperators
  *
  * \param [out] rops Pointer to the null-rOperators.
  */
-void init_null_rOperators( struct rOperators * const rops );
+void init_null_rOperators(struct rOperators * const rops);
 
 /**
  * \brief Destroys a rOperators struct passed and sets it to a null-rOperators.
  * 
  * \param [in,out] rops The rOperators struct to destroy.
  */
-void destroy_rOperators( struct rOperators* const rops );
+void destroy_rOperators(struct rOperators* const rops);
 
 /**
  * \brief Initiaizes a vacuum rOperators.
@@ -136,25 +136,25 @@ void destroy_rOperators( struct rOperators* const rops );
  * \param [in] bond_of_operator The bond of which rOperators belongs to. 
  * \param [in] is_left The boolean stating if the operator is a left operator.
  */
-void init_vacuum_rOperators( struct rOperators * const rops, const int bond_of_operator, const int
-    is_left );
+void init_vacuum_rOperators(struct rOperators * const rops, const int bond_of_operator, const int
+    is_left);
 
 /**
  * \brief Initializes a rOperators structure.
  *
- * \param [ out ] rops Pointer to the initialized structure.
- * \param [ out ] tmp_beginblock 2D array where tmp_beginblock[ hss ][ i ] gives the start of the
+ * \param [out] rops Pointer to the initialized structure.
+ * \param [out] tmp_beginblock 2D array where tmp_beginblock[hss][i] gives the start of the
  * i'th block for an operator with MPO-symsec == hss.
  * \param [in] bond_of_operator The bond of which rOperators belongs to. 
  * \param [in] is_left The boolean stating if the operator is a left operator.
  * \param [in] P_operator The boolean stating if the operator is a physical one or not.
  */
-void init_rOperators( struct rOperators * const rops, int ***tmp_nkappa_begin, 
-    const int bond_of_operator, const int is_left, const int P_operator );
+void init_rOperators(struct rOperators * const rops, int ***tmp_nkappa_begin, 
+    const int bond_of_operator, const int is_left, const int P_operator);
 
-void sum_unique_rOperators( struct rOperators * const newrops, const struct rOperators * const 
+void sum_unique_rOperators(struct rOperators * const newrops, const struct rOperators * const 
     uniquerops, const int * const instructions, const int * const hamsymsec_new, const double * 
-    const prefactors, const int nr_instructions );
+    const prefactors, const int nr_instructions);
 
 /* ====================================== MISC ================================================= */
 /**
@@ -162,7 +162,7 @@ void sum_unique_rOperators( struct rOperators * const newrops, const struct rOpe
  *
  * \param [in] rops The rOperators to print.
  */
-void print_rOperators( const struct rOperators * const rops, const int givename);
+void print_rOperators(const struct rOperators * const rops, const int givename);
 
 /* HELPERS */
 /**
@@ -171,7 +171,7 @@ void print_rOperators( const struct rOperators * const rops, const int givename)
  * \param [in] rops The rOperators structure.
  * \return The number of couplings.
  */
-int rOperators_give_nr_of_couplings( const struct rOperators * const rops );
+int rOperators_give_nr_of_couplings(const struct rOperators * const rops);
 
 /**
  * \brief Gives the number of indices in the rOperators.
@@ -180,7 +180,7 @@ int rOperators_give_nr_of_couplings( const struct rOperators * const rops );
  * \param [in] rops The rOperators structure.
  * \return The number of indices.
  */
-int rOperators_give_nr_of_indices( const struct rOperators * const rops );
+int rOperators_give_nr_of_indices(const struct rOperators * const rops);
 
 /**
  * \brief Gives the number of blocks that the give renormalized operators can have for the given 
@@ -190,7 +190,7 @@ int rOperators_give_nr_of_indices( const struct rOperators * const rops );
  * \param [in] hss The hamiltonian symmetry sector.
  * \return The number of blocks or 0 if invalid hss.
  */
-int rOperators_give_nr_blocks_for_hss( const struct rOperators * const rops, const int hss );
+int rOperators_give_nr_blocks_for_hss(const struct rOperators * const rops, const int hss);
 
 /**
  * \brief Gives the number of blocks that a certain operator in rOperators has.
@@ -199,7 +199,7 @@ int rOperators_give_nr_blocks_for_hss( const struct rOperators * const rops, con
  * \param [in] hss The operator index.
  * \return The number of blocks or 0 if invalid hss.
  */
-int rOperators_give_nr_blocks_for_operator( const struct rOperators * const rops, const int op );
+int rOperators_give_nr_blocks_for_operator(const struct rOperators * const rops, const int op);
 
 /**
  * \brief Gives pointer to the qnumbers array for an operator belonging to a certain rOperators 
@@ -209,7 +209,7 @@ int rOperators_give_nr_blocks_for_operator( const struct rOperators * const rops
  * \param [in] hss The hamiltonian symmetry sector.
  * \return The pointer to the qnumbers array or a null pointer if hss is invalid.
  */
-QN_TYPE * rOperators_give_qnumbers_for_hss( const struct rOperators * const rops, const int hss );
+QN_TYPE * rOperators_give_qnumbers_for_hss(const struct rOperators * const rops, const int hss);
 
 /**
  * \brief Gives the indices in the rOperators.
@@ -218,7 +218,7 @@ QN_TYPE * rOperators_give_qnumbers_for_hss( const struct rOperators * const rops
  * \param [in] rops The rOperators structure.
  * \param [out] indices The indices are stored here.
  */
-void rOperators_give_indices( const struct rOperators * const rops, int indices[] );
+void rOperators_give_indices(const struct rOperators * const rops, int indices[]);
 
 /**
  * \brief Gives the qnumberbonds in the rOperators.
@@ -231,7 +231,7 @@ void rOperators_give_indices( const struct rOperators * const rops, int indices[
  * \param [in] rops The rOperators structure.
  * \param [out] qnumberbonds The qnumberbonds are stored here.
  */
-void rOperators_give_qnumberbonds( const struct rOperators * const rops, int qnumberbonds[] );
+void rOperators_give_qnumberbonds(const struct rOperators * const rops, int qnumberbonds[]);
 
 /**
  * \brief Gives the couplings in the rOperators.
@@ -240,7 +240,7 @@ void rOperators_give_qnumberbonds( const struct rOperators * const rops, int qnu
  * \param [in] rops The rOperators structure.
  * \param [out] couplings The couplings are stored here.
  */
-void rOperators_give_couplings( const struct rOperators * const rops, int couplings[] );
+void rOperators_give_couplings(const struct rOperators * const rops, int couplings[]);
 
 /**
  * \brief Gives the is_in of the rOperators.
@@ -250,7 +250,7 @@ void rOperators_give_couplings( const struct rOperators * const rops, int coupli
  * \param [in] rops The rOperators structure.
  * \param [out] is_in The is_in is stored here.
  */
-void rOperators_give_is_in( const struct rOperators * const rops, int is_in[] );
+void rOperators_give_is_in(const struct rOperators * const rops, int is_in[]);
 
 int rOperators_site_to_attach(const struct rOperators * const operator);
 
@@ -262,18 +262,18 @@ int rOperators_site_to_attach(const struct rOperators * const operator);
  * \param [out] newrops The resulting rOperators.
  * \param [in] oldrops The original rOperators.
  */
-void append_physical_to_rOperators( struct rOperators * const newrops, const struct rOperators * 
-    const oldrops );
+void append_physical_to_rOperators(struct rOperators * const newrops, const struct rOperators * 
+    const oldrops);
 
 /**
  * \brief Updates a physical rOperators to a non-physical rOperators by contracting with a 
  * siteTensor.
  *
- * \param [ in,out ] rops The original rOperators is inputted, the new rOperators is stored here.
- * \param [ in ] tens The siteTensor to use for the update.
+ * \param [in,out] rops The original rOperators is inputted, the new rOperators is stored here.
+ * \param [in] tens The siteTensor to use for the update.
  */
-void update_rOperators_physical( struct rOperators * const rops, const struct siteTensor * 
-    const tens, const struct symsecs * const internalss );
+void update_rOperators_physical(struct rOperators * const rops, const struct siteTensor * 
+    const tens, const struct symsecs * const internalss);
 
 /**
  * \brief Updates two rOperators to a new rOperator through the use of a branching tensor.

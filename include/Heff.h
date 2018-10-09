@@ -13,14 +13,14 @@
  */
 struct matvec_data {
   struct siteTensor siteObject;
-  struct rOperators Operators[ 3 ];
-  struct symsecs symarr[ 6 ];
-  int maxdims[ 6 ];
+  struct rOperators Operators[3];
+  struct symsecs symarr[6];
+  int maxdims[6];
   int * nr_oldsb;
   int ** oldsb_ar;
   int ** nrMPOcombos;   /* for a tree merge these MPOcombos should not be specified for 
-                           [ bra(int), ket(int) ] 
-                           but for every [ qnumberbra( branching tensor ), qnumberket( branching ) ]
+                           [bra(int), ket(int)] 
+                           but for every [qnumberbra(branching tensor), qnumberket(branching)]
                            intstead. */
   int *** MPOs;
   int * instructions;
@@ -48,19 +48,19 @@ struct T3NSdata {
   double * prefactors;
 };
 
-void init_matvec_data( struct matvec_data * const data, const struct rOperators Operators[], 
-    const struct siteTensor * const siteObject );
+void init_matvec_data(struct matvec_data * const data, const struct rOperators Operators[], 
+    const struct siteTensor * const siteObject);
 
 void init_T3NSdata(struct T3NSdata * const data, const struct rOperators Operators[3], const struct 
     siteTensor * const siteObject);
 
-void destroy_matvec_data( struct matvec_data * const data );
+void destroy_matvec_data(struct matvec_data * const data);
 
-void matvecT3NS( double * vec, double * result, void * vdata );
+void matvecT3NS(double * vec, double * result, void * vdata);
 
-void matvecDMRG( double * vec, double * result, void * vdata );
+void matvecDMRG(double * vec, double * result, void * vdata);
 
-double * make_diagonal( void * const data, const int isdmrg );
+double * make_diagonal(void * const data, const int isdmrg);
 
 double * make_diagonal_T3NS(struct T3NSdata * const data);
 

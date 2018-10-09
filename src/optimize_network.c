@@ -202,21 +202,21 @@ static double execute_regime(struct siteTensor * const T3NS, struct rOperators *
     d_elapsed = t_elapsed * 1e-6;
 
     ++sweepnrs;
-    printf("============================================================================\n"  );
-    printf("END OF SWEEP %d IN REGIME %d.\n", sweepnrs, regnumber                            );
-    printf("TIME NEEDED : %lf sec\n", d_elapsed                                              );
-    printf("MINIMUM ENERGY ENCOUNTERED DURING THIS SWEEP: %.16lf\n", sweep_energy            );
+    printf("============================================================================\n" );
+    printf("END OF SWEEP %d IN REGIME %d.\n", sweepnrs, regnumber                           );
+    printf("TIME NEEDED : %lf sec\n", d_elapsed                                             );
+    printf("MINIMUM ENERGY ENCOUNTERED DURING THIS SWEEP: %.16lf\n", sweep_energy           );
     printf("============================================================================\n\n");
 
     flag = fabs(energy - sweep_energy) > reg->energy_conv;
     if (sweep_energy < energy) energy = sweep_energy;
   }
 
-  printf("============================================================================\n"  );
-  printf("END OF REGIME %d AFTER %d/%d SWEEPS.\n", regnumber, sweepnrs, reg->max_sweeps    );
+  printf("============================================================================\n" );
+  printf("END OF REGIME %d AFTER %d/%d SWEEPS.\n", regnumber, sweepnrs, reg->max_sweeps   );
   if (flag)
-    printf("THE ENERGY DID NOT CONVERGE UP TO ASKED TOLERANCE OF %e\n", reg->energy_conv   );
-  printf("MINIMUM ENERGY ENCOUNTERED : %.16lf\n", energy                                   );
+    printf("THE ENERGY DID NOT CONVERGE UP TO ASKED TOLERANCE OF %e\n", reg->energy_conv  );
+  printf("MINIMUM ENERGY ENCOUNTERED : %.16lf\n", energy                                  );
   printf("============================================================================\n\n");
   return energy;
 }

@@ -41,7 +41,7 @@ void PG_tensprod_irrep(int *min_irrep, int *nr_irreps, int *step,
 
 void PG_get_irrstring(char buffer[], int pg, int irr)
 {
-        if(irr >= 0 && irr < nr_irreps_pg[pg])
+        if (irr >= 0 && irr < nr_irreps_pg[pg])
                 sprintf(buffer, irrepnames[pg][irr]);
         else
                 sprintf(buffer, "INVALID");

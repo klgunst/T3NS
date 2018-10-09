@@ -36,7 +36,7 @@ static void H_fetch_T3NS_su2(struct instructionset * const instructions, const i
 void NN_H_fetch_DMRG_make_ops(int ** const instructions, double ** const prefactors, 
     int ** const hamsymsecs_of_new, int * const nr_instructions, const int bond, const int is_left)
 {
-  if(NN_H_has_su2())
+  if (NN_H_has_su2())
     H_fetch_DMRG_su2(instructions, prefactors, hamsymsecs_of_new, nr_instructions, bond, is_left);
   else
     H_fetch_DMRG(instructions, prefactors, hamsymsecs_of_new, nr_instructions, bond, is_left);
@@ -45,7 +45,7 @@ void NN_H_fetch_DMRG_make_ops(int ** const instructions, double ** const prefact
 void NN_H_fetch_merge(int ** const instructions, int * const nr_instructions, 
     double ** const prefactors, const int bond)
 {
-  if(NN_H_has_su2())
+  if (NN_H_has_su2())
     H_fetch_merge_su2(instructions, nr_instructions, prefactors, bond);
   else
     H_fetch_merge(instructions, nr_instructions, prefactors, bond);
@@ -58,7 +58,7 @@ void NN_H_fetch_T3NS_update(struct instructionset * const instructions, const in
   get_bonds_of_site(netw.bonds[2 * bond + !is_left], bondz);
   const int updateCase = !is_left ? bondz[1] == bond : 2;
 
-  if(NN_H_has_su2())
+  if (NN_H_has_su2())
     H_fetch_T3NS_su2(instructions, updateCase);
   else
     H_fetch_T3NS(instructions, updateCase);

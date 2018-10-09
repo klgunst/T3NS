@@ -21,7 +21,7 @@ void destroy_hamiltonian(void);
  *
  * \param [in] interactionstring The file of which the Hamiltonian should be read.
  */
-void readinteraction( char interactionstring[]);
+void readinteraction(char interactionstring[]);
 
 /**
  * \brief Gets the the symsecs struct of the physical bonds given a certain model.

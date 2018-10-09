@@ -6,7 +6,7 @@
  *
  * \param [in] inputfile The inputfile.
  */
-void read_inputfile( char inputfile[] );
+void read_inputfile(char inputfile[]);
 
 /**
  * \buffer Searches for an option in the inputfile and stores the set option in the buffer.
@@ -17,5 +17,5 @@ void read_inputfile( char inputfile[] );
  * \param [out] buffer The buffer to write to.
  * \return The number of items set in buffer and -1 if option is not found.
  */
-int read_option( char option[], char inputfile[], char buffer[] );
+int read_option(char option[], char inputfile[], char buffer[]);
 #endif
