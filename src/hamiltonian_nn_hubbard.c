@@ -82,10 +82,10 @@ void NN_H_get_physsymsecs(struct symsecs *res)
         res->irreps = safe_malloc(res->nrSecs * bookie.nrSyms, int);
         res->dims = safe_malloc(res->nrSecs, int);
         res->fcidims = safe_malloc(res->nrSecs, double);
-        for (i = 0 ; i < res->nrSecs ; ++i) {
+        for (i = 0; i < res->nrSecs; ++i) {
                 res->dims   [i] = 1;
                 res->fcidims[i] = 1;
-                for (j = 0 ; j < 3 ; ++j)
+                for (j = 0; j < 3; ++j)
                         res->irreps[i * bookie.nrSyms + j] = irreparr[i][j];
 
                 /* Z2 should come first */
@@ -112,7 +112,7 @@ int NN_H_get_trivialhamsymsec(void)
         const int size = NN_H_get_nr_hamsymsec();
         int i;
 
-        for (i = 0 ; i < size ; ++i)
+        for (i = 0; i < size; ++i)
                 if (irreps[i * 2 + 0] == 0 && irreps[i * 2 + 1] == 0)
                         return i;
         return -1;
@@ -132,7 +132,7 @@ int NN_H_hermitian_symsec(const int orig_symsec)
 
         int i;
 
-        for (i = 0 ; i < size ; ++i)
+        for (i = 0; i < size; ++i)
                 if (irreps[i * 2 + 0] == herm_irr[0] && 
                     irreps[i * 2 + 1] == herm_irr[1])
                         return i;
@@ -187,7 +187,7 @@ int NN_H_symsec_siteop(const int siteop)
         else 
                 get_irr_hss(irreps_of_hss, siteop);
 
-        for (i = 0 ; i < size ; ++i)
+        for (i = 0; i < size; ++i)
                 if (irreps[i * 2 + 0] == irreps_of_hss[0] && 
                     irreps[i * 2 + 1] == irreps_of_hss[1])
                         return i;
@@ -205,8 +205,8 @@ void NN_H_tprods_ham(int * const nr_of_prods, int ** const possible_prods,
         int i,j;
         int cnt = 0;
 
-        for (i = 0 ; i < size ; ++i)
-                for (j = 0 ; j < size ; ++j)
+        for (i = 0; i < size; ++i)
+                for (j = 0; j < size; ++j)
                         if (valid_tprod(i, j, resulting_hamsymsec))
                                 ++cnt;
 
@@ -214,8 +214,8 @@ void NN_H_tprods_ham(int * const nr_of_prods, int ** const possible_prods,
         *possible_prods = safe_malloc(*nr_of_prods * 2, int);
 
         cnt = 0;
-        for (i = 0 ; i < size ; ++i)
-                for (j = 0 ; j < size ; ++j)
+        for (i = 0; i < size; ++i)
+                for (j = 0; j < size; ++j)
                         if (valid_tprod(i, j, resulting_hamsymsec)) {
                                 (*possible_prods)[cnt++] = i;
                                 (*possible_prods)[cnt++] = j;
@@ -284,7 +284,7 @@ static void prepare_MPOsymsecs(void)
 
         if (hdat.su2) {
                 int i;
-                for (i = 0 ; i < size ; ++i) {
+                for (i = 0; i < size; ++i) {
                         /* Z2 */
                         *(curr_irrep++) = abs(irreps[i * 2]) % 2;
                         /* U1 */
@@ -297,7 +297,7 @@ static void prepare_MPOsymsecs(void)
                 }
         } else {
                 int i;
-                for (i = 0 ; i < size ; ++i) {
+                for (i = 0; i < size; ++i) {
                         /* Z2 */
                         *(curr_irrep++) = abs(irreps[i * 2] + 
                                               irreps[i * 2 + 1]) % 2;

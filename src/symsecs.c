@@ -20,13 +20,13 @@ void print_symsecs(struct symsecs *currsymsec, int fci)
 {
   char buffer[255];
   int i;
-  for (i = 0 ; i < currsymsec->nrSecs ; i++)
+  for (i = 0; i < currsymsec->nrSecs; i++)
   {
     int j;
     int *irrep = currsymsec->irreps + i * bookie.nrSyms;
 
     printf("(");
-    for (j = 0 ; j < bookie.nrSyms ; j++)
+    for (j = 0; j < bookie.nrSyms; j++)
     {
       get_irrstring(buffer, bookie.sgs[j], irrep[j]);
       printf("%s%s", buffer, j == bookie.nrSyms - 1 ? ": " : ",");
@@ -84,7 +84,7 @@ void get_symsecs(struct symsecs *res, int bond)
 void get_symsecs_arr(struct symsecs symarr[], int bonds[], int nmbr)
 {
   int i;
-  for (i = 0 ; i < nmbr ; i++)
+  for (i = 0; i < nmbr; i++)
     get_symsecs(&symarr[i], bonds[i]);
 }
 
@@ -110,7 +110,7 @@ void clean_symsecs(struct symsecs *symarr, int bond)
 void clean_symsecs_arr(struct symsecs symarr[], int bonds[], int nmbr)
 {
   int i;
-  for (i = 0 ; i < nmbr ; i++)
+  for (i = 0; i < nmbr; i++)
     clean_symsecs(&symarr[i], bonds[i]);
 }
 
@@ -121,10 +121,10 @@ int search_symmsec(int* symmsec, const struct symsecs *sectors)
    */
   int i;
 
-  for (i = 0 ; i < sectors->nrSecs ; i++)
+  for (i = 0; i < sectors->nrSecs; i++)
   {
     int j;
-    for (j = 0 ; j < bookie.nrSyms ; j++)
+    for (j = 0; j < bookie.nrSyms; j++)
       if (symmsec[j] != sectors->irreps[i * bookie.nrSyms + j])
         break;
 
@@ -141,7 +141,7 @@ void get_sectorstring(const struct symsecs* const symsec, int id, char buffer[])
   char tempbuffer[20];
   int *irrep = &symsec->irreps[id * bookie.nrSyms];
   buffer[0] = '\0';
-  for (i = 0 ; i < bookie.nrSyms ; ++i) {
+  for (i = 0; i < bookie.nrSyms; ++i) {
     get_irrstring(tempbuffer, bookie.sgs[i], irrep[i]);
     strcat(buffer, tempbuffer);
     strcat(buffer, ",");
@@ -155,7 +155,7 @@ void get_maxdims_of_bonds(int maxdims[], int bonds[], const int nr)
   int i;
 
   get_symsecs_arr(symarr, bonds, nr);
-  for (i = 0 ; i < nr ; ++i)
+  for (i = 0; i < nr; ++i)
     maxdims[i] = symarr[i].nrSecs;
   clean_symsecs_arr(symarr, bonds, nr);
 }
@@ -166,7 +166,7 @@ int is_set_to_internal_symsec(const int bond)
   int i;
   get_symsecs(&symsec, get_ketT3NSbond(bond));
 
-  for (i = 0 ; i < symsec.nrSecs ; ++i)
+  for (i = 0; i < symsec.nrSecs; ++i)
     if (symsec.dims[i] != 1)
     {
       clean_symsecs(&symsec, get_ketT3NSbond(bond));
@@ -182,13 +182,13 @@ void kick_empty_symsecs(struct symsecs *sectors, char o)
 
   int cnt = 0;
   if (o == 'n') sectors->totaldims = 0;
-  for (i = 0 ; i < sectors->nrSecs ; i++)
+  for (i = 0; i < sectors->nrSecs; i++)
   {
     int j;
     if (sectors->fcidims[i] < 0.5)
       continue;
 
-    for (j = 0 ; j < bookie.nrSyms ; j++)
+    for (j = 0; j < bookie.nrSyms; j++)
     {
       sectors->irreps[cnt * bookie.nrSyms + j] = 
         sectors->irreps[i * bookie.nrSyms + j];
@@ -226,29 +226,29 @@ void deep_copy_symsecs(struct symsecs * const copy, const struct symsecs * const
   copy->fcidims   = safe_malloc(copy->nrSecs, double);
   copy->dims      = safe_malloc(copy->nrSecs, int);
   copy->totaldims = tocopy->totaldims;
-  for (i = 0 ; i < tocopy->nrSecs * bookie.nrSyms ; ++i) 
+  for (i = 0; i < tocopy->nrSecs * bookie.nrSyms; ++i) 
     copy->irreps[i] = tocopy->irreps[i];
-  for (i = 0 ; i < tocopy->nrSecs ; ++i) copy->fcidims[i] = tocopy->fcidims[i];
-  for (i = 0 ; i < tocopy->nrSecs ; ++i) copy->dims[i] = tocopy->dims[i];
+  for (i = 0; i < tocopy->nrSecs; ++i) copy->fcidims[i] = tocopy->fcidims[i];
+  for (i = 0; i < tocopy->nrSecs; ++i) copy->dims[i] = tocopy->dims[i];
 }
 
 void deep_copy_symsecs_from_bookie(struct symsecs symarr[], const int bonds[], const int nrel)
 {
   int i;
-  for (i = 0 ; i < nrel ; ++i)
+  for (i = 0; i < nrel; ++i)
     deep_copy_symsecs(&symarr[i], &bookie.list_of_symsecs[bonds[i]]);
 }
 
 void free_symsecs_from_bookie(const int bonds[], const int nrel)
 {
   int i;
-  for (i = 0 ; i < nrel ; ++i) destroy_symsecs(&bookie.list_of_symsecs[bonds[i]]);
+  for (i = 0; i < nrel; ++i) destroy_symsecs(&bookie.list_of_symsecs[bonds[i]]);
 }
 
 void deep_copy_symsecs_to_bookie(const struct symsecs symarr[], const int bonds[], const int nrel)
 {
   int i;
-  for (i = 0 ; i < nrel ; ++i)
+  for (i = 0; i < nrel; ++i)
     deep_copy_symsecs(&bookie.list_of_symsecs[bonds[i]], &symarr[i]);
 }
 

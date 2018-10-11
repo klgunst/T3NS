@@ -26,7 +26,7 @@ void init_sparseblocks(struct sparseblocks * const blocks, const int * const beg
 {
   int j;
   blocks->beginblock = safe_malloc(nr_blocks + 1, int);
-  for (j = 0 ; j < nr_blocks + 1 ; ++j)
+  for (j = 0; j < nr_blocks + 1; ++j)
     blocks->beginblock[j] = beginblock[j];
   switch(o)
   {
@@ -46,8 +46,8 @@ void deep_copy_sparseblocks(struct sparseblocks * const copy, const struct spars
   int i;
   copy->beginblock = safe_malloc(nrblocks + 1, int);
   copy->tel = safe_malloc(tocopy->beginblock[nrblocks], EL_TYPE);
-  for (i = 0 ; i < nrblocks + 1 ; ++i) copy->beginblock[i] = tocopy->beginblock[i];
-  for (i = 0 ; i < tocopy->beginblock[nrblocks] ; ++i) copy->tel[i] = tocopy->tel[i];
+  for (i = 0; i < nrblocks + 1; ++i) copy->beginblock[i] = tocopy->beginblock[i];
+  for (i = 0; i < tocopy->beginblock[nrblocks]; ++i) copy->tel[i] = tocopy->tel[i];
 }
 
 void destroy_sparseblocks(struct sparseblocks * const blocks)
@@ -65,19 +65,19 @@ void kick_zero_blocks(struct sparseblocks * const blocks, const int nr_blocks)
   const int prevsize = blocks->beginblock[nr_blocks];
 #endif
 
-  for (i = 0 ; i < nr_blocks ; ++i)
+  for (i = 0; i < nr_blocks; ++i)
   {
     int flag = 0;
     int N;
     /* Loop over the elements of the symsec and break if one is not equal to 0 */
-    for (j = start ; j < blocks->beginblock[i + 1]; ++j)
+    for (j = start; j < blocks->beginblock[i + 1]; ++j)
       if ((flag = !COMPARE_ELEMENT_TO_ZERO(blocks->tel[j])))
         break;
 
     /* length of new symsec (is zero if it is a zero-symsec) */
     N = flag * (blocks->beginblock[i + 1] - start);
 
-    for (j = 0 ; j < N ; ++j)
+    for (j = 0; j < N; ++j)
       blocks->tel[j + blocks->beginblock[i]] = blocks->tel[j + start];
     start = blocks->beginblock[i + 1];
     blocks->beginblock[i + 1] = blocks->beginblock[i] + N;
@@ -111,7 +111,7 @@ void print_block(const struct sparseblocks * const blocks, const int id)
   const int N = get_size_block(blocks, id);
   EL_TYPE * const tel = get_tel_block(blocks, id);
   printf("%d: ", N);
-  for (el = 0 ; el < N ; ++el)
+  for (el = 0; el < N; ++el)
     printf("%.6f%s", tel[el], el == N - 1 ? "" : ", ");
   printf("\n");
 }
@@ -149,7 +149,7 @@ void QR_blocks(struct sparseblocks * const blocks, const int start, const int fi
     int tss = 0;
     int block;
     mem = safe_malloc(dim, EL_TYPE);
-    for (block = start ; block < finish ; ++block)
+    for (block = start; block < finish; ++block)
     {
       int m                  = get_size_block(blocks, block);
       EL_TYPE * const teltss = get_tel_block(blocks, block);
@@ -158,8 +158,8 @@ void QR_blocks(struct sparseblocks * const blocks, const int start, const int fi
       assert(m % *N == 0);
       m /= *N;
 
-      for (j = 0 ; j < *N ; ++j)
-        for (i = 0 ; i < m ; ++i)
+      for (j = 0; j < *N; ++j)
+        for (i = 0; i < m; ++i)
           mem[M * j + i + tss] = teltss[j * m + i];
       tss += m;
     }
@@ -211,7 +211,7 @@ void QR_blocks(struct sparseblocks * const blocks, const int start, const int fi
   { /* copy to tensor */
     int tss = 0;
     int block;
-    for (block = start ; block < finish ; ++block)
+    for (block = start; block < finish; ++block)
     {
       int m                  = get_size_block(blocks, block);
       EL_TYPE * const teltss = get_tel_block(blocks, block);
@@ -220,8 +220,8 @@ void QR_blocks(struct sparseblocks * const blocks, const int start, const int fi
       assert(m % *N == 0);
       m /= *N;
 
-      for (j = 0 ; j < *N ; ++j)
-        for (i = 0 ; i < m ; ++i)
+      for (j = 0; j < *N; ++j)
+        for (i = 0; i < m; ++i)
           teltss[j * m + i] = mem[M * j + i + tss];
       tss += m;
     }
@@ -251,7 +251,7 @@ static void change_virt_dim(struct sparseblocks * const blocks, const int start,
 
   *N = Nnew;
 
-  for (block = start ; block < finish ; ++block)
+  for (block = start; block < finish; ++block)
   {
     int d  = blocks->beginblock[block + 1] - startnext;
     int d1 = d / Nold;
@@ -263,7 +263,7 @@ static void change_virt_dim(struct sparseblocks * const blocks, const int start,
   }
   assert(blocks->beginblock[finish] - blocks->beginblock[start] == Nnew * Nnew);
 
-  for (; block < total ; ++block)
+  for (; block < total; ++block)
   {
     int d  = blocks->beginblock[block + 1] - startnext;
     startnext = blocks->beginblock[block + 1];

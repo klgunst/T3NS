@@ -84,10 +84,10 @@ void matvecT3NS(double * vec, double * result, void * vdata)
   int i;
   int newqnB_id;
 
-  for (i = 0 ; i < siteTensor_get_size(&data->siteObject) ; ++i) result[i] = 0;
+  for (i = 0; i < siteTensor_get_size(&data->siteObject); ++i) result[i] = 0;
 
 #pragma omp parallel for schedule(dynamic) default(none) shared(vec, result) private(newqnB_id)
-  for (newqnB_id = 0 ; newqnB_id < data->nr_qnB ; ++newqnB_id) {
+  for (newqnB_id = 0; newqnB_id < data->nr_qnB; ++newqnB_id) {
     struct indexdata idd;
 
     int new_sb = -1;
@@ -100,7 +100,7 @@ void matvecT3NS(double * vec, double * result, void * vdata)
       int oldqnB_id;
       fill_indexes(new_sb, data, &idd, NEW, result);
         
-      for (oldqnB_id = 0 ; oldqnB_id < nr_qnBtoqnB ; ++oldqnB_id) {
+      for (oldqnB_id = 0; oldqnB_id < nr_qnBtoqnB; ++oldqnB_id) {
         int old_sb = -1;
         const QN_TYPE oldqnB = qnBtoqnB_arr[oldqnB_id];
         const int nrMPOcombos = data->nrMPOcombos[newqnB_id][oldqnB_id];
@@ -111,7 +111,7 @@ void matvecT3NS(double * vec, double * result, void * vdata)
           struct contractinfo cinfo[3];
           fill_indexes(old_sb, data, &idd, OLD, vec);
           make_cinfo(&idd, cinfo);
-          for (MPO = MPOs ; MPO < &MPOs[nrMPOcombos] ; ++MPO)
+          for (MPO = MPOs; MPO < &MPOs[nrMPOcombos]; ++MPO)
             transform_old_to_new_sb(*MPO, data, &idd, cinfo);
 
           safe_free(idd.tel[WORK1]);
@@ -128,7 +128,7 @@ double * make_diagonal_T3NS(struct T3NSdata * const data)
   double * result = safe_calloc(tens.blocks.beginblock[tens.nrblocks], double);
   int newqnB_id;
 
-  for (newqnB_id = 0 ; newqnB_id < data->nr_qnB ; ++newqnB_id) {
+  for (newqnB_id = 0; newqnB_id < data->nr_qnB; ++newqnB_id) {
     struct indexdata idd;
 
     int sb = -1;
@@ -142,7 +142,7 @@ double * make_diagonal_T3NS(struct T3NSdata * const data)
       fill_indexes(sb, data, &idd, NEW, result);
       fill_indexes(sb, data, &idd, OLD, result);
 
-      for (oldqnB_id = 0 ; oldqnB_id < nr_qnBtoqnB ; ++oldqnB_id)
+      for (oldqnB_id = 0; oldqnB_id < nr_qnBtoqnB; ++oldqnB_id)
         if (qnBtoqnB_arr[oldqnB_id] == qnB) break;
       assert(oldqnB_id != nr_qnBtoqnB);
 
@@ -158,7 +158,7 @@ double * make_diagonal_T3NS(struct T3NSdata * const data)
         idd.tel[WORK1] = safe_malloc(idd.dim[OLD][0] * idd.dim[OLD][1], double);
         idd.tel[WORK2] = NULL;
 
-        for (MPO = MPOs ; MPO < &MPOs[nrMPOcombos] ; ++MPO) {
+        for (MPO = MPOs; MPO < &MPOs[nrMPOcombos]; ++MPO) {
           int * instr    = &data->instructions[3 * data->instrbegin[*MPO]];
           int * endinstr = &data->instructions[3 * data->instrbegin[*MPO + 1]];
           double * pref  = &data->prefactors[data->instrbegin[*MPO]];
@@ -170,15 +170,15 @@ double * make_diagonal_T3NS(struct T3NSdata * const data)
           find_operator_sb(&idd, data);
           prefsym = calc_prefactor(&idd, data);
 
-          for (; instr < endinstr ; instr += 3, ++pref) {
+          for (; instr < endinstr; instr += 3, ++pref) {
             const double totpref = *pref * prefsym;
             if (find_operator_tel(&idd, data->Operators, instr)) {
               int m, n, k;
-              for (m = 0 ; m < idd.dim[OLD][idd.map[0]] ; ++m) {
+              for (m = 0; m < idd.dim[OLD][idd.map[0]]; ++m) {
                 const double elM = totpref * idd.tel[OPS1 + idd.map[0]][m * dimp1[idd.map[0]]];
-                for (n = 0 ; n < idd.dim[OLD][idd.map[1]] ; ++n) {
+                for (n = 0; n < idd.dim[OLD][idd.map[1]]; ++n) {
                   const double elMN = elM * idd.tel[OPS1 + idd.map[1]][n * dimp1[idd.map[1]]];
-                  for (k = 0 ; k < idd.dim[OLD][idd.map[2]] ; ++k) {
+                  for (k = 0; k < idd.dim[OLD][idd.map[2]]; ++k) {
                     idd.tel[NEW][m + n * idd.dim[OLD][idd.map[0]] + k * 
                       idd.dim[OLD][idd.map[0]] * idd.dim[OLD][idd.map[1]]] += 
                       elMN * idd.tel[OPS1 + idd.map[2]][k * dimp1[idd.map[2]]];
@@ -204,7 +204,7 @@ static void make_map(struct indexdata * const idd, const struct T3NSdata * const
   int i;
   int cnt = 0;
   /* only for twosite! */
-  for (i = 0 ; i < 3 ; ++i) cnt += data->rOperators_on_site[i] == data->posB;
+  for (i = 0; i < 3; ++i) cnt += data->rOperators_on_site[i] == data->posB;
   assert(cnt == 2);
   idd->map[0] = data->rOperators_on_site[1] != data->posB ? 1 : 0;
   idd->map[1] = data->rOperators_on_site[1] != data->posB ? 0 : 1;
@@ -214,7 +214,7 @@ static void make_map(struct indexdata * const idd, const struct T3NSdata * const
 static int search_block_with_qn(int * const sb, const QN_TYPE qn, const int pos, const struct 
     siteTensor * const tens)
 {
-  for (++*sb ; *sb < tens->nrblocks ; ++*sb)
+  for (++*sb; *sb < tens->nrblocks; ++*sb)
     if (tens->qnumbers[*sb * tens->nrsites + pos] == qn)
       return 1;
   return 0;
@@ -227,7 +227,7 @@ static void fill_indexes(const int sb, const struct T3NSdata * const data, struc
   const QN_TYPE * const qn_arr = &data->siteObject.qnumbers[nrsites * sb];
   int i;
 
-  for (i = 0 ; i < nrsites ; ++i) {
+  for (i = 0; i < nrsites; ++i) {
     QN_TYPE qn = qn_arr[i];
     idd->qn[i][tp] = qn;
     idd->id[i][tp][0] = qn % data->symarr[i][0].nrSecs;
@@ -243,7 +243,7 @@ static void fill_indexes(const int sb, const struct T3NSdata * const data, struc
     idd->irreps[i][tp][2] = &data->symarr[i][2].irreps[bookie.nrSyms * idd->id[i][tp][2]];
   }
 
-  for (i = 0 ; i < 3 ; ++i) {
+  for (i = 0; i < 3; ++i) {
     const int site = data->rOperators_on_site[i];
 
     if (site == data->posB) { /* This rOperator will be contracted with the branching tensor */
@@ -282,7 +282,7 @@ static void find_operator_sb(struct indexdata * const idd, const struct T3NSdata
   int i;
   const struct rOperators * const Operators = data->Operators;
 
-  for (i = 0 ; i < 3 ; ++i) {
+  for (i = 0; i < 3; ++i) {
     const int site = data->rOperators_on_site[i];
     const int diminner = data->symarr[data->posB][i].nrSecs;
     const QN_TYPE qninner = idd->id[data->posB][NEW][i] + idd->id[data->posB][OLD][i] * diminner + 
@@ -309,7 +309,7 @@ static int find_operator_tel(struct indexdata * const idd, const struct rOperato
 {
   int i;
   const enum tensor_type optype[3] = {OPS1, OPS2, OPS3};
-  for (i = 0 ; i < 3 ; ++i) {
+  for (i = 0; i < 3; ++i) {
     assert(Operators[i].nrops > instr[i]);
     idd->tel[optype[i]] = get_tel_block(&(Operators[i].operators[instr[i]]), idd->sb_op[i]);
 
@@ -339,7 +339,7 @@ static void transform_old_to_new_sb(const int MPO, const struct T3NSdata * const
 
   find_operator_sb(idd, data);
 
-  for (; instr < endinstr ; instr += 3, ++pref) {
+  for (; instr < endinstr; instr += 3, ++pref) {
     const double totpref = *pref * prefsym;
     if (find_operator_tel(idd, data->Operators, instr)) {
       const double ZERO = 0;
@@ -358,14 +358,14 @@ static void make_cinfo(struct indexdata * const idd, struct contractinfo cinfo[3
   int best;
   int nr_operations = 0;
 
-  for (i = 0 ; i < 6 ; ++i)
+  for (i = 0; i < 6; ++i)
   {
     int j;
     int curr_operations = 0;
     const int * const curr_co = contractorder[i];
     int workdim[3] = {idd->dim[OLD][0], idd->dim[OLD][1], idd->dim[OLD][2]};
 
-    for (j = 0 ; j < 3 ; ++j) {
+    for (j = 0; j < 3; ++j) {
       curr_operations += workdim[0] * workdim[1] * workdim[2] * idd->dim[NEW][curr_co[j]];
       workdim[curr_co[j]] = idd->dim[NEW][curr_co[j]];
     }
@@ -388,7 +388,7 @@ static void prepare_cinfo(struct indexdata * const idd, struct contractinfo cinf
   enum tensor_type resulttel = OLD;
   int i;
 
-  for (i = 0 ; i < 3 ; ++i) {
+  for (i = 0; i < 3; ++i) {
     cinfo[i].tels[0] = contractorder[i] == idd->map[0] ? optype[contractorder[i]] : resulttel;
     cinfo[i].tels[1] = contractorder[i] != idd->map[0] ? optype[contractorder[i]] : resulttel;
 
@@ -412,7 +412,7 @@ static void prepare_cinfo(struct indexdata * const idd, struct contractinfo cinf
       const enum tensor_type wmem = i == 0 ? WORK1 : WORK2;
       idd->tel[wmem] = safe_malloc(workdim[0] * workdim[1] * workdim[2], EL_TYPE);
       cinfo[i].tels[2] = wmem;
-      resulttel = cinfo[i].tels[2] ;
+      resulttel = cinfo[i].tels[2];
     } else {
       cinfo[i].tels[2] = NEW;
     }
@@ -431,7 +431,7 @@ static void do_contract(const struct contractinfo * const cinfo, EL_TYPE * const
 
   EL_TYPE * els[3] = {tel[cinfo->tels[0]], tel[cinfo->tels[1]], tel[cinfo->tels[2]]};
 
-  for (l = 0 ; l < cinfo->L ; ++l)
+  for (l = 0; l < cinfo->L; ++l)
     dgemm_(&cinfo->TRANS[0], &cinfo->TRANS[1], &cinfo->M, &cinfo->N, &cinfo->K, &ALPHA, 
         els[0] + strideA * l, &LDA, els[1], &LDB, &BETA, els[2] + strideB * l, &cinfo->M);
 }

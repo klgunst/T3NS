@@ -22,7 +22,7 @@ static int compar(const void *a, const void *b, void *base_arr)
 static int compare_el(const QN_TYPE * a, const QN_TYPE * b, const int size_el)
 {
   int i;
-  for (i = size_el - 1 ; i >= 0 ; --i)
+  for (i = size_el - 1; i >= 0; --i)
     if (a[i] != b[i])
       return a[i] - b[i];
   return 0;
@@ -44,7 +44,7 @@ int * quickSort(int *array, int n)
 {
   int i;
   int * idx = safe_malloc(n, int);
-  for (i = 0 ; i < n ; ++i) idx[i] = i;
+  for (i = 0; i < n; ++i) idx[i] = i;
 
   qsort_r(idx, n, sizeof(int), compar, array);
   return idx;
@@ -52,10 +52,10 @@ int * quickSort(int *array, int n)
 
 int * qnumbersSort(QN_TYPE * array, int nrels, int n)
 {
-  struct sort_struct sstruct = { .s_struct_array = array, .s_struct_nrels = nrels } ;
+  struct sort_struct sstruct = { .s_struct_array = array, .s_struct_nrels = nrels };
   int i;
   int * idx = safe_malloc(n, int);
-  for (i = 0 ; i < n ; ++i) idx[i] = i;
+  for (i = 0; i < n; ++i) idx[i] = i;
 
   qsort_r(idx, n, sizeof(int), comparqn, &sstruct);
   return idx;
@@ -111,7 +111,7 @@ int * inverse_permutation(int * perm, const int nrel)
 {
   int * res = safe_malloc(nrel, int);
   int i;
-  for (i = 0 ; i < nrel ; ++i) res[perm[i]] = i;
+  for (i = 0; i < nrel; ++i) res[perm[i]] = i;
   safe_free(perm);
   return res;
 }

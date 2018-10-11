@@ -31,16 +31,20 @@ static void print_merge_instructions(int * const instructions, double * const pr
 
 /* ========================================================================== */
 
-void fetch_DMRG_make_ops(int ** const instructions, double ** const prefactors, int ** const 
+void fetch_pUpdate(int ** const instructions, double ** const prefactors, int ** const 
     hamsymsecs_of_new, int * const nr_instructions, const int bond, const int is_left)
 {
+        struct instructionset instr;
   switch(ham) {
     case QC :
-      QC_fetch_DMRG_make_ops(instructions, prefactors, hamsymsecs_of_new, nr_instructions, bond, 
-          is_left);
+      QC_fetch_pUpdate(&instr, bond, is_left);
+      *instructions = instr.instr;
+      *prefactors = instr.pref;
+      *hamsymsecs_of_new = instr.hss_of_new;
+      *nr_instructions = instr.nr_instr;
       break;
     case NN_HUBBARD :
-      NN_H_fetch_DMRG_make_ops(instructions, prefactors, hamsymsecs_of_new, nr_instructions, bond, 
+      NN_H_fetch_pUpdate(instructions, prefactors, hamsymsecs_of_new, nr_instructions, bond, 
           is_left);
       break;
     default:
@@ -50,14 +54,14 @@ void fetch_DMRG_make_ops(int ** const instructions, double ** const prefactors, 
   sort_instructionsx(instructions, prefactors, *nr_instructions, 3);
 }
 
-void fetch_T3NS_update(struct instructionset * const instructions, const int bond, const int isleft)
+void fetch_bUpdate(struct instructionset * const instructions, const int bond, const int isleft)
 {
   switch(ham) {
     case QC :
-      QC_fetch_T3NS_update(instructions, bond, isleft);
+      QC_fetch_bUpdate(instructions, bond, isleft);
       break;
     case NN_HUBBARD :
-      NN_H_fetch_T3NS_update(instructions, bond, isleft);
+      NN_H_fetch_bUpdate(instructions, bond, isleft);
       break;
     default:
       fprintf(stderr, "%s@%s: Unrecognized Hamiltonian.\n", __FILE__, __func__);
@@ -69,10 +73,14 @@ void fetch_T3NS_update(struct instructionset * const instructions, const int bon
 void fetch_merge(int ** const instructions, int * const nr_instructions, double** const prefactors, 
     const int bond)
 {
+        struct instructionset instr;
   switch(ham)
   {
     case QC :
-      QC_fetch_merge(instructions, nr_instructions, prefactors, bond);
+      QC_fetch_merge(&instr, bond);
+      *instructions = instr.instr;
+      *prefactors = instr.pref;
+      *nr_instructions = instr.nr_instr;
       break;
     case NN_HUBBARD :
       NN_H_fetch_merge(instructions, nr_instructions, prefactors, bond);
@@ -94,11 +102,11 @@ void sortinstructions_toMPOcombos(int ** const instructions, int ** const instrb
   int i;
   const int hssdim = get_nr_hamsymsec();
 
-  for (i = 0 ; i < nr_instructions ; ++i)
+  for (i = 0; i < nr_instructions; ++i)
   {
     int j;
     temp[i] = 0;
-    for (j = step - 1 ; j >= 0 ; --j)
+    for (j = step - 1; j >= 0; --j)
       temp[i] = hss_of_Ops[j][(*instructions)[step * i + j]] + temp[i] * hssdim;
   }
 
@@ -112,15 +120,15 @@ void sortinstructions_toMPOcombos(int ** const instructions, int ** const instrb
   (*MPOinstr)  [(*nrMPOinstr)] = temp[idx[0]];
   ++(*nrMPOinstr);
   newpref[0] = (*prefactors)[idx[0]];
-  for (i = 0 ; i < step ; ++i)
+  for (i = 0; i < step; ++i)
     newinstructions[0 * step + i] = (*instructions)[idx[0] * step + i];
-  for (i = 1 ; i < nr_instructions ; ++i)
+  for (i = 1; i < nr_instructions; ++i)
   {
     int j;
     assert((*MPOinstr)[(*nrMPOinstr) - 1] <= temp[idx[i]]);
 
     newpref[i] = (*prefactors)[idx[i]];
-    for (j = 0 ; j < step ; ++j)
+    for (j = 0; j < step; ++j)
       newinstructions[i * step + j] = (*instructions)[idx[i] * step + j];
 
     if ((*MPOinstr)[(*nrMPOinstr) - 1] != temp[idx[i]])
@@ -163,7 +171,7 @@ int get_next_unique_instr(int * const curr_instr, const struct instructionset * 
     const int old3 = instructions->instr[instructions->step * *curr_instr + 2];
     const int hss_old = instructions->hss_of_new[old3];
 
-    for (++*curr_instr ; *curr_instr < instructions->nr_instr ; ++*curr_instr) {
+    for (++*curr_instr; *curr_instr < instructions->nr_instr; ++*curr_instr) {
       const int new1 = instructions->instr[instructions->step * *curr_instr];
       const int new2 = instructions->instr[instructions->step * *curr_instr + 1];
       const int new3 = instructions->instr[instructions->step * *curr_instr + 2];
@@ -174,33 +182,6 @@ int get_next_unique_instr(int * const curr_instr, const struct instructionset * 
     return 0;
   }
 }
-
-int    *cinstrline; // current instructionline
-double *cpref;      // current prefactor
-int     nr_instr;
-
-void start_fillin_instr(int * const instrline_init, double * const pref_init)
-{
-  cinstrline = instrline_init;
-  cpref      = pref_init;
-  nr_instr  = 0;
-}
-
-void nfillin_instr(const int instr1, const int instr2, const int * const instr3, const double pr)
-{
-  if (cinstrline != NULL)
-  {
-    cinstrline[0] = instr1;
-    cinstrline[1] = instr2;
-    if (instr3 != NULL) cinstrline[2] = *instr3;
-    cinstrline += 2 + (instr3 != NULL);
-  }
-  if (cpref != NULL) *(cpref++) = pr;
-
-  ++nr_instr;
-}
-
-int get_nrinstr(void){ return nr_instr; }
 
 void print_instructions(int * const instructions, double * const prefactors, int * const hss,
     const int nr_instructions, const int bond, const int is_left, const char kind)
@@ -236,25 +217,25 @@ static void sort_instructions(struct instructionset * const instructions)
   double *prefnew = instructions->pref == NULL ? NULL : safe_malloc(nr_instr, double);
   int i, j;
 
-  for (i = 0 ; i < step; ++i) {
+  for (i = 0; i < step; ++i) {
     max[i] = -1;
-    for (j = 0 ; j < nr_instr; ++j)
+    for (j = 0; j < nr_instr; ++j)
       max[i] = max[i] < instructions->instr[j * step + i] + 1 ? 
         instructions->instr[j * step + i] + 1 : max[i];
   }
-  for (i = step - 2 ; i >= 0 ; --i) max[i] *= max[i + 1];
-  for (i = 0 ; i < step - 1  ; ++i) max[i]  = max[i + 1];
+  for (i = step - 2; i >= 0; --i) max[i] *= max[i + 1];
+  for (i = 0; i < step - 1; ++i) max[i]  = max[i + 1];
   max[step - 1] = 1;
 
-  for (i = 0 ; i < nr_instr; ++i) {
+  for (i = 0; i < nr_instr; ++i) {
     array[i] = 0;
-    for (j = 0 ; j < step ; ++j)
+    for (j = 0; j < step; ++j)
       array[i] += max[j] * instructions->instr[i * step + j];
   }
 
   idx = quickSort(array, nr_instr);
-  for (i = 0 ; i < nr_instr; i++) {
-    for (j = 0 ; j < step ; ++j)
+  for (i = 0; i < nr_instr; i++) {
+    for (j = 0; j < step; ++j)
       instr_new[i * step + j] = instructions->instr[idx[i] * step + j];
 
     if (prefnew != NULL) prefnew[i] = instructions->pref[idx[i]];
@@ -277,26 +258,26 @@ static void sort_instructionsx(int ** instructions, double ** prefactors, const 
   double *prefnew = prefactors == NULL ? NULL : safe_malloc(nr_instructions, double);
   int i, j;
 
-  for (i = 0 ; i < step; ++i)
+  for (i = 0; i < step; ++i)
   {
     max[i] = -1;
-    for (j = 0 ; j < nr_instructions ; ++j)
+    for (j = 0; j < nr_instructions; ++j)
       max[i] = (max[i] < (*instructions)[j * step + i]+1) ? (*instructions)[j*step + i]+1 : max[i];
   }
-  for (i = step - 2 ; i >= 0 ; --i) max[i] *= max[i + 1];
-  for (i = 0 ; i < step - 1  ; ++i) max[i]  = max[i + 1];
+  for (i = step - 2; i >= 0; --i) max[i] *= max[i + 1];
+  for (i = 0; i < step - 1; ++i) max[i]  = max[i + 1];
   max[step - 1] = 1;
 
-  for (i = 0 ; i < nr_instructions ; ++i)
+  for (i = 0; i < nr_instructions; ++i)
   {
     array[i] = 0;
-    for (j = 0 ; j < step ; ++j)
+    for (j = 0; j < step; ++j)
       array[i] += max[j] * (*instructions)[i * step + j];
   }
   idx = quickSort(array, nr_instructions);
-  for (i = 0 ; i < nr_instructions ; i++)
+  for (i = 0; i < nr_instructions; i++)
   {
-    for (j = 0 ; j < step ; ++j)
+    for (j = 0; j < step; ++j)
       instr_new[i * step + j] = (*instructions)[idx[i] * step + j];
 
     if (prefnew != NULL) prefnew[i] = (*prefactors)[idx[i]];
@@ -324,7 +305,7 @@ static void print_DMRG_instructions(int * const instructions, double * const pre
   printf("================================================================================\n" 
           "Printing DMRG instructions for bond %d going %s.\n", bond, is_left ? "left" : "right");
 
-  for (i = 0 ; i < nr_instructions ; ++i)
+  for (i = 0; i < nr_instructions; ++i)
   {
     char buffer[255];
     get_string_of_rops(buffer, instructions[i * 3 + 0], bond, is_left, 'e');
@@ -375,7 +356,7 @@ static void print_T3NS_instructions(int * const instructions, double * const pre
           "Printing T3NS update  instructions for bond %d going %s.\n", bond, 
           is_left ? "left" : "right");
 
-  for (i = 0 ; i < nr_instructions ; ++i) {
+  for (i = 0; i < nr_instructions; ++i) {
     char buffer[255];
     get_string_of_rops(buffer, instructions[i * 3 + 0], bond1, left1, 'e');
     printf("%10.4g * %-16s + ", prefactors[i], buffer);
@@ -422,12 +403,12 @@ static void print_merge_instructions(int * const instructions, double * const pr
   printf("================================================================================\n" 
           "Printing merge instructions for bond %d.\n", bond);
 
-  for (i = 0 ; i < nr_instructions ; ++i)
+  for (i = 0; i < nr_instructions; ++i)
   {
     char buffer[255];
     int j;
     printf("%10.4g * ", prefactors[i]);
-    for (j = 0 ; j < step ; ++ j)
+    for (j = 0; j < step; ++ j)
     {
       get_string_of_rops(buffer, instructions[i * step + j], bonds[j], isleft[j], 'e');
       printf("%-16s%s", buffer, j == step - 1 ? "\n" : " + ");

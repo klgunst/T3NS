@@ -182,7 +182,7 @@ static void cleanup_before_exit(struct siteTensor **T3NS,
 static void destroy_T3NS(struct siteTensor **T3NS)
 {
         int i;
-        for (i = 0 ; i < netw.sites ; ++i)
+        for (i = 0; i < netw.sites; ++i)
                 destroy_siteTensor(&(*T3NS)[i]);
         safe_free(*T3NS);
 }
@@ -190,7 +190,7 @@ static void destroy_T3NS(struct siteTensor **T3NS)
 static void destroy_all_rops(struct rOperators **rops)
 {
         int i;
-        for (i = 0 ; i < netw.nr_bonds ; ++i)
+        for (i = 0; i < netw.nr_bonds; ++i)
                 destroy_rOperators(&(*rops)[i]);
         safe_free(*rops);
 }
@@ -228,14 +228,14 @@ static void initialize_example_scheme(struct optScheme * const scheme)
 static void print_all_siteTensors(struct siteTensor * T3NS)
 {
         int i;
-        for (i = 0 ; i < netw.sites ; ++i)
+        for (i = 0; i < netw.sites; ++i)
                 print_siteTensor(&T3NS[i]);
 }
 
 static void print_all_rOperators(struct rOperators * rops)
 {
         int i;
-        for (i = 0 ; i < netw.nr_bonds ; ++i)
+        for (i = 0; i < netw.nr_bonds; ++i)
                 print_rOperators(&rops[i], 1);
 }
 #endif

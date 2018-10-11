@@ -128,7 +128,7 @@ void QR(struct siteTensor * const tens, void * const R)
 
   
   /* This you can parallelize */
-  for (sym3 = 0 ; sym3 < symarr[2].nrSecs ; ++sym3)
+  for (sym3 = 0; sym3 < symarr[2].nrSecs; ++sym3)
   {
     int finish = start;
 
@@ -169,7 +169,7 @@ void decomposesiteObject(struct siteTensor * const siteObject, struct siteTensor
 
   /* loop over all the sites to split off. You can also loop over the different orders to do the 
    * SVD */
-  for (i = 0 ; i < nr_of_orders ; ++i)
+  for (i = 0; i < nr_of_orders; ++i)
   {
     int * order = orders[i];
     int * bond = bonds[i];
@@ -185,7 +185,7 @@ void decomposesiteObject(struct siteTensor * const siteObject, struct siteTensor
 
     deep_copy_siteTensor(&tensors[0], siteObject);
     printf(  "   * SVD sequence no. %d:\n", i + 1);
-    for (j = 0 ; j < nr_of_SVDs ; ++j)
+    for (j = 0; j < nr_of_SVDs; ++j)
     {
       truncerr[j] = splitOfSite(order[j], bond[j], &tensors[j], &tensors[j + 1], mind, 
           maxd, maxtrunc);
@@ -196,7 +196,7 @@ void decomposesiteObject(struct siteTensor * const siteObject, struct siteTensor
           order[j], bond[j], truncerr[j], symsec[j].totaldims);
     }
   }
-  for (i = 0 ; i < nr_of_SVDs ; ++i) destroy_symsecs(&originalsymsecs[i]);
+  for (i = 0; i < nr_of_SVDs; ++i) destroy_symsecs(&originalsymsecs[i]);
 
   selection = select_best_decompose(nr_of_orders, nr_of_SVDs, truncerrlist, symseclist, &mxtr,&mxD);
   printf("   * SVD sequence no. %d selected with\n", selection + 1);
@@ -218,7 +218,7 @@ static void get_orders(const int nr_of_orders, const int nr_of_SVDs, const int n
   int i;
 
   assert( nr_of_sites == 2 && "Only defined for two site optimizations at the moment");
-  for (i = 0 ; i < nr_of_sites ; ++i)
+  for (i = 0; i < nr_of_sites; ++i)
     if (common_nxt[i] == 0)
       break;
   order[0][0] = sitelist[i];
@@ -232,26 +232,26 @@ static int select_best_decompose(const int nr_of_orders, const int nr_of_SVDs,
     double * const minimalmxtruncerr, int * const minimalmxD)
 {
   int mxD[nr_of_orders];
-  int selection;
+  int selection = 0;
   int i;
 
-  for (i = 0 ; i < nr_of_orders ; ++i)
+  for (i = 0; i < nr_of_orders; ++i)
   {
     int j;
     mxD[i] = 0;
-    for (j = 0 ; j < nr_of_SVDs ; ++j)
+    for (j = 0; j < nr_of_SVDs; ++j)
       if (mxD[i] < symseclist[i][j].totaldims) mxD[i] = symseclist[i][j].totaldims;
     if (i == 0 || *minimalmxD > mxD[i]) *minimalmxD = mxD[i];
   }
 
-  for (i = 0 ; i < nr_of_orders ; ++i)
+  for (i = 0; i < nr_of_orders; ++i)
   {
     int flag = 1;
     if (mxD[i] == *minimalmxD)
     {
       int j;
       double currmxtruncerr = 0;
-      for (j = 0 ; j < nr_of_SVDs ; ++j)
+      for (j = 0; j < nr_of_SVDs; ++j)
         if (currmxtruncerr < truncerrlist[i][j]) currmxtruncerr = truncerrlist[i][j];
 
       if (flag || *minimalmxtruncerr > currmxtruncerr)
@@ -272,16 +272,16 @@ static void change_tensors_to_best(const int selection, const int nr_of_orders, 
   int i;
   assert(selection < nr_of_orders);
 
-  for (i = 0 ; i < nr_of_orders ; ++i)
+  for (i = 0; i < nr_of_orders; ++i)
   {
     struct siteTensor * tensors = tensorlist[i];
     int j;
 
     if (i != selection)
-      for (j = 0 ; j < nrsites ; ++j)
+      for (j = 0; j < nrsites; ++j)
         destroy_siteTensor(&tensors[j]);
     else
-      for (j = 0 ; j < nrsites ; ++j)
+      for (j = 0; j < nrsites; ++j)
       {
         destroy_siteTensor(&T3NS[tensors[j].sites[0]]);
         T3NS[tensors[j].sites[0]] = tensors[j];
@@ -296,17 +296,17 @@ static void change_symsecs_to_best(const int selection, const int nr_of_orders,
   int i;
   assert(selection < nr_of_orders);
 
-  for (i = 0 ; i < nr_of_orders ; ++i)
+  for (i = 0; i < nr_of_orders; ++i)
   {
     struct symsecs * symsec = symseclist[i];
     const int * bond = bonds[i];
     int j;
 
     if (i != selection)
-      for (j = 0 ; j < nr_of_SVDs; ++j)
+      for (j = 0; j < nr_of_SVDs; ++j)
         destroy_symsecs(&symsec[j]);
     else
-      for (j = 0 ; j < nr_of_SVDs; ++j)
+      for (j = 0; j < nr_of_SVDs; ++j)
       {
         destroy_symsecs(&bookie.list_of_symsecs[bond[j]]);
         bookie.list_of_symsecs[bond[j]] = symsec[j];
@@ -322,7 +322,7 @@ static int check_correct_input_splitOfSite(const int siteToSplit, const int spli
   int internalbonds[nr_internalbonds];
   siteTensor_give_internalbonds(tens, internalbonds);
 
-  for (i = 0 ; i < nr_internalbonds ; ++i)
+  for (i = 0; i < nr_internalbonds; ++i)
     if (internalbonds[i] == splittedBond) break;
   if (i == nr_internalbonds)
   {
@@ -331,7 +331,7 @@ static int check_correct_input_splitOfSite(const int siteToSplit, const int spli
     exit(EXIT_FAILURE);
   }
 
-  for (tensnr = 0 ; tensnr < tens->nrsites ; ++tensnr) 
+  for (tensnr = 0; tensnr < tens->nrsites; ++tensnr) 
     if (siteToSplit == tens->sites[tensnr]) break;
 
   if (tensnr == tens->nrsites)
@@ -356,7 +356,7 @@ static void init_ortho_and_center(const struct siteTensor * const original, cons
   ortho->sites[0] = siteToSplit;
   orthocenter->nrsites = 0;
   orthocenter->sites = safe_malloc(original->nrsites - 1, int);
-  for (i = 0 ; i < original->nrsites ; ++i)
+  for (i = 0; i < original->nrsites; ++i)
     if (original->sites[i] != siteToSplit)
       orthocenter->sites[orthocenter->nrsites++] = original->sites[i];
   assert(orthocenter->nrsites == original->nrsites - 1);
@@ -374,12 +374,12 @@ static void getMappingsForSPlitof(const struct siteTensor * const ortho, const s
   siteTensor_give_qnumberbonds(ortho , ortho_bonds);
   siteTensor_give_qnumberbonds(center, center_bonds);
 
-  for (*posbond1 = 0 ; *posbond1 < ortho_nrbonds ; ++(*posbond1))
+  for (*posbond1 = 0; *posbond1 < ortho_nrbonds; ++(*posbond1))
     if (ortho_bonds[*posbond1] == splittedBond)
       break;
   assert(*posbond1 != ortho_nrbonds);
 
-  for (*posbond2 = 0 ; *posbond2 < center_nrbonds ; ++(*posbond2))
+  for (*posbond2 = 0; *posbond2 < center_nrbonds; ++(*posbond2))
     if (center_bonds[*posbond2] == splittedBond)
       break;
   assert(*posbond2 != center_nrbonds);
@@ -426,7 +426,7 @@ static double splitOfSite(const int siteToSplit, const int splittedBond, struct 
 
   // parallelize this
   newSymsec->totaldims = 0;
-  for (ss = 0 ; ss < nrss ; ++ss)
+  for (ss = 0; ss < nrss; ++ss)
   {
     double *mem;
     get_metadata_of_block(&centerdims[ss], &centerqn[ss], &centernrqn[ss], &orthodims[ss],
@@ -459,12 +459,12 @@ static int * make_ss_array(const struct siteTensor * const tens, const int tensn
 {
   int * ss_array = safe_malloc(tens->nrblocks, int);
   int block;
-  for (block = 0 ; block < tens->nrblocks ; ++block)
+  for (block = 0; block < tens->nrblocks; ++block)
   {
     QN_TYPE qnmbr = tens->qnumbers[tens->nrsites * block + tensnr];
     int indices[3];
     int i;
-    for (i = 0 ; i < 3 ; ++i)
+    for (i = 0; i < 3; ++i)
     {
       indices[i] = qnmbr % maxdims[i];
       qnmbr /= maxdims[i];
@@ -482,7 +482,7 @@ static void get_metadata_of_block(int ** centerdims, QN_TYPE ** centerqn, int * 
 {
   int block, i;
   int maxnrs = 0;
-  for (block = 0 ; block < original->nrblocks ; ++block)
+  for (block = 0; block < original->nrblocks; ++block)
     maxnrs += (ss == ss_array[block]);
 
   assert(bondnr < 3 && bondnr >= 0);
@@ -493,7 +493,7 @@ static void get_metadata_of_block(int ** centerdims, QN_TYPE ** centerqn, int * 
   *orthodims  = safe_malloc(maxnrs, int);
   *centerdims = safe_malloc(maxnrs, int);
 
-  for (block = 0 ; block < original->nrblocks ; ++block)
+  for (block = 0; block < original->nrblocks; ++block)
   {
     QN_TYPE * qnmbr = &original->qnumbers[original->nrsites * block];
     QN_TYPE qnb = qnmbr[tensnr];
@@ -503,7 +503,7 @@ static void get_metadata_of_block(int ** centerdims, QN_TYPE ** centerqn, int * 
     if (ss != ss_array[block])
       continue;
 
-    for (i = 0 ; i < 3 ; ++i)
+    for (i = 0; i < 3; ++i)
     {
       indices[i] = qnb % maxdims[i];
       qnb /= maxdims[i];
@@ -517,7 +517,7 @@ static void get_metadata_of_block(int ** centerdims, QN_TYPE ** centerqn, int * 
     assert(symarr[bondnr].dims[indices[bondnr]] == 1);
 
     /* if so, check if the qnumbers of ortho and center were already added, if not add them */
-    for (i = 0 ; i < *orthonrqn ; ++i)
+    for (i = 0; i < *orthonrqn; ++i)
       if ((*orthoqn)[i] == qnmbr[tensnr])
         break;
     if (i == *orthonrqn)
@@ -527,11 +527,11 @@ static void get_metadata_of_block(int ** centerdims, QN_TYPE ** centerqn, int * 
       ++(*orthonrqn);
     }
 
-    for (i = 0 ; i < *centernrqn ; ++i)
+    for (i = 0; i < *centernrqn; ++i)
     {
       int j;
       int cnt = 0;
-      for (j = 0 ; j < original->nrsites ; ++j)
+      for (j = 0; j < original->nrsites; ++j)
       {
         if (j == tensnr)
           continue;
@@ -545,7 +545,7 @@ static void get_metadata_of_block(int ** centerdims, QN_TYPE ** centerqn, int * 
     {
       int j;
       int cnt = 0;
-      for (j = 0 ; j < original->nrsites ; ++j)
+      for (j = 0; j < original->nrsites; ++j)
       {
         if (j == tensnr)
           continue;
@@ -573,18 +573,22 @@ static void get_block_for_svd(double ** mem, const int * const centerdims, const
   int N, M;
 
   N = 0;
-  for (i = 0 ; i < orthonrqn ; ++i)
+  for (i = 0; i < orthonrqn; ++i)
     N += orthodims[i];
   M = 0;
-  for (i = 0 ; i < centernrqn ; ++i)
+  for (i = 0; i < centernrqn; ++i)
     M += centerdims[i];
   *mem = safe_calloc(N * M, double);
 
-  for (block = 0 ; block < original->nrblocks ; ++block)
+  for (block = 0; block < original->nrblocks; ++block)
   {
     QN_TYPE * qnmbr = &original->qnumbers[original->nrsites * block];
-    int orthocnt, orthostart = 0;
-    int centercnt, centerstart = 0;
+    int orthostart = 0;
+    int centerstart = 0;
+#ifdef DEBUG
+    int orthocnt, centercnt;
+#endif
+
 
     int P, Q, R;
     double *currmem;
@@ -595,19 +599,21 @@ static void get_block_for_svd(double ** mem, const int * const centerdims, const
     if (ss != ss_array[block])
       continue;
 
-    for (i = 0 ; i < orthonrqn ; ++i)
+    for (i = 0; i < orthonrqn; ++i)
       if (orthoqn[i] == qnmbr[tensnr])
         break;
       else
         orthostart += orthodims[i];
     assert(i != orthonrqn);
+#ifdef DEBUG
     orthocnt = orthodims[i];
+#endif
 
-    for (i = 0 ; i < centernrqn ; ++i)
+    for (i = 0; i < centernrqn; ++i)
     {
       int j;
       int cnt = 0;
-      for (j = 0 ; j < original->nrsites ; ++j)
+      for (j = 0; j < original->nrsites; ++j)
       {
         if (j == tensnr)
           continue;
@@ -620,17 +626,19 @@ static void get_block_for_svd(double ** mem, const int * const centerdims, const
         centerstart += centerdims[i];
     }
     assert(i != centernrqn);
+#ifdef DEBUG
     centercnt = centerdims[i];
+#endif
 
     assert(centercnt * orthocnt == get_size_block(&original->blocks, block));
 
     currmem = *mem + orthostart + N * centerstart;
 
-    for (i = 0 ; i < original->nrsites ; ++i)
+    for (i = 0; i < original->nrsites; ++i)
     {
       int j;
       QN_TYPE qnr = qnmbr[i];
-      for (j = 0 ; j < 3 ; ++j)
+      for (j = 0; j < 3; ++j)
       {
         indexes[3 * i + j] = qnr % maxdims[3 * i + j];
         qnr /= maxdims[3 * i + j];
@@ -639,25 +647,25 @@ static void get_block_for_svd(double ** mem, const int * const centerdims, const
     }
 
     P = 1;
-    for (i = 0 ; i < tensnr * 3 ; ++i)
+    for (i = 0; i < tensnr * 3; ++i)
       P *= symarr[i].dims[indexes[i]];
     Q = 1;
-    for (; i < tensnr * 3 + 3 ; ++i)
+    for (; i < tensnr * 3 + 3; ++i)
       Q *= symarr[i].dims[indexes[i]];
     R = 1;
-    for (; i < original->nrsites * 3 ; ++i)
+    for (; i < original->nrsites * 3; ++i)
       R *= symarr[i].dims[indexes[i]];
 
     assert(P * Q * R == centercnt * orthocnt);
     assert(Q == orthocnt);
 
-    for (i = 0 ; i < P ; ++i)
+    for (i = 0; i < P; ++i)
     {
       int j;
-      for (j = 0 ; j < Q ; ++j)
+      for (j = 0; j < Q; ++j)
       {
         int k;
-        for (k = 0 ; k < R ; ++k)
+        for (k = 0; k < R; ++k)
           currmem[j + (i + k * P) * N] = blocktel[i + j * P + k * P * Q];
       }
     }
@@ -676,8 +684,8 @@ static void do_svd(double * mem, double **U, double **S, double **V, const int *
   int INFO  = 0;
   char JOBZ = 'S';
 
-  for (i = 0 ; i < orthonrqn ; ++i)  M += orthodims[i];
-  for (i = 0 ; i < centernrqn ; ++i) N += centerdims[i];
+  for (i = 0; i < orthonrqn; ++i)  M += orthodims[i];
+  for (i = 0; i < centernrqn; ++i) N += centerdims[i];
   *dimS = N < M ? N : M;
 
   *U    = safe_malloc(*dimS * M, double);
@@ -711,16 +719,16 @@ static double truncateBond(double **S, struct symsecs * const newSymsec, const i
 
   assert(runupto >= minimalto);
 
-  for (ss = 0 ; ss < newSymsec->nrSecs ; ++ss)
+  for (ss = 0; ss < newSymsec->nrSecs; ++ss)
   {
     int i;
-    for (i = 0 ; i < newSymsec->dims[ss] ; ++i, ++currS)
+    for (i = 0; i < newSymsec->dims[ss]; ++i, ++currS)
       *currS = S[ss][i];
   }
   dlasrt_(&ID, &newSymsec->totaldims, tempS, &INFO);
   assert(INFO == 0);
 
-  for (ss = 0 ; ss < runupto ; ++ss)
+  for (ss = 0; ss < runupto; ++ss)
   {
     truncerr -= tempS[ss] * tempS[ss];
     if (truncerr < maxtrunc)
@@ -730,7 +738,7 @@ static double truncateBond(double **S, struct symsecs * const newSymsec, const i
     }
   }
   /* minimal dimension not reached yet */
-  for (; ss < minimalto ; ++ss)
+  for (; ss < minimalto; ++ss)
     truncerr -= tempS[ss] * tempS[ss];
 
   rescale = 1. / sqrt(1 - truncerr);
@@ -741,10 +749,10 @@ static double truncateBond(double **S, struct symsecs * const newSymsec, const i
   safe_free(tempS);
 
   newSymsec->totaldims = 0;
-  for (ss = 0 ; ss < newSymsec->nrSecs ; ++ss)
+  for (ss = 0; ss < newSymsec->nrSecs; ++ss)
   {
     int i;
-    for (i = 0 ; i < newSymsec->dims[ss] ; ++i)
+    for (i = 0; i < newSymsec->dims[ss]; ++i)
       if (S[ss][i] > minimalS)
         S[ss][i] *= rescale;
       else
@@ -796,15 +804,15 @@ static void adapt_symsec_and_others(double ***U, double ***S, double ***V,
   assert(orthomd[orthobondcut] == newSymsec->nrSecs);
 
   newSymsec->nrSecs = 0;
-  for (ss = 0 ; ss < orthomd[orthobondcut] ; ++ss) 
+  for (ss = 0; ss < orthomd[orthobondcut]; ++ss) 
     newSymsec->nrSecs += (newSymsec->dims[ss] != 0);
 
-  for (i = 0 ; i < 3 ; ++i) neworthodims[i]  = orthomd[i];
-  for (i = 0 ; i < 3 ; ++i) newcenterdims[i] = centermd[i];
+  for (i = 0; i < 3; ++i) neworthodims[i]  = orthomd[i];
+  for (i = 0; i < 3; ++i) newcenterdims[i] = centermd[i];
   neworthodims[orthobondcut]   = newSymsec->nrSecs;
   newcenterdims[centerbondcut] = newSymsec->nrSecs;
 
-  for (ss = 0 ; ss < orthomd[orthobondcut] ; ++ss)
+  for (ss = 0; ss < orthomd[orthobondcut]; ++ss)
   {
     if (newSymsec->dims[ss] == 0)
     {
@@ -829,12 +837,12 @@ static void adapt_symsec_and_others(double ***U, double ***S, double ***V,
       (*centernrqn)[cnt] = (*centernrqn)[ss];
 
       /* adapt orthoqn */
-      for (i = 0 ; i < (*orthonrqn)[cnt] ; ++i)
+      for (i = 0; i < (*orthonrqn)[cnt]; ++i)
       {
         int indices[3];
         QN_TYPE qnumber = (*orthoqn)[cnt][i];
         int j;
-        for (j = 0 ; j < 3 ; ++j)
+        for (j = 0; j < 3; ++j)
         {
           indices [j] = qnumber % orthomd[j];
           qnumber /= orthomd[j];
@@ -848,12 +856,12 @@ static void adapt_symsec_and_others(double ***U, double ***S, double ***V,
       }
       
       /* adapt centerqn */
-      for (i = 0 ; i < (*centernrqn)[cnt] ; ++i)
+      for (i = 0; i < (*centernrqn)[cnt]; ++i)
       {
         int indices[3];
         QN_TYPE qnumber = (*centerqn)[cnt][i * cnrsites + centersitenr];
         int j;
-        for (j = 0 ; j < 3 ; ++j)
+        for (j = 0; j < 3; ++j)
         {
           indices [j] = qnumber % centermd[j];
           qnumber /= centermd[j];
@@ -867,7 +875,7 @@ static void adapt_symsec_and_others(double ***U, double ***S, double ***V,
       }
 
       /*adapt newSymsec */
-      for (i = 0 ; i < bookie.nrSyms ; ++i)
+      for (i = 0; i < bookie.nrSyms; ++i)
         newSymsec->irreps[cnt * bookie.nrSyms + i] = 
           newSymsec->irreps[ss * bookie.nrSyms + i];
       newSymsec->fcidims[cnt] = newSymsec->fcidims[ss];
@@ -916,7 +924,7 @@ static void clean_splitOfSite(double **U, double **S, double **V, int **centerdi
     const int nrss, int * ss_array)
 {
   int ss;
-  for (ss = 0 ; ss < nrss ; ++ss)
+  for (ss = 0; ss < nrss; ++ss)
   {
     safe_free(U[ss]);
     safe_free(S[ss]);
@@ -948,7 +956,7 @@ static int * make_and_sort(struct siteTensor * tens, int **dim, QN_TYPE **qn, in
   QN_TYPE *tempqn;
   QN_TYPE *p_qn;
   tens->nrblocks = 0;
-  for (ss = 0 ; ss < newSymsec->nrSecs ; ++ss) 
+  for (ss = 0; ss < newSymsec->nrSecs; ++ss) 
     tens->nrblocks += (newSymsec->dims[ss] != 0) * nrqn[ss];
 
   tens->qnumbers = safe_malloc(tens->nrblocks * tens->nrsites, QN_TYPE);
@@ -957,28 +965,28 @@ static int * make_and_sort(struct siteTensor * tens, int **dim, QN_TYPE **qn, in
   tens->blocks.beginblock[0] = 0;
   p_qn = tempqn;
 
-  for (ss = 0 ; ss < newSymsec->nrSecs ; ++ss)
-    for (i = 0 ; i < (newSymsec->dims[ss] != 0) * nrqn[ss] * tens->nrsites ; ++i, ++p_qn) 
+  for (ss = 0; ss < newSymsec->nrSecs; ++ss)
+    for (i = 0; i < (newSymsec->dims[ss] != 0) * nrqn[ss] * tens->nrsites; ++i, ++p_qn) 
       *p_qn = qn[ss][i];
   perm = qnumbersSort(tempqn, tens->nrsites, tens->nrblocks);
   perm = inverse_permutation(perm, tens->nrblocks);
 
   cnt = 0;
-  for (ss = 0 ; ss < newSymsec->nrSecs ; ++ss)
+  for (ss = 0; ss < newSymsec->nrSecs; ++ss)
   {
     const int dimss = newSymsec->dims[ss];
     if (dimss == 0)
       continue;
-    for (i = 0 ; i < nrqn[ss] ; ++i, ++cnt) 
+    for (i = 0; i < nrqn[ss]; ++i, ++cnt) 
     {
       int j;
-      for (j = 0 ; j < tens->nrsites ; ++j) 
+      for (j = 0; j < tens->nrsites; ++j) 
         tens->qnumbers[perm[cnt] * tens->nrsites + j] = tempqn[cnt * tens->nrsites + j];
       tens->blocks.beginblock[perm[cnt] + 1] = dim[ss][i] * dimss;
     }
   }
   assert(cnt == tens->nrblocks);
-  for (i = 0 ; i < tens->nrblocks ; ++i)
+  for (i = 0; i < tens->nrblocks; ++i)
     tens->blocks.beginblock[i + 1] += tens->blocks.beginblock[i];
   tens->blocks.tel = safe_calloc(tens->blocks.beginblock[tens->nrblocks], EL_TYPE);
 
@@ -990,7 +998,7 @@ static void multiplySV(const struct symsecs * const newSymsec, double **U, doubl
     int ** centerdim, int ** orthodim, int * centernrqn, int * orthonrqn)
 {
   int ss;
-  for (ss = 0 ; ss < newSymsec->nrSecs ; ++ss)
+  for (ss = 0; ss < newSymsec->nrSecs; ++ss)
   {
     const int dimss = newSymsec->dims[ss];
     int M = 0;
@@ -1001,12 +1009,12 @@ static void multiplySV(const struct symsecs * const newSymsec, double **U, doubl
     double *pS = S[ss];
     double *pV = V[ss];
 
-    for (qn = 0 ; qn < centernrqn[ss] ; ++qn) M += centerdim[ss][qn];
-    for (qn = 0 ; qn < orthonrqn[ss]  ; ++qn) N += orthodim[ss][qn];
+    for (qn = 0; qn < centernrqn[ss]; ++qn) M += centerdim[ss][qn];
+    for (qn = 0; qn < orthonrqn[ss]; ++qn) N += orthodim[ss][qn];
     oldS = (M < N) ? M : N;
 
-    for (j = 0 ; j < M ; ++j)
-      for (i = 0 ; i < dimss ; ++i)
+    for (j = 0; j < M; ++j)
+      for (i = 0; i < dimss; ++i)
         pV[i + j * dimss] = pV[i + j * oldS] * pS[i];
 
     S[ss] = realloc(S[ss], dimss * sizeof(double));
@@ -1030,17 +1038,17 @@ static void make_tensor(struct siteTensor * tens, int * perm, const struct symse
   get_maxdims_of_bonds(maxdims, bonds, tens->nrsites * 3);
   get_symsecs_arr(symarr, bonds, tens->nrsites * 3);
 
-  for (ss = 0 ; ss < newSymsec->nrSecs ; ++ss)
+  for (ss = 0; ss < newSymsec->nrSecs; ++ss)
   {
     int i;
     const int dimss = newSymsec->dims[ss];
     double * oldel = els[ss];
     int N = 0;
-    for (i = 0 ; i < nrqn[ss] ; ++i) N += dim[ss][i];
+    for (i = 0; i < nrqn[ss]; ++i) N += dim[ss][i];
 
     if (dimss == 0)
       continue;
-    for (i = 0 ; i < nrqn[ss] ; ++i, ++cnt) 
+    for (i = 0; i < nrqn[ss]; ++i, ++cnt) 
     {
       int j;
       int p, q, s;
@@ -1048,12 +1056,12 @@ static void make_tensor(struct siteTensor * tens, int * perm, const struct symse
       int P = 1;
       int Q = 1;
 
-      for (j = 0 ; j < tens->nrsites ; ++j) 
+      for (j = 0; j < tens->nrsites; ++j) 
       {
         int k;
-        QN_TYPE qncurr = qn[ss][i * tens->nrsites + j] ;
+        QN_TYPE qncurr = qn[ss][i * tens->nrsites + j];
         assert(tens->qnumbers[perm[cnt] * tens->nrsites + j] == qncurr);
-        for (k = 0 ; k < 3 ; ++k)
+        for (k = 0; k < 3; ++k)
         {
           indices[j * 3 + k] = qncurr % maxdims[j * 3 + k];
           qncurr  /= maxdims[j * 3 + k];
@@ -1061,10 +1069,10 @@ static void make_tensor(struct siteTensor * tens, int * perm, const struct symse
         assert(qncurr == 0);
       }
 
-      for (j = 0 ; j < gotoindex ; ++j)
+      for (j = 0; j < gotoindex; ++j)
         P *= symarr[j].dims[indices[j]];
       assert(indices[gotoindex] == ss);
-      for (j = gotoindex + 1 ; j < tens->nrsites * 3 ; ++j)
+      for (j = gotoindex + 1; j < tens->nrsites * 3; ++j)
         Q *= symarr[j].dims[indices[j]];
 
       assert(get_size_block(&tens->blocks, perm[cnt]) == P * Q * dimss && 
@@ -1075,18 +1083,18 @@ static void make_tensor(struct siteTensor * tens, int * perm, const struct symse
       if (c == 'U')
       {
         const int PS = P * dimss;
-        for (q = 0 ; q < Q ; ++q)
-          for (s = 0 ; s < dimss ; ++s)
-            for (p = 0 ; p < P ; ++p)
+        for (q = 0; q < Q; ++q)
+          for (s = 0; s < dimss; ++s)
+            for (p = 0; p < P; ++p)
               b_el[p + s * P + q * PS] = oldel[p + q * P + s * N];
         oldel += dim[ss][i];
       }
       else
       {
         const int PS = P * dimss;
-        for (q = 0 ; q < Q ; ++q)
-          for (s = 0 ; s < dimss ; ++s)
-            for (p = 0 ; p < P ; ++p)
+        for (q = 0; q < Q; ++q)
+          for (s = 0; s < dimss; ++s)
+            for (p = 0; p < P; ++p)
               b_el[p + s * P + q * PS] = oldel[s + p * dimss + q * dimss * P];
         oldel += dim[ss][i] * dimss;
       }

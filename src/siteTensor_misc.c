@@ -60,9 +60,9 @@ void siteTensor_give_indices(const struct siteTensor * const tens, int indices[]
 void siteTensor_give_qnumberbonds(const struct siteTensor * const tens, int qnumberbonds[])
 {
   int i;
-  for (i = 0 ; i < tens->nrsites ; ++i)
+  for (i = 0; i < tens->nrsites; ++i)
     get_bonds_of_site(tens->sites[i], &qnumberbonds[3 * i]);
-  for (i = 0 ; i < 3 * tens->nrsites ; ++i)
+  for (i = 0; i < 3 * tens->nrsites; ++i)
     qnumberbonds[i] = get_ketT3NSbond(qnumberbonds[i]);
 }
 
@@ -74,7 +74,7 @@ void siteTensor_give_couplings(const struct siteTensor * const tens, int couplin
 void siteTensor_give_is_in(const struct siteTensor * const tens, int is_in[])
 {
   int i;
-  for (i = 0 ; i < tens->nrsites ; ++i)
+  for (i = 0; i < tens->nrsites; ++i)
   {
     is_in[3 * i + 0] = 1; is_in[3 * i + 1] = 1; is_in[3 * i + 2] = 0;
   }
@@ -91,10 +91,10 @@ void siteTensor_give_internalbonds(const struct siteTensor * const tens, int int
   int i, j;
   int bonds[tens->nrsites * 3];
   int cnt = 0;
-  for (i = 0 ; i < tens->nrsites ; ++i)
+  for (i = 0; i < tens->nrsites; ++i)
     get_bonds_of_site(tens->sites[i], &bonds[i * 3]);
-  for (i = 0 ; i < tens->nrsites * 3 ; ++i)
-    for (j = i + 1 ; j < tens->nrsites * 3 ; ++j)
+  for (i = 0; i < tens->nrsites * 3; ++i)
+    for (j = i + 1; j < tens->nrsites * 3; ++j)
     {
       if (bonds[i] == bonds[j] && cnt >= siteTensor_give_nr_internalbonds(tens))
       {
@@ -121,11 +121,11 @@ void siteTensor_give_externalbonds(const struct siteTensor * const tens, int ext
   int i, j;
   int bonds[tens->nrsites * 3];
   int cnt = 0;
-  for (i = 0 ; i < tens->nrsites ; ++i)
+  for (i = 0; i < tens->nrsites; ++i)
     get_bonds_of_site(tens->sites[i], &bonds[i * 3]);
-  for (i = 0 ; i < tens->nrsites * 3 ; ++i)
+  for (i = 0; i < tens->nrsites * 3; ++i)
   {
-    for (j = 0 ; j < tens->nrsites * 3 ; ++j)
+    for (j = 0; j < tens->nrsites * 3; ++j)
       if (i != j && bonds[i] == bonds[j]) break;
 
     if (j == tens->nrsites * 3 && cnt >= siteTensor_give_nr_externalbonds(tens))
@@ -156,7 +156,7 @@ static void print_bonds(const struct siteTensor * const tens)
   siteTensor_give_indices(tens, indices);
 
   printf("Bonds : ");
-  for (i = 0 ; i < nrind ; ++i)
+  for (i = 0; i < nrind; ++i)
   {
     get_string_of_bond(buffer, indices[i]);
     printf("%s%s", buffer, i == nrind - 1 ? "\n": ", ");
@@ -174,7 +174,7 @@ static void print_couplings(const struct siteTensor * const tens)
   siteTensor_give_is_in(tens, is_in);
 
   printf("Couplings : \n");
-  for (i = 0 ; i < nrcoup * 3 ; ++i)
+  for (i = 0; i < nrcoup * 3; ++i)
   {
     get_string_of_bond(buffer, couplings[i]);
     printf("%14s%c %c", buffer, is_in[i] ? ' ' : '*', (i + 1) % 3 ? '-' : '\n');
@@ -185,11 +185,11 @@ static void print_blocks(const struct siteTensor * const tens)
 {
   int block;
   printf("Blocks : \n");
-  for (block = 0 ; block < tens->nrblocks ; ++block)
+  for (block = 0; block < tens->nrblocks; ++block)
   {
     int i;
     printf("bl: %d", block);
-    for (i = 0 ; i < tens->nrsites ; ++i)
+    for (i = 0; i < tens->nrsites; ++i)
       printf(", qn: %ld", tens->qnumbers[block * tens->nrsites + i]);
     printf("\n");
     print_qnumber(tens, block);
@@ -209,18 +209,18 @@ static void print_qnumber(const struct siteTensor * const tens, const int block)
   siteTensor_give_coupling_to_qnumberbonds(tens, mapping_coup_to_qnumber);
   get_symsecs_arr(symarr, qnumberbonds, nrcoup * 3);
 
-  for (coup = 0 ; coup < nrcoup ; ++coup)
+  for (coup = 0; coup < nrcoup; ++coup)
   {
     QN_TYPE ind = tens->qnumbers[block * nrcoup + coup];
     int bond;
     int currind[3];
-    for (bond = 0 ; bond < 3 ; ++bond)
+    for (bond = 0; bond < 3; ++bond)
     {
       currind[bond] = ind % symarr[bond + 3 * coup].nrSecs;
       ind             = ind / symarr[bond + 3 * coup].nrSecs;
     }
     assert(ind == 0);
-    for (bond = 0 ; bond < 3 ; ++bond)
+    for (bond = 0; bond < 3; ++bond)
     {
       const int nmbr_coup = mapping_coup_to_qnumber[bond + 3 * coup];
       get_sectorstring(&symarr[nmbr_coup], currind[nmbr_coup - 3 * coup], buffer);
@@ -240,12 +240,12 @@ static void siteTensor_give_coupling_to_qnumberbonds(const struct siteTensor * c
   siteTensor_give_couplings(tens, couplings);
   int coup;
 
-  for (coup = 0 ; coup < nrcoup ; ++coup)
+  for (coup = 0; coup < nrcoup; ++coup)
   {
     int i, j;
-    for (i = 0 ; i < 3 ; ++i)
+    for (i = 0; i < 3; ++i)
     {
-      for (j = 0 ; j < 3 ; ++j)
+      for (j = 0; j < 3; ++j)
         if (couplings[coup * 3 + i] == qnumberbonds[coup * 3 + j])
           break;
       assert(j != 3);

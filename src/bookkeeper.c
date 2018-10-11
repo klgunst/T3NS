@@ -64,7 +64,7 @@ void init_bookie(void)
 void destroy_bookkeeper(void)
 {
   int cnt;
-  for (cnt = 0 ; cnt < bookie.nr_bonds ; cnt++)
+  for (cnt = 0; cnt < bookie.nr_bonds; cnt++)
     destroy_symsecs(bookie.list_of_symsecs + cnt);
 
   safe_free(bookie.list_of_symsecs);
@@ -85,7 +85,7 @@ void print_bookkeeper(int fci)
           "\n"
           "# TNS BONDS : \n");
 
-  for (i = 0 ; i < bookie.nr_bonds ; i++)
+  for (i = 0; i < bookie.nr_bonds; i++)
   {
     int site_one = netw.bonds[i * 2];
     int site_two = netw.bonds[i * 2 + 1];
@@ -116,7 +116,7 @@ int get_particlestarget(void)
   int i;
   int N = 0;
   int flag = 0;
-  for (i = 0 ; i < bookie.nrSyms ; i++)
+  for (i = 0; i < bookie.nrSyms; i++)
   {
     if (bookie.sgs[i] == U1)
     {
@@ -134,7 +134,7 @@ int get_particlestarget(void)
 int get_pg_symmetry(void)
 {
   int i;
-  for (i = 0 ; i < bookie.nrSyms ; i++)
+  for (i = 0; i < bookie.nrSyms; i++)
     if (bookie.sgs[i] >= C1)
       return bookie.sgs[i];
   return -1;
@@ -147,7 +147,7 @@ void get_sgsstring(int sg, char buffer[])
 
   if (sg == -1)
   {
-    for (i = 0 ; i < bookie.nrSyms ; i++)
+    for (i = 0; i < bookie.nrSyms; i++)
     {
       if (bookie.sgs[i] == Z2)
         strcat(buffer, "(Z2)\t");
@@ -160,7 +160,7 @@ void get_sgsstring(int sg, char buffer[])
   }
   else
   {
-    for (i = sg != bookie.nrSyms ; i < bookie.nrSyms ; i++)
+    for (i = sg != bookie.nrSyms; i < bookie.nrSyms; i++)
     {
       strcat(buffer, get_symstring(bookie.sgs[i]));
       strcat(buffer, "\t");
@@ -173,7 +173,7 @@ void get_tsstring(char buffer[])
   int i;
   char buffer2[255];
   buffer[0] = '\0';
-  for (i = 0 ; i < bookie.nrSyms ; i++)
+  for (i = 0; i < bookie.nrSyms; i++)
   {
     get_irrstring(buffer2, bookie.sgs[i], bookie.target_state[i]);
     strcat(buffer, buffer2);
@@ -190,7 +190,7 @@ static void calc_fcidims(void)
   int bond;
 
   /* For safety initialize to 0 symsecs */
-  for (bond = 0 ; bond < bookie.nr_bonds ; bond++ )
+  for (bond = 0; bond < bookie.nr_bonds; bond++ )
   {
     bookie.list_of_symsecs[bond].nrSecs = 0;
     bookie.list_of_symsecs[bond].irreps    = NULL;
@@ -200,7 +200,7 @@ static void calc_fcidims(void)
   }
 
   /* sweeping left through the network */
-  for (bond = 0 ; bond < bookie.nr_bonds ; bond++ )
+  for (bond = 0; bond < bookie.nr_bonds; bond++ )
   {
     struct symsecs *sectors = &bookie.list_of_symsecs[bond];
     if (netw.bonds[2 * bond] == -1)
@@ -212,7 +212,7 @@ static void calc_fcidims(void)
       int i;
 
       /* find the first bond of siteL */
-      for (i = 0 ; i < netw.nr_bonds ; i++)
+      for (i = 0; i < netw.nr_bonds; i++)
         if (netw.bonds[2 * i + 1] == siteL)
           break;
       assert(i < bond);
@@ -223,7 +223,7 @@ static void calc_fcidims(void)
       else 
       {
         /* continue searching for next bond of siteL */
-        for (i++ ; i < netw.nr_bonds ; i++)
+        for (i++; i < netw.nr_bonds; i++)
           if (netw.bonds[2 * i + 1] == siteL)
             break;
         assert(i < bond);
@@ -242,7 +242,7 @@ static void calc_fcidims(void)
     }
     kick_impossibles(sectors);
   }
-  for (bond = bookie.nr_bonds - 1 ; bond >= 0  ; bond--)
+  for (bond = bookie.nr_bonds - 1; bond >= 0; bond--)
   {
     struct symsecs *sectors = &bookie.list_of_symsecs[bond];
     if (netw.bonds[2 * bond  + 1] == -1)
@@ -256,7 +256,7 @@ static void calc_fcidims(void)
       int flag;
 
       /* find the outward bond of siteR */
-      for (i = 0 ; i < netw.nr_bonds ; i++)
+      for (i = 0; i < netw.nr_bonds; i++)
         if (netw.bonds[2 * i] == siteR)
           break;
       assert(i != netw.nr_bonds);
@@ -267,7 +267,7 @@ static void calc_fcidims(void)
       else 
       {
         /* find the other inward bond of siteR */
-        for (i = 0 ; i < netw.nr_bonds ; i++)
+        for (i = 0; i < netw.nr_bonds; i++)
           if (netw.bonds[2 * i + 1] == siteR && i != bond)
             break;
         assert(i != netw.nr_bonds);
@@ -317,7 +317,7 @@ static void init_vacuumstate(struct symsecs *sectors)
   int i;
   sectors->nrSecs = 1;
   sectors->irreps    = safe_malloc(sectors->nrSecs * bookie.nrSyms, int);
-  for (i = 0 ; i < bookie.nrSyms ; i++) sectors->irreps[i] = 0; /* The vacuum state */
+  for (i = 0; i < bookie.nrSyms; i++) sectors->irreps[i] = 0; /* The vacuum state */
   sectors->fcidims      = safe_malloc(sectors->nrSecs, double);
   sectors->fcidims[0] = 1;
   sectors->dims         = NULL;
@@ -330,7 +330,7 @@ static void init_targetstate(struct symsecs *sectors)
   sectors->nrSecs = 1;
   sectors->irreps = safe_malloc(sectors->nrSecs * bookie.nrSyms, int);
   /* The target state */
-  for (i = 0 ; i < bookie.nrSyms ; i++) sectors->irreps[i] = bookie.target_state[i]; 
+  for (i = 0; i < bookie.nrSyms; i++) sectors->irreps[i] = bookie.target_state[i]; 
   sectors->fcidims    = safe_malloc(sectors->nrSecs, double);
   sectors->fcidims[0] = 1;
   sectors->dims = NULL;
@@ -339,17 +339,17 @@ static void init_targetstate(struct symsecs *sectors)
 static void scale_dims(int max_dim)
 {
   int bnd;
-  for (bnd = 0 ; bnd < bookie.nr_bonds; bnd++)
+  for (bnd = 0; bnd < bookie.nr_bonds; bnd++)
   {
     double ratio, totalfcidims = 0;
     int i;
     struct symsecs * const sectors = &bookie.list_of_symsecs[bnd];
-    for (i = 0 ; i < sectors->nrSecs ; i++) totalfcidims += sectors->fcidims[i];
+    for (i = 0; i < sectors->nrSecs; i++) totalfcidims += sectors->fcidims[i];
 
     sectors->dims = safe_malloc(sectors->nrSecs, int);
     ratio = max_dim < totalfcidims ? max_dim * 1. / totalfcidims : 1;
     sectors->totaldims = 0;
-    for (i = 0 ; i < sectors->nrSecs ; i++)
+    for (i = 0; i < sectors->nrSecs; i++)
     {
       sectors->dims[i] = ceil(ratio * sectors->fcidims[i]);
       if (sectors->dims[i] == 0)
@@ -363,7 +363,7 @@ static void scale_dims(int max_dim)
 static int is_equal_symsector(struct symsecs *sectors1, int i, struct symsecs *sectors2, int j)
 {
   int k;
-  for (k = 0 ; k < bookie.nrSyms ; k++)
+  for (k = 0; k < bookie.nrSyms; k++)
     if (sectors1->irreps[i * bookie.nrSyms + k] 
         != sectors2->irreps[j * bookie.nrSyms + k])
       return 0;
@@ -374,10 +374,10 @@ static void kick_impossibles(struct symsecs * const sector)
 {
   int nrSecss = 0;
   int i,j;
-  for (i = 0 ; i < sector->nrSecs ; i++)
+  for (i = 0; i < sector->nrSecs; i++)
   {
     int flag = 1;
-    for (j = 0 ; j < bookie.nrSyms ; j++)
+    for (j = 0; j < bookie.nrSyms; j++)
     {
       if (bookie.sgs[j] == U1 && 
           sector->irreps[i * bookie.nrSyms + j] > bookie.target_state[j])
@@ -390,10 +390,10 @@ static void kick_impossibles(struct symsecs * const sector)
   }
 
   nrSecss = 0;
-  for (i = 0 ; i < sector->nrSecs ; i++)
+  for (i = 0; i < sector->nrSecs; i++)
   {
     int flag = 1;
-    for (j = 0 ; j < bookie.nrSyms ; j++)
+    for (j = 0; j < bookie.nrSyms; j++)
     {
       if (bookie.sgs[j] == U1 && 
           sector->irreps[i * bookie.nrSyms + j] > bookie.target_state[j])
@@ -404,7 +404,7 @@ static void kick_impossibles(struct symsecs * const sector)
     }
     if (flag)
     {
-      for (j = 0 ; j < bookie.nrSyms ; j++)
+      for (j = 0; j < bookie.nrSyms; j++)
         sector->irreps[nrSecss * bookie.nrSyms + j] = 
           sector->irreps[i * bookie.nrSyms + j];
       sector->fcidims[nrSecss] = sector->fcidims[i];
@@ -429,15 +429,15 @@ static void kick_impossibles(struct symsecs * const sector)
 
 static int select_lowest(struct symsecs *sectors1, struct symsecs *sectors2)
 {
-  int i ;
+  int i;
   int return_val = 1;
 
-  for (i = 0 ; i < sectors1->nrSecs ; i++)
+  for (i = 0; i < sectors1->nrSecs; i++)
   {
     int j;
 
     /* loop  over the symmsectors of sectors 2 */
-    for (j = 0 ; j < sectors2->nrSecs ; j++)
+    for (j = 0; j < sectors2->nrSecs; j++)
       if (is_equal_symsector(sectors1, i, sectors2, j))
         break;
 

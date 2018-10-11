@@ -140,7 +140,7 @@ static void new_search_vector(double* V, double* vec_t, int basis_size, int m){
   double a;
   int i;
 
-  for (i = 0 ; i < m ; i++){
+  for (i = 0; i < m; i++){
     a = - ddot_(&basis_size, Vi, &ONE, vec_t, &ONE);
     daxpy_(&basis_size, &a, Vi, &ONE, vec_t, &ONE);
     Vi += basis_size;
@@ -159,14 +159,14 @@ static void new_search_vector(double* V, double* vec_t, int basis_size, int m){
     while (reortho){
       Vi = V;
       reortho = 0;
-      for (i = 0 ; i < m ; i++){
+      for (i = 0; i < m; i++){
         a = - ddot_(&basis_size, Vi, &ONE, vec_t, &ONE);
         daxpy_(&basis_size, &a, Vi, &ONE, vec_t, &ONE);
         Vi += basis_size;
         if (fabs(a) > 1e-10){
           reortho = 1;
           printf("value of a[%d] = %e\n", i, a);
-          assert(0);
+          exit(EXIT_FAILURE);
         }
       }
       a = dnrm2_(&basis_size, vec_t, &ONE);
@@ -189,7 +189,7 @@ static void expand_submatrix(double* const submatrix, double* const V, double* c
   int i;
 
 #pragma omp parallel for default(none) private(i) 
-  for (i = 0 ; i < m + 1 ; ++i)
+  for (i = 0; i < m + 1; ++i)
   {
     submatrix[m * max_vectors + i] = ddot_(&basis_size, V + basis_size * i, &I_ONE,
         VAm, &I_ONE);
@@ -204,7 +204,7 @@ static double calculate_residue(double* const residue, double* const result, dou
   double norm2 = 0;
 
 #pragma omp parallel for default(none) private(i) reduction(+:norm2)
-  for (i = 0 ; i < basis_size ; ++i)
+  for (i = 0; i < basis_size; ++i)
   {
     result[i] = ddot_(&m, V + i, &basis_size, eigv, &I_ONE);
     residue[i] = ddot_(&m, VA + i, &basis_size, eigv, &I_ONE);
@@ -222,7 +222,7 @@ static void create_new_vec_t(double* const residue, double* const diagonal, cons
   int i;
   const double cutoff = 1e-12;
 #pragma omp parallel for default(none) private(i)
-  for (i = 0 ; i < size ; i++)
+  for (i = 0; i < size; i++)
     if (fabs(diagonal[i] - theta) > cutoff)
       residue[i] = residue[i] / fabs(diagonal[i] - theta);
     else{
@@ -255,6 +255,6 @@ static void deflate(double* sub_matrix, double* V, double* VA, int max_vectors, 
  
   safe_free(new_result);
 
-  for (i = 0 ; i < keep_deflate; i++)
+  for (i = 0; i < keep_deflate; i++)
     expand_submatrix(sub_matrix, V, VA, max_vectors, basis_size, i);
 }

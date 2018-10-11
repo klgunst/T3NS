@@ -33,7 +33,7 @@ static void H_fetch_T3NS_su2(struct instructionset * const instructions, const i
 
 /* ========================================================================== */
 
-void NN_H_fetch_DMRG_make_ops(int ** const instructions, double ** const prefactors, 
+void NN_H_fetch_pUpdate(int ** const instructions, double ** const prefactors, 
     int ** const hamsymsecs_of_new, int * const nr_instructions, const int bond, const int is_left)
 {
   if (NN_H_has_su2())
@@ -51,7 +51,7 @@ void NN_H_fetch_merge(int ** const instructions, int * const nr_instructions,
     H_fetch_merge(instructions, nr_instructions, prefactors, bond);
 }
 
-void NN_H_fetch_T3NS_update(struct instructionset * const instructions, const int bond, const int 
+void NN_H_fetch_bUpdate(struct instructionset * const instructions, const int bond, const int 
     is_left)
 {
   int bondz[3];
@@ -94,7 +94,7 @@ static void H_fetch_DMRG(int ** const instructions, double ** const prefactors,
   *instructions = safe_malloc(*nr_instructions * 3, int);
   *prefactors = safe_malloc(*nr_instructions, double);
 
-  for (i = 0 ; i < 6 ; ++i) {
+  for (i = 0; i < 6; ++i) {
     (*instructions)[3 * i] = 0;
     (*instructions)[3 * i + 2] = i;
     (*prefactors)[i] = 1;
@@ -230,7 +230,7 @@ static void H_fetch_DMRG_su2(int ** const instructions, double ** const prefacto
   *instructions = safe_malloc(*nr_instructions * 3, int);
   *prefactors = safe_malloc(*nr_instructions, double);
 
-  for (i = 0 ; i < 4 ; ++i) {
+  for (i = 0; i < 4; ++i) {
     (*instructions)[3 * i] = 0;
     (*instructions)[3 * i + 2] = i;
     (*prefactors)[i] = 1;

@@ -111,15 +111,15 @@ void init_1siteTensor(struct siteTensor * const tens, const int site, const char
       tens->blocks.tel = safe_malloc(tens->blocks.beginblock[tens->nrblocks], EL_TYPE);
       srand(time(NULL));
 #ifdef COMPARECHEMPSTREE 
-      for (i = 0 ; i <  tens->nrblocks ; ++i)
+      for (i = 0; i <  tens->nrblocks; ++i)
       {
         int j;
         double * EL = get_tel_block(&tens->blocks, i);
-        for (j = 0 ; j < get_size_block(&tens->blocks, i) ; ++j)
+        for (j = 0; j < get_size_block(&tens->blocks, i); ++j)
           EL[j] = (j + 1) * (j + 1);
       }
 #else
-      for (i = 0 ; i <  tens->blocks.beginblock[tens->nrblocks] ; ++i)
+      for (i = 0; i <  tens->blocks.beginblock[tens->nrblocks]; ++i)
         tens->blocks.tel[i] = (rand() * 1.) / RAND_MAX;
 #endif
       break;
@@ -187,12 +187,12 @@ void makesiteTensor(struct siteTensor * const tens, struct siteTensor * const T3
   struct symsecs internalsymsec[3];
   int i;
 
-  for (tens->nrsites = 0 ; tens->nrsites < 4 ; ++tens->nrsites) 
+  for (tens->nrsites = 0; tens->nrsites < 4; ++tens->nrsites) 
     if (sitelist[tens->nrsites] == -1) break;
   assert(tens->nrsites <= 2 && "At this moment only two-siteoptimization");
 
   tens->sites = safe_malloc(tens->nrsites, int);
-  for (i = 0 ; i < tens->nrsites ; ++i) tens->sites[i] = sitelist[i];
+  for (i = 0; i < tens->nrsites; ++i) tens->sites[i] = sitelist[i];
   assert(siteTensor_give_nr_internalbonds(tens) <= 3);
 
   /* This makes the new internal symsecs and the qnumbers array and the beginblock in the 
@@ -213,8 +213,8 @@ void deep_copy_siteTensor(struct siteTensor * const copy, const struct siteTenso
 
   copy->sites = safe_malloc(copy->nrsites, int);
   copy->qnumbers = safe_malloc(copy->nrsites * copy->nrblocks, QN_TYPE);
-  for (i = 0 ; i < copy->nrsites ; ++i) copy->sites[i] = tocopy->sites[i];
-  for (i = 0 ; i < copy->nrsites * copy->nrblocks ; ++i) copy->qnumbers[i] = tocopy->qnumbers[i];
+  for (i = 0; i < copy->nrsites; ++i) copy->sites[i] = tocopy->sites[i];
+  for (i = 0; i < copy->nrsites * copy->nrblocks; ++i) copy->qnumbers[i] = tocopy->qnumbers[i];
 
   deep_copy_sparseblocks(&copy->blocks, &tocopy->blocks, tocopy->nrblocks);
 }
@@ -236,14 +236,14 @@ static void make_1sblocks(struct siteTensor * const tens, int ***dimarray, int *
   tens->blocks.beginblock = safe_malloc(tens->nrblocks + 1, int);
   assert(tens->nrsites == 1 && "make_1sblocks not defined for more than 1 site");
 
-  for (sym1 = 0 ; sym1 < symarr[0].nrSecs ; ++sym1 )
+  for (sym1 = 0; sym1 < symarr[0].nrSecs; ++sym1 )
   {
-    for (sym2 = 0 ; sym2 < symarr[1].nrSecs ; ++sym2)
+    for (sym2 = 0; sym2 < symarr[1].nrSecs; ++sym2)
     {
       const QN_TYPE ind = sym1 + sym2 * symarr[0].nrSecs;
       const QN_TYPE increment = symarr[0].nrSecs * symarr[1].nrSecs;
 
-      for (sym3 = 0 ; sym3 < qnumbersarray[sym1][sym2][0] ; ++sym3)
+      for (sym3 = 0; sym3 < qnumbersarray[sym1][sym2][0]; ++sym3)
       {
         if (dimarray[sym1][sym2][sym3] == 0)
           continue;
@@ -268,7 +268,7 @@ static void make_1sblocks(struct siteTensor * const tens, int ***dimarray, int *
   idx = qnumbersSort(tempqnumbers, siteTensor_give_nr_of_couplings(tens), tens->nrblocks);
 
   tens->blocks.beginblock[0] = 0;
-  for (i = 0 ; i < tens->nrblocks ; ++i)
+  for (i = 0; i < tens->nrblocks; ++i)
   {
     tens->qnumbers[i] = tempqnumbers[idx[i]];
     tens->blocks.beginblock[i + 1] = tens->blocks.beginblock[i] + tempdims[idx[i]];
@@ -300,7 +300,7 @@ static void make_new_internalsymsecs_and_tensor(struct siteTensor * const tens,
   siteTensor_give_internalbonds(tens, internalbonds);
   get_sites_to_use(tens, internalbonds, sites_to_use, nr_internal, &innersite);
 
-  for (i = 0 ; i < nr_internal ; ++i)
+  for (i = 0; i < nr_internal; ++i)
   {
     int bonds[3];
     struct symsecs symsec[2];
@@ -311,13 +311,13 @@ static void make_new_internalsymsecs_and_tensor(struct siteTensor * const tens,
     get_bonds_of_site(sites_to_use[i], bonds);
     sign = internalbonds[i] == bonds[2] ? 1 : -1;
 
-    for (j = 0 ; j < 3 ; ++j)
+    for (j = 0; j < 3; ++j)
       if (bonds[j] != internalbonds[i]) get_symsecs(&symsec[cnt++], bonds[j]);
     assert(cnt == 2);
     tensprod_symsecs(&internalsymsec[i], &symsec[0], &symsec[1], sign, 'n');
 
     cnt = 0;
-    for (j = 0 ; j < 3 ; ++j)
+    for (j = 0; j < 3; ++j)
       if (bonds[j] != internalbonds[i]) clean_symsecs(&symsec[cnt++], bonds[j]);
   }
 
@@ -332,15 +332,15 @@ static void make_new_internalsymsecs_and_tensor(struct siteTensor * const tens,
 
     find_goodqnumbersectors(&dimarray, &qnumbersarray, &total, symsec, 1);
 
-    for (i = 0 ; i < 3 ; ++i)
+    for (i = 0; i < 3; ++i)
     {
       int j;
-      for (j = 0 ; j < nr_internal ; ++j)
+      for (j = 0; j < nr_internal; ++j)
         if (bonds[i] == internalbonds[j]) break;
       if (j != nr_internal)
       {
         int ss;
-        for (ss = 0 ; ss < internalsymsec[j].nrSecs ; ++ss)
+        for (ss = 0; ss < internalsymsec[j].nrSecs; ++ss)
         {
           int length;
           find_qnumbers_with_index_in_array(ss, i, qnumbersarray, dimarray, symsec, NULL, NULL, 
@@ -369,7 +369,7 @@ static void make_multisitetensor(struct siteTensor * tens, const struct symsecs 
   struct symsecs all_symarr[3 * tens->nrsites];
   int all_bonds[3 * tens->nrsites];
 
-  for (i = 0 ; i < tens->nrsites ; ++i)
+  for (i = 0; i < tens->nrsites; ++i)
   {
     int * bonds = &all_bonds[3 * i];
     struct symsecs * symarr = &all_symarr[3 * i];
@@ -386,7 +386,7 @@ static void make_multisitetensor(struct siteTensor * tens, const struct symsecs 
   make_qnumbers_and_dims(qnumbersarray, dimarray, tens, &dim_of_blocks, all_symarr, all_bonds,
       internalbonds, nr_internal);
 
-  for (i = 0 ; i < tens->nrsites ; ++i)
+  for (i = 0; i < tens->nrsites; ++i)
   {
     int * bonds = &all_bonds[3 * i];
     struct symsecs * symarr = &all_symarr[3 * i];
@@ -406,7 +406,7 @@ static void change_internals_in_bookkeeper(struct symsecs internalsymsec[],
   int i;
 
   siteTensor_give_internalbonds(tens, internalbonds);
-  for (i = 0 ; i < nr_internal ; ++i )
+  for (i = 0; i < nr_internal; ++i )
   {
     struct symsecs * const psymsec = &bookie.list_of_symsecs[internalbonds[i]];
     destroy_symsecs(psymsec);
@@ -418,10 +418,10 @@ static void get_ss_with_internal(struct symsecs symsec[], const struct symsecs i
     const int internalbonds[], const int nr_internal, const int bonds[])
 {
   int i;
-  for (i = 0 ; i < 3 ; ++i)
+  for (i = 0; i < 3; ++i)
   {
     int j;
-    for (j = 0 ; j < nr_internal ; ++j)
+    for (j = 0; j < nr_internal; ++j)
       if (bonds[i] == internalbonds[j]) break;
     if (j != nr_internal)
       symsec[i] = internalsymsec[j];
@@ -434,10 +434,10 @@ static void destroy_ss_with_internal(struct symsecs symsec[], const int internal
     const int nr_internal, const int bonds[])
 {
   int i;
-  for (i = 0 ; i < 3 ; ++i)
+  for (i = 0; i < 3; ++i)
   {
     int j;
-    for (j = 0 ; j < nr_internal ; ++j)
+    for (j = 0; j < nr_internal; ++j)
       if (bonds[i] == internalbonds[j]) break;
     if (j == nr_internal)
       clean_symsecs(&symsec[i], bonds[i]);
@@ -465,13 +465,13 @@ static void make_qnumbers_and_dims(int ***qnumbersarray[], int ***dimarray[], st
   int i;
 
   /* Now search the internal site. */
-  for (internal_site = 0 ; internal_site < tens->nrsites ; ++internal_site)
+  for (internal_site = 0; internal_site < tens->nrsites; ++internal_site)
   {
-    int nr_of_internal_bonds = 0 ;
-    for (i = 0 ; i < 3 ; ++i)
+    int nr_of_internal_bonds = 0;
+    for (i = 0; i < 3; ++i)
     {
       int j;
-      for (j = 0 ; j < nr_internal ; ++j)
+      for (j = 0; j < nr_internal; ++j)
         if (internalbonds[j] == all_bonds[internal_site * 3 + i])
         {
           ++nr_of_internal_bonds;
@@ -486,15 +486,15 @@ static void make_qnumbers_and_dims(int ***qnumbersarray[], int ***dimarray[], st
   if (tens->nrsites == 2) internal_site = 1;
 
   /* make the common_with_internal array */
-  for (i = 0 ; i < tens->nrsites ; ++i)
+  for (i = 0; i < tens->nrsites; ++i)
   {
     int j, k;
     if (i == internal_site)
       break;
 
-    for (j = 0 ; j < 3 ; ++j)
+    for (j = 0; j < 3; ++j)
     {
-      for (k = 0 ; k < 3 ; ++k)
+      for (k = 0; k < 3; ++k)
         if (all_bonds[i * 3 + j] == all_bonds[internal_site * 3 + k])
           break;
       if (k != 3)
@@ -510,11 +510,11 @@ static void make_qnumbers_and_dims(int ***qnumbersarray[], int ***dimarray[], st
     *dim_of_blocks = safe_malloc(tens->nrblocks, int);
   }
 
-  for (sym[0] = 0 ; sym[0] < all_symarr[internal_site * 3].nrSecs ; ++sym[0])
+  for (sym[0] = 0; sym[0] < all_symarr[internal_site * 3].nrSecs; ++sym[0])
   {
-    for (sym[1] = 0 ; sym[1] < all_symarr[internal_site * 3 + 1].nrSecs ; ++sym[1])
+    for (sym[1] = 0; sym[1] < all_symarr[internal_site * 3 + 1].nrSecs; ++sym[1])
     {
-      for (sym[2] = 0 ; sym[2] < qnumbersarray[internal_site][sym[0]][sym[1]][0] ;
+      for (sym[2] = 0; sym[2] < qnumbersarray[internal_site][sym[0]][sym[1]][0];
           ++sym[2])
       {
         int site;
@@ -524,7 +524,7 @@ static void make_qnumbers_and_dims(int ***qnumbersarray[], int ***dimarray[], st
         int length[tens->nrsites];
         length[internal_site] = 1;
 
-        for (site = 0 ; site < tens->nrsites ; ++site)
+        for (site = 0; site < tens->nrsites; ++site)
           if (site != internal_site)
           {
             QN_TYPE **p_res_qnumbers = flag ? NULL : &res_qnumbers[site];
@@ -545,12 +545,12 @@ static void make_qnumbers_and_dims(int ***qnumbersarray[], int ***dimarray[], st
             + qnumbersarray[internal_site][sym[0]][sym[1]][sym[2] + 1] *
             all_symarr[internal_site * 3].nrSecs * all_symarr[internal_site * 3+1].nrSecs;
 
-          for (i = 0 ; i < tens->nrsites ; ++i) indexes[i] = 0;
+          for (i = 0; i < tens->nrsites; ++i) indexes[i] = 0;
 
-          for (; curr_nr_blocks < upper_bound ; ++curr_nr_blocks)
+          for (; curr_nr_blocks < upper_bound; ++curr_nr_blocks)
           {
             (*dim_of_blocks)[curr_nr_blocks] = 1;
-            for (i = 0 ; i < tens->nrsites ; ++i)
+            for (i = 0; i < tens->nrsites; ++i)
             {
               if (i == internal_site)
               {
@@ -564,7 +564,7 @@ static void make_qnumbers_and_dims(int ***qnumbersarray[], int ***dimarray[], st
               }
             }
 
-            for (i = 0 ; i < tens->nrsites ; ++i)
+            for (i = 0; i < tens->nrsites; ++i)
             {
               ++indexes[i];
               if (indexes[i] < length[i])
@@ -575,7 +575,7 @@ static void make_qnumbers_and_dims(int ***qnumbersarray[], int ***dimarray[], st
           assert(i == tens->nrsites);
         }
 
-        for (site = 0 ; site < tens->nrsites * !flag ; ++site)
+        for (site = 0; site < tens->nrsites * !flag; ++site)
         {
           if (site != internal_site)
           {
@@ -601,10 +601,10 @@ static void sort_and_make(struct siteTensor * const tens, int ** const dim_of_bl
   idx = qnumbersSort(tens->qnumbers, tens->nrsites, tens->nrblocks);
 
   tens->blocks.beginblock[0] = 0; 
-  for (i = 0 ; i < tens->nrblocks ; ++i)
+  for (i = 0; i < tens->nrblocks; ++i)
   {
     int j;
-    for (j = 0 ; j < tens->nrsites ; ++j)
+    for (j = 0; j < tens->nrsites; ++j)
       sorted_qnumbers[i * tens->nrsites + j] = tens->qnumbers[idx[i] * tens->nrsites + j];
     tens->blocks.beginblock[i + 1] = (*dim_of_blocks)[idx[i]] + tens->blocks.beginblock[i];
   }
@@ -645,8 +645,8 @@ static void contractsiteTensors(struct siteTensor * const tens, struct siteTenso
   get_symsecs_arr(symarr, bonds, nrbonds);
 
   assert(tens->nrsites == 2 && nr_internal == 1 && "At this moment only two-site optimization");
-  for (site = 0 ; site < tens->nrsites ; ++site)
-    for (map[site] = 0 ; map[site] < 3 ; ++map[site])
+  for (site = 0; site < tens->nrsites; ++site)
+    for (map[site] = 0; map[site] < 3; ++map[site])
       if (bonds[3 * site + map[site]] == internalbonds[0])
         break;
   assert(map[0] == 2 && "The last bond of the first tensor is the internal one");
@@ -654,14 +654,14 @@ static void contractsiteTensors(struct siteTensor * const tens, struct siteTenso
 
   /* Two site optimization and furthermore last bond of the first tensor is contracted 
    * with the first or second bond of the second tensor */
-  for (resblock = 0 ; resblock < tens->nrblocks ; ++resblock)
+  for (resblock = 0; resblock < tens->nrblocks; ++resblock)
   {
     QN_TYPE oldqnumeros[tens->nrsites];
     int indexes[3 * tens->nrsites];
     int M1, N1, M2, N2, K2;
     int i, m, k;
     int block1, block2;
-    for (i = 0 ; i < tens->nrsites ; ++i)
+    for (i = 0; i < tens->nrsites; ++i)
       oldqnumeros[i] = tens->qnumbers[tens->nrsites * resblock + i];
 
     oldqnumeros[0] = change_newtooldqnumber(oldqnumeros[0], newtoold, &maxdims[0],
@@ -684,12 +684,12 @@ static void contractsiteTensors(struct siteTensor * const tens, struct siteTenso
     EL_TYPE *tel2   = get_tel_block(&tens2.blocks, block2);
     EL_TYPE *telres = get_tel_block(&tens->blocks, resblock);
 
-    for (site = 0 ; site < tens->nrsites ; ++site)
+    for (site = 0; site < tens->nrsites; ++site)
     {
       //QN_TYPE curr_QN = tens->qnumbers[resblock * tens->nrsites + site];
       QN_TYPE curr_QN = oldqnumeros[site];
       int i;
-      for (i = 0 ; i < 3 ; ++i)
+      for (i = 0; i < 3; ++i)
       {
         indexes[site * 3 + i] = curr_QN % maxdims[site * 3 + i];
         curr_QN /= maxdims[site * 3 + i];
@@ -703,19 +703,19 @@ static void contractsiteTensors(struct siteTensor * const tens, struct siteTenso
     N1 = symarr[2].dims[indexes[2]];
 
     M2 = 1;
-    for (i = 0 ; i < map[1] ; ++i) M2 *= symarr[3 + i].dims[indexes[3 + i]];
+    for (i = 0; i < map[1]; ++i) M2 *= symarr[3 + i].dims[indexes[3 + i]];
     N2 = symarr[3 + i].dims[indexes[3 + i]];
     ++i;
     K2 = 1;
-    for (; i < 3 ; ++i) K2 *= symarr[3 + i].dims[indexes[3 + i]];
+    for (; i < 3; ++i) K2 *= symarr[3 + i].dims[indexes[3 + i]];
 
     assert(N1 == N2);
     assert(M1 * N1 == get_size_block(&tens1.blocks, block1));
     assert(M2 * N2 * K2 == get_size_block(&tens2.blocks, block2));
     assert(M1 * M2 * K2 == get_size_block(&tens->blocks, resblock));
 
-    for (m = 0 ; m < M2 ; ++m)
-      for (k = 0 ; k < K2 ; ++k)
+    for (m = 0; m < M2; ++m)
+      for (k = 0; k < K2; ++k)
         dgemv_(&NOTRANS, &M1, &N1, &ONE, tel1, &M1, tel2 + m + k * M2 * N2, &M2, &ZERO, 
             telres + m * M1 + k * M1 * M2, &I_ONE);
   }
@@ -731,7 +731,7 @@ static QN_TYPE change_newtooldqnumber(QN_TYPE new, int * newtoold, int * maxdims
   int i;
   int indices[3];
   maxdims[map] = newdim;
-  for (i = 0 ; i < 3 ; ++i)
+  for (i = 0; i < 3; ++i)
   {
     indices[i] = new % maxdims[i];
     new /= maxdims[i];
@@ -745,7 +745,7 @@ static QN_TYPE change_newtooldqnumber(QN_TYPE new, int * newtoold, int * maxdims
   }
 
   maxdims[map] = olddim;
-  for (i = 2 ; i >= 0 ; --i)
+  for (i = 2; i >= 0; --i)
   {
     new *= maxdims[i];
     new += indices[i];
@@ -761,14 +761,14 @@ static int * make_newtoold(const struct symsecs * const internalss, const int bo
   int currj = 0;
   get_symsecs(&newss, bond);
 
-  for (i = 0 ; i < internalss->nrSecs ; ++i)
+  for (i = 0; i < internalss->nrSecs; ++i)
   {
     int j;
     result[i] = -1;
-    for (j = currj ; j < newss.nrSecs ; ++j)
+    for (j = currj; j < newss.nrSecs; ++j)
     {
       int k;
-      for (k = 0 ; k < bookie.nrSyms ; ++k)
+      for (k = 0; k < bookie.nrSyms; ++k)
         if (internalss->irreps[i * bookie.nrSyms + k] != 
             newss.irreps[j * bookie.nrSyms + k])
           break;

@@ -9,7 +9,7 @@
 #include "bookkeeper.h"
 #include "macros.h"
 #include "debug.h"
-#include "ops_type.h"
+#include "opType.h"
 
 static struct hamdata {
         int norb;           /**< number of orbitals. */
@@ -20,13 +20,13 @@ static struct hamdata {
 } hdat;
 
 static const int irreps_QC[13][2] = {
-        {-2,0},{-1,-1},{-1,0},{-1,1},{0,-2},{0,-1},{0,0},{0,1},{0,2},{1,-1},
-        {1,0},{1,1},{2,0}};
-static const int valid_QC[13] = {0,1,1,1,0,1,1,1,0,1,1,1,0};
+        {-2,0}, {-1,-1}, {-1,0}, {-1,1}, {0,-2}, {0,-1}, 
+        {0,0}, {0,1}, {0,2}, {1,-1},  {1,0}, {1,1}, {2,0}};
+static const int valid_QC[13] = {0, 1, 1, 1, 0, 1, 1, 1, 0, 1, 1, 1, 0};
 
 static const int irreps_QCSU2[8][2] = {
-        {-2,2},{-2,0},{-1,1},{0,2},{0,0},{1,1},{2,0},{2,2}};
-static const int valid_QCSU2[8] = {0,1,1,1,1,1,1,0};
+        {-2,2}, {-2,0}, {-1,1}, {0,2}, {0,0}, {1,1}, {2,0}, {2,2}};
+static const int valid_QCSU2[8] = {0, 1, 1, 1, 1, 1, 1, 0};
 
 static struct symsecs MPOsymsecs = {
         .nrSecs = 0, 
@@ -69,28 +69,14 @@ static int add_product(int * const res, const int i, const int j,
                        const int nr_of_pg);
 
 /* U1 X U1 */
-static int u1_tag_to_siteop(const int * tag, const int tagsize);
-
-static void u1_siteop_to_tag(const int siteop, int * const tag, 
-                             int * const tagsize);
-
 static double u1_el_siteop(const int siteop, const int braid, const int ketid);
 
 static void u1_irrep_of_siteop(int irrep[2], const int siteop);
 
-static int u1_hss_of_tag(const int * const tag, const int tagsize);
-
 /* U1 X SU2 */
-static int su2_tag_to_siteop(const int * tag, const int tagsize);
-
-static void su2_siteop_to_tag(const int siteop, int * const tag, 
-                              int * const tagsize);
-
 static double su2_el_siteop(const int siteop, const int braid, const int ketid);
 
 static void su2_irrep_of_siteop(int irrep[2], const int siteop);
-
-static int su2_hss_of_tag(const int * const tag, const int tagsize);
 
 /* ========================================================================== */
 
@@ -121,7 +107,7 @@ void QC_make_hamiltonian(char hamiltonianfile[], int su2)
                 exit(EXIT_FAILURE);
         }
         prepare_MPOsymsecs();
-        init_ops_types();
+        init_opType_array();
 }
 
 void QC_get_physsymsecs(struct symsecs *res, int site)
@@ -139,10 +125,10 @@ void QC_get_physsymsecs(struct symsecs *res, int site)
         res->dims = safe_malloc(res->nrSecs, int);
         res->fcidims = safe_malloc(res->nrSecs, double);
 
-        for (i = 0 ; i < res->nrSecs ; ++i) {
+        for (i = 0; i < res->nrSecs; ++i) {
                 res->dims   [i] = 1;
                 res->fcidims[i] = 1;
-                for (j = 0 ; j < 3 ; ++j)
+                for (j = 0; j < 3; ++j)
                         res->irreps[i * bookie.nrSyms + j] = irreparr[i][j];
 
                 /* trivial if even parity, otherwise irrep of orbital*/
@@ -189,7 +175,7 @@ int QC_get_trivialhamsymsec(void)
         const int size = QC_get_nr_hamsymsec() / nr_of_pg;
 
         int i;
-        for (i = 0 ; i < size ; ++i)
+        for (i = 0; i < size; ++i)
                 if (irreps[i*2 + 0] == 0 && irreps[i*2 + 1] == 0)
                         return nr_of_pg * i;
         return -1;
@@ -218,35 +204,13 @@ int QC_hermitian_symsec(const int orig_symsec)
         assert(other_irr < size);
 
         int i;
-        for (i = 0 ; i < size ; ++i)
+        for (i = 0; i < size; ++i)
                 if (irreps[i*2 + 0] == herm_irr[0] 
                     && irreps[i*2 + 1] == herm_irr[1])
                         break;
 
         assert(i < size);
         return i * nr_of_pg + pg_irrep;
-}
-
-int QC_get_dof(void)
-{
-        return 2;
-}
-
-int QC_tag_to_siteop(const int * tag, const int tagsize)
-{
-        if (hdat.su2)
-                return su2_tag_to_siteop(tag, tagsize);
-        else
-                return u1_tag_to_siteop(tag, tagsize);
-}
-
-void get_tag_site(const int siteop, int * const tag, int * const tagsize)
-{
-        if (hdat.su2)
-                su2_siteop_to_tag(siteop, tag, tagsize);
-        else
-                u1_siteop_to_tag(siteop, tag, tagsize);
-        assert(QC_tag_to_siteop(tag, *tagsize) == siteop);
 }
 
 int QC_consistencynetworkinteraction(void)
@@ -267,55 +231,6 @@ double QC_el_siteop(const int siteop, const int braindex, const int ketindex)
                 return su2_el_siteop(siteop, braindex, ketindex);
         else
                 return u1_el_siteop(siteop, braindex, ketindex);
-}
-
-int QC_symsec_siteop(const int siteop, const int site)
-{
-        const int pg        = get_pg_symmetry();
-        const int nr_of_pg  = pg == -1 ? 1 : get_max_irrep(NULL,0,NULL,0,0, pg);
-        const int pg_irrep  = hdat.orbirrep[netw.sitetoorb[site]];
-        const int * irreps_arr = hdat.su2 ? &irreps_QCSU2[0][0] 
-                : &irreps_QC[0][0];
-        const int size = QC_get_nr_hamsymsec() / nr_of_pg;
-        int irrep[2];
-        int i;
-
-        assert(is_psite(site));
-        if (hdat.su2)
-                su2_irrep_of_siteop(irrep, siteop);
-        else
-                u1_irrep_of_siteop(irrep, siteop);
-
-        const int parity = hdat.su2 ? 
-                abs(irrep[0]) % 2 : abs(irrep[0] + irrep[1]) % 2;
-
-        for (i = 0 ; i < size ; ++i)
-                if (irreps_arr[i * 2 + 0] == irrep[0] &&
-                    irreps_arr[i * 2 + 1] == irrep[1])
-                        return i * nr_of_pg + pg_irrep * parity;
-
-        return -1;
-}
-
-double get_V(const int * const tag1, const int * const tag2,
-             const int * const tag3, const int * const tag4)
-{
-        const int psites  = hdat.norb;
-        const int psites2 = psites * psites;
-        const int psites3 = psites * psites2;
-
-        if (tag1[0] != 1 || tag2[0] != 1 || tag3[0] != 0 || tag4[0] != 0)
-                return 0;
-        if (tag1[2] != tag4[2] || tag2[2] != tag3[2])
-                return 0;
-
-        if (get_pg_symmetry() != -1 && 
-            ((hdat.orbirrep[tag1[1]] ^ hdat.orbirrep[tag2[1]]) ^ 
-             (hdat.orbirrep[tag3[1]] ^ hdat.orbirrep[tag4[1]])) != 0)
-                return 0;
-
-        return 0.5 * hdat.Vijkl[tag1[1] + psites * tag4[1] + 
-                psites2 * tag3[1] + psites3 * tag2[1]];
 }
 
 double get_core(void)
@@ -349,8 +264,8 @@ void QC_tprods_ham(int * const nr_of_prods, int ** const possible_prods,
 
         assert(other_irr < size);
 
-        for (i = 0 ; i < size ; ++i)
-                for (j = 0 ; j < size ; ++j)
+        for (i = 0; i < size; ++i)
+                for (j = 0; j < size; ++j)
                         cnt += add_product(NULL, i, j, other_irr, pg_irr, site,
                                            nr_of_pg);
 
@@ -358,40 +273,10 @@ void QC_tprods_ham(int * const nr_of_prods, int ** const possible_prods,
         *possible_prods = safe_malloc(*nr_of_prods * 2, int);
 
         cnt = 0;
-        for (i = 0 ; i < size ; ++i)
-                for (j = 0 ; j < size ; ++j)
+        for (i = 0; i < size; ++i)
+                for (j = 0; j < size; ++j)
                         cnt += add_product(&(*possible_prods)[2 * cnt], i, j, 
                                            other_irr, pg_irr, site, nr_of_pg);
-}
-
-int QC_get_hamsymsec_from_tag(const int * const tag, const int tagsize)
-{
-        if (hdat.su2)
-                return su2_hss_of_tag(tag, tagsize);
-        else
-                return u1_hss_of_tag(tag, tagsize);
-}
-
-void QC_get_string_of_rops(char buffer[], const int ropsindex, const int bond, 
-                           const int is_left, const char o)
-{
-        struct ops_type ops = get_op_type_list(bond, is_left, o);
-        get_string_tag(buffer, &ops, ropsindex);
-        destroy_ops_type(&ops, o);
-}
-
-void QC_get_string_of_siteops(char buffer[], const int siteid, const int site)
-{
-        int tag[SIZE_TAG * 4];
-        int tagsize = 0;
-        int i;
-        get_tag_site(siteid, tag, &tagsize);
-        for (i = 0 ; i < tagsize ; ++i)
-                tag[i * SIZE_TAG + 1] = site;
-        if (tagsize == 0)
-                strcpy(buffer, "Unity");
-        else
-                get_string_tg(buffer, tag, tagsize, 0);
 }
 
 int QC_MPO_couples_to_singlet(const int n, const int MPO[n])
@@ -403,13 +288,53 @@ int QC_MPO_couples_to_singlet(const int n, const int MPO[n])
         int pg_irrep[n];
         int other_irr[n];
         int i;
-        for (i = 0 ; i < n ; ++i) {
+        for (i = 0; i < n; ++i) {
                 pg_irrep[i]  = MPO[i] % nr_of_pg;
                 other_irr[i] = MPO[i] / nr_of_pg;
         }
         if ((pg_irrep[0] ^ pg_irrep[1]) != pg_irrep[2]) return 0;
 
         return valid_tprod(other_irr[0], other_irr[1], other_irr[2], 0);
+}
+
+void make_site_opType(int ** begin_opType, int **** tags_opType)
+{
+        assert(0);
+}
+
+
+int QC_symsec_siteop(const int siteop, const int site) 
+{
+        const int pg        = get_pg_symmetry();
+        const int nr_of_pg  = pg == -1 ? 1 : get_max_irrep(NULL,0,NULL,0,0, pg);
+        const int pg_irrep  = hdat.orbirrep[netw.sitetoorb[site]];
+        const int * irreps_arr = hdat.su2 ? &irreps_QCSU2[0][0] 
+                : &irreps_QC[0][0];
+        const int size = QC_get_nr_hamsymsec() / nr_of_pg;
+        int irrep[2];
+        int i;
+
+        assert(is_psite(site));
+        if (hdat.su2)
+                su2_irrep_of_siteop(irrep, siteop);
+        else
+                u1_irrep_of_siteop(irrep, siteop);
+
+        const int parity = hdat.su2 ? 
+                abs(irrep[0]) % 2 : abs(irrep[0] + irrep[1]) % 2;
+
+        for (i = 0 ; i < size ; ++i)
+                if (irreps_arr[i * 2 + 0] == irrep[0] &&
+                    irreps_arr[i * 2 + 1] == irrep[1])
+                        return i * nr_of_pg + pg_irrep * parity;
+
+        return -1;
+}
+
+void QC_symsec_of_operators(int ** const list_of_ss, 
+                            const int bond, const int is_left)
+{
+        assert(0);
 }
 
 /* ========================================================================== */
@@ -487,7 +412,7 @@ static void read_integrals(double **one_p_int, char fil[])
                 char *stops[] = {"&END", "/END", "/"};
                 int lstops = sizeof stops / sizeof(char*);
                 int i;
-                for (i = 0 ; i < lstops ; ++i) {
+                for (i = 0; i < lstops; ++i) {
                         char *s = stops[i];
                         char *b = buffer;
 
@@ -543,20 +468,20 @@ static void form_integrals(double* one_p_int)
         int norb2 = hdat.norb * hdat.norb;
         int norb3 = norb2 * hdat.norb;
 
-        for (i = 0 ; i < hdat.norb ; ++i)
-                for (j = 0 ; j <= i; ++j)
+        for (i = 0; i < hdat.norb; ++i)
+                for (j = 0; j <= i; ++j)
                         one_p_int[i*hdat.norb + j] = one_p_int[j*hdat.norb + i];
 
-        for (i = 0 ; i < hdat.norb ; ++i)
-                for (j = 0 ; j <= i; ++j)
-                        for (k = 0 ; k <= i; ++k)
-                                for (l = 0 ; l <= k; ++l)
+        for (i = 0; i < hdat.norb; ++i)
+                for (j = 0; j <= i; ++j)
+                        for (k = 0; k <= i; ++k)
+                                for (l = 0; l <= k; ++l)
                                         fillin_Vijkl(i, j, k, l);
 
-        for (i = 0 ; i < hdat.norb ; ++i)
-                for (j = 0 ; j < hdat.norb ; ++j) {
+        for (i = 0; i < hdat.norb; ++i)
+                for (j = 0; j < hdat.norb; ++j) {
                         double pref2 = pref * one_p_int[i * hdat.norb + j];
-                        for (k = 0 ; k < hdat.norb ; ++k) {
+                        for (k = 0; k < hdat.norb; ++k) {
                                 hdat.Vijkl[i + hdat.norb * j + 
                                         norb2 * k + norb3 * k] += pref2;
                                 hdat.Vijkl[k + hdat.norb * k + 
@@ -591,14 +516,14 @@ static int check_orbirrep(void)
         int max_pg;
         int i;
         if ((pg_symm = get_pg_symmetry()) == -1) {
-                for (i = 0 ; i < hdat.norb ; ++i)
+                for (i = 0; i < hdat.norb; ++i)
                         if (hdat.orbirrep[i] != 0)
                                 return 0;
                 return 1;
         }
 
         max_pg = get_max_irrep(NULL, 0, NULL, 0, 0, pg_symm);
-        for (i = 0 ; i < hdat.norb ; ++i) {
+        for (i = 0; i < hdat.norb; ++i) {
                 if (hdat.orbirrep[i] < 0 || hdat.orbirrep[i] >= max_pg)
                         return 0;
         }
@@ -663,9 +588,9 @@ static void prepare_MPOsymsecs(void)
         curr_dims    = MPOsymsecs.dims;
         curr_fcidims = MPOsymsecs.fcidims;
 
-        for (i = 0 ; i < size ; ++i) {
+        for (i = 0; i < size; ++i) {
                 int j;
-                for (j = 0 ; j < nr_of_pg ; ++j) {
+                for (j = 0; j < nr_of_pg; ++j) {
                         /* Z2 */
                         *(curr_irrep++) = abs(irreps[i * 2] + 
                                               irreps[i * 2 + 1]) % 2;
@@ -703,7 +628,7 @@ static int add_product(int * const res, const int i, const int j,
                 res[1] = j * nr_of_pg + pg_2;
         } else {
                 int pg_1;
-                for (pg_1 = 0 ; pg_1 < nr_of_pg ; ++pg_1) {
+                for (pg_1 = 0; pg_1 < nr_of_pg; ++pg_1) {
                         const int pg_2 = pg_1 ^ pg_irr;
                         res[2 * pg_1 + 0] = i * nr_of_pg + pg_1;
                         res[2 * pg_1 + 1] = j * nr_of_pg + pg_2;
@@ -713,152 +638,6 @@ static int add_product(int * const res, const int i, const int j,
 }
 
 /* U1 X U1 */
-static int u1_tag_to_siteop(const int * tag, const int tagsize)
-{
-        int res;
-        switch (tagsize) {
-        case 0:
-                return 0;
-        case 1:
-                return 10 + 10 * (tag[0] == 0) + tag[2];
-        case 2:
-                res = 5 - (tag[0] == tag[3]) * (1 + (tag[0] == 1));
-                if (res < 5) {
-                        assert(tag[2] == 0);
-                        assert(tag[5] == 1);
-                        return res;
-                }
-
-                res *= 10;
-                assert(tag[0] == 1);
-                assert(tag[3] == 0);
-                res += tag[2] + 2 * tag[5];
-                return res;
-        case 3:
-                assert(tag[0] == 1);
-                assert(tag[6] == 0);
-                res = 60 + 10 * (tag[3] == 0) + 
-                        ((tag[2] + tag[5] + tag[8]) != 1);
-
-                if (tag[0] == tag[3]) {
-                        assert(tag[2] == 0);
-                        assert(tag[5] == 1);
-                } else {
-                        assert(tag[5] == 0);
-                        assert(tag[8] == 1);
-                }
-                return res;
-        case 4:
-                assert(tag[0] == 1);
-                assert(tag[3] == 1);
-                assert(tag[6] == 0);
-                assert(tag[9] == 0);
-                assert(tag[2] == 0);
-                assert(tag[5] == 1);
-                assert(tag[8] == 0);
-                assert(tag[11] == 1);
-                return 8;
-
-        default:
-                fprintf(stderr, "%s@%s: wrong tagsize passed: %d\n", 
-                        __FILE__, __func__, tagsize);
-                return -1;
-        }
-}
-
-static void u1_siteop_to_tag(const int siteop, int * const tag, 
-                             int * const tagsize)
-{
-        int i;
-        switch (siteop) {
-        case 0 :
-                *tagsize = 0;
-                break;
-        case 10 :
-                *tagsize = 1;
-                tag[0] = 1; tag[1] = 0; tag[2] = 0;
-                break;
-        case 11 :
-                *tagsize = 1;
-                tag[0] = 1; tag[1] = 0; tag[2] = 1;
-                break;
-        case 20 :
-                *tagsize = 1;
-                tag[0] = 0; tag[1] = 0; tag[2] = 0;
-                break;
-        case 21 :
-                *tagsize = 1;
-                tag[0] = 0; tag[1] = 0; tag[2] = 1;
-                break;
-        case 3 :
-                *tagsize = 2;
-                tag[0] = 1; tag[1] = 0; tag[2] = 0;
-                tag[3] = 1; tag[4] = 0; tag[5] = 1;
-                break;
-        case 4 :
-                *tagsize = 2;
-                tag[0] = 0; tag[1] = 0; tag[2] = 0;
-                tag[3] = 0; tag[4] = 0; tag[5] = 1;
-                break;
-        case 50 :
-                *tagsize = 2;
-                tag[0] = 1; tag[1] = 0; tag[2] = 0;
-                tag[3] = 0; tag[4] = 0; tag[5] = 0;
-                break;
-        case 51 :
-                *tagsize = 2;
-                tag[0] = 1; tag[1] = 0; tag[2] = 1;
-                tag[3] = 0; tag[4] = 0; tag[5] = 0;
-                break;
-        case 52 :
-                *tagsize = 2;
-                tag[0] = 1; tag[1] = 0; tag[2] = 0;
-                tag[3] = 0; tag[4] = 0; tag[5] = 1;
-                break;
-        case 53 :
-                *tagsize = 2;
-                tag[0] = 1; tag[1] = 0; tag[2] = 1;
-                tag[3] = 0; tag[4] = 0; tag[5] = 1;
-                break;
-        case 60 :
-                *tagsize = 3;
-                tag[0] = 1; tag[1] = 0; tag[2] = 0;
-                tag[3] = 1; tag[4] = 0; tag[5] = 1;
-                tag[6] = 0; tag[7] = 0; tag[8] = 0;
-                break;
-        case 61 :
-                *tagsize = 3;
-                tag[0] = 1; tag[1] = 0; tag[2] = 0;
-                tag[3] = 1; tag[4] = 0; tag[5] = 1;
-                tag[6] = 0; tag[7] = 0; tag[8] = 1;
-                break;
-        case 70 :
-                *tagsize = 3;
-                tag[0] = 1; tag[1] = 0; tag[2] = 0;
-                tag[3] = 0; tag[4] = 0; tag[5] = 0;
-                tag[6] = 0; tag[7] = 0; tag[8] = 1;
-                break;
-        case 71 :
-                *tagsize = 3;
-                tag[0] = 1; tag[1] = 0; tag[2] = 1;
-                tag[3] = 0; tag[4] = 0; tag[5] = 0;
-                tag[6] = 0; tag[7] = 0; tag[8] = 1;
-                break;
-        case 8 :
-                *tagsize = 4;
-                tag[0] = 1; tag[1] = 0; tag[2] = 0;
-                tag[3] = 1; tag[4] = 0; tag[5] = 1;
-                tag[6] = 0; tag[7] = 0; tag[8] = 0;
-                tag[9] = 0; tag[10] = 0; tag[11] = 1;
-                break;
-        default :
-                fprintf(stderr, "%s@%s: wrong switch case included (%d) !\n", 
-                        __FILE__, __func__, siteop);
-                exit(EXIT_FAILURE);
-        }
-        for (i = 0 ; i < *tagsize ; ++i) tag[1 + 3 * i] = -1;
-}
-
 static double u1_el_siteop(const int siteop, const int braid, const int ketid)
 {
         /**
@@ -890,92 +669,92 @@ static double u1_el_siteop(const int siteop, const int braid, const int ketid)
          * So i need an extra |ket(i)MPO(i)| sign
          */
         switch (siteop) {
-        case 0 : /* 1 : |0><0| + |1><1| + |2><2| + |3><3| */
+        case 0: /* 1 : |0><0| + |1><1| + |2><2| + |3><3| */
                 return (braid == ketid) ? 1.0 : 0.0;
 
-        case 10 : /* c+_u : |1><0| + |3><2| */
+        case 1: /* c+_u : |1><0| + |3><2| */
                 if (braid == 1 && ketid == 0)
                         return 1.0;
                 if (braid == 3 && ketid == 2)
                         return -1.0;
                 return 0;
 
-        case 11 : /* c+_d : |2><0| - |3><1| */
+        case 2: /* c+_d : |2><0| - |3><1| */
                 if (braid == 2 && ketid == 0)
                         return 1.0;
                 if (braid == 3 && ketid == 1)
                         return 1.0;
                 return 0;
 
-        case 20 : /* c_u : |0><1| + |2><3| */
+        case 3: /* c_u : |0><1| + |2><3| */
                 if (braid == 0 && ketid == 1)
                         return -1.0;
                 if (braid == 2 && ketid == 3)
                         return 1.0;
                 return 0;
 
-        case 21 : /* c_d : |0><2| - |1><3| */
+        case 4: /* c_d : |0><2| - |1><3| */
                 if (braid == 0 && ketid == 2)
                         return -1.0;
                 if (braid == 1 && ketid == 3)
                         return -1.0;
                 return 0;
 
-        case 3 : /* c+_u c+_d : |3><0| */
+        case 5: /* c+_u c+_d : |3><0| */
                 if (braid == 3 && ketid == 0)
                         return 1.0;
                 return 0;
 
-        case 4 : /* c_u c_d : -|0><3| */
+        case 6: /* c_u c_d : -|0><3| */
                 if (braid == 0 && ketid == 3)
                         return -1.0;
                 return 0;
 
-        case 50 : /* c+_u c_u : |1><1| + |3><3| */
+        case 7: /* c+_u c_u : |1><1| + |3><3| */
                 if (braid == 1 && ketid == 1)
                         return 1.0;
                 if (braid == 3 && ketid == 3)
                         return 1.0;
                 return 0;
 
-        case 51 : /* c+_d c_u : |2><1| */
+        case 8: /* c+_d c_u : |2><1| */
                 if (braid == 2 && ketid == 1)
                         return 1.0;
                 return 0;
 
-        case 52 : /* c+_u c_d : |1><2| */
+        case 9: /* c+_u c_d : |1><2| */
                 if (braid == 1 && ketid == 2)
                         return 1.0;
                 return 0;
 
-        case 53 : /* c+_d c_d : |2><2| + |3><3| */
+        case 10: /* c+_d c_d : |2><2| + |3><3| */
                 if (braid == 2 && ketid == 2)
                         return 1.0;
                 if (braid == 3 && ketid == 3)
                         return 1.0;
                 return 0;
 
-        case 60 : /* c+_u c+_d c_u : |3><1| */
+        case 11: /* c+_u c+_d c_u : |3><1| */
                 if (braid == 3 && ketid == 1)
                         return -1.0;
                 return 0;
 
-        case 61 : /* c+_u c+_d c_d : |3><2| */
+        case 12: /* c+_u c+_d c_d : |3><2| */
                 if (braid == 3 && ketid == 2)
                         return -1.0;
                 return 0;
 
-        case 70 : /* c+_u c_u c_d : -|1><3| */
+        case 13: /* c+_u c_u c_d : -|1><3| */
                 if (braid == 1 && ketid == 3)
                         return -1.0;
                 return 0;
 
-        case 71 : /* c+_d c_u c_d : -|2><3| */
+        case 14: /* c+_d c_u c_d : -|2><3| */
                 if (braid == 2 && ketid == 3)
                         return -1.0;
                 return 0;
 
-        case 8 : /* c+_u c+_d c_u c_d : -|3><3| */
+        case 15: /* c+_u c+_d c_u c_d : -|3><3| */
                 if (braid == 3 && ketid == 3)
                         return -1.0;
                 return 0;
@@ -987,79 +766,12 @@ static double u1_el_siteop(const int siteop, const int braid, const int ketid)
         }
 }
 
-static void u1_irrep_of_siteop(int irreps_of_hss[2], const int siteop)
+static void u1_irrep_of_siteop(int irrep[2], const int siteop)
 {
-        switch (siteop) {
-        case 4: // -1 -1
-                irreps_of_hss[0] = -1; irreps_of_hss[1] = -1; break;
-        case 20: // -1 0
-        case 71:
-                irreps_of_hss[0] = -1; irreps_of_hss[1] = 0; break;
-        case 51: // -1 1
-                irreps_of_hss[0] = -1; irreps_of_hss[1] = 1; break;
-        case 21: // 0 -1
-        case 70:
-                irreps_of_hss[0] = 0; irreps_of_hss[1] = -1; break;
-        case 0 : // 0 0
-        case 50:
-        case 53:
-        case 8:
-                irreps_of_hss[0] = 0; irreps_of_hss[1] = 0; break;
-        case 11: // 0 1
-        case 60:
-                irreps_of_hss[0] = 0; irreps_of_hss[1] = 1; break;
-        case 52: // 1 -1
-                irreps_of_hss[0] = 1; irreps_of_hss[1] = -1; break;
-        case 10: // 1 0
-        case 61:
-                irreps_of_hss[0] = 1; irreps_of_hss[1] = 0; break;
-        case 3: // 1 1
-                irreps_of_hss[0] = 1; irreps_of_hss[1] = 1; break;
-        default :
-                fprintf(stderr, "%s@%s: Wrong siteop given: %d!\n",
-                        __FILE__, __func__, siteop);
-                exit(EXIT_FAILURE);
-        }
-}
-
-static int u1_hss_of_tag(const int * const tag, const int tagsize)
-{
-        assert(tagsize <= 2);
-        const int pg       = get_pg_symmetry();
-        const int nr_of_pg = pg == -1 ? 1 : get_max_irrep(NULL,0,NULL,0,0, pg);
-        const int size = sizeof irreps_QC / sizeof irreps_QC[0];
-
-        int i;
-        int hss[2] = {0, 0};
-        int pg_new = 0;
-        for (i = 0 ; i < tagsize ; ++i) {
-                const int sign = tag[i * SIZE_TAG + 0] ? 1 : -1;
-                pg_new = pg_new ^ hdat.orbirrep[tag[i * SIZE_TAG + 1]];
-                const int spin = tag[i * SIZE_TAG + 2];
-                hss[spin] += sign;
-        }
-
-        for (i = 0 ; i < size ; ++i)
-                if (hss[0] == irreps_QC[i][0] && hss[1] == irreps_QC[i][1])
-                        return i * nr_of_pg + pg_new;
-
-        fprintf(stderr, "%s@%s: Something wrong while calculating hamsymsec from tag (%d, %d).\n", 
-                __FILE__, __func__, hss[0], hss[1]);
-        return -1;
+        assert(0);
 }
 
 /* U1 X SU2 */
-static int su2_tag_to_siteop(const int * tag, const int tagsize)
-{
-        exit(EXIT_FAILURE);
-}
-
-static void su2_siteop_to_tag(const int siteop, int * const tag,
-                              int * const tagsize)
-{
-        exit(EXIT_FAILURE);
-}
-
 static double su2_el_siteop(const int siteop, const int braid, const int ketid)
 {
         /* dont forget the |ket(i)||MPO(i)| (originates from Z2) */
@@ -1093,7 +805,7 @@ static double su2_el_siteop(const int siteop, const int braid, const int ketid)
                         return -1 / sqrt(2);
                 return 0;
 
-        case 50 : /* (c+c)_0 : {1/sqrt2 (c+_u c_u + c+_d c_d)}: 
+        case 5 : /* (c+c)_0 : {1/sqrt2 (c+_u c_u + c+_d c_d)}: 
                   * -|1><1| + sqrt2 |2><2| */
                 if (braid == 1 && ketid == 1)
                         return -1;
@@ -1101,25 +813,25 @@ static double su2_el_siteop(const int siteop, const int braid, const int ketid)
                         return sqrt(2);
                 return 0;
 
-        case 51 :/* (c+c)_1: {c+_u c_d,-1/sqrt2(c+_u c_u - c+_d c_d),-c+_d c_u}: 
+        case 6 :/* (c+c)_1: {c+_u c_d,-1/sqrt2(c+_u c_u - c+_d c_d),-c+_d c_u}: 
                   * -sqrt3 |2><2| */
                 if (braid == 2 && ketid == 2)
                         return -sqrt(3);
                 return 0;
 
-        case 6 : /* (c+c+c) : {1/2 c+_u c+_d c_d, -1/2 c+_u c+_d c_u}: 
+        case 7 : /* (c+c+c) : {1/2 c+_u c+_d c_d, -1/2 c+_u c+_d c_u}: 
                   * -1/sqrt(2) |2><1| */
                 if (braid == 2 && ketid == 1)
                         return 1 / sqrt(2);
                 return 0;
 
-        case 7 : /* (c+cc) : {1/2 c+_u c_d c_u, 1/2 c+_d c_d c_u}: 
+        case 8 : /* (c+cc) : {1/2 c+_u c_d c_u, 1/2 c+_d c_d c_u}: 
                   * 1/sqrt(2) |1><2| */
                 if (braid == 1 && ketid == 2)
                         return 1 / sqrt(2);
                 return 0;
 
-        case 8 : /* (c+ c+ c c)_0 : -c_u+ c_d+ c_d c_u : -|2><2| */
+        case 9 : /* (c+ c+ c c)_0 : -c_u+ c_d+ c_d c_u : -|2><2| */
                 if (braid == 2 && ketid == 2)
                         return -1.0;
                 return 0;
@@ -1133,31 +845,5 @@ static double su2_el_siteop(const int siteop, const int braid, const int ketid)
 
 static void su2_irrep_of_siteop(int irrep[2], const int siteop)
 {
-        switch (siteop) {
-        case 1: // 1 1
-        case 6:
-                irrep[0] = 1; irrep[1] = 1; break;
-        case 2: // -1 1
-        case 7:
-                irrep[0] = -1; irrep[1] = 1; break;
-        case 3: // 2 0
-                irrep[0] = 2; irrep[1] = 0; break;
-        case 4: // -2 0
-                irrep[0] = -2; irrep[1] = 0; break;
-        case 51: // 0 2
-                irrep[0] = 0; irrep[1] = 2; break;
-        case 0 : // 0 0
-        case 50:
-        case 8:
-                irrep[0] = 0; irrep[1] = 0; break;
-        default :
-                fprintf(stderr, "%s@%s: Wrong siteop given: %d!\n",
-                        __FILE__, __func__, siteop);
-                exit(EXIT_FAILURE);
-        }
-}
-
-static int su2_hss_of_tag(const int * const tag, const int tagsize)
-{
-        exit(EXIT_FAILURE);
+        assert(0);
 }

@@ -6,6 +6,7 @@
 #include "hamiltonian.h"
 #include "hamiltonian_qc.h"
 #include "hamiltonian_nn_hubbard.h"
+#include "opType.h"
 #include "bookkeeper.h"
 #include "symmetries.h"
 
@@ -130,7 +131,7 @@ int symsec_siteop(const int siteoperator, const int site)
 {
         switch(ham) {
         case QC :
-                return QC_symsec_siteop(siteoperator, site);
+                return opType_symsec_siteop(siteoperator, site);
         case NN_HUBBARD :
                 return NN_H_symsec_siteop(siteoperator);
         default:
@@ -174,10 +175,10 @@ void get_string_of_rops(char buffer[], const int ropsindex, const int bond,
                         const int is_left, const char o)
 {
         switch(ham) {
-        case QC :
-                QC_get_string_of_rops(buffer, ropsindex, bond, is_left, o);
+        case QC:
+                opType_get_string_of_rops(buffer, ropsindex, bond, is_left);
                 break;
-        case NN_HUBBARD :
+        case NN_HUBBARD:
                 NN_H_get_string_of_rops(buffer, ropsindex);
                 break;
         default:
@@ -190,8 +191,8 @@ void get_string_of_rops(char buffer[], const int ropsindex, const int bond,
 void get_string_of_siteops(char buffer[], const int siteindex, const int site)
 {
         switch(ham) {
-        case QC :
-                QC_get_string_of_siteops(buffer, siteindex, site);
+        case QC:
+                opType_get_string_of_siteops(buffer, siteindex, site);
                 break;
         default:
                 fprintf(stderr, "%s@%s: Not defined for the given hamiltonian.\n",
@@ -267,7 +268,7 @@ static int set_hamiltonian(char hamiltonian[], int * const hassu2)
                 return 0;
         }
 
-        for (i = 0 ; i < 3 ; ++i)
+        for (i = 0; i < 3; ++i)
                 if (symmQC[i] != bookie.sgs[i])
                         break;
 
@@ -276,7 +277,7 @@ static int set_hamiltonian(char hamiltonian[], int * const hassu2)
                 return 1;
         }
 
-        for (i = 0 ; i < 3 ; ++i)
+        for (i = 0; i < 3; ++i)
                 if (symmQCSU2[i] != bookie.sgs[i])
                         break;
         if (i == 3) {

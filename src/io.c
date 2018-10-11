@@ -56,7 +56,7 @@ void read_inputfile(char inputfile[])
         /** SHOULD FIX THIS
         bookie.nrSyms = defaults.nr_symmetries;
         bookie.sgs = safe_malloc(bookie.nrSyms, enum symmetrygroup);
-        for (i = 0 ; i < bookie.nrSyms ; i++)
+        for (i = 0; i < bookie.nrSyms; i++)
           bookie.sgs[i] = defaults.sgs[i];
         */
         break;
@@ -72,7 +72,7 @@ void read_inputfile(char inputfile[])
 
           tempsgs[0] = Z2;
           temppermarray[0] = -1;
-          for (i = 0 ; i < bookie.nrSyms ; i++)
+          for (i = 0; i < bookie.nrSyms; i++)
           {
             tempsgs[i + 1]       = bookie.sgs[i];
             temppermarray[i + 1] = permarray[i];
@@ -281,7 +281,7 @@ static int* read_symmetries(char line[], int sg)
 
   idx = quickSort((int*) tempsgs, bookie.nrSyms);
 
-  for (i = 0 ; i < bookie.nrSyms ; i++)
+  for (i = 0; i < bookie.nrSyms; i++)
     bookie.sgs[i] = tempsgs[idx[i]];
 
   safe_free(tempsgs);
@@ -340,7 +340,7 @@ static int read_targetstate(char line[], int *permarray, int no_irr, int sg)
     while (pch)
     {
       int cnt;
-      for (cnt = 0 ; cnt < sg ; cnt++)
+      for (cnt = 0; cnt < sg; cnt++)
         if (permarray[cnt] == i) break;
 
       if (!which_irrep(pch, bookie.sgs[cnt], &bookie.target_state[cnt]))

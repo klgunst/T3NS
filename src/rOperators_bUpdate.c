@@ -228,7 +228,7 @@ void update_rOperators_branching(struct rOperators * const newops, const struct 
 
   const int updateCase = prepare_update_branching(&uniqueOperators, Operator, tens);
 
-  fetch_T3NS_update(&instructions, uniqueOperators.bond_of_operator, uniqueOperators.is_left);
+  fetch_bUpdate(&instructions, uniqueOperators.bond_of_operator, uniqueOperators.is_left);
 
   init_uniqueOperators(&uniqueOperators, &instructions);
   update_unique_ops_T3NS(&uniqueOperators, Operator, tens, updateCase, &instructions);
@@ -270,7 +270,7 @@ static void init_uniqueOperators(struct rOperators * const uniqueOps, const stru
 
   /* initializing the stensors */
   uniqueOps->operators = safe_malloc(uniqueOps->nrops, struct sparseblocks);
-  for (count = 0 ; count < uniqueOps->nrops ; ++count) {
+  for (count = 0; count < uniqueOps->nrops; ++count) {
     /* The current operator and current hamsymsec */
     struct sparseblocks * const blocks = &uniqueOps->operators[count];
     const int currhss                  = uniqueOps->hss_of_ops[count]; 
@@ -279,7 +279,7 @@ static void init_uniqueOperators(struct rOperators * const uniqueOps, const stru
     init_sparseblocks(blocks, nkappa_begin[currhss], N, 'c');
   }
 
-  for (count = 0 ; count < uniqueOps->nrhss ; ++count)
+  for (count = 0; count < uniqueOps->nrhss; ++count)
     safe_free(nkappa_begin[count]);
   safe_free(nkappa_begin);
 }
@@ -291,7 +291,7 @@ static int prepare_update_branching(struct rOperators * const newops, const stru
   int i;
   int updateCase;
   get_bonds_of_site(tens->sites[0], bonds);
-  for (i = 0 ; i < 3 ; ++i)
+  for (i = 0; i < 3; ++i)
     if (bonds[i] != Operator[0].bond_of_operator && bonds[i] != Operator[1].bond_of_operator)
       break;
   assert(i != 3);
@@ -320,24 +320,24 @@ static void initialize_indexhelper(const int updateCase, const int site, const s
 
   get_bonds_of_site(site, tmpbonds);
   /* bra(X) ket(X) MPO(X) */
-  for (i = 0 ; i < 3 ; ++i) {
+  for (i = 0; i < 3; ++i) {
     int j;
     bonds[BRA] = get_braT3NSbond(tmpbonds[i]);
     bonds[KET] = get_ketT3NSbond(tmpbonds[i]);
     bonds[MPO] = get_hamiltonianbond(tmpbonds[i]);
     get_symsecs_arr(idh.symarr[i], bonds, 3);
-    for (j = 0 ; j < 3 ; ++j)
+    for (j = 0; j < 3; ++j)
       idh.maxdims[i][j] = idh.symarr[i][j].nrSecs;
   }
 
   idh.qnumbertens = safe_malloc(tens->nrblocks, QN_TYPE);
   if (idh.looptype) {
     idh.divide = idh.maxdims[0][KET] * idh.maxdims[1][KET];
-    for (i = 0 ; i < tens->nrblocks ; ++i)
+    for (i = 0; i < tens->nrblocks; ++i)
       idh.qnumbertens[i] = tens->qnumbers[i] % idh.divide;
   } else {
     idh.divide = idh.maxdims[0][KET];
-    for (i = 0 ; i < tens->nrblocks ; ++i)
+    for (i = 0; i < tens->nrblocks; ++i)
       idh.qnumbertens[i] = tens->qnumbers[i] / idh.divide;
   }
 }
@@ -350,7 +350,7 @@ static void clean_indexhelper(const int site)
 
   get_bonds_of_site(site, tmpbonds);
   /* bra(X) ket(X) MPO(X) */
-  for (i = 0 ; i < 3 ; ++i) {
+  for (i = 0; i < 3; ++i) {
     bonds[BRA] = get_braT3NSbond(tmpbonds[i]);
     bonds[KET] = get_ketT3NSbond(tmpbonds[i]);
     bonds[MPO] = get_hamiltonianbond(tmpbonds[i]);
@@ -367,14 +367,14 @@ static void fill_indexes(struct update_data * const data, const enum tensor_type
   int * const idarr = data->id[opmap];
   int * const mdims = idh.maxdims[opmap];
 
-  for (i = 0 ; i < 2 ; ++i) {
+  for (i = 0; i < 2; ++i) {
     idarr[i] = qn % mdims[i];
     qn       = qn / mdims[i];
   }
   idarr[2] = qn;
   assert(qn < mdims[2]);
 
-  for (i = 0 ; i < 3 ; ++i) {
+  for (i = 0; i < 3; ++i) {
     data->irreps[opmap][i] = &idh.symarr[opmap][i].irreps[bookie.nrSyms * idarr[i]];
     if (i != MPO)
       data->teldims[opmap][i] = idh.symarr[opmap][i].dims[idarr[i]];
@@ -407,7 +407,7 @@ static void update_unique_ops_T3NS(struct rOperators * const newops, const struc
   initialize_indexhelper(updateCase, site, tens);
 
 #pragma omp parallel for schedule(dynamic) default(none) shared(Operator) private(new_sb)
-  for (new_sb = 0 ; new_sb < newops->begin_blocks_of_hss[newops->nrhss] ; ++new_sb) {
+  for (new_sb = 0; new_sb < newops->begin_blocks_of_hss[newops->nrhss]; ++new_sb) {
     struct update_data data;
     int prod, nr_of_prods, *possible_prods;
 
@@ -418,7 +418,7 @@ static void update_unique_ops_T3NS(struct rOperators * const newops, const struc
     /* WATCH OUT! Are inward and outward bonds correct? */
     tprods_ham(&nr_of_prods, &possible_prods, get_id(&data, NEWOPS, MPO), site);
 
-    for (prod = 0 ; prod < nr_of_prods ; ++prod) {
+    for (prod = 0; prod < nr_of_prods; ++prod) {
       update_newblock_w_MPO_set(&possible_prods[prod * 2], Operator, newops, tens, &data, 
           updateCase, instructions);
     }
@@ -440,7 +440,7 @@ static void update_newblock_w_MPO_set(const int* const hss_ops, const struct rOp
   const int nr_bl_op = rOperators_give_nr_blocks_for_hss(&Operator[first_op], hss_ops[first_op]);
   const QN_TYPE * qn_op = rOperators_give_qnumbers_for_hss(&Operator[first_op], hss_ops[first_op]);
 
-  for (data->sb_op[first_op] = 0 ; data->sb_op[first_op] < nr_bl_op ; ++data->sb_op[first_op]) {
+  for (data->sb_op[first_op] = 0; data->sb_op[first_op] < nr_bl_op; ++data->sb_op[first_op]) {
     int sb_tens = -1;
     QN_TYPE qntomatch;
     fill_indexes(data, first_op, qn_op[data->sb_op[first_op]]);
@@ -483,13 +483,13 @@ static int next_sb_tens(int *sb, const QN_TYPE qntomatch, const int second_op,
 
   ++*sb;
   if (!idh.looptype) {
-    for (; *sb < tens->nrblocks ; ++*sb) if (idh.qnumbertens[*sb] >= qntomatch) break;
+    for (; *sb < tens->nrblocks; ++*sb) if (idh.qnumbertens[*sb] >= qntomatch) break;
     if (*sb == tens->nrblocks)
       return 0;
     if (idh.qnumbertens[*sb] > qntomatch) return 0;
     ket_to_be_found = tens->qnumbers[*sb] % idh.divide;
   } else {
-    for (; *sb < tens->nrblocks ; ++*sb) if (idh.qnumbertens[*sb] == qntomatch) break;
+    for (; *sb < tens->nrblocks; ++*sb) if (idh.qnumbertens[*sb] == qntomatch) break;
     if (*sb == tens->nrblocks)
       return 0;
     ket_to_be_found = tens->qnumbers[*sb] / idh.divide;
@@ -512,7 +512,7 @@ static int next_sb_sec_op(int *sb, const QN_TYPE qntomatch, const int divide,
   int bra_to_be_found = -1;
   QN_TYPE qnmatched = 0;
   ++*sb;
-  for (; *sb < nr_bl_op ; ++*sb) {
+  for (; *sb < nr_bl_op; ++*sb) {
     qnmatched       = qn_op[*sb] / divide;
     bra_to_be_found = qn_op[*sb] % divide;
     if (qnmatched >= qntomatch)
@@ -531,7 +531,7 @@ static int find_block_adj(const struct siteTensor * const tens, struct update_da
   int i;
   int block;
   /* make the quantum number to search for */
-  for (i = 2 ; i >= 0 ; --i) {
+  for (i = 2; i >= 0; --i) {
     qn *= idh.maxdims[i][BRA];
     qn += data->id[i][BRA];
   }
@@ -566,7 +566,7 @@ static void how_to_update(struct update_data * const data, struct contractinfo c
   int i;
   int minimalops = 0;
 
-  for (i = 0 ; i < 6 ; ++i) {
+  for (i = 0; i < 6; ++i) {
     int wd[3][2];
     const int curr_ops = calc_contract(ways_to_update[i], data->teldims, wd);
 
@@ -583,7 +583,7 @@ static int calc_contract(const enum tensor_type tens[3][3], const int td[3][2], 
 {
   int i;
   int result = 0;
-  for (i = 0 ; i < 3 ; ++i) {
+  for (i = 0; i < 3; ++i) {
     const int bondtocontract = i == 2 ? idh.id_ops[tens[i][2]] : idh.id_ops[tens[i][0]];
     const int btype = tens[i][1] == TENS || tens[i][1] == WORKKET ? KET : BRA;
     int d1[3];
@@ -641,7 +641,7 @@ static void fillin_cinfo(struct contractinfo cinfo[3], const enum tensor_type te
 {
   int i;
 
-  for (i = 0 ; i < 3 ; ++i) {
+  for (i = 0; i < 3; ++i) {
     const int last_c = i == 2;
     const int bondtocontract = last_c ? idh.id_ops[tens[i][2]] : idh.id_ops[tens[i][0]];
     const enum bond_type btype = (tens[i][1] == TENS || tens[i][1] == WORKKET) ? KET : BRA;
@@ -811,8 +811,8 @@ static void update_ops_block(const struct contractinfo * const cinfo, EL_TYPE * 
     int n, l;
     const int strideX = cinfo->TRANS[0] == 'N' ? cinfo->K : cinfo->M;
     const int strideY = cinfo->TRANS[0] == 'N' ? cinfo->M : cinfo->K;
-      for (l = 0 ; l < cinfo->L ; ++l) {
-        for (n = 0 ; n < cinfo->N ; ++n) {
+      for (l = 0; l < cinfo->L; ++l) {
+        for (n = 0; n < cinfo->N; ++n) {
         dgemv_(&cinfo->TRANS[0], &cinfo->M, &cinfo->K, &D_ONE, els[0], &cinfo->M, els[1] + n + l * 
             cinfo->N * strideX, &cinfo->N, &ZERO, els[2] + n + l * cinfo->N * strideY, &cinfo->N);
       }
@@ -839,7 +839,7 @@ static void update_last_step(const struct contractinfo * const cinfo, const doub
     int l;
     const int LDA = cinfo->TRANS[0] == 'N' ? cinfo->M : cinfo->K;
     const int LDB = cinfo->TRANS[1] == 'N' ? cinfo->K : cinfo->N;
-      for (l = 0 ; l < cinfo->L ; ++l) {
+      for (l = 0; l < cinfo->L; ++l) {
         dgemm_(&cinfo->TRANS[0], &cinfo->TRANS[1], &cinfo->M, &cinfo->N, &cinfo->K, &prefactor, 
             els[0] + l * cinfo->M * cinfo->K, &LDA, els[1] + l * cinfo->N *cinfo->K, &LDB, &D_ONE, 
             els[2], &cinfo->M);
@@ -860,14 +860,14 @@ static int check_correctness(const struct rOperators Operator[2], const struct s
     return 0;
 
   get_bonds_of_site(tens->sites[0], bonds);
-  for (i = 0 ; i < 3 ; ++i)
+  for (i = 0; i < 3; ++i)
     if (bonds[i] == Operator[0].bond_of_operator)
       break;
 
   if (i == 3)
     return 0;
 
-  for (i = 0 ; i < 3 ; ++i)
+  for (i = 0; i < 3; ++i)
     if (bonds[i] == Operator[1].bond_of_operator)
       break;
 
@@ -881,7 +881,7 @@ static void print_cinfo(const struct contractinfo * const cinfo)
   const char * names[] = {"OPS1", "OPS2", "NEWOPS", "TENS", "ADJ", "WORKBRA", "WORKKET"};
   int i;
   printf("cinfo:\n");
-  for (i = 0 ; i < 3 ; ++i) {
+  for (i = 0; i < 3; ++i) {
     printf("\t%sdgemm\n", cinfo[i].dgemm ? "" : "no ");
     printf("\t%c %c\n", cinfo[i].TRANS[0], cinfo[i].TRANS[1]);
     printf("\tM: %d N: %d K: %d L: %d\n", cinfo[i].M, cinfo[i].N, cinfo[i].K, cinfo[i].L);
@@ -894,7 +894,7 @@ static void print_data(const struct update_data * const data)
 {
   int i;
   printf("indexes\n");
-  for (i = 0 ; i < 3 ; ++i)
+  for (i = 0; i < 3; ++i)
     printf("%d(%d) %d(%d) %d(%d)\n", data->id[i][0], idh.maxdims[i][0], data->id[i][1], 
         idh.maxdims[i][1], data->id[i][2], idh.maxdims[i][2]);
 
@@ -903,7 +903,7 @@ static void print_data(const struct update_data * const data)
       bookie.nrSyms));
 
   printf("dimensions\n");
-  for (i = 0 ; i < 3 ; ++i)
+  for (i = 0; i < 3; ++i)
     printf("%d %d\n", data->teldims[i][0], data->teldims[i][1]);
 
   printf("operator blocks\n");

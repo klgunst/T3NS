@@ -142,12 +142,12 @@ void matvecDMRG(double * vec, double * result, void * vdata)
 
   int new_sb;
   int i;
-  for (i = 0 ; i < tens.blocks.beginblock[tens.nrblocks] ; ++i) result[i] = 0;
+  for (i = 0; i < tens.blocks.beginblock[tens.nrblocks]; ++i) result[i] = 0;
 
   /* looping over all new symmetry blocks */
 #pragma omp parallel for schedule(dynamic) default(none) shared(vec, result, bookie, MPOss) \
   private(indexes, irreparr, new_sb, i)
-  for (new_sb = 0 ; new_sb < tens.nrblocks ; ++new_sb)
+  for (new_sb = 0; new_sb < tens.nrblocks; ++new_sb)
   {
     const QN_TYPE * const newqn  = &tens.qnumbers[new_sb * tens.nrsites];
     EL_TYPE * const newBlock     = &result[tens.blocks.beginblock[new_sb]];
@@ -160,17 +160,17 @@ void matvecDMRG(double * vec, double * result, void * vdata)
     find_indexes(newqn[0], &data->maxdims[0], &indexes[0]);
     find_indexes(newqn[1], &data->maxdims[3], &indexes[3]);
     assert(indexes[2] == indexes[3]); /* inner bond is equal */
-    for (i = 0 ; i < 6 ; ++i) 
+    for (i = 0; i < 6; ++i) 
       irreparr[i] = &data->symarr[i].irreps[bookie.nrSyms * indexes[i]];
 
     Nnew = 1;
-    for (i = 0 ; i < 2 ; ++i) Nnew *= data->symarr[i].dims[indexes[i]];
+    for (i = 0; i < 2; ++i) Nnew *= data->symarr[i].dims[indexes[i]];
     Mnew = 1;
-    for (i = 4 ; i < 6 ; ++i) Mnew *= data->symarr[i].dims[indexes[i]];
+    for (i = 4; i < 6; ++i) Mnew *= data->symarr[i].dims[indexes[i]];
     assert(Nnew * Mnew == get_size_block(&tens.blocks, new_sb));
 
     /* looping over all old symmetry blocks that are possible to make the transform */
-    for (oldsb_in_ar = 0 ; oldsb_in_ar < nr_oldsb ; ++oldsb_in_ar)
+    for (oldsb_in_ar = 0; oldsb_in_ar < nr_oldsb; ++oldsb_in_ar)
     {
       const int old_sb = oldsb_ar[oldsb_in_ar];
       const QN_TYPE * const oldqn    = &tens.qnumbers[old_sb * tens.nrsites];
@@ -184,13 +184,13 @@ void matvecDMRG(double * vec, double * result, void * vdata)
       find_indexes(oldqn[0], &data->maxdims[0], &indexes[6]);
       find_indexes(oldqn[1], &data->maxdims[3], &indexes[9]);
       assert(indexes[8] == indexes[9]); /* inner bond is equal */
-      for (i = 6 ; i < 12 ; ++i) 
+      for (i = 6; i < 12; ++i) 
         irreparr[i] = &data->symarr[i - 6].irreps[bookie.nrSyms * indexes[i]];
 
       Nold = 1;
-      for (i = 6 ; i < 8 ; ++i) Nold *= data->symarr[i - 6].dims[indexes[i]];
+      for (i = 6; i < 8; ++i) Nold *= data->symarr[i - 6].dims[indexes[i]];
       Mold = 1;
-      for (i = 10 ; i < 12 ; ++i) Mold *= data->symarr[i - 6].dims[indexes[i]];
+      for (i = 10; i < 12; ++i) Mold *= data->symarr[i - 6].dims[indexes[i]];
       assert(Nold * Mold == get_size_block(&tens.blocks, old_sb));
 
       /* for each tranform of one inner bond to an other inner bond, only a fixed set of
@@ -198,7 +198,7 @@ void matvecDMRG(double * vec, double * result, void * vdata)
       nrMPOcombos = data->nrMPOcombos[indexes[2]][indexes[8]];
       MPOs        = data->MPOs[indexes[2]][indexes[8]]; /* in this array, the possible 
                                                                    MPO combinations are stored */
-      for (MPO = MPOs ; MPO < &MPOs[nrMPOcombos] ; ++MPO)
+      for (MPO = MPOs; MPO < &MPOs[nrMPOcombos]; ++MPO)
       {
         /* The instructions are sorted according to MPO */
         int * instr    = &data->instructions[2 * data->instrbegin[*MPO]];
@@ -234,7 +234,7 @@ void matvecDMRG(double * vec, double * result, void * vdata)
         assert(Opsb[0] != -1 && Opsb[1] != -1);
 
         workmem = safe_malloc(workmemsize, double);
-        for (; instr < endinstr ; instr += 2, ++pref)
+        for (; instr < endinstr; instr += 2, ++pref)
         {
           EL_TYPE * const OpBlock[2] = 
           { get_tel_block(&Operators[0].operators[instr[0]], Opsb[0]),
@@ -290,7 +290,7 @@ void init_matvec_data(struct matvec_data * const data, const struct rOperators O
   data->Operators[0] = Operators[0];
   data->Operators[1] = Operators[1];
 
-  for (i = 0 ; i < siteObject->nrsites ; ++i)
+  for (i = 0; i < siteObject->nrsites; ++i)
     get_bonds_of_site(siteObject->sites[i], &bonds[3 * i]);
   get_symsecs_arr(data->symarr, bonds, siteObject->nrsites * 3);
   get_maxdims_of_bonds(data->maxdims, bonds, siteObject->nrsites * 3);
@@ -326,7 +326,7 @@ void init_T3NSdata(struct T3NSdata * const data, const struct rOperators Operato
       Operators[1].bond_of_operator < Operators[2].bond_of_operator);
 
   data->symarr = safe_malloc(siteObject->nrsites, struct symsecs *);
-  for (i = 0 ; i < siteObject->nrsites ; ++i) {
+  for (i = 0; i < siteObject->nrsites; ++i) {
     int bonds[3];
     get_bonds_of_site(siteObject->sites[i], bonds);
     data->symarr[i] = safe_malloc(3, struct symsecs);
@@ -334,11 +334,11 @@ void init_T3NSdata(struct T3NSdata * const data, const struct rOperators Operato
   }
   get_symsecs(&data->MPOsymsec, -1);
 
-  for (i = 0 ; i < 3 ; ++i) {
+  for (i = 0; i < 3; ++i) {
     int j;
     const int site = rOperators_site_to_attach(&Operators[i]);
 
-    for (j = 0 ; j < siteObject->nrsites ; ++j) {
+    for (j = 0; j < siteObject->nrsites; ++j) {
       if (siteObject->sites[j] == site)
         break;
     }
@@ -365,14 +365,14 @@ void destroy_matvec_data(struct matvec_data * const data)
   int bonds[data->siteObject.nrsites * 3];
   int i;
 
-  for (i = 0 ; i < data->siteObject.nrblocks ; ++i) safe_free(data->oldsb_ar[i]);
+  for (i = 0; i < data->siteObject.nrblocks; ++i) safe_free(data->oldsb_ar[i]);
   safe_free(data->oldsb_ar);
   safe_free(data->nr_oldsb);
 
-  for (i = 0 ; i < data->symarr[2].nrSecs ; ++i)
+  for (i = 0; i < data->symarr[2].nrSecs; ++i)
   {
     int j;
-    for (j = 0 ; j < data->symarr[2].nrSecs ; ++j)
+    for (j = 0; j < data->symarr[2].nrSecs; ++j)
       safe_free(data->MPOs[i][j]);
     safe_free(data->nrMPOcombos[i]);
     safe_free(data->MPOs[i]);
@@ -380,7 +380,7 @@ void destroy_matvec_data(struct matvec_data * const data)
   safe_free(data->nrMPOcombos);
   safe_free(data->MPOs);
 
-  for (i = 0 ; i < data->siteObject.nrsites ; ++i)
+  for (i = 0; i < data->siteObject.nrsites; ++i)
     get_bonds_of_site(data->siteObject.sites[i], &bonds[3 * i]);
   clean_symsecs_arr(data->symarr, bonds, data->siteObject.nrsites * 3);
 
@@ -392,7 +392,7 @@ void destroy_matvec_data(struct matvec_data * const data)
 void destroy_T3NSdata(struct T3NSdata * const data)
 {
   int i;
-  for (i = 0 ; i < data->siteObject.nrsites ; ++i) {
+  for (i = 0; i < data->siteObject.nrsites; ++i) {
     int bonds[3];
     get_bonds_of_site(data->siteObject.sites[i], bonds);
     clean_symsecs_arr(data->symarr[i], bonds, 3);
@@ -401,9 +401,9 @@ void destroy_T3NSdata(struct T3NSdata * const data)
   clean_symsecs(&data->MPOsymsec, -1);
   safe_free(data->symarr);
 
-  for (i = 0 ; i < data->nr_qnB ; ++i) {
+  for (i = 0; i < data->nr_qnB; ++i) {
     int j;
-    for (j = 0 ; j < data->nr_qnBtoqnB[i] ; ++j) {
+    for (j = 0; j < data->nr_qnBtoqnB[i]; ++j) {
       safe_free(data->MPOs[i][j]);
     }
     safe_free(data->qnBtoqnB_arr[i]);
@@ -442,7 +442,7 @@ double * make_diagonal(void * const data, const int isdmrg)
 static inline void find_indexes(QN_TYPE qn, const int * const maxdims, int * indexes)
 {
   int i;
-  for (i = 0 ; i < 2 ; ++i)
+  for (i = 0; i < 2; ++i)
   {
     indexes[i] = qn % maxdims[i];
     qn           = qn / maxdims[i];
@@ -459,14 +459,14 @@ static void makeoldsbmappingDMRG(int *** const qnumbersarray, const struct siteT
   (*nr_oldsb) = safe_malloc(tens->nrblocks, int);
   (*oldsb_ar) = safe_malloc(tens->nrblocks, int*);
 
-  for (block = 0 ; block < tens->nrblocks ; ++block) 
+  for (block = 0; block < tens->nrblocks; ++block) 
     interindex[block] = tens->qnumbers[2 * block + 1] % internaldim;
-  for (block = 0 ; block < tens->nrblocks ; ++block)
+  for (block = 0; block < tens->nrblocks; ++block)
   {
     int block2;
     (*nr_oldsb)[block] = 0;
     (*oldsb_ar)[block] = safe_malloc(tens->nrblocks, int);
-    for (block2 = 0 ; block2 < tens->nrblocks ; ++block2)
+    for (block2 = 0; block2 < tens->nrblocks; ++block2)
       if (qnumbersarray[interindex[block]][interindex[block2]][0] != 0)
         (*oldsb_ar)[block][(*nr_oldsb)[block]++] = block2;
     (*oldsb_ar)[block] = realloc((*oldsb_ar)[block], (*nr_oldsb)[block] * sizeof(int));
@@ -480,7 +480,7 @@ static void makeMPOcombosDMRG(int ***nrMPOcombos, int ****MPOs, int ***qnumbersa
   int i;
   (*nrMPOcombos) = safe_malloc(internaldim, int*);
   (*MPOs)        = safe_malloc(internaldim, int**);
-  for (i = 0 ; i < internaldim ; ++i) {
+  for (i = 0; i < internaldim; ++i) {
     int j;
     if (qnumbersarray[i] == NULL) {
       (*nrMPOcombos)[i] = NULL;
@@ -489,7 +489,7 @@ static void makeMPOcombosDMRG(int ***nrMPOcombos, int ****MPOs, int ***qnumbersa
     }
     (*nrMPOcombos)[i] = safe_malloc(internaldim, int);
     (*MPOs)[i]        = safe_malloc(internaldim, int*);
-    for (j = 0 ; j < internaldim ; ++j) {
+    for (j = 0; j < internaldim; ++j) {
       int k;
       if (qnumbersarray[i][j] == NULL) {
         (*nrMPOcombos)[i][j] = 0;
@@ -498,7 +498,7 @@ static void makeMPOcombosDMRG(int ***nrMPOcombos, int ****MPOs, int ***qnumbersa
       }
       (*nrMPOcombos)[i][j] = qnumbersarray[i][j][0];
       (*MPOs)[i][j]        = safe_malloc((*nrMPOcombos)[i][j], int);
-      for (k = 0 ; k < (*nrMPOcombos)[i][j] ; ++k) {
+      for (k = 0; k < (*nrMPOcombos)[i][j]; ++k) {
         /* MPOindex of left bond + MPOdim * MPOindex of right bond
          * We did innerbond X innerbond_inverse ==> MPObond for the qnumbersarray.
          *
@@ -526,15 +526,15 @@ static void adaptMPOcombos(int ** nrMPOcombos, int *** MPOs, const int * const M
     const int nrMPOinstr, const int dimint, const int * const dimintarr)
 {
   int i;
-  for (i = 0 ; i < dimint ; ++i)
+  for (i = 0; i < dimint; ++i)
   {
     int j;
     const int dimint2 = dimintarr == NULL ? dimint : dimintarr[i];
-    for (j = 0 ; j < dimint2 ; ++j)
+    for (j = 0; j < dimint2; ++j)
     {
       int k;
       int cnt = 0;
-      for (k = 0 ; k < nrMPOcombos[i][j] ; ++k)
+      for (k = 0; k < nrMPOcombos[i][j]; ++k)
       {
         const int position = search(MPOs[i][j][k], MPOinstr, nrMPOinstr);
         if (position == -1) /* the MPO combo not found in the instructions, so will not occur */
@@ -557,14 +557,14 @@ static void makeqnumbersarr_from_operator(int **** const qnumbersarray, const st
   int currhss = 0;
 
   *qnumbersarray = safe_malloc(internaldim ,int **);
-  for (i = 0 ; i < internaldim ; ++i)
+  for (i = 0; i < internaldim; ++i)
   {
     (*qnumbersarray)[i] = safe_malloc(internaldim ,int *);
-    for (j = 0 ; j < internaldim ; ++j)
+    for (j = 0; j < internaldim; ++j)
       (*qnumbersarray)[i][j] = safe_calloc(1, int);
   }
 
-  for (i = 0 ; i < Operator->begin_blocks_of_hss[Operator->nrhss] ; ++i)
+  for (i = 0; i < Operator->begin_blocks_of_hss[Operator->nrhss]; ++i)
   {
     const QN_TYPE currqn = Operator->qnumbers[couplnr * i + couplnr - 1];
     QN_TYPE temp;
@@ -582,9 +582,9 @@ static void makeqnumbersarr_from_operator(int **** const qnumbersarray, const st
     prevqn = currqn;
   }
 
-  for (i = 0 ; i < internaldim ; ++i)
+  for (i = 0; i < internaldim; ++i)
   {
-    for (j = 0 ; j < internaldim ; ++j)
+    for (j = 0; j < internaldim; ++j)
     {
       (*qnumbersarray)[i][j] = realloc((*qnumbersarray)[i][j], 
           ((*qnumbersarray)[i][j][0] + 1) * sizeof(int));
@@ -594,7 +594,7 @@ static void makeqnumbersarr_from_operator(int **** const qnumbersarray, const st
 
   prevqn = -1;
   currhss = 0;
-  for (i = 0 ; i < Operator->begin_blocks_of_hss[Operator->nrhss] ; ++i)
+  for (i = 0; i < Operator->begin_blocks_of_hss[Operator->nrhss]; ++i)
   {
     const QN_TYPE currqn = Operator->qnumbers[couplnr * i + couplnr - 1];
     QN_TYPE temp;
@@ -619,9 +619,9 @@ static void makeqnumbersarr_from_operator(int **** const qnumbersarray, const st
 static void destroyqnumbersarr(int **** const qnumbersarray, const int internaldim)
 {
   int i, j;
-  for (i = 0 ; i < internaldim ; ++i)
+  for (i = 0; i < internaldim; ++i)
   {
-    for (j = 0 ; j < internaldim ; ++j)
+    for (j = 0; j < internaldim; ++j)
       safe_free((*qnumbersarray)[i][j]);
     safe_free((*qnumbersarray)[i]);
   }
@@ -644,7 +644,7 @@ static double * make_diagonal_DMRG(struct matvec_data * const data)
   const QN_TYPE innerdimsq = data->maxdims[2] * data->maxdims[2];
   assert(tens.nrsites == 2);
 
-  for (block = 0 ; block < tens.nrblocks ; ++block)
+  for (block = 0; block < tens.nrblocks; ++block)
   {
     double * const resblock = &result[tens.blocks.beginblock[block]];
     int indexes[6];
@@ -665,13 +665,13 @@ static double * make_diagonal_DMRG(struct matvec_data * const data)
 
     assert(M * N == get_size_block(&tens.blocks, block));
 
-    for (i = 0 ; i < data->nr_oldsb[block] ; ++i) 
+    for (i = 0; i < data->nr_oldsb[block]; ++i) 
       if (data->oldsb_ar[block][i] == block) break;
     assert(i != data->nr_oldsb[block]);
     if (i == data->nr_oldsb[block]) continue; 
     /* No possibility for diagonal elements in this block. Should probably not occur */
 
-    for (i = 0 ; i < 6 ; ++i) 
+    for (i = 0; i < 6; ++i) 
     {
       irreparr[i] = &data->symarr[i].irreps[bookie.nrSyms * indexes[i]];
       irreparr[i + 6] = irreparr[i];
@@ -681,7 +681,7 @@ static double * make_diagonal_DMRG(struct matvec_data * const data)
     /* Loop over all MPO combos that can give diagonal elements. */
     nrMPOcombos = data->nrMPOcombos[indexes[2]][indexes[2]];
     MPOs        = data->MPOs[indexes[2]][indexes[2]];
-    for (MPO = MPOs ; MPO < &MPOs[nrMPOcombos] ; ++MPO)
+    for (MPO = MPOs; MPO < &MPOs[nrMPOcombos]; ++MPO)
     {
       /* The instructions are sorted according to MPO */
       int * instr    = &data->instructions[2 * data->instrbegin[*MPO]];
@@ -715,7 +715,7 @@ static double * make_diagonal_DMRG(struct matvec_data * const data)
           rOperators_give_nr_blocks_for_hss(&data->Operators[1], hss[1]));
       assert(Opsb[0] != -1 && Opsb[1] != -1);
 
-      for (; instr < endinstr ; instr += 2, ++pref)
+      for (; instr < endinstr; instr += 2, ++pref)
       {
         EL_TYPE * const OpBlock[2] = 
         { get_tel_block(&data->Operators[0].operators[instr[0]], Opsb[0]),
@@ -746,13 +746,13 @@ static void make_qnBdatas(struct T3NSdata * const data)
     data->symarr[data->posB][1].nrSecs, data->symarr[data->posB][2].nrSecs};
 
   data->qnB_arr = safe_malloc(data->siteObject.nrblocks, QN_TYPE);
-  for (i = 0 ; i < data->siteObject.nrblocks ; ++i) 
+  for (i = 0; i < data->siteObject.nrblocks; ++i) 
     data->qnB_arr[i] = data->siteObject.qnumbers[i * data->siteObject.nrsites + data->posB];
 
   order_qnB_arr(&data->qnB_arr, data->siteObject.nrblocks);
 
   data->nr_qnB = 1;
-  for (i = 1 ; i < data->siteObject.nrblocks ; ++i) {
+  for (i = 1; i < data->siteObject.nrblocks; ++i) {
     if (data->qnB_arr[i] != data->qnB_arr[data->nr_qnB - 1]) {
       data->qnB_arr[data->nr_qnB] = data->qnB_arr[i];
       ++data->nr_qnB;
@@ -775,7 +775,7 @@ static void order_qnB_arr(QN_TYPE ** const array, const int el)
   int * idx = qnumbersSort(*array, 1, el);
   int i;
   QN_TYPE * temp = safe_malloc(el, QN_TYPE);
-  for (i = 0 ; i < el ; ++i) temp[i] = (*array)[idx[i]];
+  for (i = 0; i < el; ++i) temp[i] = (*array)[idx[i]];
   safe_free(*array);
   safe_free(idx);
   *array = temp;
@@ -795,7 +795,7 @@ static void make_qnB_arr(struct T3NSdata * const data, const int internaldims[3]
   data->nrMPOcombos  = safe_malloc(data->nr_qnB, int*);
   data->MPOs         = safe_malloc(data->nr_qnB, int**);
 
-  for (i = 0 ; i < data->nr_qnB ; ++i) {
+  for (i = 0; i < data->nr_qnB; ++i) {
     int indices[3];
     int indicesold[3] = {-1, -1, -1};
     int loc = -1;
@@ -843,7 +843,7 @@ static QN_TYPE * make_helperarray(const int nr, const QN_TYPE * const array, con
   QN_TYPE * const result = safe_malloc(nr, QN_TYPE);
   int i;
   *lastid = safe_malloc(nr, int);
-  for (i = 0 ; i < nr ; ++i) {
+  for (i = 0; i < nr; ++i) {
     (*lastid)[i] = array[i] / mod;
     result[i] = array[i] % mod;
   }
@@ -891,7 +891,7 @@ static int find_next_old(const int n, int indices_old[n], const int internaldims
 static int find_in_helperarray(const QN_TYPE value, const QN_TYPE * const arr, int * const loc, 
     const int n)
 {
-  for (++*loc; *loc < n ; ++*loc)
+  for (++*loc; *loc < n; ++*loc)
     if (arr[*loc] == value)
       return 1;
   *loc = -1;
@@ -900,7 +900,7 @@ static int find_in_helperarray(const QN_TYPE value, const QN_TYPE * const arr, i
 
 static int find_next_index(int * const id, const int dim, int ** qnumberarray)
 {
-  for (++*id ; *id < dim ; ++*id) {
+  for (++*id; *id < dim; ++*id) {
     if (qnumberarray[*id] != NULL && qnumberarray[*id][0] != 0)
       return 1;
   }
@@ -921,14 +921,14 @@ static void count_or_make_MPOcombos(int * const nrMPOs, int ** const MPO, const 
   if (MPOarr[2] == NULL || MPOarr[2][0] == 0) return;
     
   /* loop over last MPOarr */
-  for (i = 0 ; i < MPOarr[0][0] ; ++i) {
+  for (i = 0; i < MPOarr[0][0]; ++i) {
     MPOs[0] = MPOarr[0][1 + i];
 
-    for (j = 0 ; j < MPOarr[1][0] ; ++j) {
+    for (j = 0; j < MPOarr[1][0]; ++j) {
       const int temp = MPOs[0] + MPOs[1] * hssdim;
       MPOs[1] = MPOarr[1][1 + j];
 
-      for (k = 0 ; k < MPOarr[2][0] ; ++k) {
+      for (k = 0; k < MPOarr[2][0]; ++k) {
         const int MPO2 = MPOarr[2][1 + k];
 
         MPOs[2] = hermitian_symsec(MPO2);
@@ -961,18 +961,18 @@ static void print_blocktoblock(const struct siteTensor * const tens,
   dimhss = MPOss.nrSecs;
   print_siteTensor(tens);
 
-  for (newsb = 0 ; newsb < tens->nrblocks ; ++newsb)
+  for (newsb = 0; newsb < tens->nrblocks; ++newsb)
   {
     int * oldsb;
     int newinternal = tens->qnumbers[2 * newsb + 1] % internaldim;
     get_sectorstring(internalss, newinternal, buffernew);
-    for (oldsb = oldsb_ar[newsb] ; oldsb < &oldsb_ar[newsb][nr_oldsb[newsb]] ; ++oldsb)
+    for (oldsb = oldsb_ar[newsb]; oldsb < &oldsb_ar[newsb][nr_oldsb[newsb]]; ++oldsb)
     {
       int * currMPO;
       int oldinternal = tens->qnumbers[2 * *oldsb + 1] % internaldim;
       get_sectorstring(internalss, oldinternal, bufferold);
-      for (currMPO = MPOs[newinternal][oldinternal] ; 
-          currMPO < &MPOs[newinternal][oldinternal][nrMPOcombos[newinternal][oldinternal]] ;
+      for (currMPO = MPOs[newinternal][oldinternal]; 
+          currMPO < &MPOs[newinternal][oldinternal][nrMPOcombos[newinternal][oldinternal]];
           ++currMPO)
       {
         int MPOind = MPOinstr[*currMPO];
@@ -993,20 +993,20 @@ static void printMPO(const struct T3NSdata * const data)
 
   const int dimhss = data->MPOsymsec.nrSecs;
   int newqnB_id;
-  for (newqnB_id = 0 ; newqnB_id < data->nr_qnB ; ++newqnB_id) {
+  for (newqnB_id = 0; newqnB_id < data->nr_qnB; ++newqnB_id) {
 
     const QN_TYPE newqnB = data->qnB_arr[newqnB_id];
     const int nr_qnBtoqnB = data->nr_qnBtoqnB[newqnB_id];
     const QN_TYPE * const qnBtoqnB_arr = data->qnBtoqnB_arr[newqnB_id];
     int oldqnB_id;
         
-    for (oldqnB_id = 0 ; oldqnB_id < nr_qnBtoqnB ; ++oldqnB_id) {
+    for (oldqnB_id = 0; oldqnB_id < nr_qnBtoqnB; ++oldqnB_id) {
       const QN_TYPE oldqnB = qnBtoqnB_arr[oldqnB_id];
       const int nrMPOcombos = data->nrMPOcombos[newqnB_id][oldqnB_id];
       const int * const MPOs = data->MPOs[newqnB_id][oldqnB_id];
       int i;
       printf("%ld ---> %ld\n", oldqnB, newqnB);
-      for (i = 0 ; i < nrMPOcombos ; ++i) {
+      for (i = 0; i < nrMPOcombos; ++i) {
         int MPOind = MPOs[i];
         int MPOinds[3];
         char buffer[255];
@@ -1017,7 +1017,7 @@ static void printMPO(const struct T3NSdata * const data)
         MPOinds[2] = MPOind % dimhss;
 
         printf("\t");
-        for (i = 0 ; i < 3 ; ++i) {
+        for (i = 0; i < 3; ++i) {
           get_sectorstring(&data->MPOsymsec, MPOinds[i], buffer);
           printf("%12s%s", buffer, i != 2 ? " X " : "\n");
         }
@@ -1042,7 +1042,7 @@ static void check_diagonal(void * const data, double * diagonal, const int isdmr
 
   srand(time(NULL));
 
-  for (i = 0 ; i < 20 ; ++i)
+  for (i = 0; i < 20; ++i)
   {
     const int ind = rand() % size;
     vec[ind] = 1;

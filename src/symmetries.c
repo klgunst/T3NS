@@ -39,7 +39,7 @@ void tensprod_symmsec(int **resultsymmsec, int *nr_symmsecs, int *symmsec1,
         int cnt;
 
         *nr_symmsecs = 1;
-        for (i = 0 ; i < nr_symmetries ; ++i) {
+        for (i = 0; i < nr_symmetries; ++i) {
                 indices[i] = 0;
                 tensprod_irrep(&min_irrep[i], &nr_irreps[i], &step[i], 
                                symmsec1[i], symmsec2[i], sign, sgs[i]);
@@ -50,11 +50,11 @@ void tensprod_symmsec(int **resultsymmsec, int *nr_symmsecs, int *symmsec1,
 
         cnt = 0;
         while (cnt != *nr_symmsecs) {
-                for (i = 0 ; i < nr_symmetries ; ++i)
+                for (i = 0; i < nr_symmetries; ++i)
                         (*resultsymmsec)[cnt * nr_symmetries + i] = 
                                 min_irrep[i] + indices[i] * step[i];
 
-                for (i = 0 ; i < nr_symmetries ; ++i) {
+                for (i = 0; i < nr_symmetries; ++i) {
                         ++indices[i];
                         if (indices[i] == nr_irreps[i])
                                 indices[i] = 0;
@@ -144,7 +144,7 @@ int find_str_in_array(char buffer[], const char* arr[], int length, int *ind)
         if ((*ind != 0) ^ (buffer[0] == '0'))
                 return *ind < length;
 
-        for (i = 0 ; i < length ; ++i) {
+        for (i = 0; i < length; ++i) {
                 const char *b = buffer;
                 const char *s = arr[i];
                 while (*b && *s) {
@@ -170,7 +170,7 @@ int find_Z2(enum symmetrygroup *sgs, int *ts, int nr_symmetries)
         ts[0] = 0;
 
         /* find Z2 through U1 */
-        for (i = 1 ; i < nr_symmetries ; ++i) {
+        for (i = 1; i < nr_symmetries; ++i) {
                 if (sgs[i] == U1) {
                         flag = 1;
                         ts[0] += ts[i];
@@ -179,7 +179,7 @@ int find_Z2(enum symmetrygroup *sgs, int *ts, int nr_symmetries)
 
         /* find Z2 through SU2 */
         if (!flag) {
-                for (i = 1 ; i < nr_symmetries ; ++i) {
+                for (i = 1; i < nr_symmetries; ++i) {
                         if (sgs[i] == SU2) {
                                 flag = 1;
                                 ts[0] += ts[i];
@@ -204,7 +204,7 @@ int valid_sgs(enum symmetrygroup *sgs, int nr_symmetries)
         if (sgs[0] != Z2)
                 return 0;
 
-        for (i = 1 ; i < nr_symmetries ; ++i) {
+        for (i = 1; i < nr_symmetries; ++i) {
                 switch(sgs[i]) {
                 case Z2:
                         return 0;
@@ -235,7 +235,7 @@ int consistent_state(enum symmetrygroup *sgs, int *ts, int nr_symmetries)
         int hasSU2 = 0;
         int i;
 
-        for (i = 1 ; i < nr_symmetries ; ++i) {
+        for (i = 1; i < nr_symmetries; ++i) {
                 switch(sgs[i]) {
                 case U1:
                         nrU1 += ts[i];
@@ -247,7 +247,7 @@ int consistent_state(enum symmetrygroup *sgs, int *ts, int nr_symmetries)
                         break;
                 default:
                         /* do nothing */
-                        ;
+                      ;
                 }
         }
         if (hasU1 && nrU1 % 2 != ts[0])
@@ -312,11 +312,11 @@ double prefactor_adjoint(const int * irrep_arr[], const char c,
         int i, j;
         int symvalues[3];
         double prefactor = 1;
-        for (i = 0 ; i < nr_symmetries ; ++i) {
+        for (i = 0; i < nr_symmetries; ++i) {
                 switch(sgs[i]) {
                 case Z2 :
                         /* Only Z2 needs a sign change */
-                        for (j = 0 ; j < 3 ; ++j) 
+                        for (j = 0; j < 3; ++j) 
                                 symvalues[j] = irrep_arr[j][i];
                         prefactor *= Z2_prefactor_adjoint(symvalues, c);
                         break;
@@ -360,10 +360,10 @@ double prefactor_pUpdate(const int * irrep_arr[], const int is_left,
         int i, j;
         int symvalues[7];
         double prefactor = 1;
-        for (i = 0 ; i < nr_symmetries ; ++i)
+        for (i = 0; i < nr_symmetries; ++i)
                 switch(sgs[i]) {
                 case Z2 :
-                        for (j = 0 ; j < 7 ; ++j) 
+                        for (j = 0; j < 7; ++j) 
                                 symvalues[j] = irrep_arr[j][i];
                         /* only Z2 needs a sign change for this contract */
                         prefactor *= Z2_prefactor_pUpdate(symvalues, is_left);
@@ -383,15 +383,15 @@ double prefactor_mirror_coupling(int * irrep_arr[],
         int i, j;
         int symvalues[3];
         double prefactor = 1;
-        for (i = 0 ; i < nr_symmetries ; ++i) {
+        for (i = 0; i < nr_symmetries; ++i) {
                 switch(sgs[i]) {
                 case Z2 :
-                        for (j = 0 ; j < 3 ; ++j) 
+                        for (j = 0; j < 3; ++j) 
                                 symvalues[j] = irrep_arr[j][i];
                         prefactor *= Z2_prefactor_mirror_coupling(symvalues);
                         break;
                 case SU2 :
-                        for (j = 0 ; j < 3 ; ++j) 
+                        for (j = 0; j < 3; ++j) 
                                 symvalues[j] = irrep_arr[j][i];
                         prefactor *= SU2_prefactor_mirror_coupling(symvalues);
                 default :
@@ -408,15 +408,15 @@ double prefactor_DMRGmatvec(int * irrep_arr[], int * MPO,
         int i, j;
         int symvalues[12];
         double prefactor = 1;
-        for (i = 0 ; i < nr_symmetries ; ++i) {
+        for (i = 0; i < nr_symmetries; ++i) {
                 switch(sgs[i]) {
                 case Z2 :
-                        for (j = 0 ; j < 12 ; ++j)
+                        for (j = 0; j < 12; ++j)
                                 symvalues[j] = irrep_arr[j][i];
                         prefactor *= Z2_prefactor_DMRGmatvec(symvalues);
                         break;
                 case SU2 :
-                        for (j = 0 ; j < 12 ; ++j)
+                        for (j = 0; j < 12; ++j)
                                 symvalues[j] = irrep_arr[j][i];
                         prefactor *= SU2_prefactor_DMRGmatvec(symvalues, MPO[i]);
                         break;
@@ -434,19 +434,19 @@ double prefactor_bUpdate(int * const irrep_arr[3][3], const int updateCase,
         int i, j, k;
         int symvalues[3][3];
         double prefactor = 1;
-        for (i = 0 ; i < nr_symmetries ; ++i) {
+        for (i = 0; i < nr_symmetries; ++i) {
                 switch(sgs[i]) {
                 case Z2 :
-                        for (j = 0 ; j < 3 ; ++j)
-                                for (k = 0 ; k < 3 ; ++k)
+                        for (j = 0; j < 3; ++j)
+                                for (k = 0; k < 3; ++k)
                                         symvalues[j][k] = (irrep_arr[j][k])[i];
 
                         prefactor *= Z2_prefactor_bUpdate(symvalues, updateCase);
                         break;
 
                 case SU2 :
-                        for (j = 0 ; j < 3 ; ++j)
-                                for (k = 0 ; k < 3 ; ++k)
+                        for (j = 0; j < 3; ++j)
+                                for (k = 0; k < 3; ++k)
                                         symvalues[j][k] = (irrep_arr[j][k])[i];
 
                         prefactor *= SU2_prefactor_bUpdate(symvalues, updateCase);
@@ -467,18 +467,18 @@ double prefactor_add_P_operator(int * const irreps[2][3], const int isleft,
         int i, j, k;
         int symvalues[2][3];
         double prefactor = 1;
-        for (i = 0 ; i < nr_symmetries ; ++i) {
+        for (i = 0; i < nr_symmetries; ++i) {
                 switch(sgs[i]) {
                 case Z2 :
-                        for (j = 0 ; j < 2 ; ++j)
-                                for (k = 0 ; k < 3 ; ++k)
+                        for (j = 0; j < 2; ++j)
+                                for (k = 0; k < 3; ++k)
                                         symvalues[j][k] = (irreps[j][k])[i];
 
                         prefactor *= Z2_prefactor_add_P_operator(symvalues, isleft);
                         break;
                 case SU2 :
-                        for (j = 0 ; j < 2 ; ++j)
-                                for (k = 0 ; k < 3 ; ++k)
+                        for (j = 0; j < 2; ++j)
+                                for (k = 0; k < 3; ++k)
                                         symvalues[j][k] = (irreps[j][k])[i];
 
                         prefactor *= SU2_prefactor_add_P_operator(symvalues, isleft);
@@ -500,22 +500,22 @@ double prefactor_combine_MPOs(int * const irreps[2][3], int * const irrMPO[3],
         int symvalues[2][3];
         int symvaluesMPO[3];
         double prefactor = 1;
-        for (i = 0 ; i < nr_symmetries ; ++i) {
+        for (i = 0; i < nr_symmetries; ++i) {
                 switch(sgs[i]) {
                 case Z2 :
-                        for (j = 0 ; j < 2 ; ++j)
-                                for (k = 0 ; k < 3 ; ++k)
+                        for (j = 0; j < 2; ++j)
+                                for (k = 0; k < 3; ++k)
                                         symvalues[j][k] = (irreps[j][k])[i];
-                        for (k = 0 ; k < 3 ; ++k)
+                        for (k = 0; k < 3; ++k)
                                 symvaluesMPO[k] = (irrMPO[k])[i];
 
                         prefactor *= Z2_prefactor_combine_MPOs(symvalues, symvaluesMPO);
                         break;
                 case SU2 :
-                        for (j = 0 ; j < 2 ; ++j)
-                                for (k = 0 ; k < 3 ; ++k)
+                        for (j = 0; j < 2; ++j)
+                                for (k = 0; k < 3; ++k)
                                         symvalues[j][k] = (irreps[j][k])[i];
-                        for (k = 0 ; k < 3 ; ++k)
+                        for (k = 0; k < 3; ++k)
                                 symvaluesMPO[k] = (irrMPO[k])[i];
 
                         prefactor *= SU2_prefactor_combine_MPOs(symvalues, symvaluesMPO);

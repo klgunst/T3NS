@@ -208,7 +208,7 @@ static void print_bonds(const struct rOperators * const rops)
   rOperators_give_indices(rops, indices);
 
   printf("Bonds : ");
-  for (i = 0 ; i < nrind ; ++i)
+  for (i = 0; i < nrind; ++i)
   {
     get_string_of_bond(buffer, indices[i]);
     printf("%s%s", buffer, i == nrind - 1 ? "\n": ", ");
@@ -226,7 +226,7 @@ static void print_couplings(const struct rOperators * const rops)
   rOperators_give_is_in(rops, is_in);
 
   printf("Couplings : \n");
-  for (i = 0 ; i < nrcoup * 3 ; ++i)
+  for (i = 0; i < nrcoup * 3; ++i)
   {
     get_string_of_bond(buffer, couplings[i]);
     printf("%14s%c %c", buffer, is_in[i] ? ' ' : '*', (i + 1) % 3 ? '-' : '\n');
@@ -242,7 +242,7 @@ static void print_qnumberbonds(const struct rOperators * const rops)
   rOperators_give_qnumberbonds(rops, qnumberbonds);
 
   printf("Qnumberbonds: \n");
-  for (i = 0 ; i < nrcoup * 3 ; ++i)
+  for (i = 0; i < nrcoup * 3; ++i)
   {
     get_string_of_bond(buffer, qnumberbonds[i]);
     printf("%14s %c", buffer, (i + 1) % 3 ? '-' : '\n');
@@ -254,7 +254,7 @@ static void print_operators(const struct rOperators * const rops, const int give
   char buffer[100];
   int op;
   printf("Operators :\n");
-  for (op = 0 ; op < rops->nrops ; ++op)
+  for (op = 0; op < rops->nrops; ++op)
   {
     if (givename) {
       get_string_of_rops(buffer, op, rops->bond_of_operator, rops->is_left, 'e');
@@ -272,14 +272,14 @@ static void print_blocks(const struct rOperators * const rops, const int op)
   const int nrcoup = rOperators_give_nr_of_couplings(rops);
   QN_TYPE * qn = rOperators_give_qnumbers_for_hss(rops, hss);
   int block;
-  for (block = 0 ; block < blocksize ; ++block)
+  for (block = 0; block < blocksize; ++block)
   {
     int i;
     if (get_size_block(&rops->operators[op], block) == 0)
       continue;
 
     printf("bl: %d", block);
-    for (i = 0 ; i < nrcoup ; ++i)
+    for (i = 0; i < nrcoup; ++i)
       printf(", qn: %ld", qn[block * nrcoup + i]);
     printf("\n");
     print_qnumber(rops, op, block);
@@ -301,12 +301,12 @@ static void print_qnumber(const struct rOperators * const rops, const int op, co
   rOperators_give_coupling_to_qnumberbonds(rops, mapping_coup_to_qnumber);
   get_symsecs_arr(symarr, qnumberbonds, nrcoup * 3);
 
-  for (coup = 0 ; coup < nrcoup ; ++coup)
+  for (coup = 0; coup < nrcoup; ++coup)
   {
     QN_TYPE ind = qnumberspointer[block * nrcoup + coup];
     int bond;
     int currind[3];
-    for (bond = 0 ; bond < 3 ; ++bond)
+    for (bond = 0; bond < 3; ++bond)
     {
       currind[bond] = ind % symarr[bond + 3 * coup].nrSecs;
       ind             = ind / symarr[bond + 3 * coup].nrSecs;
@@ -328,16 +328,16 @@ static void rOperators_give_coupling_to_qnumberbonds(const struct rOperators * c
   rOperators_give_couplings(rops, couplings);
   int coup;
 
-  for (coup = 0 ; coup < nrcoup ; ++coup)
+  for (coup = 0; coup < nrcoup; ++coup)
   {
     int i, j;
     /* hack */
     int mapfor3[3] = { 0, 2, 1 };
     int coup1 = coup;
     int coup2 = mapfor3[coup]; 
-    for (i = 0 ; i < 3 ; ++i)
+    for (i = 0; i < 3; ++i)
     {
-      for (j = 0 ; j < 3 ; ++j)
+      for (j = 0; j < 3; ++j)
         if (couplings[coup1 * 3 + i] == qnumberbonds[coup2 * 3 + j])
           break;
       assert(j != 3);

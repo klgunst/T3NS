@@ -46,7 +46,7 @@ void destroy_rOperators(struct rOperators * const rops)
   safe_free(rops->begin_blocks_of_hss);
   safe_free(rops->hss_of_ops);
   safe_free(rops->qnumbers);
-  for (op = 0 ; op < rops->nrops ; ++op)
+  for (op = 0; op < rops->nrops; ++op)
     destroy_sparseblocks(&rops->operators[op]);
   safe_free(rops->operators);
   init_null_rOperators(rops);
@@ -64,8 +64,8 @@ void init_vacuum_rOperators(struct rOperators * const rops, const int bond_of_op
   rops->begin_blocks_of_hss = safe_malloc(rops->nrhss + 1, int);
 
   /* Only the trivial hamsymsec is valid at these vacuum operators, and it has exactly one block */
-  for (i = 0 ; i < get_trivialhamsymsec() + 1; ++i) rops->begin_blocks_of_hss[i] = 0;
-  for (; i < rops->nrhss + 1 ; ++i) rops->begin_blocks_of_hss[i] = 1;
+  for (i = 0; i < get_trivialhamsymsec() + 1; ++i) rops->begin_blocks_of_hss[i] = 0;
+  for (; i < rops->nrhss + 1; ++i) rops->begin_blocks_of_hss[i] = 1;
 
   rops->qnumbers      = safe_malloc(1, QN_TYPE);      /* only 1 coupling and one valid symsec */
   rops->qnumbers[0] = 0 + get_trivialhamsymsec() * 1; /* (0,0,trivialhamsymsec) */
@@ -96,7 +96,7 @@ void sum_unique_rOperators(struct rOperators * const newrops, const struct rOper
   initialize_sum_unique_rOperators(newrops, uniquerops, instructions, hamsymsec_new, 
       nr_instructions);
 
-  for (instr = 0 ; instr < nr_instructions ; ++instr)
+  for (instr = 0; instr < nr_instructions; ++instr)
   {
     const int prev1operator = instructions[instr * 3 + 0];
     const int prev2operator = instructions[instr * 3 + 1];
@@ -116,12 +116,12 @@ void sum_unique_rOperators(struct rOperators * const newrops, const struct rOper
 
     assert(N == uniqueBlock->beginblock[nr_blocks]);
 
-    for (j = 0 ; j < N ; ++j) newBlock->tel[j] += prefactors[instr] * uniqueBlock->tel[j];
+    for (j = 0; j < N; ++j) newBlock->tel[j] += prefactors[instr] * uniqueBlock->tel[j];
   }
   assert(uniqueBlock - uniquerops->operators + 1 == uniquerops->nrops);
 
   /* Kick out all the symsecs that have only zero tensor elements out of each operator */
-  for (i = 0 ; i < newrops->nrops ; ++i)
+  for (i = 0; i < newrops->nrops; ++i)
     kick_zero_blocks(&newrops->operators[i], rOperators_give_nr_blocks_for_operator(newrops,i));
 }
 
@@ -157,12 +157,12 @@ static void make_unitOperator(struct rOperators * const ops, const int op)
   /* I will first use this array to store the sqrt(D) instead of D */
   unitOperator->beginblock = safe_malloc(nr_blocks + 1, int);
   unitOperator->beginblock[0] = 0;
-  for (block = 0 ; block < nr_blocks ; ++block)
+  for (block = 0; block < nr_blocks; ++block)
   {
     QN_TYPE ind = qnumbers_of_unit[block];
     int j;
     unitOperator->beginblock[block + 1] = 1;
-    for (j = 0 ; j < halfindexes ; ++j)
+    for (j = 0; j < halfindexes; ++j)
     {
       int currind = ind % maxdims[j];
       ind         = ind / maxdims[j];
@@ -172,7 +172,7 @@ static void make_unitOperator(struct rOperators * const ops, const int op)
   }
 
   unitOperator->tel =safe_calloc(totdim, EL_TYPE);
-  for (block = 0 ; block < nr_blocks ; ++block)
+  for (block = 0; block < nr_blocks; ++block)
   {
     const int D            = unitOperator->beginblock[block + 1];
     EL_TYPE * const telcur = get_tel_block(unitOperator, block);
@@ -182,7 +182,7 @@ static void make_unitOperator(struct rOperators * const ops, const int op)
     double prefactor = 1;
 
     /* only for halfindexes == 1 */
-    for (j = 0 ; j < halfindexes ; ++j)
+    for (j = 0; j < halfindexes; ++j)
     {
       irrep_arr[j] = symarr[j].irreps + bookie.nrSyms * (ind % maxdims[j]);
       irrep_arr[2 - j] = irrep_arr[j];
@@ -195,7 +195,7 @@ static void make_unitOperator(struct rOperators * const ops, const int op)
       prefactor *= prefactor_mirror_coupling(irrep_arr, bookie.sgs, bookie.nrSyms);
 
     /* diagonal */
-    for (j = 0 ; j < D ; ++j)
+    for (j = 0; j < D; ++j)
       telcur[j * D + j] = prefactor;
     unitOperator->beginblock[block + 1] = unitOperator->beginblock[block] + D * D;
   }
@@ -229,11 +229,11 @@ static void init_nP_rOperators(struct rOperators * const rops, int ***tmp_nkappa
   find_goodqnumbersectors(&dimarray, &qnumbersarray, &total, symarr, 1);
 
   rops->begin_blocks_of_hss[0] = 0;
-  for (hss = 0 ; hss < rops->nrhss ; ++hss)
+  for (hss = 0; hss < rops->nrhss; ++hss)
   {
     int i;
     rops->begin_blocks_of_hss[hss + 1] = rops->begin_blocks_of_hss[hss];
-    for (i = 0 ; i < symarr[1].nrSecs ; ++i)
+    for (i = 0; i < symarr[1].nrSecs; ++i)
       rops->begin_blocks_of_hss[hss + 1] += qnumbersarray[hss][i][0];
   }
   rops->qnumbers    = safe_malloc(rops->begin_blocks_of_hss[rops->nrhss], QN_TYPE);
@@ -242,7 +242,7 @@ static void init_nP_rOperators(struct rOperators * const rops, int ***tmp_nkappa
   rops->hss_of_ops  = NULL;
   rops->operators   = NULL;
 
-  for (hss = 0 ; hss < rops->nrhss ; ++hss)
+  for (hss = 0; hss < rops->nrhss; ++hss)
   {
     const int N = rops->begin_blocks_of_hss[hss + 1] - rops->begin_blocks_of_hss[hss];
     int *idx;
@@ -252,9 +252,9 @@ static void init_nP_rOperators(struct rOperators * const rops, int ***tmp_nkappa
     int i, j, curr = 0;
 
     (*tmp_nkappa_begin)[hss] = safe_malloc(N + 1, int);
-    for (i = 0 ; i < symarr[1].nrSecs ; ++i)
+    for (i = 0; i < symarr[1].nrSecs; ++i)
     {
-      for (j = 0 ; j < qnumbersarray[hss][i][0] ; ++j, ++curr)
+      for (j = 0; j < qnumbersarray[hss][i][0]; ++j, ++curr)
       {
         if (is_left)
         {
@@ -284,7 +284,7 @@ static void init_nP_rOperators(struct rOperators * const rops, int ***tmp_nkappa
 
     idx = qnumbersSort(qnumberstemp, rOperators_give_nr_of_couplings(rops), N);
     (*tmp_nkappa_begin)[hss][0] = 0;
-    for (i = 0 ; i < N ; ++i)
+    for (i = 0; i < N; ++i)
     {
       qnumbersofhss[i] = qnumberstemp[idx[i]];
       (*tmp_nkappa_begin)[hss][i + 1] = dimtemp[idx[i]] + (*tmp_nkappa_begin)[hss][i];
@@ -346,7 +346,7 @@ static void init_P_rOperators(struct rOperators * const rops, int ***nkappa_begi
   /* So now you know enough to recombine everything */
   /* First count the number of blocks... */
   rops->begin_blocks_of_hss[0] = 0;
-  for (hamss = 0 ; hamss < rops->nrhss ; ++hamss)
+  for (hamss = 0; hamss < rops->nrhss; ++hamss)
   {
     /* qnumbersarray_internal[hamss] has all the symsecs of bra(internal) X ket(internal) that 
      * combine to hamss. So now, loop over all these different possible products. After that,
@@ -357,11 +357,11 @@ static void init_P_rOperators(struct rOperators * const rops, int ***nkappa_begi
      * So bra(internal) for right rops and ket(internal) for left rops. */
     int internal_out;
     rops->begin_blocks_of_hss[hamss + 1] = rops->begin_blocks_of_hss[hamss];
-    for (internal_out = 0 ; internal_out < symarr_internal[1].nrSecs ; ++internal_out)
+    for (internal_out = 0; internal_out < symarr_internal[1].nrSecs; ++internal_out)
     {
       const int nr_of_prods =  qnumbersarray_internal[hamss][internal_out][0];
       int internal_in;
-      for (internal_in = 0 ; internal_in < nr_of_prods ; ++internal_in)
+      for (internal_in = 0; internal_in < nr_of_prods; ++internal_in)
       {
         const int ket_internal =  is_left ? internal_out : 
           qnumbersarray_internal[hamss][internal_out][1 + internal_in];
@@ -387,7 +387,7 @@ static void init_P_rOperators(struct rOperators * const rops, int ***nkappa_begi
   }
 
   rops->qnumbers = safe_malloc(rops->begin_blocks_of_hss[rops->nrhss] * couplings, QN_TYPE);
-  for (hamss = 0 ; hamss < rops->nrhss ; ++hamss)
+  for (hamss = 0; hamss < rops->nrhss; ++hamss)
   {
     /* qnumbersarray_internal[hamss] has all the symsecs of bra(internal) X ket(internal) that 
      * combine to hamss. So now, loop over all these different possible products. After that,
@@ -407,11 +407,11 @@ static void init_P_rOperators(struct rOperators * const rops, int ***nkappa_begi
     qnumberstmp                   = safe_malloc(N * couplings, QN_TYPE);
     dimtmp                        = safe_malloc(N, int);
 
-    for (internal_out = 0 ; internal_out < symarr_internal[1].nrSecs ; ++internal_out)
+    for (internal_out = 0; internal_out < symarr_internal[1].nrSecs; ++internal_out)
     {
       const int nr_of_prods =  qnumbersarray_internal[hamss][internal_out][0];
       int internal_in;
-      for (internal_in = 0 ; internal_in < nr_of_prods ; ++internal_in)
+      for (internal_in = 0; internal_in < nr_of_prods; ++internal_in)
       {
         const int ket_internal =  is_left ? internal_out : 
           qnumbersarray_internal[hamss][internal_out][1 + internal_in];
@@ -441,8 +441,8 @@ static void init_P_rOperators(struct rOperators * const rops, int ***nkappa_begi
         find_qnumbers_with_index_in_array(ket_internal, is_left * 2, qnumbersarray, dimarray, 
             symarr, &little_qnumbersarray2, &little_dimarray2, &little_length2);
 
-        for (branrs = 0 ; branrs < little_length ; ++branrs)
-          for (ketnrs = 0 ; ketnrs < little_length2 ; ++ketnrs)
+        for (branrs = 0; branrs < little_length; ++branrs)
+          for (ketnrs = 0; ketnrs < little_length2; ++ketnrs)
           {
             /* bra qnumber */
             qnumberstmp[curr_qnumber * couplings + 0] = little_qnumbersarray[branrs];
@@ -464,15 +464,15 @@ static void init_P_rOperators(struct rOperators * const rops, int ***nkappa_begi
     assert(curr_qnumber == N);
 
     idx = qnumbersSort(qnumberstmp, couplings, N);
-    for (i = 0 ; i < N ; ++i)
+    for (i = 0; i < N; ++i)
     {
       int j;
-      for (j = 0 ; j < couplings ; ++j)
+      for (j = 0; j < couplings; ++j)
         qnumbershss[i * couplings + j] = qnumberstmp[idx[i] * couplings + j];
       (*nkappa_begin_temp)[hamss][i + 1] = dimtmp[idx[i]];
     }
     (*nkappa_begin_temp)[hamss][0] = 0;
-    for (i = 0 ; i < N ; ++i)
+    for (i = 0; i < N; ++i)
     {
       assert((*nkappa_begin_temp)[hamss][i + 1] >= 0); 
       (*nkappa_begin_temp)[hamss][i + 1] += (*nkappa_begin_temp)[hamss][i];
@@ -483,10 +483,10 @@ static void init_P_rOperators(struct rOperators * const rops, int ***nkappa_begi
     safe_free(dimtmp);
   }
 
-  for (i = 0 ; i < symarr[0].nrSecs ; ++i)
+  for (i = 0; i < symarr[0].nrSecs; ++i)
   {
     int j;
-    for (j = 0 ; j < symarr[1].nrSecs ; ++j)
+    for (j = 0; j < symarr[1].nrSecs; ++j)
     {
       safe_free(qnumbersarray[i][j]);
       safe_free(dimarray[i][j]);
@@ -498,10 +498,10 @@ static void init_P_rOperators(struct rOperators * const rops, int ***nkappa_begi
   safe_free(dimarray);
   clean_symsecs_arr(symarr, qnumberbonds, 3);
 
-  for (i = 0 ; i < symarr_internal[0].nrSecs ; ++i)
+  for (i = 0; i < symarr_internal[0].nrSecs; ++i)
   {
     int j;
-    for (j = 0 ; j < symarr_internal[1].nrSecs ; ++j)
+    for (j = 0; j < symarr_internal[1].nrSecs; ++j)
     {
       safe_free(qnumbersarray_internal[i][j]);
       safe_free(dimarray_internal[i][j]);
@@ -526,22 +526,22 @@ static void initialize_sum_unique_rOperators(struct rOperators * const newrops, 
 
   /* calc the number of operators */
   newrops->nrops = 0;
-  for (i = 0 ; i < nr_instructions ; ++i) 
+  for (i = 0; i < nr_instructions; ++i) 
     newrops->nrops = (newrops->nrops > instructions[3*i+2]) ? newrops->nrops:instructions[3*i+2]+1;
 
   /* Making deepcopy of qnumbers and begin_block_of_hss */
   newrops->begin_blocks_of_hss = safe_malloc(newrops->nrhss + 1, int);
-  for (i = 0 ; i < newrops->nrhss + 1 ; ++i) 
+  for (i = 0; i < newrops->nrhss + 1; ++i) 
     newrops->begin_blocks_of_hss[i] = uniquerops->begin_blocks_of_hss[i];
 
   newrops->qnumbers = safe_malloc(newrops->begin_blocks_of_hss[newrops->nrhss] * couplings, 
       QN_TYPE);
-  for (i = 0 ; i < newrops->begin_blocks_of_hss[newrops->nrhss] * couplings ; ++i) 
+  for (i = 0; i < newrops->begin_blocks_of_hss[newrops->nrhss] * couplings; ++i) 
     newrops->qnumbers[i] = uniquerops->qnumbers[i];
 
   newrops->hss_of_ops = safe_malloc(newrops->nrops, int);
   newrops->operators  = safe_malloc(newrops->nrops, struct sparseblocks);
-  for (i = 0 ; i < newrops->nrops ; ++i)
+  for (i = 0; i < newrops->nrops; ++i)
   {
     struct sparseblocks * const newBlock = &newrops->operators[i];
     struct sparseblocks * oldBlock = NULL;
@@ -556,7 +556,7 @@ static void initialize_sum_unique_rOperators(struct rOperators * const newrops, 
     assert(j < uniquerops->nrops);
     oldBlock = &uniquerops->operators[j];
 
-    for (j = 0 ; j < N + 1 ; ++j)
+    for (j = 0; j < N + 1; ++j)
       newBlock->beginblock[j] = oldBlock->beginblock[j];
     newBlock->tel = safe_calloc(newBlock->beginblock[N], EL_TYPE);
   }
