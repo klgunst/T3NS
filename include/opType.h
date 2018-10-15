@@ -20,7 +20,8 @@ void get_opType_site(struct opType * const ops, const int psite);
 
 void get_unity_opType(struct opType * const ops);
 
-double interactval(const int ids[3], const struct opType ops[3], const char t);
+int interactval(const int ids[3], const struct opType ops[3], const char t,
+                double * const val);
 
 void init_opType_array(void);
 
@@ -47,4 +48,16 @@ void opType_get_string_of_siteops(char buffer[], const int siteid,
                                   const int site);
 
 int opType_symsec_siteop(const int siteoperator, const int site);
+
+void opType_print(const struct opType * const ops);
+
+void get_string_operator(char buffer[], const struct opType * const ops,
+                                const int ropsindex);
+
+void get_opType_type(const struct opType * const ops, const int id, 
+                     int * const nr, int * const typ, int * const k);
+
+void get_opType_tag(const struct opType * const ops, const int nr, const int typ, 
+                    const int k, const int ** tags, int * const nr_tags, 
+                    int * const base_t);
 #endif

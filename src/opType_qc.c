@@ -12,11 +12,16 @@ static enum{QC, QC_SU2, DOCI} ham;
 /* ==================== DECLARATION STATIC FUNCTIONS ======================== */
 /* ========================================================================== */
 
+static int need_double_ops(const int bond, const int is_left);
+
 static int need_complimentary_ops(const int n, const int psite[n], 
                                   const int bond, const int is_left);
 
-static void get_string_operator(char buffer[], const struct opType * const ops,
-                                const int ropsindex);
+static int interactval_merge(const int ids[3], const struct opType ops[3], 
+                             double * const val);
+
+static int interactval_update(const int ids[3], const struct opType ops[3], 
+                              const char t, double * const val);
 
 /* ========================================================================== */
 
@@ -70,6 +75,8 @@ int loop_dof(const int nr, const int creator[nr], const int position[nr],
         if (pos == 0) {
                 int half_count = nr == 2 && creator[0] == creator[1] 
                         && position[0] == position[1];
+                if (t == 'n' && nr == 2 && !need_double_ops(bond, is_left))
+                        return 0;
                 if (t == 'c' && !need_complimentary_ops(nr, position,
                                                         bond, is_left))
                         return 0;
@@ -110,12 +117,6 @@ int loop_dof(const int nr, const int creator[nr], const int position[nr],
         return 1;
 }
 
-void symsec_of_operators(int ** const list_of_ss, const int bond, 
-                                const int is_left)
-{
-        assert(0);
-}
-
 void opType_get_string_of_rops(char buffer[], const int ropsindex, 
                                const int bond, const int is_left)
 {
@@ -133,26 +134,33 @@ void opType_get_string_of_siteops(char buffer[], const int siteid,
         get_string_operator(buffer, &ops, siteid);
 }
 
-double interactval(const int ids[3], const struct opType ops[3], const char t)
+int interactval(const int ids[3], const struct opType ops[3], const char t,
+                double * const val)
 {
-        assert(0);
-}
-
-int opType_symsec_siteop(const int siteoperator, const int site)
-{
-        assert(0);
+        assert(t == 'm' || t == '1' || t == '2' || t == '3');
+        if (t == 'm')
+                return interactval_merge(ids, ops, val);
+        else
+                return interactval_update(ids, ops, t, val);
 }
 
 /* ========================================================================== */
 /* ===================== DEFINITION STATIC FUNCTIONS ======================== */
 /* ========================================================================== */
 
+static int need_double_ops(const int bond, const int is_left)
+{
+        const int l_psites    = get_left_psites(bond);
+        const int r_psites    = netw.psites - l_psites;
+
+        return !(is_left == (l_psites > r_psites));
+}
+
 static int need_complimentary_ops(const int n, const int psite[n], 
                                   const int bond, const int is_left)
 {
-        if(n == 1)
-                return 0;
-        if(n == 3 || n == 4)
+        assert(n == 0 || n == 1 || n == 2);
+        if(n == 1 || n == 0)
                 return 1;
 
         const int site        = netw.bonds[2 * bond + is_left];
@@ -202,7 +210,56 @@ static int need_complimentary_ops(const int n, const int psite[n],
                 return prev_psites > prev_psites_branch;
 }
 
-static void get_string_operator(char buffer[], const struct opType * const ops,
-                                const int ropsindex)
+static int interactval_merge(const int ids[3], const struct opType ops[3], 
+                             double * const val)
 {
+        int nr[3], typ[3], k[3], i;
+        for(i = 0; i < 3; ++i)
+                get_opType_type(&ops[i], ids[i], &nr[i], &typ[i], &k[i]);
+
+        if(typ[0] + typ[1] + typ[2] != 1) /* Need 1 'c' and 2 'n's */
+                return 0;
+        *val = 1;
+        return 1;
+}
+
+static int interactval_update(const int ids[3], const struct opType ops[3], 
+                              const char t, double * const val)
+{
+        assert(t == '1' || t == '2' || t == '3');
+        const int outpleg = t - '1';
+
+        int nr[3], typ[3], k[3], i;
+        const int * tags[3];
+        int nr_tags[3];
+        int base_tag;
+
+        int sumtyp;
+
+        for(i = 0; i < 3; ++i)
+        {
+                get_opType_type(&ops[i], ids[i], &nr[i], &typ[i], &k[i]);
+                get_opType_tag(&ops[i], nr[i], typ[i], k[i], &tags[i], 
+                               &nr_tags[i], &base_tag);
+        }
+
+        /* only non zero if:
+         *      0 times 'c'
+         *      1 time 'c' on leg outpleg
+         *      2 times 'c' with one c on outpleg
+         */
+        sumtyp = typ[0] + typ[1] + typ[2];
+        if (sumtyp == 0) {
+                return compare_tags(tags, nr_tags, base_tag, outpleg, val);
+        } else if (sumtyp == 1 && typ[outpleg] == 1) {
+                assert(nr_tags[0] + nr_tags[1] + nr_tags[2] == 4);
+                return fuse_value(tags, nr_tags, base_tag, val);
+        } else if (sumtyp == 1 && typ[outpleg] == 1) {
+                const int othercleg = 0 * (typ[0] == 1 && outpleg != 0) +
+                        1 * (typ[1] == 1 && outpleg != 1) +
+                        2 * (typ[2] == 1 && outpleg != 2);
+                return compare_tags(tags, nr_tags, base_tag, othercleg, val);
+        } else {
+        return 0;
+        }
 }

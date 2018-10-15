@@ -38,9 +38,15 @@ int QC_MPO_couples_to_singlet(const int n, const int MPO[n]);
 
 void make_site_opType(int ** begin_opType, int **** tags_opType);
 
-void QC_get_string_of_rops(char buffer[], const int ropsindex, const int bond, 
-                           const int is_left, const char o);
+int QC_symsec_tag(const int * const tag, const int nr_tags, const int tagsize);
 
-void QC_get_string_of_siteops(char buffer[], const int siteindex, 
-                              const int site);
+void string_from_tag(const int nr, const int t, const int * tags, 
+                     const int nr_tags, const int size_tag, const int bsize, 
+                     char buffer[bsize]);
+
+int compare_tags(const int * tags[3], const int nr_tags[3], const int base_tag,
+                 const int sumleg, double * const val);
+
+int fuse_value(const int * tags[3], const int nr_tags[3], const int base_tag,
+               double * const val);
 #endif

@@ -66,7 +66,8 @@ void QC_fetch_pUpdate(struct instructionset * const instructions,
         pUpdate_make_r_count(instructions, bond, is_left);
 
         /* Now make the hamsymsecs_of_new */
-        symsec_of_operators(&instructions->hss_of_new, bond, is_left);
+        symsec_of_operators(&instructions->hss_of_new, bonds[2 * is_left], 
+                            is_left);
 }
 
 void QC_fetch_bUpdate(struct instructionset * const instructions, 
@@ -263,8 +264,9 @@ static void combine_operators(const int operators[3], const struct opType ops[3]
                 new_ops[c - '1'] = 4 - new_ops[c - '1'];
 
         while (loop_operators(new_instr, ops, new_ops)) {
-                const double val = interactval(new_instr, ops, c);
-                fill_instruction(new_instr, val);
+                double val;
+                if (interactval(new_instr, ops, c, &val))
+                        fill_instruction(new_instr, val);
         }
 }
 

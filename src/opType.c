@@ -8,6 +8,7 @@
 #include "debug.h"
 #include "macros.h"
 
+/* bundeling all these statics and defines into a struct? */
 /* later on for making it more versatile, should make these macros
  * static globals instead
  */
@@ -72,6 +73,18 @@ static int loop_positions(const int nr, const int creator[nr], int position[nr],
 static void make_begin_opType(struct opType * const ops, 
                               const int counter[NR_OPS][NR_TYP]);
 
+static int symsec_opTypeid(const struct opType * ops, const int nr, const int t,
+                           const int id);
+
+#ifdef DEBUG
+static void opType_arr_print(void);
+
+void opType_print(const struct opType * const ops);
+
+static void opType_get_string(const struct opType * const ops, const int nr, 
+                              const int typ, const int k, int bsize, 
+                              char buffer[bsize]);
+#endif
 /* ========================================================================== */
 
 int amount_opType(const struct opType * const ops, const int nrop, 
@@ -146,7 +159,7 @@ void init_opType_array(void)
         struct opType nullopType = {.begin_opType = NULL, .tags_opType = NULL};
         base_tag = fillin_nr_basetags(nr_basetags);
 
-        if (opType_arr == NULL) {
+        if (opType_arr != NULL) {
                 fprintf(stderr, "%s@%s: The opType_arr was already initialized\n", 
                         __FILE__, __func__);
                 exit(EXIT_FAILURE);
@@ -169,10 +182,68 @@ void destroy_opType(struct opType * const ops, const int bond,
                     const int is_left)
 {
         if (opType_arr == NULL ||
-            opType_arr[2 * bond + is_left].begin_opType != NULL)
+            opType_arr[2 * bond + is_left].begin_opType == NULL)
                 clean_opType(ops);
 }
 
+void symsec_of_operators(int ** const list_of_ss, const int bond, 
+                                const int is_left)
+{
+        struct opType ops;
+        int i;
+        int * ss;
+        get_opType(&ops, bond, is_left);
+        *list_of_ss = safe_malloc(ops.begin_opType[NR_OPS * NR_TYP], int);
+        ss = *list_of_ss;
+        for (i = 0; i < NR_OPS; ++i) {
+                int j;
+                for (j = 0; j < NR_TYP; ++j) {
+                        int k;
+                        const int N = amount_opType(&ops, i, j ? 'c' : 'n');
+                        for (k = 0; k < N; ++k, ++ss) {
+                                *ss = symsec_opTypeid(&ops, i, j, k);
+                        }
+                }
+        }
+}
+
+int opType_symsec_siteop(const int siteoperator, const int site)
+{
+        struct opType ops;
+        int i, j, k;
+        get_opType_site(&ops, site);
+        get_opType_type(&ops, siteoperator, &i, &j, &k);
+
+        return symsec_opTypeid(&ops, i, j, k);
+}
+
+void get_opType_type(const struct opType * const ops, const int id, 
+                     int * const nr, int * const typ, int * const k)
+{
+        for (*nr = 0; *nr < NR_OPS; ++(*nr)) {
+                for (*typ = 0; *typ < NR_TYP; ++(*typ)) {
+                        if(ops->begin_opType[*nr * NR_TYP + *typ + 1] > id)
+                                break;
+                }
+                if (*typ != NR_TYP)
+                        break;
+        }
+        assert(*nr != NR_OPS && *typ != NR_TYP);
+        *k = id - ops->begin_opType[*nr * NR_TYP + *typ];
+}
+
+void get_opType_tag(const struct opType * const ops, const int nr, const int typ, 
+                    const int k, const int ** tags, int * const nr_tags, 
+                    int * const base_t)
+{
+        *nr_tags = nr_basetags[nr][typ];
+        *base_t = base_tag;
+        *tags = NULL;
+        if (*nr_tags == 0)
+                return;
+        *tags = &ops->tags_opType[nr][typ][k * *nr_tags * *base_t];
+
+}
 /* ========================================================================== */
 /* ===================== DEFINITION STATIC FUNCTIONS ======================== */
 /* ========================================================================== */
@@ -200,7 +271,8 @@ static void change_site(struct opType * const ops, const int psite)
                         if (nr_basetags[i][j] == 0)
                                 continue;
                         const char t = j ? 'c' : 'n';
-                        const int nrops = amount_opType(ops, i, t);
+                        const int nrops = amount_opType(ops, i, t) * 
+                                nr_basetags[i][j];
                         int * tag_arr = ops->tags_opType[i][j];
 
                         for (k = 0; k < nrops; ++k)
@@ -211,15 +283,11 @@ static void change_site(struct opType * const ops, const int psite)
 
 static void make_unity_opType(void)
 {
-        int i;
-        const int size = NR_OPS * NR_TYP + 1;
-        unity_opType.begin_opType = safe_malloc(size, int);
-        unity_opType.tags_opType = NULL;
+        static int begin_opType[] = {0,1,1,1,1,1,1,1,1,1,1};
+        assert(NR_OPS * NR_TYP + 1 == 
+               sizeof begin_opType / sizeof begin_opType[0]);
 
-        unity_opType.begin_opType[0] = 0;
-        for (i = 1; i < size; ++i)
-                unity_opType.begin_opType[i] = 1;
-
+        unity_opType.begin_opType = begin_opType;
 }
 
 static void init_opType_array_part(const int bond, const int is_left)
@@ -375,17 +443,19 @@ static void init_make_r_count(struct opType * const ops, const int bond,
         for (i = 0; i < NR_OPS; ++i) {
                 for (j = 0; j < NR_TYP; ++j) {
                         const int nr = nr_basetags[i][j];
-                        const char t = j ? 't' : 'n';
-                        int * tagstart = ops->tags_opType[i][j];
+                        const char t = j ? 'c' : 'n';
+                        int * tags = do_count ? NULL : ops->tags_opType[i][j];
                         int k;
                         for (k = 0 ; k < todo[i][j] ; ++k) {
                                 const int * creator = creator_array[i][j][k];
                                 add_operators(nr, creator, t, do_count ?  NULL : 
-                                              &tagstart, &info, &count[i][j]);
+                                              &tags, &info, &count[i][j]);
 
                         }
                 }
         }
+        if (do_count)
+                make_begin_opType(ops, count);
 }
 
 static void add_operators(const int nr, const int creator[nr], const char t,
@@ -480,3 +550,88 @@ static void make_begin_opType(struct opType * const ops,
                 }
         }
 }
+
+static int symsec_opTypeid(const struct opType * ops, const int nr, const int t,
+                           const int id)
+{
+        const int nr_tags = nr_basetags[nr][t];
+        const int* const tag = &ops->tags_opType[nr][t][id* base_tag * nr_tags];
+        const int syms = QC_symsec_tag(tag, nr_tags, base_tag);
+        if (t == 1)
+                return QC_hermitian_symsec(syms);
+        else
+                return syms;
+}
+
+#ifdef DEBUG
+static void opType_arr_print(void)
+{
+        int i;
+        printf("========================================"
+               "========================================\n");
+        printf("PRINTING opType_arr:\n\n");
+        if (opType_arr == NULL) {
+                printf("opType_arr is NULL\n");
+        } else {
+                for(i = 0; i < netw.nr_bonds; ++i) {
+                        int is_left;
+                        for(is_left = 1; is_left >= 0; --is_left) {
+                                printf("----%s bond %d----\n", 
+                                       is_left ? "left" : "right", i);
+                                opType_print(&opType_arr[2 * i + is_left]);
+                        }
+                }
+        }
+
+        printf("\nPRINTING site_opType:\n\n");
+        opType_print(&site_opType);
+
+        printf("\nPRINTING unity_opType:\n\n");
+        opType_print(&unity_opType);
+}
+
+void opType_print(const struct opType * const ops)
+{
+        const int bsize = 255;
+        char buffer[bsize];
+        int i, j, k, cnt = 0;
+
+        if(ops->begin_opType == NULL) {
+                printf("opType is NULL\n");
+                return;
+        }
+
+        for (i = 0; i < NR_OPS; ++i) {
+                for (j = 0; j < NR_TYP; ++j) {
+                        const char t = j ? 'c' : 'n';
+                        const int N = amount_opType(ops, i, t);
+
+                        for (k = 0; k < N; ++k, ++cnt) {
+                                opType_get_string(ops, i, j, k, bsize, buffer);
+                                printf("%-28s%s", buffer, cnt % 3 == 2 ?"\n":"");
+                        }
+                }
+        }
+        printf("\n");
+}
+
+static void opType_get_string(const struct opType * const ops, const int nr, 
+                              const int typ, const int k, int bsize, 
+                              char buffer[bsize])
+{
+        const int nr_tags = nr_basetags[nr][typ];
+        const int * const tags = ops->tags_opType[nr][typ] + 
+                k * nr_tags * base_tag;
+        string_from_tag(nr, typ, tags, nr_tags, base_tag, bsize, buffer);
+}
+
+
+void get_string_operator(char buffer[], const struct opType * const ops,
+                                const int ropsindex)
+{
+        const int size = 255;
+        int i, j, k;
+        get_opType_type(ops, ropsindex, &i, &j, &k);
+        opType_get_string(ops, i, j, k, size, buffer);
+}
+#endif

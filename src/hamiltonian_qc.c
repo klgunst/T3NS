@@ -71,12 +71,24 @@ static int add_product(int * const res, const int i, const int j,
 /* U1 X U1 */
 static double u1_el_siteop(const int siteop, const int braid, const int ketid);
 
-static void u1_irrep_of_siteop(int irrep[2], const int siteop);
+static int u1_symsec_tag(const int * tag, const int nr_tags, const int tagsize);
+
+static void u1_get_opTypearr(const int **arr, const int (**tags_arr)[3]);
+
+static void u1_string_from_tag(const int nr, const int t, const int * tags, 
+                     const int nr_tags, const int size_tag, const int bsize, 
+                     char buffer[bsize]);
 
 /* U1 X SU2 */
 static double su2_el_siteop(const int siteop, const int braid, const int ketid);
 
-static void su2_irrep_of_siteop(int irrep[2], const int siteop);
+static int su2_symsec_tag(const int * tag, const int nr_tags, const int tagsize);
+
+static void su2_get_opTypearr(const int **arr, const int (**tags_arr)[3]);
+
+static void su2_string_from_tag(const int nr, const int t, const int * tags, 
+                     const int nr_tags, const int size_tag, const int bsize, 
+                     char buffer[bsize]);
 
 /* ========================================================================== */
 
@@ -299,42 +311,69 @@ int QC_MPO_couples_to_singlet(const int n, const int MPO[n])
 
 void make_site_opType(int ** begin_opType, int **** tags_opType)
 {
-        assert(0);
-}
-
-
-int QC_symsec_siteop(const int siteop, const int site) 
-{
-        const int pg        = get_pg_symmetry();
-        const int nr_of_pg  = pg == -1 ? 1 : get_max_irrep(NULL,0,NULL,0,0, pg);
-        const int pg_irrep  = hdat.orbirrep[netw.sitetoorb[site]];
-        const int * irreps_arr = hdat.su2 ? &irreps_QCSU2[0][0] 
-                : &irreps_QC[0][0];
-        const int size = QC_get_nr_hamsymsec() / nr_of_pg;
-        int irrep[2];
+        const int NR_OPS = 5;
+        const int tagsize = 3;
+        const int * nr_opTypearr;
+        const int (*tags)[tagsize];
         int i;
 
-        assert(is_psite(site));
-        if (hdat.su2)
-                su2_irrep_of_siteop(irrep, siteop);
+        if(hdat.su2)
+                su2_get_opTypearr(&nr_opTypearr, &tags);
         else
-                u1_irrep_of_siteop(irrep, siteop);
+                u1_get_opTypearr(&nr_opTypearr, &tags);
 
-        const int parity = hdat.su2 ? 
-                abs(irrep[0]) % 2 : abs(irrep[0] + irrep[1]) % 2;
-
-        for (i = 0 ; i < size ; ++i)
-                if (irreps_arr[i * 2 + 0] == irrep[0] &&
-                    irreps_arr[i * 2 + 1] == irrep[1])
-                        return i * nr_of_pg + pg_irrep * parity;
-
-        return -1;
+        *tags_opType = safe_malloc(NR_OPS, int**);
+        *begin_opType = safe_malloc(NR_OPS * 2 + 1, int);
+        (*begin_opType)[0] = 0;
+        for(i = 0; i < NR_OPS; ++i) {
+                int j;
+                (*tags_opType)[i] = safe_malloc(2, int*);
+                (*tags_opType)[i][0] = safe_malloc(i * nr_opTypearr[i] * 
+                                                   tagsize, int);
+                (*tags_opType)[i][1] = NULL;
+                (*begin_opType)[i * 2 + 1] = (*begin_opType)[i * 2] + 
+                        nr_opTypearr[i];
+                (*begin_opType)[i * 2 + 2] = (*begin_opType)[i * 2 + 1];
+                int * temptag = (*tags_opType)[i][0];
+                for(j = 0; j < nr_opTypearr[i] * i; ++j, ++tags) {
+                        int k;
+                        for(k = 0; k < tagsize; ++k, ++temptag)
+                                *temptag = (*tags)[k];
+                }
+        }
 }
 
-void QC_symsec_of_operators(int ** const list_of_ss, 
-                            const int bond, const int is_left)
+int QC_symsec_tag(const int * tag, const int nr_tags, const int tagsize) 
 {
-        assert(0);
+
+        if (hdat.su2)
+                return su2_symsec_tag(tag, nr_tags, tagsize);
+        else
+                return u1_symsec_tag(tag, nr_tags, tagsize);
+}
+
+void string_from_tag(const int nr, const int t, const int * tags, 
+                     const int nr_tags, const int size_tag, const int bsize, 
+                     char buffer[bsize])
+{
+        if(hdat.su2)
+                su2_string_from_tag(nr,t,tags,nr_tags,size_tag,bsize,buffer);
+        else
+                u1_string_from_tag(nr,t,tags,nr_tags,size_tag,bsize,buffer);
+}
+
+int compare_tags(const int * tags[3], const int nr_tags[3], const int base_tag,
+                 const int sumleg, double * const val)
+{
+        *val  = 1;
+        return 1;
+}
+
+int fuse_value(const int * tags[3], const int nr_tags[3], const int base_tag,
+               double * const val)
+{
+        *val = 1;
+        return 1;
 }
 
 /* ========================================================================== */
@@ -766,9 +805,94 @@ static double u1_el_siteop(const int siteop, const int braid, const int ketid)
         }
 }
 
-static void u1_irrep_of_siteop(int irrep[2], const int siteop)
+static int u1_symsec_tag(const int * tag, const int nr_tags, const int tagsize) 
 {
-        assert(0);
+        assert(tagsize == 3);
+        const int pg       = get_pg_symmetry();
+        const int nr_of_pg = pg == -1 ? 1 : get_max_irrep(NULL,0,NULL,0,0, pg);
+        const int size = sizeof irreps_QC / sizeof irreps_QC[0];
+
+        int i;
+        int hss[2] = {0, 0};
+        int pg_new = 0;
+        for (i = 0 ; i < nr_tags ; ++i) {
+
+                const int sign = tag[i * tagsize + 0] ? 1 : -1;
+                pg_new = pg_new ^ hdat.orbirrep[tag[i * tagsize + 1]];
+                const int spin = tag[i * tagsize + 2];
+                hss[spin] += sign;
+        }
+
+        for (i = 0 ; i < size ; ++i)
+                if (hss[0] == irreps_QC[i][0] && hss[1] == irreps_QC[i][1])
+                        return i * nr_of_pg + pg_new;
+
+        fprintf(stderr, "%s@%s: Something wrong while calculating hamsymsec from tag (%d, %d).\n", 
+                __FILE__, __func__, hss[0], hss[1]);
+        return -1;
+}
+
+static void u1_get_opTypearr(const int **arr, const int (**tags_arr)[3])
+{
+        static const int nr_opTypearr[] = {1, 4, 6, 4, 1};
+        const int NR_OPS = sizeof nr_opTypearr / sizeof nr_opTypearr[0];
+        assert(NR_OPS == 5);
+        static const int tags[1*0 + 4*1 + 6*2 + 4*3 + 1*4][3] = {
+                /* Unity */
+                {1,-1,0}, /* c+_u */
+                {1,-1,1}, /* c+_d */
+                {0,-1,0}, /* c_u */
+                {0,-1,1}, /* c_d */
+                {1,-1,0}, {1,-1,1}, /* c_u c_d */
+                {0,-1,0}, {0,-1,1}, /* c_u c_d */
+                {1,-1,0}, {0,-1,0}, /* c+_u c_u */
+                {1,-1,1}, {0,-1,0}, /* c+_d c_u */
+                {1,-1,0}, {0,-1,1}, /* c+_u c_d */
+                {1,-1,1}, {0,-1,1}, /* c+_d c_d */
+                {1,-1,0}, {1,-1,1}, {0,-1,0}, /* c+_u c+_d c_u */
+                {1,-1,0}, {1,-1,1}, {0,-1,1}, /* c+_u c+_d c_d */
+                {1,-1,0}, {0,-1,0}, {0,-1,1}, /* c+_u c_u c_d */
+                {1,-1,1}, {0,-1,0}, {0,-1,1}, /* c+_d c_u c_d */
+                {1,-1,0}, {1,-1,1}, {0,-1,0}, {0,-1,1} /* c+_u c+_d c_u c_d */
+        };
+        *arr = nr_opTypearr;
+        *tags_arr = tags;
+}
+
+static void u1_string_from_tag(const int nr, const int t, const int * tags, 
+                     const int nr_tags, const int size_tag, const int bsize, 
+                     char buffer[bsize])
+{
+        assert(size_tag == 3);
+        int i;
+        int length = bsize - 1; // Dont count the terminating null character.
+        buffer[0] = '\0';
+        
+        if (nr == 0 && nr_tags == 0 && t == 0) {
+                buffer = strncat(buffer, "Unity", length);
+                length = bsize - strlen(buffer) - 1;
+                return;
+        }
+
+        if (nr == 4 && nr_tags == 0 && t == 1) {
+                buffer = strncat(buffer, "H", length);
+                length = bsize - strlen(buffer) - 1;
+                return;
+        }
+
+        buffer = strncat(buffer, t ? "C(" : "", length);
+        length = bsize - strlen(buffer) - 1;
+        for (i = 0; i < nr_tags; ++i) {
+                char buffer2[50];
+                sprintf(buffer2, "c%s_%d%c%s", tags[i * size_tag] ? "+" : "",
+                        tags[i*size_tag + 1], tags[i*size_tag + 2] ? 'd' : 'u',
+                        i == nr_tags - 1 ? "" : ".");
+                buffer = strncat(buffer, buffer2, length);
+                length = bsize - strlen(buffer) - 1;
+        }
+        buffer = strncat(buffer, t ? ")" : "", length);
+        length = bsize - strlen(buffer) - 1;
+        assert(length != 0);
 }
 
 /* U1 X SU2 */
@@ -843,7 +967,87 @@ static double su2_el_siteop(const int siteop, const int braid, const int ketid)
         }
 }
 
-static void su2_irrep_of_siteop(int irrep[2], const int siteop)
+static int su2_symsec_tag(const int * tag, const int nr_tags, const int tagsize) 
 {
-        assert(0);
+        assert(tagsize == 3);
+        const int pg       = get_pg_symmetry();
+        const int nr_of_pg = pg == -1 ? 1 : get_max_irrep(NULL,0,NULL,0,0, pg);
+        const int size = sizeof irreps_QCSU2 / sizeof irreps_QCSU2[0];
+
+        int i;
+        int hss[2] = {0, tag[nr_tags * tagsize - 1]};
+        int pg_new = 0;
+        for (i = 0 ; i < nr_tags ; ++i) {
+                hss[0] += tag[i * tagsize + 0] ? 1 : -1;
+                pg_new = pg_new ^ hdat.orbirrep[tag[i * tagsize + 1]];
+        }
+
+        assert(abs(hss[0]) % 2 == hss[1] % 2);
+        for (i = 0 ; i < size ; ++i)
+                if (hss[0] == irreps_QCSU2[i][0] && hss[1] == irreps_QCSU2[i][1])
+                        return i * nr_of_pg + pg_new;
+
+        fprintf(stderr, "%s@%s: Something wrong while calculating hamsymsec from tag (%d, %d).\n", 
+                __FILE__, __func__, hss[0], hss[1]);
+        return -1;
+}
+
+static void su2_get_opTypearr(const int **arr, const int (**tags_arr)[3])
+{
+        static const int nr_opTypearr[] = {1, 2, 4, 2, 1};
+        const int NR_OPS = sizeof nr_opTypearr / sizeof nr_opTypearr[0];
+        assert(NR_OPS == 5);
+        static const int tags[1*0 + 2*1 + 4*2 + 2*3 + 1*4][3] = {
+                /* Unity */
+                {1,-1,1}, /* c+ */
+                {0,-1,1}, /* c */
+                {1,-1,-1}, {1,-1,0}, /* (c+c+)_0 */
+                {0,-1,-1}, {0,-1,0}, /* (cc)_0 */
+                {1,-1,-1}, {0,-1,0}, /* (c+c)_0 */
+                {1,-1,-1}, {0,-1,1}, /* (c+c)_1 */
+                {1,-1,-1}, {1,-1,-1}, {0,-1,1}, /* (c+c+c) */
+                {1,-1,-1}, {0,-1,-1}, {0,-1,1}, /* (c+cc) */
+                {1,-1,-1}, {1,-1,-1}, {0,-1,-1}, {0,-1,0} /* (c+c+cc) */
+        };
+        *arr = nr_opTypearr;
+        *tags_arr = tags;
+}
+
+static void su2_string_from_tag(const int nr, const int t, const int * tags, 
+                     const int nr_tags, const int size_tag, const int bsize, 
+                     char buffer[bsize])
+{
+        assert(size_tag == 3);
+        int i;
+        int length = bsize - 1; // Dont count the terminating null character.
+        char buffer2[50];
+        buffer[0] = '\0';
+
+        if (nr == 0 && nr_tags == 0 && t == 0) {
+                buffer = strncat(buffer, "Unity", length);
+                length = bsize - strlen(buffer) - 1;
+                return;
+        }
+
+        if (nr == 4 && nr_tags == 0 && t == 1) {
+                buffer = strncat(buffer, "H", length);
+                length = bsize - strlen(buffer) - 1;
+                return;
+        }
+
+        buffer = strncat(buffer, t ? "C(" : "(", length);
+        length = bsize - strlen(buffer) - 1;
+        for (i = 0; i < nr_tags; ++i) {
+                sprintf(buffer2, "c%s_%d%s", tags[i * size_tag] ? "+" : "",
+                        tags[i*size_tag + 1], i == nr_tags - 1 ? "" : ".");
+                buffer = strncat(buffer, buffer2, length);
+                length = bsize - strlen(buffer) - 1;
+        }
+        if(tags[nr_tags * size_tag - 1] % 2 == 0)
+                sprintf(buffer2, ")_%d", tags[nr_tags * size_tag - 1] / 2);
+        else
+                sprintf(buffer2, ")_%d/2", tags[nr_tags * size_tag - 1]);
+        buffer = strncat(buffer, buffer2, length);
+        length = bsize - strlen(buffer) - 1;
+        assert(length != 0);
 }
