@@ -9,6 +9,9 @@ struct opType {
 int amount_opType(const struct opType * const ops, const int nrop, 
                   const char t);
 
+int opType_exist(const struct opType * const ops, const int nrop, 
+                 const char t, const int * const tag);
+
 int range_opType(int * const begin, int * const end, 
                   const struct opType * const ops, const int nrop);
 
@@ -27,6 +30,8 @@ void init_opType_array(void);
 
 void destroy_opType(struct opType * const ops, const int bond, 
                     const int is_left);
+
+void opType_destroy_all(void);
 
 void symsec_of_operators(int ** const list_of_ss, const int bond, 
                                 const int is_left);

@@ -40,6 +40,16 @@ static struct symsecs MPOsymsecs = {
 /* ==================== DECLARATION STATIC FUNCTIONS ======================== */
 /* ========================================================================== */
 
+double get_V(const int * const tag1, const int * const tag2,
+             const int * const tag3, const int * const tag4);
+
+static int correct_tags_4p(const int * tags[3], const int nr_tags[3], 
+                           const int base_tag, const int *tag_order[4], 
+                           double * const val);
+
+static int equaltags(const int *tag1, const int *tag2, 
+                     const int nr1, const int nr2, const int size_tag);
+
 /** reads the header of fcidump, ignores nelec, ms2 and isym. **/
 static void read_header(char hamiltonianfile[]);
 
@@ -100,6 +110,7 @@ void QC_destroy_hamiltonian(void)
         safe_free(hdat.orbirrep);
         safe_free(hdat.Vijkl);
 
+        opType_destroy_all();
 }
 
 void QC_make_hamiltonian(char hamiltonianfile[], int su2)
@@ -365,20 +376,167 @@ void string_from_tag(const int nr, const int t, const int * tags,
 int compare_tags(const int * tags[3], const int nr_tags[3], const int base_tag,
                  const int sumleg, double * const val)
 {
-        *val  = 1;
-        return 1;
+        const int nosumlegid[2] = {sumleg == 0, 1 + (sumleg != 2)};
+        assert(nr_tags[0] + nr_tags[1] + nr_tags[2] == 2 * nr_tags[sumleg]);
+        if(nr_tags[sumleg] == 0) {
+                if(hdat.su2) {
+                        assert(0);
+                } else {
+                        *val = 1;
+                }
+                return 1;
+        } else if(nr_tags[sumleg] == 1) { /* combines to ops3 */
+                const int otherid = nosumlegid[nr_tags[nosumlegid[0]] == 0];
+                assert(nr_tags[otherid] == 1);
+                if (!equaltags(tags[sumleg], tags[otherid],
+                              nr_tags[sumleg], nr_tags[otherid], base_tag))
+                        return 0;
+                if (hdat.su2) {
+                        assert(0);
+                } else {
+                        *val = sumleg == 1 && otherid == 0 ? -1 : 1;
+                }
+                return 1;
+        } else if (nr_tags[sumleg] == 2) {
+                int position[2];
+                position[0] = equaltags(tags[sumleg], tags[nosumlegid[0]], 
+                                        nr_tags[sumleg], nr_tags[nosumlegid[0]],
+                                        base_tag);
+                if (position[0] == 0 && nr_tags[nosumlegid[0]] != 0)
+                        return 0;
+                position[1] = equaltags(tags[sumleg], tags[nosumlegid[1]], 
+                                        nr_tags[sumleg], nr_tags[nosumlegid[1]],
+                                        base_tag);
+                if (position[1] == 0 && nr_tags[nosumlegid[1]] != 0)
+                        return 0;
+
+                if (hdat.su2) {
+                        assert(0);
+                } else {
+                        if (nr_tags[nosumlegid[0]] * nr_tags[nosumlegid[1]] == 0)
+                                *val = 1;
+                        else {
+                                assert(position[0] != position[1]);
+                                *val = position[0] < position[1] ? 1 : -1;
+                        }
+                        return 1;
+                }
+        } else {
+                fprintf(stderr, "%s@%s: Something went wrong\n", __FILE__, 
+                        __func__);
+                exit(EXIT_FAILURE);
+        }
+        return 0;
 }
 
 int fuse_value(const int * tags[3], const int nr_tags[3], const int base_tag,
                double * const val)
 {
-        *val = 1;
+        const int *tag_order[4];
+        if(!correct_tags_4p(tags, nr_tags, base_tag, tag_order, val))
+                return 0;
+        *val *= get_V(tag_order[0], tag_order[1], tag_order[2], tag_order[3]) -
+                get_V(tag_order[0], tag_order[1], tag_order[3], tag_order[2]);
         return 1;
+}
+
+double get_V(const int * const tag1, const int * const tag2,
+             const int * const tag3, const int * const tag4)
+{
+        const int psites  = hdat.norb;
+        const int psites2 = psites * psites;
+        const int psites3 = psites * psites2;
+
+        if (tag1[0] != 1 || tag2[0] != 1 || tag3[0] != 0 || tag4[0] != 0)
+                return 0;
+        if (!hdat.su2 && (tag1[2] != tag4[2] || tag2[2] != tag3[2]))
+                return 0;
+
+        if (get_pg_symmetry() != -1 && 
+            ((hdat.orbirrep[tag1[1]] ^ hdat.orbirrep[tag2[1]]) ^ 
+             (hdat.orbirrep[tag3[1]] ^ hdat.orbirrep[tag4[1]])) != 0)
+                return 0;
+
+        return hdat.Vijkl[tag1[1] + psites * tag4[1] + 
+                psites2 * tag3[1] + psites3 * tag2[1]];
 }
 
 /* ========================================================================== */
 /* ===================== DEFINITION STATIC FUNCTIONS ======================== */
 /* ========================================================================== */
+
+static int correct_tags_4p(const int * tags[3], const int nr_tags[3], 
+                           const int base_tag, const int *tag_order[4], 
+                           double * const val)
+{
+        int nr_crean[2] = {0,0};
+        int newpos[4];
+        int cnt = 0;
+        int i, j;
+        *val = 1;
+        for (i = 0; i < 3; ++i) {
+                for (j = 0; j < nr_tags[i]; ++j, ++cnt) {
+                        const int iscre = tags[i][0 + j * base_tag];
+                        newpos[cnt] = iscre ? nr_crean[iscre] : 
+                                3 - nr_crean[iscre];
+                        tag_order[newpos[cnt]] = &tags[i][j * base_tag];
+
+                        ++nr_crean[iscre];
+                }
+        }
+        if (nr_crean[0] != 2 || nr_crean[1] != 2)
+                return 0;
+        /* sorting of newpos back to 0, 1, 2, 3 */
+        for (i = 0; i < 4; ++i) {
+                for (j = i; j < 4; ++j) {
+                        if (newpos[j] == i)
+                                break;
+                }
+                for (;j > i; --j) {
+                        newpos[j] = newpos[j - 1];
+                        *val *= -1;
+                }
+                newpos[i] = i;
+        }
+
+        assert(cnt == 4);
+        return 1;
+}
+
+static int equaltags(const int *tag1, const int *tag2, 
+                     const int nr1, const int nr2, const int size_tag)
+{
+        assert(nr1 >= nr2);
+        assert(nr1 <= 2);
+        const int maxj = size_tag - hdat.su2;
+        int i, j;
+        if(nr2 == 0)
+                return 0;
+
+        if(nr1 == 2 && nr2 == 1) {
+                for (i = 0; i < nr1; ++i) {
+                        for(j = 0; j < maxj; ++j)
+                                if(tag1[i * size_tag + j] != tag2[j])
+                                        break;
+                        if(j == maxj)
+                                return i + 1;
+                }
+                return 0;
+        } else {
+                for (i = 0; i < nr1; ++i) {
+                        for(j = 0; j < maxj; ++j)
+                                if(tag1[i * size_tag + j] != 
+                                   tag2[i * size_tag + j])
+                                        return 0;
+                }
+                if (hdat.su2) {
+                        return tag1[nr1 * size_tag - 1] == 
+                                tag2[nr2 * size_tag - 1];
+                } else {
+                        return 1;
+                }
+        }
+}
 
 static void read_header(char fil[])
 {

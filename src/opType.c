@@ -76,16 +76,36 @@ static void make_begin_opType(struct opType * const ops,
 static int symsec_opTypeid(const struct opType * ops, const int nr, const int t,
                            const int id);
 
+static void opType_get_string(const struct opType * const ops, const int nr, 
+                              const int typ, const int k, int bsize, 
+                              char buffer[bsize]);
+
 #ifdef DEBUG
 static void opType_arr_print(void);
 
 void opType_print(const struct opType * const ops);
-
-static void opType_get_string(const struct opType * const ops, const int nr, 
-                              const int typ, const int k, int bsize, 
-                              char buffer[bsize]);
 #endif
 /* ========================================================================== */
+
+int opType_exist(const struct opType * const ops, const int nrop, 
+                 const char t, const int * const tag)
+{
+        const int K = amount_opType(ops, nrop, t);
+        const int * tagarr = ops->tags_opType[nrop][t == 'c'];
+        int i;
+        int sizetag = base_tag * nr_basetags[nrop][t == 'c'];
+        for(i = 0; i < K; ++i) {
+                int j;
+                for (j = 0; j < sizetag; ++j) {
+                        if (tag[j] != tagarr[j])
+                                break;
+                }
+                tagarr += sizetag;
+                if (j == sizetag)
+                        return 1;
+        }
+        return 0;
+}
 
 int amount_opType(const struct opType * const ops, const int nrop, 
                   const char t)
@@ -205,13 +225,14 @@ void symsec_of_operators(int ** const list_of_ss, const int bond,
                         }
                 }
         }
+        destroy_opType(&ops, bond, is_left);
 }
 
 int opType_symsec_siteop(const int siteoperator, const int site)
 {
         struct opType ops;
         int i, j, k;
-        get_opType_site(&ops, site);
+        get_opType_site(&ops, netw.sitetoorb[site]);
         get_opType_type(&ops, siteoperator, &i, &j, &k);
 
         return symsec_opTypeid(&ops, i, j, k);
@@ -244,6 +265,16 @@ void get_opType_tag(const struct opType * const ops, const int nr, const int typ
         *tags = &ops->tags_opType[nr][typ][k * *nr_tags * *base_t];
 
 }
+
+void opType_destroy_all(void)
+{
+        int i;
+        for (i = 0; i < netw.nr_bonds * 2; ++i)
+                clean_opType(&opType_arr[i]);
+        safe_free(opType_arr);
+        clean_opType(&site_opType);
+}
+
 /* ========================================================================== */
 /* ===================== DEFINITION STATIC FUNCTIONS ======================== */
 /* ========================================================================== */
@@ -374,7 +405,7 @@ static void make_opType(struct opType * const ops,
                 }
         }
 
-        destroy_opType(&initops, bond, is_left);
+        clean_opType(&initops);
         safe_free(list);
 }
 
@@ -563,6 +594,25 @@ static int symsec_opTypeid(const struct opType * ops, const int nr, const int t,
                 return syms;
 }
 
+void get_string_operator(char buffer[], const struct opType * const ops,
+                                const int ropsindex)
+{
+        const int size = 255;
+        int i, j, k;
+        get_opType_type(ops, ropsindex, &i, &j, &k);
+        opType_get_string(ops, i, j, k, size, buffer);
+}
+
+static void opType_get_string(const struct opType * const ops, const int nr, 
+                              const int typ, const int k, int bsize, 
+                              char buffer[bsize])
+{
+        const int nr_tags = nr_basetags[nr][typ];
+        const int * const tags = ops->tags_opType[nr][typ] + 
+                k * nr_tags * base_tag;
+        string_from_tag(nr, typ, tags, nr_tags, base_tag, bsize, buffer);
+}
+
 #ifdef DEBUG
 static void opType_arr_print(void)
 {
@@ -613,25 +663,5 @@ void opType_print(const struct opType * const ops)
                 }
         }
         printf("\n");
-}
-
-static void opType_get_string(const struct opType * const ops, const int nr, 
-                              const int typ, const int k, int bsize, 
-                              char buffer[bsize])
-{
-        const int nr_tags = nr_basetags[nr][typ];
-        const int * const tags = ops->tags_opType[nr][typ] + 
-                k * nr_tags * base_tag;
-        string_from_tag(nr, typ, tags, nr_tags, base_tag, bsize, buffer);
-}
-
-
-void get_string_operator(char buffer[], const struct opType * const ops,
-                                const int ropsindex)
-{
-        const int size = 255;
-        int i, j, k;
-        get_opType_type(ops, ropsindex, &i, &j, &k);
-        opType_get_string(ops, i, j, k, size, buffer);
 }
 #endif

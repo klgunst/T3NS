@@ -3,6 +3,7 @@
 
 #include "opType.h"
 #include "network.h"
+#include "hamiltonian_qc.h"
 #include "macros.h"
 #include "debug.h"
 
@@ -33,7 +34,7 @@ void get_todo_and_creator_array(const int (**todo)[2],
                 {{{0}},                 {{0}}},
                 {{{1},   {0}},          {{0}}},
                 {{{1,1}, {0,0}, {1,0}}, {{1,1}, {0,0}, {1,0}}},
-                {{{1},   {0}},          {{0}}},
+                {{{0}},                 {{1},   {0}}},
                 {{{0}},                 {{0}}} };
         *todo = todo_qc;
         *creator_array = creator_qc;
@@ -214,13 +215,22 @@ static int interactval_merge(const int ids[3], const struct opType ops[3],
                              double * const val)
 {
         int nr[3], typ[3], k[3], i;
+        const int * tags[3];
+        int nr_tags[3];
+        int base_tag;
+
         for(i = 0; i < 3; ++i)
+        {
                 get_opType_type(&ops[i], ids[i], &nr[i], &typ[i], &k[i]);
+                get_opType_tag(&ops[i], nr[i], typ[i], k[i], &tags[i], 
+                               &nr_tags[i], &base_tag);
+        }
 
         if(typ[0] + typ[1] + typ[2] != 1) /* Need 1 'c' and 2 'n's */
                 return 0;
-        *val = 1;
-        return 1;
+
+        const int cleg = 0*(typ[0] == 1) + 1*(typ[1] == 1) + 2*(typ[2] == 1);
+        return compare_tags(tags, nr_tags, base_tag, cleg, val);
 }
 
 static int interactval_update(const int ids[3], const struct opType ops[3], 
@@ -253,13 +263,50 @@ static int interactval_update(const int ids[3], const struct opType ops[3],
                 return compare_tags(tags, nr_tags, base_tag, outpleg, val);
         } else if (sumtyp == 1 && typ[outpleg] == 1) {
                 assert(nr_tags[0] + nr_tags[1] + nr_tags[2] == 4);
+                if (nr_tags[outpleg] == 0) {
+                        assert(nr_tags[0] == 2 || nr_tags[1] == 2 
+                               || nr_tags[2] == 2 || nr_tags[1] == 3 || 
+                               nr_tags[1] == 4);
+
+                        if (nr_tags[0] == 2 && amount_opType(&ops[0], 2, 'c'))
+                                return 0;
+                        if (nr_tags[1] == 2 && amount_opType(&ops[1], 2, 'c'))
+                                return 0;
+                        if (nr_tags[2] == 2 && amount_opType(&ops[2], 2, 'c'))
+                                return 0;
+                }else if (nr_tags[outpleg] == 1) {
+                        assert(nr_tags[0] == 2 || nr_tags[1] == 2 
+                               || nr_tags[2] == 2 || nr_tags[1] == 3);
+
+                        if (nr_tags[0] == 2 && amount_opType(&ops[0], 2, 'c'))
+                                return 0;
+                        if (nr_tags[1] == 2 && amount_opType(&ops[1], 2, 'c'))
+                                return 0;
+                        if (nr_tags[2] == 2 && amount_opType(&ops[2], 2, 'c'))
+                                return 0;
+                } else if (nr_tags[outpleg] == 2) {
+                        assert(nr_tags[0] == 2 || nr_tags[1] == 2 
+                               || nr_tags[2] == 2 || nr_tags[1] == 3);
+
+                        if (nr_tags[0] == 2 && outpleg != 0 
+                            && opType_exist(&ops[0], 2, 'c', tags[outpleg]))
+                                return 0;
+                        if (nr_tags[1] == 2 && outpleg != 1 
+                            && opType_exist(&ops[1], 2, 'c', tags[outpleg]))
+                                return 0;
+                        if (nr_tags[2] == 2 && outpleg != 2 
+                            && opType_exist(&ops[2], 2, 'c', tags[outpleg]))
+                                return 0;
+
+                }
+
                 return fuse_value(tags, nr_tags, base_tag, val);
-        } else if (sumtyp == 1 && typ[outpleg] == 1) {
+        } else if (sumtyp == 2 && typ[outpleg] == 1) {
                 const int othercleg = 0 * (typ[0] == 1 && outpleg != 0) +
                         1 * (typ[1] == 1 && outpleg != 1) +
                         2 * (typ[2] == 1 && outpleg != 2);
                 return compare_tags(tags, nr_tags, base_tag, othercleg, val);
         } else {
-        return 0;
+                return 0;
         }
 }
