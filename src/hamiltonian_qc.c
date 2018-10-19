@@ -430,6 +430,8 @@ int compare_tags(const int * tags[3], const int nr_tags[3], const int base_tag,
                                         *val = twoJ == 0 ? 1 : -1;
                                 else
                                         *val = 1;
+                                if (sumleg == 1)
+                                        *val *= twoJ == 0 ? -1 : 1;
                         }
                         return 1;
                 } else {
@@ -570,9 +572,6 @@ double get_V(const int * const tag1, const int * const tag2,
 
 static double B(const int * const tags[4], const int twoJ)
 {
-        char buffer[255];
-        sprintf(buffer, "%d%d%d%d%d%d", 1, tags[0][1], tags[1][1], tags[2][1], tags[3][1], twoJ);
-        //return atoi(buffer);
         return -sqrt(twoJ + 1) * (get_V(tags[0], tags[1], tags[3], tags[2]) + 
                                   (twoJ == 2 ? -1 : 1) * 
                                   get_V(tags[0], tags[1], tags[2], tags[3]));
@@ -580,9 +579,6 @@ static double B(const int * const tags[4], const int twoJ)
 
 static double B_tilde(const int * const tags[4], const int twoJ)
 {
-        char buffer[255];
-        sprintf(buffer, "%d%d%d%d%d%d", 2, tags[0][1], tags[1][1], tags[2][1], tags[3][1], twoJ);
-        //return atoi(buffer);
         if (twoJ == 0)
                 return  2 * get_V(tags[0], tags[1], tags[3], tags[2]) - 
                         get_V(tags[0], tags[1], tags[2], tags[3]);
@@ -1110,8 +1106,7 @@ static int u1_symsec_tag(const int * tag, const int nr_tags, const int tagsize)
 static void u1_get_opTypearr(const int **arr, const int (**tags_arr)[3])
 {
         static const int nr_opTypearr[] = {1, 4, 6, 4, 1};
-        const int NR_OPS = sizeof nr_opTypearr / sizeof nr_opTypearr[0];
-        assert(NR_OPS == 5);
+        assert(sizeof nr_opTypearr / sizeof nr_opTypearr[0] == 5);
         static const int tags[1*0 + 4*1 + 6*2 + 4*3 + 1*4][3] = {
                 /* Unity */
                 {1,-1,0}, /* c+_u */
@@ -1273,8 +1268,7 @@ static int su2_symsec_tag(const int * tag, const int nr_tags, const int tagsize)
 static void su2_get_opTypearr(const int **arr, const int (**tags_arr)[3])
 {
         static const int nr_opTypearr[] = {1, 2, 4, 2, 1};
-        const int NR_OPS = sizeof nr_opTypearr / sizeof nr_opTypearr[0];
-        assert(NR_OPS == 5);
+        assert(sizeof nr_opTypearr / sizeof nr_opTypearr[0] == 5);
         static const int tags[1*0 + 2*1 + 4*2 + 2*3 + 1*4][3] = {
                 /* Unity */
                 {1,-1,1}, /* c+ */

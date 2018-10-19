@@ -199,17 +199,37 @@ static void initialize_example_scheme(struct optScheme * const scheme)
 {
         struct regime regime1 = { 
                 .minD = 100, 
-                .maxD = 400, 
+                .maxD = 150, 
                 .truncerror = 1e-5, 
                 .sitesize = 2, 
                 .davidson_rtl = SOLVER_TOL, 
                 .davidson_max_its = 4, 
-                .max_sweeps = 4, 
+                .max_sweeps = 2, 
                 .energy_conv = 1e-5 
         };
+        struct regime regime1bis = { 
+                .minD = 100, 
+                .maxD = 150, 
+                .truncerror = 1e-5, 
+                .sitesize = 2, 
+                .davidson_rtl = SOLVER_TOL, 
+                .davidson_max_its = SOLVER_MAX_ITS, 
+                .max_sweeps = 6, 
+                .energy_conv = 1e-5 
+        };
+        struct regime regime1bisbis = { 
+                .minD = 150, 
+                .maxD = 500, 
+                .truncerror = 1e-5, 
+                .sitesize = 2, 
+                .davidson_rtl = SOLVER_TOL, 
+                .davidson_max_its = SOLVER_MAX_ITS, 
+                .max_sweeps = 10, 
+                .energy_conv = 1e-6 
+        };
         struct regime regime2  = { 
-                .minD = 200, 
-                .maxD = 1000, 
+                .minD = 150, 
+                .maxD = 600, 
                 .truncerror = 1e-6, 
                 .sitesize = 2, 
                 .davidson_rtl = SOLVER_TOL, 
@@ -218,10 +238,12 @@ static void initialize_example_scheme(struct optScheme * const scheme)
                 .energy_conv = 1e-7 
         };
 
-        scheme->nrRegimes = 2;
+        scheme->nrRegimes = 4;
         scheme->regimes = safe_malloc(scheme->nrRegimes, struct regime);
         scheme->regimes[0] = regime1;
-        scheme->regimes[1] = regime2;
+        scheme->regimes[1] = regime1bis;
+        scheme->regimes[2] = regime1bisbis;
+        scheme->regimes[3] = regime2;
 }
 
 #ifdef COMPARECHEMPSTREE
