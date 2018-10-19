@@ -172,8 +172,9 @@ void get_unity_opType(struct opType * const ops)
         *ops = unity_opType;
 }
 
-void init_opType_array(void)
+void init_opType_array(int h)
 {
+        set_ham(h);
         int is_left;
         int i;
         struct opType nullopType = {.begin_opType = NULL, .tags_opType = NULL};

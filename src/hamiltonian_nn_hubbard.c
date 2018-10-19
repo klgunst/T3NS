@@ -108,12 +108,12 @@ int NN_H_get_nr_hamsymsec(void)
 
 int NN_H_get_trivialhamsymsec(void)
 {
-        const int * irreps = hdat.su2 ? &irreps_SU2[0][0] : &irreps_U1[0][0];
+        const int (*irreps)[2] = hdat.su2 ? irreps_SU2 : irreps_U1;
         const int size = NN_H_get_nr_hamsymsec();
         int i;
 
         for (i = 0; i < size; ++i)
-                if (irreps[i * 2 + 0] == 0 && irreps[i * 2 + 1] == 0)
+                if (irreps[i][0] == 0 && irreps[i][1] == 0)
                         return i;
         return -1;
 }
@@ -247,18 +247,18 @@ int NN_H_has_su2(void)
 
 static int valid_tprod(const int i, const int j, const int irr)
 {
-        const int * irr_i = hdat.su2 ? &irreps_SU2[i][0] : &irreps_U1[i][0];
-        const int * irr_j = hdat.su2 ? &irreps_SU2[j][0] : &irreps_U1[j][0];
-        const int * irr_r = hdat.su2 ? &irreps_SU2[irr][0] : &irreps_U1[irr][0];
+        const int (*irr_i)[2] = hdat.su2 ? &irreps_SU2[i] : &irreps_U1[i];
+        const int (*irr_j)[2] = hdat.su2 ? &irreps_SU2[j] : &irreps_U1[j];
+        const int (*irr_r)[2] = hdat.su2 ? &irreps_SU2[irr] : &irreps_U1[irr];
 
         if (hdat.su2) {
-                return irr_i[0] + irr_j[0] == irr_r[0] &&
-                        (irr_i[1] + irr_j[1] + irr_r[1]) % 2 == 0 &&
-                        irr_r[1] <= irr_i[1] + irr_j[1] &&
-                        irr_r[1] >= abs(irr_i[1] - irr_j[1]);
+                return (*irr_i)[0] + (*irr_j)[0] == (*irr_r)[0] &&
+                        ((*irr_i)[1] + (*irr_j)[1] + (*irr_r)[1]) % 2 == 0 &&
+                        (*irr_r)[1] <= (*irr_i)[1] + (*irr_j)[1] &&
+                        (*irr_r)[1] >= abs((*irr_i)[1] - (*irr_j)[1]);
         } else {
-                return (irr_i[0] + irr_j[0]) == irr_r[0] &&
-                        (irr_i[1] + irr_j[1]) == irr_r[1];
+                return ((*irr_i)[0] + (*irr_j)[0]) == (*irr_r)[0] &&
+                        ((*irr_i)[1] + (*irr_j)[1]) == (*irr_r)[1];
         }
 }
 

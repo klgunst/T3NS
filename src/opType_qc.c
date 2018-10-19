@@ -19,12 +19,17 @@ static int need_complimentary_ops(const int n, const int psite[n],
                                   const int bond, const int is_left);
 
 static int interactval_merge(const int ids[3], const struct opType ops[3], 
-                             double * const val);
+                             double * const val, const char t);
 
 static int interactval_update(const int ids[3], const struct opType ops[3], 
                               const char t, double * const val);
 
 /* ========================================================================== */
+
+void set_ham(int h)
+{
+        ham = h;
+}
 
 void get_todo_and_creator_array(const int (**todo)[2], 
                                 const int (**creator_array)[2][3][2])
@@ -138,9 +143,9 @@ void opType_get_string_of_siteops(char buffer[], const int siteid,
 int interactval(const int ids[3], const struct opType ops[3], const char t,
                 double * const val)
 {
-        assert(t == 'm' || t == '1' || t == '2' || t == '3');
-        if (t == 'm')
-                return interactval_merge(ids, ops, val);
+        assert(t == 't' || t == 'd' || t == '1' || t == '2' || t == '3');
+        if (t == 't' || t == 'd')
+                return interactval_merge(ids, ops, val, t);
         else
                 return interactval_update(ids, ops, t, val);
 }
@@ -212,7 +217,7 @@ static int need_complimentary_ops(const int n, const int psite[n],
 }
 
 static int interactval_merge(const int ids[3], const struct opType ops[3], 
-                             double * const val)
+                             double * const val, const char t)
 {
         int nr[3], typ[3], k[3], i;
         const int * tags[3];
@@ -230,7 +235,7 @@ static int interactval_merge(const int ids[3], const struct opType ops[3],
                 return 0;
 
         const int cleg = 0*(typ[0] == 1) + 1*(typ[1] == 1) + 2*(typ[2] == 1);
-        return compare_tags(tags, nr_tags, base_tag, cleg, val);
+        return compare_tags(tags, nr_tags, base_tag, cleg, val, t == 'd');
 }
 
 static int interactval_update(const int ids[3], const struct opType ops[3], 
@@ -260,7 +265,7 @@ static int interactval_update(const int ids[3], const struct opType ops[3],
          */
         sumtyp = typ[0] + typ[1] + typ[2];
         if (sumtyp == 0) {
-                return compare_tags(tags, nr_tags, base_tag, outpleg, val);
+                return compare_tags(tags, nr_tags, base_tag, outpleg, val, 0);
         } else if (sumtyp == 1 && typ[outpleg] == 1) {
                 assert(nr_tags[0] + nr_tags[1] + nr_tags[2] == 4);
                 if (nr_tags[outpleg] == 0) {
@@ -305,7 +310,7 @@ static int interactval_update(const int ids[3], const struct opType ops[3],
                 const int othercleg = 0 * (typ[0] == 1 && outpleg != 0) +
                         1 * (typ[1] == 1 && outpleg != 1) +
                         2 * (typ[2] == 1 && outpleg != 2);
-                return compare_tags(tags, nr_tags, base_tag, othercleg, val);
+                return compare_tags(tags, nr_tags, base_tag, othercleg, val, 0);
         } else {
                 return 0;
         }

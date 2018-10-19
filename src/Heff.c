@@ -820,12 +820,13 @@ static void make_qnB_arr(struct T3NSdata * const data, const int internaldims[3]
     data->nrMPOcombos[i]  = safe_malloc(data->nr_qnB, int);
     data->MPOs[i]         = safe_malloc(data->nr_qnB, int*);
 
+    *cnt = 0;
     while (find_next_old(3, indicesold, internaldims, qnumbersar, helperarray, lastind, &loc, 
           data->nr_qnB, &data->nrMPOcombos[i][*cnt], &data->MPOs[i][*cnt], hssdim)) {
       if (data->nrMPOcombos[i][*cnt] != 0) {
         data->qnBtoqnB_arr[i][*cnt] = indicesold[0] + indicesold[1] * internaldims[0] + 
           indicesold[2] * bigdim;
-        ++*cnt;
+        ++(*cnt);
         assert(*cnt <= data->nr_qnB);
       }
     }
@@ -883,6 +884,7 @@ static int find_next_old(const int n, int indices_old[n], const int internaldims
   MPOarr[0] = qnumberarray[0][indices_old[0]];
   MPOarr[1] = qnumberarray[1][indices_old[1]];
   MPOarr[2] = qnumberarray[2][indices_old[2]];
+  *nrMPO = 0;
   count_or_make_MPOcombos(nrMPO, NULL, n, MPOarr, hssdim);
   count_or_make_MPOcombos(nrMPO, MPO, n, MPOarr, hssdim);
   return 1;
@@ -925,17 +927,20 @@ static void count_or_make_MPOcombos(int * const nrMPOs, int ** const MPO, const 
     MPOs[0] = MPOarr[0][1 + i];
 
     for (j = 0; j < MPOarr[1][0]; ++j) {
-      const int temp = MPOs[0] + MPOs[1] * hssdim;
+      int temp;
       MPOs[1] = MPOarr[1][1 + j];
+      temp = MPOs[0] + MPOs[1] * hssdim;
 
       for (k = 0; k < MPOarr[2][0]; ++k) {
         const int MPO2 = MPOarr[2][1 + k];
 
         MPOs[2] = hermitian_symsec(MPO2);
         if (MPO_couples_to_singlet(3, MPOs)) {
-          if (MPO != NULL)
-            *MPO[*nrMPOs] = temp + MPO2 * hssdimsq;
-          ++*nrMPOs;
+
+          if (MPO != NULL) {
+                  (*MPO)[*nrMPOs] = temp + MPO2 * hssdimsq;
+          }
+          ++(*nrMPOs);
         }
       }
     }
@@ -1007,6 +1012,7 @@ static void printMPO(const struct T3NSdata * const data)
       int i;
       printf("%ld ---> %ld\n", oldqnB, newqnB);
       for (i = 0; i < nrMPOcombos; ++i) {
+              int j;
         int MPOind = MPOs[i];
         int MPOinds[3];
         char buffer[255];
@@ -1017,9 +1023,9 @@ static void printMPO(const struct T3NSdata * const data)
         MPOinds[2] = MPOind % dimhss;
 
         printf("\t");
-        for (i = 0; i < 3; ++i) {
-          get_sectorstring(&data->MPOsymsec, MPOinds[i], buffer);
-          printf("%12s%s", buffer, i != 2 ? " X " : "\n");
+        for (j = 0; j < 3; ++j) {
+          get_sectorstring(&data->MPOsymsec, MPOinds[j], buffer);
+          printf("%12s%s", buffer, j != 2 ? " X " : "\n");
         }
       }
     }
@@ -1059,8 +1065,6 @@ static void check_diagonal(void * const data, double * diagonal, const int isdmr
       exit(EXIT_FAILURE);
     }
   }
-  fprintf(stderr, "Random sample of diagonal seems ok!\n");
-
   safe_free(vec);
   safe_free(res);
 }

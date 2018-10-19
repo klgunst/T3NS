@@ -96,7 +96,7 @@ int davidson(double* result, double* energy, int max_vectors, int keep_deflate, 
     *energy = eigvalues[0];
 #ifdef DAVIDIT
     cnt_matvecs++;
-    printf("%d\t%d\t%e\t%f\n", its, INFO, residue_norm, eigvalues[0]);
+    printf("%d\t%d\t%e\t%.16lf\n", its, INFO, residue_norm, eigvalues[0]);
 #endif
     create_new_vec_t(vec_t, diagonal, eigvalues[0], basis_size);
   }
@@ -163,7 +163,7 @@ static void new_search_vector(double* V, double* vec_t, int basis_size, int m){
         a = - ddot_(&basis_size, Vi, &ONE, vec_t, &ONE);
         daxpy_(&basis_size, &a, Vi, &ONE, vec_t, &ONE);
         Vi += basis_size;
-        if (fabs(a) > 1e-10){
+        if (fabs(a) > 1e-9){
           reortho = 1;
           printf("value of a[%d] = %e\n", i, a);
           exit(EXIT_FAILURE);

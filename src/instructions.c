@@ -59,8 +59,10 @@ void fetch_pUpdate(int ** const instructions, double ** const prefactors,
                 exit(EXIT_FAILURE);
         }
         sort_instructionsx(instructions, prefactors, *nr_instructions, 3);
-        //print_DMRG_instructions(*instructions, *prefactors, *hamsymsecs_of_new, 
-        //                        *nr_instructions, bond, is_left);
+#ifdef PRINTINSTR
+        print_DMRG_instructions(*instructions, *prefactors, *hamsymsecs_of_new, 
+                                *nr_instructions, bond, is_left);
+#endif
 }
 
 void fetch_bUpdate(struct instructionset * const instructions, const int bond, 
@@ -79,9 +81,11 @@ void fetch_bUpdate(struct instructionset * const instructions, const int bond,
                 exit(EXIT_FAILURE);
         }
         sort_instructions(instructions);
-        //print_T3NS_instructions(instructions->instr, instructions->pref, 
-        //                        instructions->hss_of_new, instructions->nr_instr, 
-        //                        bond, isleft);
+#ifdef PRINTINSTR
+        print_T3NS_instructions(instructions->instr, instructions->pref, 
+                                instructions->hss_of_new, instructions->nr_instr, 
+                                bond, isleft);
+#endif
 }
 
 void fetch_merge(int ** const instructions, int * const nr_instructions, 
@@ -105,8 +109,10 @@ void fetch_merge(int ** const instructions, int * const nr_instructions,
                         __FILE__, __func__);
                 exit(EXIT_FAILURE);
         }
-        //print_merge_instructions(*instructions, *prefactors, *nr_instructions, 
-        //                         bond);
+#ifdef PRINTINSTR
+        print_merge_instructions(*instructions, *prefactors, *nr_instructions, 
+                                 bond);
+#endif
 }
 
 void sortinstructions_toMPOcombos(int ** const instructions, 
@@ -340,7 +346,7 @@ static void print_DMRG_instructions(int * const instructions,
         {
                 char buffer[255];
                 get_string_of_rops(buffer, instructions[i * 3 + 0], bond, is_left, 'e');
-                printf("%10.4g * %-16s + ", prefactors[i], buffer);
+                printf("%14.8g * %-16s + ", prefactors[i], buffer);
                 get_string_of_siteops(buffer, instructions[i * 3 + 1], site);
                 printf("%-32s --> ", buffer);
                 get_sectorstring(&MPO, hss[instructions[i * 3 + 2]], buffer);
@@ -393,7 +399,7 @@ static void print_T3NS_instructions(int * const instructions,
         for (i = 0; i < nr_instructions; ++i) {
                 char buffer[255];
                 get_string_of_rops(buffer, instructions[i * 3 + 0], bond1, left1, 'e');
-                printf("%10.4g * %-16s + ", prefactors[i], buffer);
+                printf("%14.8g * %-16s + ", prefactors[i], buffer);
                 get_string_of_rops(buffer, instructions[i * 3 + 1], bond2, left2, 'e');
                 printf("%-32s --> ", buffer);
                 get_sectorstring(&MPO, hss[instructions[i * 3 + 2]], buffer);
@@ -442,7 +448,7 @@ static void print_merge_instructions(int * const instructions,
         {
                 char buffer[255];
                 int j;
-                printf("%10.4g * ", prefactors[i]);
+                printf("%14.8g * ", prefactors[i]);
                 for (j = 0; j < step; ++ j)
                 {
                         get_string_of_rops(buffer, instructions[i * step + j], bonds[j], isleft[j], 'e');

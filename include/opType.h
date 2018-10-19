@@ -26,7 +26,7 @@ void get_unity_opType(struct opType * const ops);
 int interactval(const int ids[3], const struct opType ops[3], const char t,
                 double * const val);
 
-void init_opType_array(void);
+void init_opType_array(int h);
 
 void destroy_opType(struct opType * const ops, const int bond, 
                     const int is_left);
@@ -65,4 +65,6 @@ void get_opType_type(const struct opType * const ops, const int id,
 void get_opType_tag(const struct opType * const ops, const int nr, const int typ, 
                     const int k, const int ** tags, int * const nr_tags, 
                     int * const base_t);
+
+void set_ham(int h);
 #endif

@@ -2,6 +2,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <ctype.h>
+#include <math.h>
 
 #include "hamiltonian_qc.h"
 #include "io.h"
@@ -40,12 +41,16 @@ static struct symsecs MPOsymsecs = {
 /* ==================== DECLARATION STATIC FUNCTIONS ======================== */
 /* ========================================================================== */
 
+static double B(const int * const tags[4], const int twoJ);
+
+static double B_tilde(const int * const tags[4], const int twoJ);
+
 double get_V(const int * const tag1, const int * const tag2,
              const int * const tag3, const int * const tag4);
 
 static int correct_tags_4p(const int * tags[3], const int nr_tags[3], 
                            const int base_tag, const int *tag_order[4], 
-                           double * const val);
+                           int newpos[4]);
 
 static int equaltags(const int *tag1, const int *tag2, 
                      const int nr1, const int nr2, const int size_tag);
@@ -130,7 +135,7 @@ void QC_make_hamiltonian(char hamiltonianfile[], int su2)
                 exit(EXIT_FAILURE);
         }
         prepare_MPOsymsecs();
-        init_opType_array();
+        init_opType_array(su2);
 }
 
 void QC_get_physsymsecs(struct symsecs *res, int site)
@@ -374,13 +379,13 @@ void string_from_tag(const int nr, const int t, const int * tags,
 }
 
 int compare_tags(const int * tags[3], const int nr_tags[3], const int base_tag,
-                 const int sumleg, double * const val)
+                 const int sumleg, double * const val, const int dmrgmerge)
 {
         const int nosumlegid[2] = {sumleg == 0, 1 + (sumleg != 2)};
         assert(nr_tags[0] + nr_tags[1] + nr_tags[2] == 2 * nr_tags[sumleg]);
         if(nr_tags[sumleg] == 0) {
                 if(hdat.su2) {
-                        assert(0);
+                        *val = 1;
                 } else {
                         *val = 1;
                 }
@@ -392,7 +397,10 @@ int compare_tags(const int * tags[3], const int nr_tags[3], const int base_tag,
                               nr_tags[sumleg], nr_tags[otherid], base_tag))
                         return 0;
                 if (hdat.su2) {
-                        assert(0);
+                        if (!dmrgmerge)
+                                *val = nr_tags[1] == 0 ? -1 : 1;
+                        else
+                                *val = 1;
                 } else {
                         *val = sumleg == 1 && otherid == 0 ? -1 : 1;
                 }
@@ -411,7 +419,19 @@ int compare_tags(const int * tags[3], const int nr_tags[3], const int base_tag,
                         return 0;
 
                 if (hdat.su2) {
-                        assert(0);
+                        if (nr_tags[nosumlegid[0]] * nr_tags[nosumlegid[1]] == 0)
+                                *val = 1;
+                        else {
+                                const int twoJ = tags[sumleg][nr_tags[sumleg] * 
+                                        base_tag - 1];
+                                assert(twoJ == 0 || twoJ == 2);
+                                assert(position[0] != position[1]);
+                                if (position[0] > position[1])
+                                        *val = twoJ == 0 ? 1 : -1;
+                                else
+                                        *val = 1;
+                        }
+                        return 1;
                 } else {
                         if (nr_tags[nosumlegid[0]] * nr_tags[nosumlegid[1]] == 0)
                                 *val = 1;
@@ -433,10 +453,97 @@ int fuse_value(const int * tags[3], const int nr_tags[3], const int base_tag,
                double * const val)
 {
         const int *tag_order[4];
-        if(!correct_tags_4p(tags, nr_tags, base_tag, tag_order, val))
+        int newpos[4];
+        if(!correct_tags_4p(tags, nr_tags, base_tag, tag_order, newpos))
                 return 0;
-        *val *= get_V(tag_order[0], tag_order[1], tag_order[2], tag_order[3]) -
-                get_V(tag_order[0], tag_order[1], tag_order[3], tag_order[2]);
+        if (hdat.su2) {
+                /* cases are 
+                 *      4, 0, 0
+                 *      3, 1, 0
+                 *      2, 2, 0
+                 *      2, 1, 1
+                 * and permutations
+                 */
+                *val = 1;
+                if (nr_tags[0] == 4 || nr_tags[1] == 4 || nr_tags[2] == 4) {
+                        *val = B(tag_order, 0);
+                } else if (nr_tags[0] == 3 || nr_tags[1] == 3 || nr_tags[2] == 3) {
+                        *val = B(tag_order, 0);
+
+                } else {
+                        int twoJ = -1;
+                        int usetilde = 0;
+                        if (nr_tags[0] == 2) {
+                                usetilde = tags[0][0] != tags[0][base_tag];
+                                twoJ = tags[0][2 * base_tag - 1];
+                        }
+                        if (nr_tags[1] == 2) {
+                                usetilde = tags[1][0] != tags[1][base_tag];
+                                if (twoJ != -1 && 
+                                    twoJ != tags[1][2 * base_tag - 1])
+                                        return 0;
+                                twoJ = tags[1][2 * base_tag - 1];
+                        } 
+                        if (nr_tags[2] == 2) {
+                                usetilde = tags[2][0] != tags[2][base_tag];
+                                if (twoJ != -1 && 
+                                    twoJ != tags[2][2 * base_tag - 1])
+                                        return 0;
+                                twoJ = tags[2][2 * base_tag - 1];
+                        } 
+                        assert(twoJ == 0 || twoJ == 2);
+
+                        if (nr_tags[0] == 0 || nr_tags[1] == 0 || nr_tags[2] == 0) {
+                                if (usetilde)
+                                        *val = B_tilde(tag_order, twoJ);
+                                else 
+                                        *val = B(tag_order, twoJ);
+                        } else {
+                                const int twoleg = 0 * (nr_tags[0] == 2) + 
+                                        1 * (nr_tags[1] == 2) + 
+                                        2 * (nr_tags[2] == 2);
+                                const int tl[3][2] = {{1,2}, {0,2}, {0,1}};
+                                const int * newtags[3] = {tags[twoleg], 
+                                        tags[tl[twoleg][0]], tags[tl[twoleg][1]]};
+                                const int newnr_tags[3] = {nr_tags[twoleg], 
+                                        nr_tags[tl[twoleg][0]], 
+                                        nr_tags[tl[twoleg][1]]};
+                                correct_tags_4p(newtags, newnr_tags, base_tag, 
+                                                tag_order, newpos);
+                                if (usetilde) {
+                                        *val = B_tilde(tag_order, twoJ);
+                                        if (tags[tl[twoleg][0]][0] != 1)
+                                                *val *= twoJ == 2 ? -1 : 1;
+                                } else {
+                                        *val = B(tag_order, twoJ);
+                                }
+                                if (twoleg == 1)
+                                        *val *= twoJ == 0 ? -1 : 1;
+                        }
+                }
+        } else {
+
+                /* sorting of newpos back to 0, 1, 2, 3 */
+                int i;
+                *val = 1;
+                for (i = 0; i < 4; ++i) {
+                        int j;
+                        for (j = i; j < 4; ++j) {
+                                if (newpos[j] == i)
+                                        break;
+                        }
+                        for (;j > i; --j) {
+                                newpos[j] = newpos[j - 1];
+                                *val *= -1;
+                        }
+                        newpos[i] = i;
+                }
+
+                *val *= get_V(tag_order[0], tag_order[1], 
+                              tag_order[2], tag_order[3]) 
+                        - get_V(tag_order[0], tag_order[1], 
+                                tag_order[3], tag_order[2]);
+        }
         return 1;
 }
 
@@ -461,42 +568,51 @@ double get_V(const int * const tag1, const int * const tag2,
                 psites2 * tag3[1] + psites3 * tag2[1]];
 }
 
+static double B(const int * const tags[4], const int twoJ)
+{
+        char buffer[255];
+        sprintf(buffer, "%d%d%d%d%d%d", 1, tags[0][1], tags[1][1], tags[2][1], tags[3][1], twoJ);
+        //return atoi(buffer);
+        return -sqrt(twoJ + 1) * (get_V(tags[0], tags[1], tags[3], tags[2]) + 
+                                  (twoJ == 2 ? -1 : 1) * 
+                                  get_V(tags[0], tags[1], tags[2], tags[3]));
+}
+
+static double B_tilde(const int * const tags[4], const int twoJ)
+{
+        char buffer[255];
+        sprintf(buffer, "%d%d%d%d%d%d", 2, tags[0][1], tags[1][1], tags[2][1], tags[3][1], twoJ);
+        //return atoi(buffer);
+        if (twoJ == 0)
+                return  2 * get_V(tags[0], tags[1], tags[3], tags[2]) - 
+                        get_V(tags[0], tags[1], tags[2], tags[3]);
+        else
+                return  sqrt(3) * get_V(tags[0], tags[1], tags[2], tags[3]);
+}
+
 /* ========================================================================== */
 /* ===================== DEFINITION STATIC FUNCTIONS ======================== */
 /* ========================================================================== */
 
 static int correct_tags_4p(const int * tags[3], const int nr_tags[3], 
                            const int base_tag, const int *tag_order[4], 
-                           double * const val)
+                           int newpos[4])
 {
         int nr_crean[2] = {0,0};
-        int newpos[4];
         int cnt = 0;
         int i, j;
-        *val = 1;
         for (i = 0; i < 3; ++i) {
                 for (j = 0; j < nr_tags[i]; ++j, ++cnt) {
                         const int iscre = tags[i][0 + j * base_tag];
+                        if (nr_crean[iscre] == 2) {
+                                return 0;
+                        }
                         newpos[cnt] = iscre ? nr_crean[iscre] : 
-                                3 - nr_crean[iscre];
+                                2 + nr_crean[iscre];
                         tag_order[newpos[cnt]] = &tags[i][j * base_tag];
 
                         ++nr_crean[iscre];
                 }
-        }
-        if (nr_crean[0] != 2 || nr_crean[1] != 2)
-                return 0;
-        /* sorting of newpos back to 0, 1, 2, 3 */
-        for (i = 0; i < 4; ++i) {
-                for (j = i; j < 4; ++j) {
-                        if (newpos[j] == i)
-                                break;
-                }
-                for (;j > i; --j) {
-                        newpos[j] = newpos[j - 1];
-                        *val *= -1;
-                }
-                newpos[i] = i;
         }
 
         assert(cnt == 4);
@@ -730,9 +846,9 @@ static int check_orbirrep(void)
 
 static int valid_tprod(const int i, const int j, const int irr, const int psite)
 {
-        const int * irr_i = hdat.su2 ? &irreps_QCSU2[i][0] : &irreps_QC[i][0];
-        const int * irr_j = hdat.su2 ? &irreps_QCSU2[j][0] : &irreps_QC[j][0];
-        const int * irr_r = hdat.su2 ? &irreps_QCSU2[irr][0] : &irreps_QC[irr][0];
+        const int (*irr_i)[2] = hdat.su2 ? &irreps_QCSU2[i] : &irreps_QC[i];
+        const int (*irr_j)[2] = hdat.su2 ? &irreps_QCSU2[j] : &irreps_QC[j];
+        const int (*irr_r)[2] = hdat.su2 ? &irreps_QCSU2[irr] : &irreps_QC[irr];
 
         const int valid = hdat.su2 ? valid_QCSU2[i] : valid_QC[i];
 
@@ -740,13 +856,13 @@ static int valid_tprod(const int i, const int j, const int irr, const int psite)
                 return 0;
 
         if (hdat.su2) {
-                return irr_i[0] + irr_j[0] == irr_r[0] &&
-                        (irr_i[1] + irr_j[1] + irr_r[1]) % 2 == 0 &&
-                        irr_r[1] <= irr_i[1] + irr_j[1] &&
-                        irr_r[1] >= abs(irr_i[1] - irr_j[1]);
+                return (*irr_i)[0] + (*irr_j)[0] == (*irr_r)[0] &&
+                        ((*irr_i)[1] + (*irr_j)[1] + (*irr_r)[1]) % 2 == 0 &&
+                        (*irr_r)[1] >= abs((*irr_i)[1] - (*irr_j)[1]) &&
+                        (*irr_r)[1] <= (*irr_i)[1] + (*irr_j)[1];
         } else {
-                return (irr_i[0] + irr_j[0]) == irr_r[0] &&
-                        (irr_i[1] + irr_j[1]) == irr_r[1];
+                return ((*irr_i)[0] + (*irr_j)[0]) == (*irr_r)[0] &&
+                        ((*irr_i)[1] + (*irr_j)[1]) == (*irr_r)[1];
         }
 }
 
@@ -771,8 +887,6 @@ static void prepare_MPOsymsecs(void)
         int *curr_irrep, *curr_dims;
         double *curr_fcidims;
 
-        assert(bookie.sgs[0] == Z2 && bookie.sgs[1] == U1 && bookie.sgs[2] == U1 
-               && (pg == -1 || bookie.sgs[3] == pg));
         assert(bookie.nrSyms == 3 + (pg != -1));
 
         MPOsymsecs.nrSecs = nr_of_pg * size;
@@ -789,11 +903,14 @@ static void prepare_MPOsymsecs(void)
                 int j;
                 for (j = 0; j < nr_of_pg; ++j) {
                         /* Z2 */
-                        *(curr_irrep++) = abs(irreps[i * 2] + 
-                                              irreps[i * 2 + 1]) % 2;
+                        if (hdat.su2)
+                                *(curr_irrep++) = abs(irreps[i * 2]) % 2;
+                        else
+                                *(curr_irrep++) = abs(irreps[i * 2] + 
+                                                      irreps[i * 2 + 1]) % 2;
                         /* U1 */
                         *(curr_irrep++) = irreps[i * 2];
-                        /* U1 */
+                        /* U1 or SU2 */
                         *(curr_irrep++) = irreps[i * 2 + 1];
                         if (pg != -1)
                                 *(curr_irrep++) = j;
@@ -1096,26 +1213,26 @@ static double su2_el_siteop(const int siteop, const int braid, const int ketid)
                 return 0;
 
         case 6 :/* (c+c)_1: {c+_u c_d,-1/sqrt2(c+_u c_u - c+_d c_d),-c+_d c_u}: 
-                  * -sqrt3 |2><2| */
-                if (braid == 2 && ketid == 2)
+                  * -sqrt3 |1><1| */
+                if (braid == 1 && ketid == 1)
                         return -sqrt(3);
                 return 0;
 
         case 7 : /* (c+c+c) : {1/2 c+_u c+_d c_d, -1/2 c+_u c+_d c_u}: 
                   * -1/sqrt(2) |2><1| */
                 if (braid == 2 && ketid == 1)
-                        return 1 / sqrt(2);
+                        return -1;
                 return 0;
 
         case 8 : /* (c+cc) : {1/2 c+_u c_d c_u, 1/2 c+_d c_d c_u}: 
                   * 1/sqrt(2) |1><2| */
                 if (braid == 1 && ketid == 2)
-                        return 1 / sqrt(2);
+                        return -1;
                 return 0;
 
         case 9 : /* (c+ c+ c c)_0 : -c_u+ c_d+ c_d c_u : -|2><2| */
                 if (braid == 2 && ketid == 2)
-                        return -1.0;
+                        return -0.5;
                 return 0;
 
         default :
@@ -1128,6 +1245,9 @@ static double su2_el_siteop(const int siteop, const int braid, const int ketid)
 static int su2_symsec_tag(const int * tag, const int nr_tags, const int tagsize) 
 {
         assert(tagsize == 3);
+        if (nr_tags == 0)
+                return QC_get_trivialhamsymsec();
+
         const int pg       = get_pg_symmetry();
         const int nr_of_pg = pg == -1 ? 1 : get_max_irrep(NULL,0,NULL,0,0, pg);
         const int size = sizeof irreps_QCSU2 / sizeof irreps_QCSU2[0];
@@ -1162,7 +1282,7 @@ static void su2_get_opTypearr(const int **arr, const int (**tags_arr)[3])
                 {1,-1,-1}, {1,-1,0}, /* (c+c+)_0 */
                 {0,-1,-1}, {0,-1,0}, /* (cc)_0 */
                 {1,-1,-1}, {0,-1,0}, /* (c+c)_0 */
-                {1,-1,-1}, {0,-1,1}, /* (c+c)_1 */
+                {1,-1,-1}, {0,-1,2}, /* (c+c)_1 */
                 {1,-1,-1}, {1,-1,-1}, {0,-1,1}, /* (c+c+c) */
                 {1,-1,-1}, {0,-1,-1}, {0,-1,1}, /* (c+cc) */
                 {1,-1,-1}, {1,-1,-1}, {0,-1,-1}, {0,-1,0} /* (c+c+cc) */

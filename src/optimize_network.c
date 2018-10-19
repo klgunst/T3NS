@@ -288,8 +288,6 @@ static double optimize_siteTensor(struct siteTensor * tens, struct siteTensor * 
     struct T3NSdata mv_dat;
     size = tens->blocks.beginblock[tens->nrblocks];
     init_T3NSdata(&mv_dat, Operators, tens);
-    //diagonal = safe_malloc(size, double);
-    //for (i = 0; i < size; ++i) diagonal[i] = 1;
     diagonal = make_diagonal(&mv_dat, 0);
     sparse_eigensolve(tens->blocks.tel, size, &energy, matvecT3NS, diagonal, reg->davidson_rtl, 
         reg->davidson_max_its, "D", DAVIDSON_KEEP_DEFLATE, DAVIDSON_MAX_VECS, &mv_dat);

@@ -126,6 +126,7 @@ static void pUpdate_make_r_count(struct instructionset * const instructions,
         start_fill_instruction(instructions, order);
         combine_all_operators(ops, is_left ? '3' : '1');
 
+//#ifndef COMPARECHEMPSTREE
         if (bonds[0] == 0 && is_left) 
         {
                 const int new_instr[3] = {id_opType(&ops[0], 'U'), 
@@ -136,6 +137,7 @@ static void pUpdate_make_r_count(struct instructionset * const instructions,
                        new_instr[2] != -1);
                 fill_instruction(new_instr, core_e);
         }
+//#endif
 
         if (instructions->instr != NULL && 
             instructions->nr_instr != get_nrinstr()) {
@@ -185,12 +187,14 @@ static void merge_make_r_count(struct instructionset * const instructions,
 {
         const int isdmrg = is_dmrg_bond(bond);
         struct opType ops[3];
-        const int order[3] = {0, 1, 2};
+        int order[3] = {0, 1, 2};
 
         if (isdmrg) {
                 get_opType(&ops[0], bond, 1);
-                get_opType(&ops[1], bond, 0);
-                get_unity_opType(&ops[2]);
+                get_unity_opType(&ops[1]);
+                get_opType(&ops[2], bond, 0);
+                order[1] =  2;
+                order[2] = 1;
         } else {
                 int bonds[3];
                 const int bsite = 
@@ -218,7 +222,7 @@ static void merge_make_r_count(struct instructionset * const instructions,
         assert(instructions->step == 2 + (isdmrg == 0));
 
         start_fill_instruction(instructions, order);
-        combine_all_operators(ops, 'm');
+        combine_all_operators(ops, isdmrg ? 'd' : 't');
 
         if (instructions->instr != NULL && 
             instructions->nr_instr != get_nrinstr()) {
@@ -229,7 +233,7 @@ static void merge_make_r_count(struct instructionset * const instructions,
 
         if (isdmrg) {
                 destroy_opType(&ops[0], bond, 1);
-                destroy_opType(&ops[1], bond, 0);
+                destroy_opType(&ops[2], bond, 0);
         } else {
                 int bonds[3];
                 const int bsite = 
@@ -256,11 +260,11 @@ static void combine_all_operators(const struct opType ops[3], const char c)
 static void combine_operators(const int operators[3], const struct opType ops[3], 
                               const char c)
 {
-        assert(c == '1' || c == '2' || c == '3' || c == 'm');
+        assert(c == '1' || c == '2' || c == '3' || c == 't' || c == 'd');
         int new_instr[3];
         int new_ops[3] = {operators[0], operators[1], operators[2]};
 
-        if (c != 'm')
+        if (c != 't' && c != 'd')
                 new_ops[c - '1'] = 4 - new_ops[c - '1'];
 
         while (loop_operators(new_instr, ops, new_ops)) {

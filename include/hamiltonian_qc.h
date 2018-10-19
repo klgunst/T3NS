@@ -45,7 +45,7 @@ void string_from_tag(const int nr, const int t, const int * tags,
                      char buffer[bsize]);
 
 int compare_tags(const int * tags[3], const int nr_tags[3], const int base_tag,
-                 const int sumleg, double * const val);
+                 const int sumleg, double * const val, const int dmrgmerge);
 
 int fuse_value(const int * tags[3], const int nr_tags[3], const int base_tag,
                double * const val);
