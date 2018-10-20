@@ -528,6 +528,32 @@ double prefactor_combine_MPOs(int * const irreps[2][3], int * const irrMPO[3],
         return prefactor;
 }
 
+int need_multiplicity(const int nrSyms, const enum symmetrygroup sgs[nrSyms])
+{
+        int i;
+        for (i = 0; i < nrSyms; ++i)
+                if (sgs[i] == SU2)
+                        return 1;
+        return 0;
+}
+
+int multiplicity(const int nrSyms, const enum symmetrygroup sgs[nrSyms], 
+                 const int irreps[nrSyms])
+{
+        int result = 1;
+        int i;
+        for (i = 0; i < nrSyms; ++i) {
+                switch (sgs[i]) {
+                case SU2:
+                        result *= SU2_multiplicity(irreps[i]);
+                        break;
+                default:
+                        break;
+                }
+        }
+        return result;
+}
+
 /* ========================================================================== */
 /* ===================== DEFINITION STATIC FUNCTIONS ======================== */
 /* ========================================================================== */

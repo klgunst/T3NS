@@ -161,4 +161,9 @@ double prefactor_add_P_operator(int * const irreps[2][3], const int isleft,
 
 double prefactor_combine_MPOs(int * const irreps[2][3], int * const irrMPO[3], 
     const enum symmetrygroup * const sgs, const int nr_symmetries);
+
+int need_multiplicity(const int nrSyms, const enum symmetrygroup sgs[nrSyms]);
+
+int multiplicity(const int nrSyms, const enum symmetrygroup sgs[nrSyms], 
+                 const int irreps[nrSyms]);
 #endif

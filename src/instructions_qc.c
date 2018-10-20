@@ -126,7 +126,6 @@ static void pUpdate_make_r_count(struct instructionset * const instructions,
         start_fill_instruction(instructions, order);
         combine_all_operators(ops, is_left ? '3' : '1');
 
-//#ifndef COMPARECHEMPSTREE
         if (bonds[0] == 0 && is_left) 
         {
                 const int new_instr[3] = {id_opType(&ops[0], 'U'), 
@@ -137,7 +136,6 @@ static void pUpdate_make_r_count(struct instructionset * const instructions,
                        new_instr[2] != -1);
                 fill_instruction(new_instr, core_e);
         }
-//#endif
 
         if (instructions->instr != NULL && 
             instructions->nr_instr != get_nrinstr()) {

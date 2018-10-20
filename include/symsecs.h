@@ -155,4 +155,6 @@ void free_symsecs_from_bookie(const int bonds[], const int nrel);
  * \param [in] nrel The number of bonds.
  */
 void deep_copy_symsecs_to_bookie(const struct symsecs symarr[], const int bonds[], const int nrel);
+
+int full_dimension(const struct symsecs * const sym);
 #endif

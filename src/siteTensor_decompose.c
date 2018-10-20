@@ -25,7 +25,7 @@ static void get_orders(const int nr_of_orders, const int nr_of_SVDs, const int n
 static int select_best_decompose(const int nr_of_orders, const int nr_of_SVDs, 
     const double truncerrlist[nr_of_orders][nr_of_SVDs], 
     const struct symsecs symseclist[nr_of_orders][nr_of_SVDs], 
-    double * const minimalmxtruncerr, int * const minimalmxD);
+    double * const minimalmxtruncerr, int * const mxrD, int * const mxD);
       
 /* This function changes the tensors in T3NS to the best SVD selected and delete all others. */
 static void change_tensors_to_best(const int selection, const int nr_of_orders, const int nrsites, 
@@ -162,6 +162,7 @@ void decomposesiteObject(struct siteTensor * const siteObject, struct siteTensor
   int i;
   int selection = 0;
   int mxD = 0;
+  int mxrD = 0;
   double mxtr = 0;
 
   get_orders(nr_of_orders, nr_of_SVDs, siteObject->nrsites, orders, bonds, sitelist, common_nxt);
@@ -198,9 +199,12 @@ void decomposesiteObject(struct siteTensor * const siteObject, struct siteTensor
   }
   for (i = 0; i < nr_of_SVDs; ++i) destroy_symsecs(&originalsymsecs[i]);
 
-  selection = select_best_decompose(nr_of_orders, nr_of_SVDs, truncerrlist, symseclist, &mxtr,&mxD);
+  selection = select_best_decompose(nr_of_orders, nr_of_SVDs, truncerrlist, symseclist, &mxtr, &mxrD, &mxD);
   printf("   * SVD sequence no. %d selected with\n", selection + 1);
-  printf("          - maximal dimension %d\n", mxD);
+  if (mxD != -1)
+          printf("          - maximal dimension %d (%d)\n", mxrD, mxD);
+  else
+          printf("          - maximal dimension %d\n", mxrD);
   printf("          - maximal truncation error %.4e\n", mxtr);
 
   change_symsecs_to_best(selection, nr_of_orders, nr_of_SVDs, symseclist, bonds);
@@ -229,33 +233,36 @@ static void get_orders(const int nr_of_orders, const int nr_of_SVDs, const int n
 static int select_best_decompose(const int nr_of_orders, const int nr_of_SVDs, 
     const double truncerrlist[nr_of_orders][nr_of_SVDs], 
     const struct symsecs symseclist[nr_of_orders][nr_of_SVDs], 
-    double * const minimalmxtruncerr, int * const minimalmxD)
+    double * const minimalmxtruncerr, int * const mxrD, int * const mxDim)
 {
   int mxD[nr_of_orders];
   int selection = 0;
   int i;
 
-  for (i = 0; i < nr_of_orders; ++i)
-  {
+  for (i = 0; i < nr_of_orders; ++i) {
     int j;
+    int currfmxD = 0;;
     mxD[i] = 0;
     for (j = 0; j < nr_of_SVDs; ++j)
-      if (mxD[i] < symseclist[i][j].totaldims) mxD[i] = symseclist[i][j].totaldims;
-    if (i == 0 || *minimalmxD > mxD[i]) *minimalmxD = mxD[i];
+      if (mxD[i] < symseclist[i][j].totaldims) {
+              mxD[i] = symseclist[i][j].totaldims;
+              currfmxD = full_dimension(&symseclist[i][j]);
+        }
+    if (i == 0 || *mxrD > mxD[i]) {
+            *mxrD = mxD[i];
+            *mxDim = currfmxD;
+        }
   }
 
-  for (i = 0; i < nr_of_orders; ++i)
-  {
+  for (i = 0; i < nr_of_orders; ++i) {
     int flag = 1;
-    if (mxD[i] == *minimalmxD)
-    {
+    if (mxD[i] == *mxrD) {
       int j;
       double currmxtruncerr = 0;
       for (j = 0; j < nr_of_SVDs; ++j)
         if (currmxtruncerr < truncerrlist[i][j]) currmxtruncerr = truncerrlist[i][j];
 
-      if (flag || *minimalmxtruncerr > currmxtruncerr)
-      {
+      if (flag || *minimalmxtruncerr > currmxtruncerr) {
         flag = 0;
         selection = i;
         *minimalmxtruncerr = currmxtruncerr;

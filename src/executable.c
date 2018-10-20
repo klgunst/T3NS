@@ -19,7 +19,8 @@
 /* ========================================================================== */
 
 static void initialize_program(int argc, char *argv[], struct siteTensor **T3NS, 
-                               struct rOperators **rops);
+                               struct rOperators **rops, 
+                               struct optScheme * scheme);
 
 static void cleanup_before_exit(struct siteTensor **T3NS, 
                                 struct rOperators **rops, 
@@ -28,14 +29,6 @@ static void cleanup_before_exit(struct siteTensor **T3NS,
 static void destroy_T3NS(struct siteTensor **T3NS);
 
 static void destroy_all_rops(struct rOperators **rops);
-
-static void initialize_example_scheme(struct optScheme * const scheme);
-
-#ifdef COMPARECHEMPSTREE
-static void print_all_siteTensors(struct siteTensor * T3NS);
-
-static void print_all_rOperators(struct rOperators * rops);
-#endif
 
 /* ========================================================================== */
 
@@ -53,8 +46,7 @@ int main(int argc, char *argv[])
         /* line by line write-out */
         setvbuf(stdout, NULL, _IOLBF, BUFSIZ);
 
-        initialize_program(argc, argv, &T3NS, &rops);
-        initialize_example_scheme(&scheme);
+        initialize_program(argc, argv, &T3NS, &rops, &scheme);
 
         execute_optScheme(T3NS, rops, &scheme);
 
@@ -74,7 +66,7 @@ int main(int argc, char *argv[])
 /* ===================== DEFINITION STATIC FUNCTIONS ======================== */
 /* ========================================================================== */
 
-const char *argp_program_version     = "T3NS 0.0";
+const char *argp_program_version     = "T3NS 1.0";
 const char *argp_program_bug_address = "<Klaas.Gunst@UGent.be>";
 
 /* A description of the program */
@@ -83,7 +75,7 @@ static char doc[] =
 "        fermionic systems.";
 
 /* A description of the arguments we accept. */
-static char args_doc[] = "INPUTFILE D";
+static char args_doc[] = "INPUTFILE";
 
 /* The options we understand. */
 static struct argp_option options[] = {
@@ -92,7 +84,7 @@ static struct argp_option options[] = {
 
 /* Used by main to communicate with parse_opt. */
 struct arguments {
-        char *args[2];                /* netwfile & D */
+        char *args[1];                /* netwfile */
 };
 
 /* Parse a single option. */
@@ -106,7 +98,7 @@ static error_t parse_opt(int key, char *arg, struct argp_state *state)
         case ARGP_KEY_ARG:
 
                 /* Too many arguments. */
-                if (state->arg_num >= 2)
+                if (state->arg_num >= 1)
                         argp_usage(state);
 
                 arguments->args[state->arg_num] = arg;
@@ -114,7 +106,7 @@ static error_t parse_opt(int key, char *arg, struct argp_state *state)
 
         case ARGP_KEY_END:
                 /* Not enough arguments. */
-                if (state->arg_num < 2)
+                if (state->arg_num < 1)
                         argp_usage(state);
                 break;
 
@@ -129,9 +121,9 @@ static error_t parse_opt(int key, char *arg, struct argp_state *state)
 static struct argp argp = { options, parse_opt, args_doc, doc };
 
 static void initialize_program(int argc, char *argv[], struct siteTensor **T3NS, 
-                               struct rOperators **rops)
+                               struct rOperators **rops, 
+                               struct optScheme * scheme)
 {
-        int max_dim;
         long long t_elapsed;
         double d_elapsed;
         struct timeval t_start, t_end;
@@ -148,16 +140,12 @@ static void initialize_program(int argc, char *argv[], struct siteTensor **T3NS,
         /* Parse our arguments; every option seen by parse_opt will be
          * reflected in arguments. */
         argp_parse(&argp, argc, argv, 0, 0, &arguments);
-        max_dim = atoi(arguments.args[1]);
 
-        read_inputfile(arguments.args[0]);
-        create_list_of_symsecs(max_dim);
+        read_inputfile(arguments.args[0], scheme);
+        assert(scheme->nrRegimes != 0);
+        create_list_of_symsecs(scheme->regimes[0].minD);
 
         random_init(T3NS, rops);
-#ifdef COMPARECHEMPSTREE
-        print_all_siteTensors(*T3NS);
-        print_all_rOperators(*rops);
-#endif
 
         gettimeofday(&t_end, NULL);
 
@@ -194,70 +182,3 @@ static void destroy_all_rops(struct rOperators **rops)
                 destroy_rOperators(&(*rops)[i]);
         safe_free(*rops);
 }
-
-static void initialize_example_scheme(struct optScheme * const scheme)
-{
-        struct regime regime1 = { 
-                .minD = 100, 
-                .maxD = 150, 
-                .truncerror = 1e-5, 
-                .sitesize = 2, 
-                .davidson_rtl = SOLVER_TOL, 
-                .davidson_max_its = 4, 
-                .max_sweeps = 2, 
-                .energy_conv = 1e-5 
-        };
-        struct regime regime1bis = { 
-                .minD = 100, 
-                .maxD = 150, 
-                .truncerror = 1e-5, 
-                .sitesize = 2, 
-                .davidson_rtl = SOLVER_TOL, 
-                .davidson_max_its = SOLVER_MAX_ITS, 
-                .max_sweeps = 6, 
-                .energy_conv = 1e-5 
-        };
-        struct regime regime1bisbis = { 
-                .minD = 150, 
-                .maxD = 500, 
-                .truncerror = 1e-5, 
-                .sitesize = 2, 
-                .davidson_rtl = SOLVER_TOL, 
-                .davidson_max_its = SOLVER_MAX_ITS, 
-                .max_sweeps = 10, 
-                .energy_conv = 1e-6 
-        };
-        struct regime regime2  = { 
-                .minD = 150, 
-                .maxD = 600, 
-                .truncerror = 1e-6, 
-                .sitesize = 2, 
-                .davidson_rtl = SOLVER_TOL, 
-                .davidson_max_its = SOLVER_MAX_ITS, 
-                .max_sweeps = 20, 
-                .energy_conv = 1e-7 
-        };
-
-        scheme->nrRegimes = 4;
-        scheme->regimes = safe_malloc(scheme->nrRegimes, struct regime);
-        scheme->regimes[0] = regime1;
-        scheme->regimes[1] = regime1bis;
-        scheme->regimes[2] = regime1bisbis;
-        scheme->regimes[3] = regime2;
-}
-
-#ifdef COMPARECHEMPSTREE
-static void print_all_siteTensors(struct siteTensor * T3NS)
-{
-        int i;
-        for (i = 0; i < netw.sites; ++i)
-                print_siteTensor(&T3NS[i]);
-}
-
-static void print_all_rOperators(struct rOperators * rops)
-{
-        int i;
-        for (i = 0; i < netw.nr_bonds; ++i)
-                print_rOperators(&rops[i], 1);
-}
-#endif

@@ -103,3 +103,5 @@ double SU2_prefactor_bUpdate(const int symv[3][3], const int uCase)
                                    symv[1][0], symv[1][1], symv[1][2],
                                    symv[2][0], symv[2][1], symv[2][2]);
 }
+
+int SU2_multiplicity(const int irrep) {return irrep + 1;}

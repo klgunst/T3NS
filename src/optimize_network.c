@@ -121,12 +121,6 @@ void execute_optScheme(struct siteTensor * const T3NS, struct rOperators * const
   print_timers();
 }
 
-void destroy_optScheme(struct optScheme * scheme)
-{
-  scheme->nrRegimes = 0;
-  safe_free(scheme->regimes);
-}
-
 /* ========================================================================== */
 /* ===================== DEFINITION STATIC FUNCTIONS ======================== */
 /* ========================================================================== */

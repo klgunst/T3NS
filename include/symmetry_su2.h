@@ -60,4 +60,6 @@ double SU2_prefactor_add_P_operator(const int symvalues[2][3], const int isleft)
 double SU2_prefactor_combine_MPOs(const int symvalues[2][3], const int symvaluesMPO[3]);
 
 double SU2_prefactor_bUpdate(const int symvalues[3][3], const int updateCase);
+
+int SU2_multiplicity(const int irrep);
 #endif

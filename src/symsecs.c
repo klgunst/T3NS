@@ -252,6 +252,19 @@ void deep_copy_symsecs_to_bookie(const struct symsecs symarr[], const int bonds[
     deep_copy_symsecs(&bookie.list_of_symsecs[bonds[i]], &symarr[i]);
 }
 
+int full_dimension(const struct symsecs * const sym)
+{
+        int i;
+        int result = 0;
+
+        if (!need_multiplicity(bookie.nrSyms, bookie.sgs))
+                return -1;
+        for (i = 0; i < sym->nrSecs; ++i)
+                result += multiplicity(bookie.nrSyms, bookie.sgs,
+                                       &sym->irreps[bookie.nrSyms * i]);
+
+        return result;
+}
 /* ========================================================================== */
 /* ===================== DEFINITION STATIC FUNCTIONS ======================== */
 /* ========================================================================== */

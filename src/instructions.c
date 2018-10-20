@@ -59,10 +59,6 @@ void fetch_pUpdate(int ** const instructions, double ** const prefactors,
                 exit(EXIT_FAILURE);
         }
         sort_instructionsx(instructions, prefactors, *nr_instructions, 3);
-#ifdef PRINTINSTR
-        print_DMRG_instructions(*instructions, *prefactors, *hamsymsecs_of_new, 
-                                *nr_instructions, bond, is_left);
-#endif
 }
 
 void fetch_bUpdate(struct instructionset * const instructions, const int bond, 
@@ -81,11 +77,6 @@ void fetch_bUpdate(struct instructionset * const instructions, const int bond,
                 exit(EXIT_FAILURE);
         }
         sort_instructions(instructions);
-#ifdef PRINTINSTR
-        print_T3NS_instructions(instructions->instr, instructions->pref, 
-                                instructions->hss_of_new, instructions->nr_instr, 
-                                bond, isleft);
-#endif
 }
 
 void fetch_merge(int ** const instructions, int * const nr_instructions, 
@@ -109,10 +100,6 @@ void fetch_merge(int ** const instructions, int * const nr_instructions,
                         __FILE__, __func__);
                 exit(EXIT_FAILURE);
         }
-#ifdef PRINTINSTR
-        print_merge_instructions(*instructions, *prefactors, *nr_instructions, 
-                                 bond);
-#endif
 }
 
 void sortinstructions_toMPOcombos(int ** const instructions, 
