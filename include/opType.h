@@ -1,5 +1,4 @@
-#ifndef OPTYPE_H
-# define OPTYPE_H
+#pragma once
 
 struct opType {
         int *begin_opType; /* ordered like 0,1,2,3,4 
@@ -67,4 +66,3 @@ void get_opType_tag(const struct opType * const ops, const int nr, const int typ
                     int * const base_t);
 
 void set_ham(int h);
-#endif

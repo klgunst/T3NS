@@ -1,5 +1,5 @@
-#ifndef INSTRUCTIONS_QC_H
-# define INSTRUCTIONS_QC_H
+#pragma once
+
 #include "instructions.h"
 
 void QC_fetch_pUpdate(struct instructionset * const instructions, 
@@ -10,4 +10,3 @@ void QC_fetch_bUpdate(struct instructionset * const instructions,
 
 void QC_fetch_merge(struct instructionset * const instructions, 
                        const int bond);
-#endif

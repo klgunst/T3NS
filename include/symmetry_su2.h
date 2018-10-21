@@ -1,5 +1,4 @@
-#ifndef SYMMETRY_SU2_H
-# define SYMMETRY_SU2_H
+#pragma once
 
 /**
  * \file symmetry_su2.h
@@ -62,4 +61,3 @@ double SU2_prefactor_combine_MPOs(const int symvalues[2][3], const int symvalues
 double SU2_prefactor_bUpdate(const int symvalues[3][3], const int updateCase);
 
 int SU2_multiplicity(const int irrep);
-#endif

@@ -9,6 +9,7 @@
 #include "bookkeeper.h"
 #include "macros.h"
 #include "debug.h"
+#include "io_to_disk.h"
 
 static struct hamdata {
         double t;
@@ -239,6 +240,27 @@ void NN_H_get_interactions(double * const t, double * const U)
 int NN_H_has_su2(void)
 {
         return hdat.su2;
+}
+
+void NN_H_write_hamiltonian_to_disk(const hid_t id)
+{
+        const hid_t group_id = H5Gcreate(id, "./hamiltonian_data", H5P_DEFAULT, 
+                                         H5P_DEFAULT, H5P_DEFAULT);
+
+        doubles_write_attribute(group_id, "t", &hdat.t, 1);
+        doubles_write_attribute(group_id, "U", &hdat.U, 1);
+        ints_write_attribute(group_id, "su2", &hdat.su2, 1);
+        H5Gclose(group_id);
+}
+
+void NN_H_read_hamiltonian_from_disk(const hid_t id)
+{
+        const hid_t group_id = H5Gopen(id, "./hamiltonian_data", H5P_DEFAULT);
+
+        doubles_read_attribute(group_id, "t", &hdat.t);
+        doubles_read_attribute(group_id, "U", &hdat.U);
+        ints_read_attribute(group_id, "su2", &hdat.su2);
+        H5Gclose(group_id);
 }
 
 /* ========================================================================== */

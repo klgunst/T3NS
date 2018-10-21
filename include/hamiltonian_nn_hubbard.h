@@ -1,5 +1,5 @@
-#ifndef HAMILTONIAN_NN_H_H 
-# define HAMILTONIAN_NN_H_H
+#pragma once
+#include <hdf5.h>
 
 #include "symsecs.h"
 
@@ -31,4 +31,7 @@ void NN_H_get_interactions(double * const t, double * const U);
 int NN_H_has_su2(void);
 
 void NN_H_get_string_of_rops(char buffer[], const int ropsindex);
-#endif
+
+void NN_H_write_hamiltonian_to_disk(const hid_t id);
+
+void NN_H_read_hamiltonian_from_disk(const hid_t id);

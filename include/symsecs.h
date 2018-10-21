@@ -1,5 +1,4 @@
-#ifndef SYMSECS_H 
-# define SYMSECS_H
+#pragma once
 
 /**
  * \file symsecs.h
@@ -11,8 +10,7 @@
 /**
  * \brief Struct with the symmetry sectors for a bond.
  */
-struct symsecs
-{
+struct symsecs {
   int nrSecs;    /**< The number of different symmetry sectors possible in the bond. */
   int* irreps;      /**< The irreps that specify every symmetry sector
                      *   Array with length nrSecs * nr_symmetries,
@@ -157,4 +155,3 @@ void free_symsecs_from_bookie(const int bonds[], const int nrel);
 void deep_copy_symsecs_to_bookie(const struct symsecs symarr[], const int bonds[], const int nrel);
 
 int full_dimension(const struct symsecs * const sym);
-#endif

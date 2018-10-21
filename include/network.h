@@ -1,5 +1,4 @@
-#ifndef NETWORK_H
-# define NETWORK_H
+#pragma once
 
 /**
  * \file network.h
@@ -32,11 +31,12 @@ struct network {
 extern struct network netw;
 
 /**
- * \brief Reads in the network from an appropriate network file. (extension .netw)
+ * \brief Searches a definition of a network file in the inputfile and reads 
+ * the network file.
  *
- * \param [in] netwf The path to the networkfile to read in.
+ * \param [in] inputfile The path to the inputfile to read in.
  */
-void readnetwork(char netwf[]);
+void read_network(const char inputfile[]);
 
 /**
  * \brief initializes the network as empty.
@@ -59,7 +59,7 @@ void print_network(void);
  * \param [in] site The site of which to figure it out.
  * \return The boolean.
  */
-int is_psite(int site);
+int is_psite(const int site);
 
 int get_left_psites(const int bond);
 
@@ -116,4 +116,3 @@ int next_opt_step(const int maxsites, int bonds_involved[3], int sites_opt[4], i
 int get_common_bond(const int site1 , const int site2);
 
 int is_dmrg_bond(const int bond);
-#endif

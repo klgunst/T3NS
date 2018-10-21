@@ -1,5 +1,4 @@
-#ifndef SYMMETRY_PG_H
-# define SYMMETRY_PG_H
+#pragma once
 
 /**
  * \file symmetry_pg.h
@@ -88,4 +87,3 @@ void  PG_get_irrstring(char buffer[], int pg, int irr);
 const int PG_which_irrep(char buffer[], int pg, int *irr);
 
 int fcidump_to_psi4(const int fcidumpirrep, const int pg_symm);
-#endif

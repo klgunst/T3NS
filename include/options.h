@@ -1,5 +1,4 @@
-#ifndef OPTIONS_H
-# define OPTIONS_H
+#pragma once
 
 # define DAVIDSON_MAX_VECS 30
 # define DAVIDSON_KEEP_DEFLATE 2
@@ -9,5 +8,3 @@
 # define DEFAULT_SOLVER_MAX_ITS 100
 # define DEFAULT_SWEEPS 4
 # define DEFAULT_E_CONV 1e-6
-
-#endif

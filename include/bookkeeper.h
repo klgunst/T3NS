@@ -1,5 +1,4 @@
-#ifndef BOOKKEEPER_H
-# define BOOKKEEPER_H
+#pragma once
 
 #include "symmetries.h"
 #include "symsecs.h"
@@ -17,8 +16,7 @@
  * This is a struct that contains the different symsecs structs for the different bonds in the 
  * network.
  */
-struct bookkeeper
-{
+struct bookkeeper {
   enum symmetrygroup* sgs;   /**< An array with the different symmetries in the system. */
   int nrSyms;                /**< The number of symmetries. */
   int *target_state;         /**< The irreps of the state we target. */
@@ -88,4 +86,3 @@ void get_sgsstring(int sg, char buffer[]);
  * \param [out] buffer The buffer where the string is stored.
  */
 void get_tsstring(char buffer[]);
-#endif

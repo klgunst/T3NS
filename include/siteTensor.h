@@ -1,8 +1,6 @@
-#ifndef SITETENSOR_H 
-# define SITETENSOR_H
-
-#include "macros.h"
+#pragma once
 #include "sparseblocks.h"
+#include "macros.h"
 
 /**
  * \brief The structure for the sitetensors for the T3NS, thus branching and physical tensors.
@@ -258,4 +256,3 @@ void QR(struct siteTensor * const tens, void * const R);
 void decomposesiteObject(struct siteTensor * const siteObject, struct siteTensor * const T3NS, 
     const int sitelist[], const int common_nxt[],  const int mind, const int maxd,
     const double maxtrunc);
-#endif

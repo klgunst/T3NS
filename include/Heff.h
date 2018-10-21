@@ -1,5 +1,4 @@
-#ifndef HEFF_H
-# define HEFF_H
+#pragma once
 
 #include "siteTensor.h"
 #include "rOperators.h"
@@ -65,4 +64,3 @@ double * make_diagonal(void * const data, const int isdmrg);
 double * make_diagonal_T3NS(struct T3NSdata * const data);
 
 void destroy_T3NSdata(struct T3NSdata * const data);
-#endif

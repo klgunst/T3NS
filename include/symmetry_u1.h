@@ -1,5 +1,4 @@
-#ifndef SYMMETRY_U1_H
-# define SYMMETRY_U1_H
+#pragma once
 
 /**
  * \file symmetry_u1.h
@@ -49,4 +48,3 @@ void U1_get_irrstring(char buffer[], int irr);
  * \return 1 if successful, 0 otherwise.
  */
 int U1_which_irrep(char buffer[], int *irr);
-#endif

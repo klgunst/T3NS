@@ -1,5 +1,4 @@
-#ifndef SYMMETRIES_H
-# define SYMMETRIES_H
+#pragma once
 
 #include "symmetry_z2.h"
 #include "symmetry_u1.h"
@@ -166,4 +165,3 @@ int need_multiplicity(const int nrSyms, const enum symmetrygroup sgs[nrSyms]);
 
 int multiplicity(const int nrSyms, const enum symmetrygroup sgs[nrSyms], 
                  const int irreps[nrSyms]);
-#endif

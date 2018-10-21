@@ -65,15 +65,13 @@ void random_init(struct siteTensor ** const T3NS, struct rOperators ** const rop
   init_null_T3NS(T3NS);
   init_null_rops(rops);
 
-  for (i = 0; i < netw.nr_bonds; ++i)
-  {
+  for (i = 0; i < netw.nr_bonds; ++i) {
     const int siteL = netw.bonds[2 * i];
     const int siteR = netw.bonds[2 * i + 1];
     struct siteTensor *tens = NULL;
 
     /* The site tensor should be initialized */
-    if (siteL != -1)
-    {
+    if (siteL != -1) {
       tens = &(*T3NS)[siteL];
 
       /* Changes the bonddimensions in the bookkeeper so its consistent,
@@ -82,8 +80,7 @@ void random_init(struct siteTensor ** const T3NS, struct rOperators ** const rop
       init_1siteTensor(tens, siteL, 'r');
       QR(tens, NULL);
 
-      if (siteR == -1) /* normalize the last tensor */
-      {
+      if (siteR == -1) { /* normalize the last tensor */
         const int ONE = 1;
         const int N = tens->blocks.beginblock[tens->nrblocks];
         const double norm = dnrm2_(&N, tens->blocks.tel, &ONE);
@@ -92,8 +89,7 @@ void random_init(struct siteTensor ** const T3NS, struct rOperators ** const rop
       }
     }
   }
-  for (i = 0; i < netw.nr_bonds; ++i)
-  {
+  for (i = 0; i < netw.nr_bonds; ++i) {
     struct siteTensor * tens = &(*T3NS)[netw.bonds[2 * i]];
     init_rops(*rops, tens, i);
   }
@@ -106,8 +102,7 @@ void execute_optScheme(struct siteTensor * const T3NS, struct rOperators * const
   int i;
 
   printf("============================================================================\n");
-  for (i = 0; i < scheme->nrRegimes; ++i)
-  {
+  for (i = 0; i < scheme->nrRegimes; ++i) {
     double current_energy = execute_regime(T3NS, rops, &scheme->regimes[i], i + 1);
     if (current_energy  < energy) energy = current_energy;
   }
@@ -139,8 +134,8 @@ static void init_null_rops(struct rOperators ** const rops)
   for (i = 0; i < netw.nr_bonds; ++i) init_null_rOperators(&(*rops)[i]);
 }
 
-static void init_rops(struct rOperators * const rops, const struct siteTensor * const tens, 
-    const int bond)
+static void init_rops(struct rOperators * const rops, 
+                      const struct siteTensor * const tens, const int bond)
 {
   const int siteL = netw.bonds[2 * bond];
   const int siteR = netw.bonds[2 * bond + 1];

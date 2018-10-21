@@ -108,7 +108,7 @@ static void fill_regimeoptions(char buffer[], struct optScheme * const scheme,
         }
 }
 
-static void read_bonddim(char inputfile[], struct optScheme * const scheme)
+static void read_bonddim(const char inputfile[], struct optScheme* const scheme)
 {
         const char errormessage[] = {
                 "Error while reading the file %s.\n"
@@ -156,7 +156,7 @@ static void read_bonddim(char inputfile[], struct optScheme * const scheme)
 
 /* ========================================================================== */
 
-void read_optScheme(char inputfile[], struct optScheme * const scheme)
+void read_optScheme(const char inputfile[], struct optScheme * const scheme)
 {
         char buffer[255];
         enum regimeoptions opt;

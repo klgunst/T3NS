@@ -1,5 +1,4 @@
-#ifndef SYMMETRY_Z2_H
-# define SYMMETRY_Z2_H
+#pragma once
 
 /**
  * \file symmetry_z2.h
@@ -58,4 +57,3 @@ double Z2_prefactor_bUpdate(const int symvalues[3][3], const int updateCase);
 double Z2_prefactor_add_P_operator(const int symvalues[2][3], const int isleft);
 
 double Z2_prefactor_combine_MPOs(const int symvalues[2][3], const int symvaluesMPO[3]);
-#endif

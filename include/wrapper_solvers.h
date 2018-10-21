@@ -1,6 +1,4 @@
-#ifndef WRAPPER_SOLVERS_H
-# define WRAPPER_SOLVERS_H
-
+#pragma once
 
 /**
  * \file wrapper_solvers.h
@@ -36,4 +34,3 @@
 int sparse_eigensolve(double* vec, int dims, double* energy, 
     void (*matvec)(double*, double*, void*), double* diagonal, double tol, int max_its, 
     char solver[], int davidson_keep, int davidson_max_vec, void* dat);
-#endif

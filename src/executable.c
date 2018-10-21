@@ -5,6 +5,7 @@
 #include <argp.h>
 
 #include "io.h"
+#include "io_to_disk.h"
 #include "macros.h"
 #include "network.h"
 #include "bookkeeper.h"

@@ -1,8 +1,8 @@
-#ifndef SPARSEBLOCKS_H 
-# define SPARSEBLOCKS_H
+#pragma once
 
 /* macro that defines the type of the tensor elements */
 #define EL_TYPE double
+#define EL_TYPE_H5 H5T_IEEE_F64LE
 #define COMPARE_ELEMENT_TO_ZERO(X) COMPARE(X, 0)
 
 /**
@@ -10,8 +10,7 @@
  *
  * Completely unusable on its own since things like nkappa_tot are stored in its parent-structure.
  */
-struct sparseblocks
-{
+struct sparseblocks {
   int * beginblock;          /**< Start of a certain sparse block. 
                               *   Length of this array is nkappa_tot + 1.
                               *
@@ -115,4 +114,3 @@ void print_block(const struct sparseblocks * const blocks, const int id);
  */
 void QR_blocks(struct sparseblocks * const blocks, const int start, const int finish, 
     const int total, int * const N);
-#endif

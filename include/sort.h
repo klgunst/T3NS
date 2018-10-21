@@ -1,5 +1,4 @@
-#ifndef SORT_H
-# define SORT_H
+#pragma once
 
 #include "macros.h"
 
@@ -20,4 +19,3 @@ int qnumbersSearch(const QN_TYPE  * values, const int nr_values, const QN_TYPE *
     const int step, const int n);
 
 int * inverse_permutation(int * perm, const int nrel);
-#endif

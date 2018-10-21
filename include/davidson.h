@@ -1,5 +1,4 @@
-#ifndef DAVIDSON_H
-# define DAVIDSON_H
+#pragma once
 
 /**
  * \file davidson.h
@@ -25,4 +24,3 @@
 int davidson(double* result, double* energy, int max_vectors, int keep_deflate,
     double davidson_tol, void (*matvec)(double*, double*, void*), double* diagonal, int basis_size,
     int max_its, void* vdat);
-#endif

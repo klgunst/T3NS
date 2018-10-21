@@ -1,10 +1,9 @@
-#ifndef ROPERATORS_H 
-# define ROPERATORS_H 
+#pragma once
 
 #include "sparseblocks.h"
 #include "siteTensor.h"
-#include "macros.h"
 #include "symsecs.h"
+#include "macros.h"
 
 /**
  * Sooo... every siteTensor (so of the wave function) has as indices:
@@ -62,8 +61,7 @@
 /**
  * \brief The structure for renormalized operators at a certain bond.
  */
-struct rOperators
-{
+struct rOperators {
   int bond_of_operator;       /**< The bond according to the network of the operator. */
   int is_left;                /**< Boolean that says if it is a left operator. */
   int P_operator;             /**< Boolean that says if it is a physical operator. 
@@ -285,4 +283,3 @@ void update_rOperators_physical(struct rOperators * const rops, const struct sit
  */
 void update_rOperators_branching(struct rOperators * const newops, const struct rOperators
     Operator[2], const struct siteTensor * const tens);
-#endif

@@ -1,6 +1,6 @@
-#ifndef HAMILTONIAN_QC_H 
-# define HAMILTONIAN_QC_H
+#pragma once
 
+#include <hdf5.h>
 #include "bookkeeper.h"
 
 /**
@@ -49,4 +49,7 @@ int compare_tags(const int * tags[3], const int nr_tags[3], const int base_tag,
 
 int fuse_value(const int * tags[3], const int nr_tags[3], const int base_tag,
                double * const val);
-#endif
+
+void QC_write_hamiltonian_to_disk(const hid_t id);
+
+void QC_read_hamiltonian_from_disk(const hid_t id);

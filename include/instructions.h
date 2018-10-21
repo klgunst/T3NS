@@ -1,5 +1,4 @@
-#ifndef INSTRUCTIONS_H
-# define INSTRUCTIONS_H
+#pragma once
 
 /**
  * \file instructions.h
@@ -57,4 +56,3 @@ void destroy_instructionset(struct instructionset * const instructions);
 void print_instructions(int * const instructions, double * const prefactors,
                         int * const hss, const int nr_instructions, const int
                         bond, const int is_left, const char kind);
-#endif

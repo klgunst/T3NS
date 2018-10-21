@@ -1,5 +1,5 @@
-#ifndef HAMILTONIAN_H 
-# define HAMILTONIAN_H 
+#pragma once
+#include <hdf5.h>
 
 #include "bookkeeper.h"
 #include "symmetries.h"
@@ -86,4 +86,7 @@ void get_string_of_rops(char buffer[], const int ropsindex, const int bond, cons
 void get_string_of_siteops(char buffer[], const int siteindex, const int site);
 
 int MPO_couples_to_singlet(const int n, const int MPO[n]);
-#endif
+
+void write_hamiltonian_to_disk(const hid_t id);
+
+void read_hamiltonian_from_disk(const hid_t id);

@@ -261,10 +261,12 @@ int full_dimension(const struct symsecs * const sym)
                 return -1;
         for (i = 0; i < sym->nrSecs; ++i)
                 result += multiplicity(bookie.nrSyms, bookie.sgs,
-                                       &sym->irreps[bookie.nrSyms * i]);
+                                       &sym->irreps[bookie.nrSyms * i]) *
+                        sym->dims[i];
 
         return result;
 }
+
 /* ========================================================================== */
 /* ===================== DEFINITION STATIC FUNCTIONS ======================== */
 /* ========================================================================== */

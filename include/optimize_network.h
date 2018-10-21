@@ -1,5 +1,4 @@
-#ifndef OPTIMIZE_NETWORK_H
-# define OPTIMIZE_NETWORK_H
+#pragma once
 
 #include "siteTensor.h"
 #include "rOperators.h"
@@ -22,4 +21,3 @@ void random_init(struct siteTensor ** const T3NS, struct rOperators ** const rop
  */
 void execute_optScheme(struct siteTensor * const T3NS, struct rOperators * const rops, 
     const struct optScheme * const  scheme);
-#endif

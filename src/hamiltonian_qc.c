@@ -3,6 +3,7 @@
 #include <string.h>
 #include <ctype.h>
 #include <math.h>
+#include <hdf5.h>
 
 #include "hamiltonian_qc.h"
 #include "io.h"
@@ -11,6 +12,7 @@
 #include "macros.h"
 #include "debug.h"
 #include "opType.h"
+#include "io_to_disk.h"
 
 static struct hamdata {
         int norb;           /**< number of orbitals. */
@@ -584,6 +586,42 @@ static double B_tilde(const int * const tags[4], const int twoJ)
                         get_V(tags[0], tags[1], tags[2], tags[3]);
         else
                 return  sqrt(3) * get_V(tags[0], tags[1], tags[2], tags[3]);
+}
+
+void QC_write_hamiltonian_to_disk(const hid_t id)
+{
+        const hid_t group_id = H5Gcreate(id, "./hamiltonian_data", H5P_DEFAULT, 
+                                         H5P_DEFAULT, H5P_DEFAULT);
+        const int p2 = hdat.norb * hdat.norb;
+        const int p4 = p2 * p2;
+
+        ints_write_attribute(group_id, "norb", &hdat.norb, 1);
+        ints_write_dataset(group_id, "./orbirrep", hdat.orbirrep, hdat.norb);
+        EL_TYPE_write_dataset(group_id, "./Vijkl", hdat.Vijkl, p4);
+        doubles_write_attribute(group_id, "core_energy", &hdat.core_energy, 1);
+        ints_write_attribute(group_id, "su2", &hdat.su2, 1);
+        H5Gclose(group_id);
+}
+
+void QC_read_hamiltonian_from_disk(const hid_t id)
+{
+        const hid_t group_id = H5Gopen(id, "./hamiltonian_data", H5P_DEFAULT);
+
+        ints_read_attribute(group_id, "norb", &hdat.norb);
+
+        hdat.orbirrep = safe_malloc(hdat.norb, int);
+        ints_read_dataset(group_id, "./orbirrep", hdat.orbirrep);
+
+        const int p2 = hdat.norb * hdat.norb;
+        const int p4 = p2 * p2;
+        hdat.Vijkl = safe_malloc(p4, EL_TYPE);
+        EL_TYPE_read_dataset(group_id, "./Vijkl", hdat.Vijkl);
+        doubles_read_attribute(group_id, "core_energy", &hdat.core_energy);
+        ints_read_attribute(group_id, "su2", &hdat.su2);
+        H5Gclose(group_id);
+
+        prepare_MPOsymsecs();
+        init_opType_array(hdat.su2);
 }
 
 /* ========================================================================== */

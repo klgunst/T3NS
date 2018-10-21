@@ -1,5 +1,4 @@
-#ifndef TENSORPRODUCTS_H 
-# define TENSORPRODUCTS_H 
+#pragma once
 
 #include "symsecs.h"
 #include "symmetries.h"
@@ -36,4 +35,3 @@ void find_qnumbers_with_index_in_array(const int id, const int idnr, int *** qnu
 
 void tensprod_symsecs(struct symsecs * const res, const struct symsecs * const sectors1, 
     const struct symsecs * const sectors2, const int sign, const char o);
-#endif

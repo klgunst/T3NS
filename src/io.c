@@ -20,7 +20,7 @@
 
 /* Returns 1 if the buffer line is a comment or empty, otherwise returns 0.
  * A comment can start with: '!', '#', '"', '//' */
-static int is_comment(char buffer[]);
+static int is_comment(const char buffer[]);
 
 /* Finds the option string in the line string. Case insensitive.
  * Returns the pointer where the declared options start in line.
@@ -37,7 +37,7 @@ static int read_targetstate(char line[], int *permarray, int no_irr, int sg);
 
 /* ========================================================================== */
 
-void read_inputfile(char inputfile[], struct optScheme * const scheme)
+void read_inputfile(const char inputfile[], struct optScheme * const scheme)
 {
         int ro;
         int sg;
@@ -59,15 +59,13 @@ void read_inputfile(char inputfile[], struct optScheme * const scheme)
                         if (permarray == NULL)
                                 exit(EXIT_FAILURE);
 
-                        if (bookie.sgs[0] != Z2)
-                        { /* Z2 symmetry was not included! */
+                        if (bookie.sgs[0] != Z2) { /* Z2 symmetry was not included! */
                                 enum symmetrygroup *tempsgs = safe_malloc(bookie.nrSyms + 1, enum symmetrygroup);
                                 int *temppermarray = safe_malloc(bookie.nrSyms + 1, int);
 
                                 tempsgs[0] = Z2;
                                 temppermarray[0] = -1;
-                                for (i = 0; i < bookie.nrSyms; i++)
-                                {
+                                for (i = 0; i < bookie.nrSyms; ++i) {
                                         tempsgs[i + 1]       = bookie.sgs[i];
                                         temppermarray[i + 1] = permarray[i];
                                 }
@@ -79,8 +77,7 @@ void read_inputfile(char inputfile[], struct optScheme * const scheme)
                         }
                 }
 
-                if (!valid_sgs(bookie.sgs, bookie.nrSyms))
-                {
+                if (!valid_sgs(bookie.sgs, bookie.nrSyms)) {
                         get_sgsstring(bookie.nrSyms, buffer);
                         fprintf(stderr, 
                                 "Error in reading input : Invalid combination of symmetry groups.\n"
@@ -123,18 +120,8 @@ void read_inputfile(char inputfile[], struct optScheme * const scheme)
                 printf("Targetstate = %s\n", buffer);
         }
 
-        { /* For the initialization of the network. */
-                if ((ro = read_option("networkfile", inputfile, buffer)) == -1)
-                        ro = read_option("nf", inputfile, buffer);
-                if (ro != 1)
-                {
-                        fprintf(stderr, "No valid networkfile specified in %s.\n", inputfile);
-                        exit(EXIT_FAILURE);
-                }
-                readnetwork(buffer);
-                printf("\n");
-                print_network();
-        }
+        read_network(inputfile);
+        print_network();
 
         { /* For the path to the interactions file. */
                 ro = read_option("interaction", inputfile, buffer);
@@ -160,6 +147,7 @@ int read_option(const char option[], const char inputfile[], char buffer[])
         char tempbuffer[255];
         FILE *fp = fopen(inputfile, "r");
         int nr_options = -1;
+        int flag = 1;
 
         if (fp == NULL) {
                 fprintf(stderr, "ERROR : failed reading input file %s.\n", 
@@ -170,9 +158,7 @@ int read_option(const char option[], const char inputfile[], char buffer[])
         buffer[0] = '\0';
         while (fgets(tempbuffer, sizeof tempbuffer, fp) != NULL) {
                 char *t = NULL;
-                char *b = buffer;
                 char *pch;
-                *b = '\0';
 
                 if (is_comment(tempbuffer))
                         continue;
@@ -180,6 +166,12 @@ int read_option(const char option[], const char inputfile[], char buffer[])
                 t = find_option(option, tempbuffer);
                 if (t == NULL)
                         continue;
+                if (!flag) {
+                        fprintf(stderr, "Error: Multiple definitions of %s in %s.\n",
+                                option, inputfile);
+                        exit(EXIT_FAILURE);
+                }
+                flag = 0;
                 nr_options = 0;
 
                 pch = strtok(t, STRTOKSEP);
@@ -187,13 +179,11 @@ int read_option(const char option[], const char inputfile[], char buffer[])
                         if (nr_options != 0)
                                 strcat(buffer, " ");
                         strcat(buffer, pch);
-                        nr_options++;
+                        ++nr_options;
 
                         pch = strtok(NULL, STRTOKSEP);
                 }
-                break;
         }
-
         fclose(fp);
         return nr_options;
 }
@@ -202,10 +192,10 @@ int read_option(const char option[], const char inputfile[], char buffer[])
 /* ===================== DEFINITION STATIC FUNCTIONS ======================== */
 /* ========================================================================== */
 
-static int is_comment(char buffer[])
+static int is_comment(const char buffer[])
 {
-        char *b = buffer;
-        while (isspace(*b)) b++;
+        const char * b = buffer;
+        while (isspace(*b)) ++b;
         switch(*b) { /* comments or empty line */
         case '!':
         case '#':
@@ -265,7 +255,6 @@ static int* read_symmetries(char line[], int sg)
                 pch = strtok(NULL, STRTOKSEP);
                 ++i;
         }
-
         idx = quickSort((int*) tempsgs, bookie.nrSyms);
 
         for (i = 0; i < bookie.nrSyms; ++i)
@@ -287,10 +276,8 @@ static int read_targetstate(char line[], int *permarray, int no_irr, int sg)
         if (sg == -1) { /* default symmetries were inserted */
                 if (no_irr != bookie.nrSyms || no_irr != bookie.nrSyms - 1) {
                         get_sgsstring(sg, buffer);
-                        fprintf(stderr,
-                                "Error in reading input : Target state doesn't have the correct number of symmetries.\n"
-                                "                         Following  symmetries were expected :\n"
-                                "                         %s\n", buffer);
+                        fprintf(stderr, "Error: Target state doesn't have the correct number of symmetries.\n"
+                                "Following  symmetries were expected : %s\n", buffer);
                         return 0;
                 }
 
@@ -309,10 +296,8 @@ static int read_targetstate(char line[], int *permarray, int no_irr, int sg)
         } else { /* Own symmetries were inserted. */
                 if (no_irr != sg) {
                         get_sgsstring(sg, buffer);
-                        fprintf(stderr,
-                                "Error in reading input : Target state doesn't have the correct number of symmetries.\n"
-                                "                         Following  symmetries were expected :\n"
-                                "                         %s\n", buffer);
+                        fprintf(stderr, "Error: Target state doesn't have the correct number of symmetries.\n"
+                                "Following  symmetries were expected : %s\n", buffer);
                         return 0;
                 }
 
@@ -330,7 +315,7 @@ static int read_targetstate(char line[], int *permarray, int no_irr, int sg)
                                 return 0;
                         }
                         pch = strtok(NULL, STRTOKSEP);
-                        i++;
+                        ++i;
                 }
         }
 

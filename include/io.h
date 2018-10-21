@@ -1,16 +1,16 @@
-#ifndef IO_H
-# define IO_H
+#pragma once
 
-#include "optimize_network.h"
+#include "optScheme.h"
 /**
  * \brief Reads the inputfile.
  *
  * \param [in] inputfile The inputfile.
+ * \param [out] scheme The optimization scheme is stored here.
  */
-void read_inputfile(char inputfile[], struct optScheme * const scheme);
+void read_inputfile(const char inputfile[], struct optScheme * const scheme);
 
 /**
- * \buffer Searches for an option in the inputfile and stores the set option 
+ * \brief Searches for an option in the inputfile and stores the set option 
  * in the buffer. Option is case insensitive, buffer is not.
  *
  * \param [in] option The option to search for.
@@ -19,4 +19,3 @@ void read_inputfile(char inputfile[], struct optScheme * const scheme);
  * \return The number of items set in buffer and -1 if option is not found.
  */
 int read_option(const char option[], const char inputfile[], char buffer[]);
-#endif

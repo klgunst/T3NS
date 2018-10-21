@@ -9,6 +9,7 @@
 #include "opType.h"
 #include "bookkeeper.h"
 #include "symmetries.h"
+#include "io_to_disk.h"
 
 enum hamtypes ham;
 
@@ -229,6 +230,49 @@ int MPO_couples_to_singlet(const int n, const int MPO[n])
                         __FILE__, __func__);
                 exit(EXIT_FAILURE);
         }
+}
+
+void write_hamiltonian_to_disk(const hid_t id)
+{
+        const hid_t group_id = H5Gcreate(id, "/hamiltonian", H5P_DEFAULT, 
+                                         H5P_DEFAULT, H5P_DEFAULT);
+        ints_write_attribute(group_id, "type", (int*) &ham, 1);
+
+        switch(ham) {
+        case QC :
+                QC_write_hamiltonian_to_disk(group_id);
+                break;
+        case NN_HUBBARD :
+                NN_H_write_hamiltonian_to_disk(group_id);
+                break;
+        default:
+                fprintf(stderr, "%s@%s: Not defined for the given hamiltonian.\n",
+                        __FILE__, __func__);
+                exit(EXIT_FAILURE);
+        }
+
+        H5Gclose(group_id);
+}
+
+void read_hamiltonian_from_disk(const hid_t id)
+{
+        const hid_t group_id = H5Gopen(id, "/hamiltonian", H5P_DEFAULT);
+        ints_read_attribute(group_id, "type", (int*) &ham);
+
+        switch(ham) {
+        case QC :
+                QC_read_hamiltonian_from_disk(group_id);
+                break;
+        case NN_HUBBARD :
+                NN_H_read_hamiltonian_from_disk(group_id);
+                break;
+        default:
+                fprintf(stderr, "%s@%s: Not defined for the given hamiltonian.\n",
+                        __FILE__, __func__);
+                exit(EXIT_FAILURE);
+        }
+
+        H5Gclose(group_id);
 }
 
 /* ========================================================================== */
