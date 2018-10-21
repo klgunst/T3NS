@@ -20,4 +20,4 @@ void random_init(struct siteTensor ** const T3NS, struct rOperators ** const rop
  * \param [in] scheme The optimization scheme to execute.
  */
 void execute_optScheme(struct siteTensor * const T3NS, struct rOperators * const rops, 
-    const struct optScheme * const  scheme);
+    const struct optScheme * const  scheme, const int bsize, char * saveloc);

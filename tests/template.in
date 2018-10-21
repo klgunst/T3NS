@@ -3,11 +3,11 @@ networkfile 	networks/10_T3NS.netw
 symm 		u1 u1 d2h
 ts 		7 7 0 
 
+interaction 	fcidumps/N2.STO3G.FCIDUMP
+
 minD 		100 	100 	150 	150 	150 	150
 maxD 		150 	150 	500 	600 	600 	600
 trunc_err 	1e-5 	1e-5 	1e-5 	1e-5 	1e-6 	1e-6
 david_its 	4 	100 	100 	100 	100 	100
 sweeps 		2 	6 	4 	4 	4 	4
 david_rtl 	1e-5 	1e-5 	1e-4 	1e-5 	1e-4 	1e-5
-
-interaction 	fcidumps/N2.STO3G.FCIDUMP

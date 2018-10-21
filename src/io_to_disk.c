@@ -2,6 +2,7 @@
 #include <stdio.h>
 #include <string.h>
 #include <hdf5.h>
+#include <unistd.h>
 
 #include "io_to_disk.h"
 #include "sparseblocks.h"
@@ -71,10 +72,7 @@ static void read_network_from_disk(const hid_t id);
 static void make_h5f_name(const char * hdf5_loc, const char hdf5file[], 
                           const int size, char hdf5_resulting[size])
 {
-        if (hdf5_loc == NULL)
-                strncpy(hdf5_resulting, H5_DEFAULT_LOCATION, size - 1);
-        else
-                strncpy(hdf5_resulting, hdf5_loc, size - 1);
+        strncpy(hdf5_resulting, hdf5_loc, size - 1);
         hdf5_resulting[size - 1] = '\0';
 
         int len = strlen(hdf5_resulting);
@@ -95,6 +93,9 @@ static void make_h5f_name(const char * hdf5_loc, const char hdf5file[],
 void write_to_disk(const char * hdf5_loc, const struct siteTensor * const T3NS, 
                    const struct rOperators * const ops)
 {
+        if (hdf5_loc == NULL)
+                return;
+
         hid_t file_id;
         const char hdf5nam[] = "T3NScalc.h5";
         const int size = 255;
@@ -115,6 +116,12 @@ void write_to_disk(const char * hdf5_loc, const struct siteTensor * const T3NS,
 void read_from_disk(const char filename[], struct siteTensor ** const T3NS, 
                     struct rOperators ** const ops)
 {
+        if (access(filename, F_OK) != 0) {
+                fprintf(stderr, "Error in %s: Can not read from disk.\n"
+                        "%s was not found.\n", __func__, filename);
+                exit(EXIT_FAILURE);
+        }
+
         hid_t file_id = H5Fopen(filename, H5F_ACC_RDONLY, H5P_DEFAULT);
 
         read_network_from_disk(file_id);

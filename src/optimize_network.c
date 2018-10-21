@@ -4,6 +4,7 @@
 #include <math.h>
 
 #include "optimize_network.h"
+#include "io_to_disk.h"
 #include "network.h"
 #include "bookkeeper.h"
 #include "lapack.h"
@@ -29,7 +30,8 @@ static void init_rops(struct rOperators * const rops, const struct siteTensor * 
 
 /* This executes a regime */
 static double execute_regime(struct siteTensor * const T3NS, struct rOperators * const rops, 
-    const struct regime * const reg, const int regnumber);
+    const struct regime * const reg, const int regnumber, const int bsize,
+    char * saveloc);
 
 /* This executes a sweep in the regime */
 static double execute_sweep_in_regime(struct siteTensor * const T3NS, struct rOperators * const 
@@ -96,14 +98,15 @@ void random_init(struct siteTensor ** const T3NS, struct rOperators ** const rop
 }
 
 void execute_optScheme(struct siteTensor * const T3NS, struct rOperators * const rops, 
-    const struct optScheme * const  scheme)
+    const struct optScheme * const  scheme, const int bsize, char * saveloc)
 {
   double energy = 3000;
   int i;
 
   printf("============================================================================\n");
   for (i = 0; i < scheme->nrRegimes; ++i) {
-    double current_energy = execute_regime(T3NS, rops, &scheme->regimes[i], i + 1);
+    double current_energy = execute_regime(T3NS, rops, &scheme->regimes[i], i + 1,
+                                           bsize, saveloc);
     if (current_energy  < energy) energy = current_energy;
   }
 
@@ -170,7 +173,8 @@ static void init_rops(struct rOperators * const rops,
 }
 
 static double execute_regime(struct siteTensor * const T3NS, struct rOperators * const rops, 
-    const struct regime * const reg, const int regnumber)
+    const struct regime * const reg, const int regnumber, const int bsize,
+    char * saveloc)
 {
   int flag = 1;
   int sweepnrs = 0;
@@ -199,6 +203,7 @@ static double execute_regime(struct siteTensor * const T3NS, struct rOperators *
 
     flag = fabs(energy - sweep_energy) > reg->energy_conv;
     if (sweep_energy < energy) energy = sweep_energy;
+    write_to_disk(saveloc, T3NS, rops);
   }
 
   printf("============================================================================\n" );

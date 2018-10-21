@@ -1,5 +1,6 @@
 #include <stdlib.h>
 #include <stdio.h>
+#include <string.h>
 #include <ctype.h>
 
 #include "symmetries.h"
@@ -97,6 +98,24 @@ const char * symmetrynames[] = {
 const char * get_symstring(enum symmetrygroup sg)
 {
         return symmetrynames[sg];
+}
+
+void get_allsymstringnames(const int buffersize, char buffer[buffersize])
+{
+        const int nrsymm = sizeof symmetrynames / sizeof symmetrynames[0];
+        int len = buffersize - 1;
+        buffer[0] = '\0';
+        for (int i = 0; i < nrsymm; ++i) {
+                strncat(buffer, get_symstring(i), len);
+                len -= strlen(get_symstring(i));
+                if (i < nrsymm - 1) {
+                        strncat(buffer, ", ", len);
+                        len -= strlen(", ");
+                }
+                if(len < 0)
+                        fprintf(stderr, "%s@%s: Buffer provided not large enough.\n",
+                                __FILE__, __func__);
+        }
 }
 
 int which_symmgroup(char buffer[], enum symmetrygroup *sg)
