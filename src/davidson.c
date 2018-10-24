@@ -15,25 +15,25 @@
 /* ==================== DECLARATION STATIC FUNCTIONS ======================== */
 /* ========================================================================== */
 
-static void new_search_vector(double* V, double* vec_t, int basis_size, int m);
+static void new_search_vector(double* V, double* vec_t, long long basis_size, int m);
 
 static void expand_submatrix(double* const submatrix, double* const V, double* const VA, 
-    const int max_vectors, const int basis_size, const int m);
+    const int max_vectors, const long long basis_size, const int m);
 
 static double calculate_residue(double* const residue, double* const result, double* const eigv, 
-    const double theta, double* const V, double* const VA, const int basis_size, const int m);
+    const double theta, double* const V, double* const VA, const long long basis_size, const int m);
 
 static void create_new_vec_t(double* const residue, const double* const diagonal, const double theta, 
     const int size);
 
-static void deflate(double* sub_matrix, double* V, double* VA, int max_vectors, int basis_size, 
+static void deflate(double* sub_matrix, double* V, double* VA, int max_vectors, long long basis_size, 
     int keep_deflate, double* eigv);
 
 /* ========================================================================== */
 
 /* For algorithm see http://people.inf.ethz.ch/arbenz/ewp/Lnotes/chapter12.pdf, algorithm 12.1 */
 int davidson(double* result, double* energy, int max_vectors, int keep_deflate, \
-    double davidson_tol, void (*matvec)(double*, double*, void*), const double* diagonal, int basis_size,
+    double davidson_tol, void (*matvec)(double*, double*, void*), const double* diagonal, long long basis_size,
     int max_its, void *vdat)
 {
 
@@ -134,7 +134,7 @@ int davidson(double* result, double* energy, int max_vectors, int keep_deflate, 
 /* ========================================================================== */
 /* ===================== DEFINITION STATIC FUNCTIONS ======================== */
 /* ========================================================================== */
-static void new_search_vector(double* V, double* vec_t, int basis_size, int m){
+static void new_search_vector(double* V, double* vec_t, long long basis_size, int m){
   int ONE = 1;
   double *Vi = V;
   double a;
@@ -180,7 +180,7 @@ static void new_search_vector(double* V, double* vec_t, int basis_size, int m){
 }
 
 static void expand_submatrix(double* const submatrix, double* const V, double* const VA, 
-    const int max_vectors, const int basis_size, const int m)
+    const int max_vectors, const long long basis_size, const int m)
 {
 
   const int I_ONE = 1;
@@ -197,7 +197,7 @@ static void expand_submatrix(double* const submatrix, double* const V, double* c
 }
 
 static double calculate_residue(double* const residue, double* const result, double* const eigv, 
-    const double theta, double* const V, double* const VA, const int basis_size, const int m)
+    const double theta, double* const V, double* const VA, const long long basis_size, const int m)
 {
   const int I_ONE = 1;
   int i;
@@ -230,7 +230,7 @@ static void create_new_vec_t(double* const residue, const double* const diagonal
     }
 }
 
-static void deflate(double* sub_matrix, double* V, double* VA, int max_vectors, int basis_size, 
+static void deflate(double* sub_matrix, double* V, double* VA, int max_vectors, long long basis_size, 
     int keep_deflate, double* eigv)
 {
 

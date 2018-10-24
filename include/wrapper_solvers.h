@@ -37,7 +37,7 @@
  * \param [in] davidson_max_vec Number of maximum vectors to be taken into
  * account before deflation is needed in the Davidson algorithm.
  */
-int sparse_eigensolve(double * vec, int dims, double* energy, 
+int sparse_eigensolve(double * vec, long long dims, double* energy, 
                       void (*matvec)(double*, double*, void*), 
                       const double * diagonal, double tol, int max_its, 
                       const char solver[], int davidson_keep, 
