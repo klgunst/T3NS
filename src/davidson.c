@@ -23,7 +23,7 @@ static void expand_submatrix(double* const submatrix, double* const V, double* c
 static double calculate_residue(double* const residue, double* const result, double* const eigv, 
     const double theta, double* const V, double* const VA, const int basis_size, const int m);
 
-static void create_new_vec_t(double* const residue, double* const diagonal, const double theta, 
+static void create_new_vec_t(double* const residue, const double* const diagonal, const double theta, 
     const int size);
 
 static void deflate(double* sub_matrix, double* V, double* VA, int max_vectors, int basis_size, 
@@ -33,7 +33,7 @@ static void deflate(double* sub_matrix, double* V, double* VA, int max_vectors, 
 
 /* For algorithm see http://people.inf.ethz.ch/arbenz/ewp/Lnotes/chapter12.pdf, algorithm 12.1 */
 int davidson(double* result, double* energy, int max_vectors, int keep_deflate, \
-    double davidson_tol, void (*matvec)(double*, double*, void*), double* diagonal, int basis_size,
+    double davidson_tol, void (*matvec)(double*, double*, void*), const double* diagonal, int basis_size,
     int max_its, void *vdat)
 {
 
@@ -215,7 +215,7 @@ static double calculate_residue(double* const residue, double* const result, dou
   return sqrt(norm2);
 }
 
-static void create_new_vec_t(double* const residue, double* const diagonal, const double theta, 
+static void create_new_vec_t(double* const residue, const double* const diagonal, const double theta, 
     const int size)
 {
   /* quick implementation */

@@ -77,7 +77,7 @@ int main(int argc, char *argv[])
 /* ===================== DEFINITION STATIC FUNCTIONS ======================== */
 /* ========================================================================== */
 
-const char *argp_program_version     = "T3NS 1.0";
+const char *argp_program_version     = "T3NS 0.1";
 const char *argp_program_bug_address = "<Klaas.Gunst@UGent.be>";
 
 /* A description of the program */
