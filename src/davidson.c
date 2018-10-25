@@ -30,6 +30,9 @@ static void create_new_vec_t(double* const residue, const double* const diagonal
 static void deflate(double* sub_matrix, double* V, double* VA, int max_vectors, int basis_size, 
     int keep_deflate, double* eigv);
 
+static int check_max_vectors_i_can_allocate(int max_vectors, int keep_deflate, 
+                                            int basis_size);
+
 /* ========================================================================== */
 
 /* For algorithm see http://people.inf.ethz.ch/arbenz/ewp/Lnotes/chapter12.pdf, algorithm 12.1 */
@@ -69,6 +72,8 @@ int davidson(double* result, double* energy, int max_vectors, int keep_deflate, 
           }
           fprintf(stderr, "%d vectors will be stored instead.\n", max_vectors);
   }
+  max_vectors = check_max_vectors_i_can_allocate(max_vectors, keep_deflate, 
+                                                 basis_size);
 
   /* Projected problem */
   double *sub_matrix = safe_malloc(max_vectors * max_vectors, double);
@@ -270,4 +275,28 @@ static void deflate(double* sub_matrix, double* V, double* VA, int max_vectors, 
 
   for (i = 0; i < keep_deflate; i++)
     expand_submatrix(sub_matrix, V, VA, max_vectors, basis_size, i);
+}
+
+static int check_max_vectors_i_can_allocate(int max_vectors, int keep_deflate, 
+                                            int basis_size)
+{
+        int new_mvecs = max_vectors;
+        for (; new_mvecs >= 0; --new_mvecs) {
+                /* last one is to have at least some room left for other things */
+                const long long total = new_mvecs * 3 + keep_deflate + 1 + 1;
+                void * pn = malloc(sizeof(double) * total * basis_size);
+                if (pn != NULL) {
+                        free(pn);
+                        break;
+                }
+        }
+        if (new_mvecs <= 0) {
+                fprintf(stderr, "Error @%s: Davidson will not be able to allocate memory for a basissize of %d.\n"
+                        "Fatal error.\n", __func__, basis_size);
+                exit(EXIT_FAILURE);
+        } else if (new_mvecs != max_vectors) {
+                printf("Note @%s: Davidson will not be able to allocate enough memory to keep %d vectors.\n"
+                       "It will keep instead %d vectors.\n", __func__, max_vectors, new_mvecs);
+        }
+        return new_mvecs;
 }
