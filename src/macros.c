@@ -18,7 +18,7 @@ void* safe_malloc_helper(long long s, size_t t, const char *typ, const char *fil
   if (pn == NULL || s < 0){
     const char *filname = strrchr(file, '/') + 1;
     fprintf(stderr, "%s:%d @%s :: Failed to allocate %s array of size %lld (%llu bytes)!\n"
-            "Maximal size of size_t : %ld\n",
+            "Maximal size of size_t : %lu\n",
         filname == NULL ? file : filname, line, func, typ, s, s*t, SIZE_MAX);
     print_status();
     exit(EXIT_FAILURE);
@@ -32,7 +32,7 @@ void* safe_calloc_helper(long long s, size_t t, const char *typ, const char *fil
   if (pn == NULL || s < 0){
     const char *filname = strrchr(file, '/') + 1;
     fprintf(stderr, "%s:%d @%s :: Failed to reallocate %s array of size %lld (%llu bytes)!\n"
-            "Maximal size of size_t : %ld\n",
+            "Maximal size of size_t : %lu\n",
         filname == NULL ? file : filname, line, func, typ, s, s*t, SIZE_MAX);
     print_status();
     exit(EXIT_FAILURE);

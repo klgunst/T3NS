@@ -3,6 +3,7 @@
 #include <sys/time.h>
 #include <math.h>
 #include <omp.h>
+#include <stdint.h>
 
 #include "lapack.h"
 #include "debug.h"
@@ -57,6 +58,17 @@ int davidson(double* result, double* energy, int max_vectors, int keep_deflate, 
   printf("Dimension of davidson : %d\n", basis_size);
   printf("IT\tINFO\tRESIDUE\tENERGY\n");
 #endif
+
+  if ((long long) basis_size * max_vectors > SIZE_MAX) {
+          fprintf(stderr, "Error @%s: %d vectors of size %d cannot be assigned in one chunck. size_t not large enough (max. %lu).\n",
+                  __func__, max_vectors, basis_size, SIZE_MAX);
+          max_vectors = SIZE_MAX / basis_size;
+          if (max_vectors == 0) {
+                  fprintf(stderr, "Not even 1 vector can be stored. Fatal.\n");
+                  exit(EXIT_FAILURE);
+          }
+          fprintf(stderr, "%d vectors will be stored instead.\n", max_vectors);
+  }
 
   /* Projected problem */
   double *sub_matrix = safe_malloc(max_vectors * max_vectors, double);
