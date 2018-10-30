@@ -12,23 +12,19 @@
 
 static void initialize_program(struct siteTensor **T3NS, 
                                struct rOperators **rops, 
-                               struct optScheme * scheme, const int testnr)
+                               struct optScheme * scheme)
 {
-        static int tstate[][4] = {{0,7,7}, {0,7,7,0}, {0,14,0}, {0,14,0,0}};
-        static int nrsyms[4] = {3,4,3,4};
-        static enum symmetrygroup sgs[][4] = {
-                {Z2,U1,U1},
-                {Z2,U1,U1,D2h},
-                {Z2,U1,SU2},
-                {Z2,U1,SU2, D2h}
-        };
+        static int tstate[4] = {0,6,0,1};
+        static enum symmetrygroup sgs[4] = {Z2,U1,SU2, C2v};
+        static int nrsyms = 4;
+
         init_bookie();
         init_netw();
-        bookie.target_state = tstate[testnr];
-        bookie.nrSyms = nrsyms[testnr];
-        bookie.sgs = sgs[testnr];
-        make_network("${CMAKE_SOURCE_DIR}/tests/networks/10_T3NS.netw");
-        readinteraction("${CMAKE_SOURCE_DIR}/tests/fcidumps/N2.STO3G.FCIDUMP");
+        bookie.target_state = tstate;
+        bookie.nrSyms = nrsyms;
+        bookie.sgs = sgs;
+        make_network("${CMAKE_SOURCE_DIR}/tests/networks/lif_T3NS.netw");
+        readinteraction("${CMAKE_SOURCE_DIR}/tests/fcidumps/LiF_3.05.FCIDUMP");
         create_list_of_symsecs(scheme->regimes[0].minD);
         random_init(T3NS, rops);
 }
@@ -62,22 +58,19 @@ static void cleanup_before_exit(struct siteTensor **T3NS,
 int main(int argc, char *argv[])
 {
         static struct regime reg[2] = {
-                {1000, 1000, 1e-4, 2, 1e-6, 4, 2, 1e-8},
-                {1000, 1000, 1e-4, 2, 1e-6, 100, 10, 1e-8}
+                {100, 100, 1e-4, 2, 1e-6, 4, 2, 1e-4},
+                {100, 100, 1e-4, 2, 1e-6, 100, 10, 1e-6}
         };
         static struct optScheme scheme = {2, reg};
+        const double conv_energy = -106.8889308194337247;
 
         struct siteTensor *T3NS;
         struct rOperators *rops;
 
-        int OK = 1;
-        for (int i = 0; i < 4; ++i) {
-                initialize_program(&T3NS, &rops, &scheme, i);
-                double energy = execute_optScheme(T3NS, rops, &scheme, 0, NULL);
-                cleanup_before_exit(&T3NS, &rops, &scheme);
-                OK = fabs(energy + 107.648250974014) < 1e-8 && OK;
-        }
-
+        initialize_program(&T3NS, &rops, &scheme);
+        double energy = execute_optScheme(T3NS, rops, &scheme, 0, NULL);
+        cleanup_before_exit(&T3NS, &rops, &scheme);
+        const int OK = fabs(energy - conv_energy) < 1e-5;
 
         if (OK) {
                 printf("\t==> Test passed\n");

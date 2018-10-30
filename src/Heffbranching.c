@@ -355,7 +355,7 @@ static void make_cinfo(struct indexdata * const idd, struct contractinfo cinfo[3
 {
   const int contractorder[6][3] = {{0,1,2}, {0,2,1}, {1,0,2}, {1,2,0}, {2,0,1}, {2,1,0}};
   int i;
-  int best;
+  int best = 0;
   int nr_operations = 0;
 
   for (i = 0; i < 6; ++i)

@@ -27,7 +27,7 @@ static void initialize_program(struct siteTensor **T3NS,
         bookie.target_state = tstate[testnr];
         bookie.nrSyms = nrsyms[testnr];
         bookie.sgs = sgs[testnr];
-        make_network("${CMAKE_SOURCE_DIR}/tests/networks/10_T3NS.netw");
+        make_network("${CMAKE_SOURCE_DIR}/tests/networks/10_DMRG.netw");
         readinteraction("${CMAKE_SOURCE_DIR}/tests/fcidumps/N2.STO3G.FCIDUMP");
         create_list_of_symsecs(scheme->regimes[0].minD);
         random_init(T3NS, rops);
