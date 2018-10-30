@@ -11,7 +11,7 @@ set(CMAKE_MODULE_PATH "${PROJECT_SOURCE_DIR}/cmake/Modules")
 option(DEBUG 		"Debug symbols used" 			  OFF)
 option(DEBUGFLAG        "Compile with DDEBUG flag" 		  OFF)
 option(LOWOPT 		"Optimization level of compilation O/O3"  OFF)
-option(ENABLE_TESTS 	"Compile the tests" 			  ON)
+option(BUILD_TESTING 	"Compile the tests" 			  ON)
 
 # Find Lapack or MKL
 if("${CMAKE_C_COMPILER_ID}" MATCHES "Intel")
@@ -83,7 +83,7 @@ configure_file(
 include_directories(include ${CMAKE_BINARY_DIR})
 add_subdirectory(src)
 
-if (ENABLE_TESTS)
-    include(CTest)
+include(CTest)
+if(BUILD_TESTING)
     add_subdirectory(tests)
 endif()

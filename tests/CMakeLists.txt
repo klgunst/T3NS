@@ -9,11 +9,5 @@ foreach(ITEM ${TESTLIST})
     add_test(${ITEM} ${TESTDIR}/${ITEM})
     set_tests_properties(${ITEM}
 	PROPERTIES
-	PASS_REGULAR_EXPRESSION "Test passed")
-    set_tests_properties(${ITEM}
-	PROPERTIES
-	FAIL_REGULAR_EXPRESSION "(Error|Test failed)")
-    set_tests_properties(${ITEM}
-	PROPERTIES
 	TIMEOUT 1200)
 endforeach()
