@@ -19,5 +19,5 @@ void random_init(struct siteTensor ** const T3NS, struct rOperators ** const rop
  * \param [in, out] rops Pointer to the rOperators array representing the renormalized operators.
  * \param [in] scheme The optimization scheme to execute.
  */
-void execute_optScheme(struct siteTensor * const T3NS, struct rOperators * const rops, 
+double execute_optScheme(struct siteTensor * const T3NS, struct rOperators * const rops, 
     const struct optScheme * const  scheme, const int bsize, char * saveloc);

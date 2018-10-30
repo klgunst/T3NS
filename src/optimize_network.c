@@ -97,7 +97,7 @@ void random_init(struct siteTensor ** const T3NS, struct rOperators ** const rop
   }
 }
 
-void execute_optScheme(struct siteTensor * const T3NS, struct rOperators * const rops, 
+double execute_optScheme(struct siteTensor * const T3NS, struct rOperators * const rops, 
     const struct optScheme * const  scheme, const int bsize, char * saveloc)
 {
   double energy = 3000;
@@ -117,6 +117,7 @@ void execute_optScheme(struct siteTensor * const T3NS, struct rOperators * const
           "\n", energy);
 
   print_timers();
+  return energy;
 }
 
 /* ========================================================================== */

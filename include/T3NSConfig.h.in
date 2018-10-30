@@ -1,0 +1,5 @@
+#pragma once
+
+#define T3NS_VERSION "@T3NS_VERSION@ (@THISTIME@)"
+#define T3NS_DESCRIPTION "@T3NS_DESCRIPTION@"
+#define T3NS_MAIL "@T3NS_MAIL@"

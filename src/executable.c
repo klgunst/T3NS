@@ -8,6 +8,7 @@
 #include <sys/stat.h>
 #include <sys/types.h>
 
+#include "T3NSConfig.h"
 #include "io.h"
 #include "io_to_disk.h"
 #include "macros.h"
@@ -77,17 +78,16 @@ int main(int argc, char *argv[])
 /* ===================== DEFINITION STATIC FUNCTIONS ======================== */
 /* ========================================================================== */
 
-const char *argp_program_version     = "T3NS 0.1";
-const char *argp_program_bug_address = "<Klaas.Gunst@UGent.be>";
+const char *argp_program_version     = "T3NS " T3NS_VERSION;
+const char *argp_program_bug_address = "<" T3NS_MAIL ">";
 
 /* A description of the program */
 static char doc[] =
-"T3NS -- An implementation of the three-legged tree tensor networks for\n"
-"        fermionic systems."
+T3NS_DESCRIPTION
 "\n\n"
-"------------------------------------------------------------------------------\n"
+"==============================================================================\n"
 "                                 INPUT_FILE\n"
-"------------------------------------------------------------------------------\n"
+"==============================================================================\n"
 "\n"
 "NETWORKFILE      = Path to the network-file.\n"
 "\n"

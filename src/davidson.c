@@ -51,6 +51,8 @@ int davidson(double* result, double* energy, int max_vectors, int keep_deflate, 
   int m = 0;
   double residue_norm = davidson_tol * 10;
   double d_energy = davidson_tol * 10;
+  max_vectors = check_max_vectors_i_can_allocate(max_vectors, keep_deflate, 
+                                                 basis_size);
 #ifdef DAVIDIT
   struct timeval t_start, t_end;
   long long t_elapsed;
@@ -62,18 +64,6 @@ int davidson(double* result, double* energy, int max_vectors, int keep_deflate, 
   printf("IT\tINFO\tRESIDUE\tENERGY\n");
 #endif
 
-  if ((long long) basis_size * max_vectors > SIZE_MAX) {
-          fprintf(stderr, "Error @%s: %d vectors of size %d cannot be assigned in one chunck. size_t not large enough (max. %lu).\n",
-                  __func__, max_vectors, basis_size, SIZE_MAX);
-          max_vectors = SIZE_MAX / basis_size;
-          if (max_vectors == 0) {
-                  fprintf(stderr, "Not even 1 vector can be stored. Fatal.\n");
-                  exit(EXIT_FAILURE);
-          }
-          fprintf(stderr, "%d vectors will be stored instead.\n", max_vectors);
-  }
-  max_vectors = check_max_vectors_i_can_allocate(max_vectors, keep_deflate, 
-                                                 basis_size);
 
   /* Projected problem */
   double *sub_matrix = safe_malloc(max_vectors * max_vectors, double);
@@ -296,7 +286,9 @@ static int check_max_vectors_i_can_allocate(int max_vectors, int keep_deflate,
                 exit(EXIT_FAILURE);
         } else if (new_mvecs != max_vectors) {
                 printf("Note @%s: Davidson will not be able to allocate enough memory to keep %d vectors.\n"
-                       "It will keep instead %d vectors.\n", __func__, max_vectors, new_mvecs);
+                       "It will keep instead %d vectors.\n", 
+                       __func__, max_vectors, new_mvecs);
         }
+
         return new_mvecs;
 }

@@ -30,13 +30,13 @@ static void get_sites_to_opt(int sites_next[4], const int maxsites, const int cu
 
 static void get_bonds_involved(int bonds_involved[3], const int sites_opt[4]);
 
-static void make_network(const char netwfile[]);
-
 /* ========================================================================== */
 
-void read_network(const char inputfile[])
+void read_network(const char inputfile[], const int buflen, 
+                  const char relpath[buflen])
 { 
         char buffer[255];
+        char buffer2[255];
         int ro;
 
         if ((ro = read_option("networkfile", inputfile, buffer)) == -1)
@@ -47,7 +47,149 @@ void read_network(const char inputfile[])
                 exit(EXIT_FAILURE);
         }
 
-        make_network(buffer);
+        strncpy(buffer2, relpath, buflen);
+        strncat(buffer2, buffer, buflen - strlen(buffer2));
+
+        make_network(buffer2);
+}
+
+void make_network(const char netwfile[])
+{
+        char buffer[255];
+        int starting, ending, cnt, ln_cnt, site_cnt;
+        char kind;
+        FILE *fp = fopen(netwfile, "r");
+
+        if (fp == NULL) {
+                fprintf(stderr, "ERROR : Failed reading networkfile %s.\n", netwfile);
+                exit(EXIT_FAILURE);
+        }
+
+        ln_cnt = 0;
+
+        while (fgets(buffer, sizeof buffer, fp) != NULL) {
+                ln_cnt++;
+                sscanf(buffer, " NR_SITES = %d ", &netw.sites);
+                sscanf(buffer, " NR_PHYS_SITES = %d ", &netw.psites);
+                sscanf(buffer, " NR_BONDS = %d ", &netw.nr_bonds);
+                sscanf(buffer, " SWEEP_LENGTH = %d ", &netw.sweeplength);
+                if (!(strcmp_ign_ws(buffer, "&END") && strcmp_ign_ws(buffer, "/END") && 
+                      strcmp_ign_ws(buffer, "/")))
+                        break;
+        }
+
+        netw.sitetoorb = safe_calloc(netw.sites, int);
+        ln_cnt++;
+        site_cnt = 0;
+        while ((kind = getc(fp)) != '\n') {
+                int value = kind - '0';
+                if (kind == ' ') {
+                        if (netw.sitetoorb[site_cnt] < 0)
+                                netw.sitetoorb[site_cnt] = -1;
+                        site_cnt++;
+                } else if ((value <= 9) && (value >= 0)) {
+                        netw.sitetoorb[site_cnt] = 10 * netw.sitetoorb[site_cnt] + value;
+                } else if (kind == '*') {
+                        netw.sitetoorb[site_cnt] = -1;
+                } else {
+                        fprintf(stderr, "Wrong format of the sitetoorb array at line %d!\n", ln_cnt);
+                        exit(EXIT_FAILURE);
+                }
+        }
+
+        if (site_cnt != netw.sites) {
+                fprintf(stderr, "Wrong number of sites in the sitetoorb array at line %d!\n", ln_cnt);
+                exit(EXIT_FAILURE);
+        }
+
+        site_cnt = 0;
+        for (cnt = 0; cnt < netw.sites; cnt++) site_cnt += netw.sitetoorb[cnt] >= 0;
+        if (site_cnt != netw.psites) {
+                fprintf(stderr, "Wrong number of psites in the sitetoorb array at line %d!\n", ln_cnt);
+                exit(EXIT_FAILURE);
+        }
+
+        /* skipping all the rest until start of the network definition */
+        while (fgets(buffer, sizeof buffer, fp) != NULL) {
+                ln_cnt++;
+                if (!(strcmp_ign_ws(buffer, "&END") && strcmp_ign_ws(buffer, "/END") && 
+                      strcmp_ign_ws(buffer, "/")))
+                        break;
+        }
+
+        netw.sweep = safe_calloc(netw.sweeplength, int);
+        ln_cnt++;
+        site_cnt = 0;
+        while ((kind = getc(fp)) != '\n') {
+                int value = kind - '0';
+                if (kind == ' ') {
+                        site_cnt++;
+                } else if ((value <= 9) && (value >= 0)) {
+                        netw.sweep[site_cnt] = 10 * netw.sweep[site_cnt] + value;
+                } else {
+                        fprintf(stderr, "Wrong format of the sweep array at line %d!\n", ln_cnt);
+                        exit(EXIT_FAILURE);
+                }
+        }
+
+        if (site_cnt != netw.sweeplength){
+                fprintf(stderr, "Wrong number of sweep instructions in the sweep_order array at line %d!\n", 
+                        ln_cnt);
+                exit(EXIT_FAILURE);
+        }
+
+        /* skipping all the rest until start of the network definition */
+        while (fgets(buffer, sizeof buffer, fp) != NULL) {
+                ln_cnt++;
+                if (!(strcmp_ign_ws(buffer, "&END") && strcmp_ign_ws(buffer, "/END") && 
+                      strcmp_ign_ws(buffer, "/")))
+                        break;
+        }
+
+        netw.bonds = safe_malloc(2 * netw.nr_bonds, int);
+
+        site_cnt = 0;
+        while (fgets(buffer, sizeof buffer, fp) != NULL) {
+                cnt = sscanf(buffer, " %d %d ", &starting, &ending);
+                ln_cnt++;
+                if (site_cnt >= netw.nr_bonds) {
+                        fprintf(stderr, "More bonds given then defined!\n");
+                        exit(EXIT_FAILURE);
+                }
+
+                if (cnt != 2) {
+                        fprintf(stderr, "Error in reading network : wrong formatting at line %d!\n", ln_cnt);
+                        exit(EXIT_FAILURE);
+                }
+
+                /* check if the inputted site numbering is legal */
+                if (starting < -1 || starting >= netw.sites || ending < -1 || ending >= netw.sites) {
+                        fprintf(stderr, "At line %d in file %s, illegal site is inputted!\n", ln_cnt, netwfile);
+                        fprintf(stderr, "This can be a site label higher than the number of sites or a label" 
+                                " smaller than 0!\n");
+                        exit(EXIT_FAILURE);
+                }
+
+                netw.bonds[site_cnt * 2]     = starting;
+                netw.bonds[site_cnt * 2 + 1] = ending;
+                site_cnt++;
+        }
+        fclose(fp);
+
+        /* check if the number of sites given in header correspond with those in the network. */
+        if (site_cnt != netw.nr_bonds) {
+                fprintf(stderr, "The number of bonds given in the header does not correspond with the number"
+                        "of bonds defined in the network! (%d neq %d)\n", site_cnt, netw.nr_bonds);
+                exit(EXIT_FAILURE);
+        }
+
+        if (check_network()) {
+                fprintf(stderr, "Something is wrong with your network, check the network file (%s)!", netwfile);
+                exit(EXIT_FAILURE);
+        }
+
+        create_nr_left_psites();
+        create_order_psites();
 }
 
 void init_netw(void)
@@ -520,143 +662,4 @@ static void get_bonds_involved(int bonds_involved[3], const int sites_opt[4])
                 swap(&bonds_involved[1], &bonds_involved[2]);
         if (bonds_involved[0] > bonds_involved[1])
                 swap(&bonds_involved[0], &bonds_involved[1]);
-}
-
-static void make_network(const char netwfile[])
-{
-        char buffer[255];
-        int starting, ending, cnt, ln_cnt, site_cnt;
-        char kind;
-        FILE *fp = fopen(netwfile, "r");
-
-        if (fp == NULL) {
-                fprintf(stderr, "ERROR : Failed reading networkfile %s.\n", netwfile);
-                exit(EXIT_FAILURE);
-        }
-
-        ln_cnt = 0;
-
-        while (fgets(buffer, sizeof buffer, fp) != NULL) {
-                ln_cnt++;
-                sscanf(buffer, " NR_SITES = %d ", &netw.sites);
-                sscanf(buffer, " NR_PHYS_SITES = %d ", &netw.psites);
-                sscanf(buffer, " NR_BONDS = %d ", &netw.nr_bonds);
-                sscanf(buffer, " SWEEP_LENGTH = %d ", &netw.sweeplength);
-                if (!(strcmp_ign_ws(buffer, "&END") && strcmp_ign_ws(buffer, "/END") && 
-                      strcmp_ign_ws(buffer, "/")))
-                        break;
-        }
-
-        netw.sitetoorb = safe_calloc(netw.sites, int);
-        ln_cnt++;
-        site_cnt = 0;
-        while ((kind = getc(fp)) != '\n') {
-                int value = kind - '0';
-                if (kind == ' ') {
-                        if (netw.sitetoorb[site_cnt] < 0)
-                                netw.sitetoorb[site_cnt] = -1;
-                        site_cnt++;
-                } else if ((value <= 9) && (value >= 0)) {
-                        netw.sitetoorb[site_cnt] = 10 * netw.sitetoorb[site_cnt] + value;
-                } else if (kind == '*') {
-                        netw.sitetoorb[site_cnt] = -1;
-                } else {
-                        fprintf(stderr, "Wrong format of the sitetoorb array at line %d!\n", ln_cnt);
-                        exit(EXIT_FAILURE);
-                }
-        }
-
-        if (site_cnt != netw.sites) {
-                fprintf(stderr, "Wrong number of sites in the sitetoorb array at line %d!\n", ln_cnt);
-                exit(EXIT_FAILURE);
-        }
-
-        site_cnt = 0;
-        for (cnt = 0; cnt < netw.sites; cnt++) site_cnt += netw.sitetoorb[cnt] >= 0;
-        if (site_cnt != netw.psites) {
-                fprintf(stderr, "Wrong number of psites in the sitetoorb array at line %d!\n", ln_cnt);
-                exit(EXIT_FAILURE);
-        }
-
-        /* skipping all the rest until start of the network definition */
-        while (fgets(buffer, sizeof buffer, fp) != NULL) {
-                ln_cnt++;
-                if (!(strcmp_ign_ws(buffer, "&END") && strcmp_ign_ws(buffer, "/END") && 
-                      strcmp_ign_ws(buffer, "/")))
-                        break;
-        }
-
-        netw.sweep = safe_calloc(netw.sweeplength, int);
-        ln_cnt++;
-        site_cnt = 0;
-        while ((kind = getc(fp)) != '\n') {
-                int value = kind - '0';
-                if (kind == ' ') {
-                        site_cnt++;
-                } else if ((value <= 9) && (value >= 0)) {
-                        netw.sweep[site_cnt] = 10 * netw.sweep[site_cnt] + value;
-                } else {
-                        fprintf(stderr, "Wrong format of the sweep array at line %d!\n", ln_cnt);
-                        exit(EXIT_FAILURE);
-                }
-        }
-
-        if (site_cnt != netw.sweeplength){
-                fprintf(stderr, "Wrong number of sweep instructions in the sweep_order array at line %d!\n", 
-                        ln_cnt);
-                exit(EXIT_FAILURE);
-        }
-
-        /* skipping all the rest until start of the network definition */
-        while (fgets(buffer, sizeof buffer, fp) != NULL) {
-                ln_cnt++;
-                if (!(strcmp_ign_ws(buffer, "&END") && strcmp_ign_ws(buffer, "/END") && 
-                      strcmp_ign_ws(buffer, "/")))
-                        break;
-        }
-
-        netw.bonds = safe_malloc(2 * netw.nr_bonds, int);
-
-        site_cnt = 0;
-        while (fgets(buffer, sizeof buffer, fp) != NULL) {
-                cnt = sscanf(buffer, " %d %d ", &starting, &ending);
-                ln_cnt++;
-                if (site_cnt >= netw.nr_bonds) {
-                        fprintf(stderr, "More bonds given then defined!\n");
-                        exit(EXIT_FAILURE);
-                }
-
-                if (cnt != 2) {
-                        fprintf(stderr, "Error in reading network : wrong formatting at line %d!\n", ln_cnt);
-                        exit(EXIT_FAILURE);
-                }
-
-                /* check if the inputted site numbering is legal */
-                if (starting < -1 || starting >= netw.sites || ending < -1 || ending >= netw.sites) {
-                        fprintf(stderr, "At line %d in file %s, illegal site is inputted!\n", ln_cnt, netwfile);
-                        fprintf(stderr, "This can be a site label higher than the number of sites or a label" 
-                                " smaller than 0!\n");
-                        exit(EXIT_FAILURE);
-                }
-
-                netw.bonds[site_cnt * 2]     = starting;
-                netw.bonds[site_cnt * 2 + 1] = ending;
-                site_cnt++;
-        }
-        fclose(fp);
-
-        /* check if the number of sites given in header correspond with those in the network. */
-        if (site_cnt != netw.nr_bonds) {
-                fprintf(stderr, "The number of bonds given in the header does not correspond with the number"
-                        "of bonds defined in the network! (%d neq %d)\n", site_cnt, netw.nr_bonds);
-                exit(EXIT_FAILURE);
-        }
-
-        if (check_network()) {
-                fprintf(stderr, "Something is wrong with your network, check the network file (%s)!", netwfile);
-                exit(EXIT_FAILURE);
-        }
-
-        create_nr_left_psites();
-        create_order_psites();
 }

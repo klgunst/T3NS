@@ -1,0 +1,91 @@
+#include <stdlib.h>
+#include <stdio.h>
+#include <math.h>
+
+#include "io.h"
+#include "macros.h"
+#include "network.h"
+#include "hamiltonian.h"
+#include "hamiltonian_qc.h"
+#include "bookkeeper.h"
+#include "optimize_network.h"
+
+static void initialize_program(struct siteTensor **T3NS, 
+                               struct rOperators **rops, 
+                               struct optScheme * scheme, const int testnr)
+{
+        static int tstate[][4] = {{0,7,7}, {0,7,7,0}, {0,14,0}, {0,14,0,0}};
+        static int nrsyms[4] = {3,4,3,4};
+        static enum symmetrygroup sgs[][4] = {
+                {Z2,U1,U1},
+                {Z2,U1,U1,D2h},
+                {Z2,U1,SU2},
+                {Z2,U1,SU2, D2h}
+        };
+        init_bookie();
+        init_netw();
+        bookie.target_state = tstate[testnr];
+        bookie.nrSyms = nrsyms[testnr];
+        bookie.sgs = sgs[testnr];
+        make_network("${CMAKE_SOURCE_DIR}/tests/networks/10_T3NS.netw");
+        readinteraction("${CMAKE_SOURCE_DIR}/tests/fcidumps/N2.STO3G.FCIDUMP");
+        create_list_of_symsecs(scheme->regimes[0].minD);
+        random_init(T3NS, rops);
+}
+
+static void destroy_T3NS(struct siteTensor **T3NS)
+{
+        int i;
+        for (i = 0; i < netw.sites; ++i)
+                destroy_siteTensor(&(*T3NS)[i]);
+        safe_free(*T3NS);
+}
+
+static void destroy_all_rops(struct rOperators **rops)
+{
+        int i;
+        for (i = 0; i < netw.nr_bonds; ++i)
+                destroy_rOperators(&(*rops)[i]);
+        safe_free(*rops);
+}
+
+static void cleanup_before_exit(struct siteTensor **T3NS, 
+                                struct rOperators **rops, 
+                                struct optScheme * const scheme)
+{
+        destroy_network();
+        destroy_T3NS(T3NS);
+        destroy_all_rops(rops);
+        destroy_hamiltonian();
+}
+
+int main(int argc, char *argv[])
+{
+        static struct regime reg[2] = {
+                {1000, 1000, 1e-4, 2, 1e-6, 4, 2, 1e-8},
+                {1000, 1000, 1e-4, 2, 1e-6, 100, 10, 1e-8}
+        };
+        static struct optScheme scheme = {2, reg};
+
+        struct siteTensor *T3NS;
+        struct rOperators *rops;
+
+        printf("Executing test 1.\n");
+
+        int OK = 1;
+        for (int i = 0; i < 4; ++i) {
+                initialize_program(&T3NS, &rops, &scheme, i);
+                double energy = execute_optScheme(T3NS, rops, &scheme, 0, NULL);
+                cleanup_before_exit(&T3NS, &rops, &scheme);
+                OK = fabs(energy + 107.648250974014) < 1e-8 && OK;
+        }
+
+
+        if (OK) {
+                printf("\t==> Test passed\n");
+                return 0;
+        } else {
+                printf("\t==> Test failed\n");
+                return 1;
+        }
+}

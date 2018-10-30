@@ -1,83 +1,89 @@
-cmake_minimum_required(VERSION 2.8)
-project(T3NS)
-set( T3NS_MMP_VERSION "0.0" )
-set(T3NS_VERSION "${T3NS_MMP_VERSION} (2017-11-17)")
-set(T3NS_AUTHORS "Klaas Gunst")
-set(T3NS_DESCRIPTION "An implementation of the three-legged tree tensor network for fermionic systems.")
-set(T3NS_EMAIL "Klaas.Gunst@UGent.be")
+cmake_minimum_required(VERSION 3.12.0)
+project(T3NS 
+    LANGUAGES C 
+    DESCRIPTION "An implementation of the Three-legged Tree Tensor Network algorithm."
+    VERSION 0.1.0)
+set(T3NS_MAIL "Klaas.Gunst@UGent.be")
+string(TIMESTAMP THISTIME "Compiled %b %d %Y %H:%M:%S")
+
 set(CMAKE_MODULE_PATH "${PROJECT_SOURCE_DIR}/cmake/Modules")
 
-#Bring the headers into the project
-
-#Add the sources
-file(GLOB SOURCES "${CMAKE_SOURCE_DIR}/src/*.c")
-
-option(BUILD_DOXYGEN	"Use Doxygen to create a HTML/PDF manual" OFF)
 option(DEBUG 		"Debug symbols used" 			  OFF)
 option(DEBUGFLAG        "Compile with DDEBUG flag" 		  OFF)
 option(LOWOPT 		"Optimization level of compilation O/O3"  OFF)
+option(ENABLE_TESTS 	"Compile the tests" 			  ON)
 
+# Find Lapack or MKL
 if("${CMAKE_C_COMPILER_ID}" MATCHES "Intel")
     find_package(MKL)
     if(MKL_FOUND)
 	message("MKL found")
 	include_directories(${MKL_INCLUDE_DIRS})
-	set (LAPACK_LIBRARIES "${MKL_LIBRARIES}")
+	set(LAPACK_LIBRARIES "${MKL_LIBRARIES}")
     else()
 	message("MKL not found")
-	find_package (LAPACK REQUIRED)
+	find_package(LAPACK REQUIRED)
     endif()
 else()
-    find_package (LAPACK REQUIRED)
+    find_package(LAPACK REQUIRED)
 endif()
 
-include_directories(include)
+# Find OpenMP
+find_package(OpenMP)
+if(OPENMP_FOUND)
+    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${OpenMP_C_FLAGS}")
+endif(OPENMP_FOUND)
 
+# Find GSL
+find_package(GSL REQUIRED)
+
+# Find HDF5
+find_package(HDF5 REQUIRED)
+
+# show all warnings
 if("${CMAKE_C_COMPILER_ID}" MATCHES "Intel")
-    set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -w3 -wd2259")
+    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -w3")
 else()
-    set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wall")
+    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wall")
 endif()
 
-# OpenMP
-find_package (OpenMP)
-if (OPENMP_FOUND)
-    set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${OpenMP_C_FLAGS}")
-endif (OPENMP_FOUND)
-
-# HDF5
-find_package (HDF5 REQUIRED)
-
-if (DEBUG)
+# for debug
+if(DEBUG)
     if("${CMAKE_C_COMPILER_ID}" MATCHES "Intel")
-	set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -g")
+	set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -g")
     else()
-	#set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -g")
-	set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -g -fsanitize=address")
+	set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -g")
+	#set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -g -fsanitize=address")
     endif()
-endif (DEBUG)
-if (DEBUGFLAG)
-    set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -DDEBUG")
-endif (DEBUGFLAG)
-if ( LOWOPT )
-    set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS}")
-else ()
+endif(DEBUG)
+
+# set DDEBUG flag
+if(DEBUGFLAG)
+    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -DDEBUG")
+endif(DEBUGFLAG)
+
+# for aggressive optimization or not
+if(LOWOPT)
+    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS}")
+else()
     if("${CMAKE_C_COMPILER_ID}" MATCHES "Intel")
-	set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -xHOST -O3")
+	set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -xHOST -O3")
     else()
-	set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -march=native -O3")
+	set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -march=native -O3")
     endif()
-endif ( LOWOPT )
-set (CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -DNOHERM")
+endif(LOWOPT)
 
-if (BUILD_DOXYGEN)
-    find_package (Doxygen)
-    if (NOT DOXYGEN_FOUND)
-	message (FATAL_ERROR "Doxygen is needed to build the documentation. Please install it correctly.")
-    endif(NOT DOXYGEN_FOUND)
-    configure_file (${T3NS_SOURCE_DIR}/src/Doxyfile.in ${T3NS_BINARY_DIR}/Doxyfile @ONLY IMMEDIATE)
-    add_custom_target (doc COMMAND ${DOXYGEN_EXECUTABLE} ${T3NS_BINARY_DIR}/Doxyfile SOURCES ${T3NS_BINARY_DIR}/Doxyfile)
-endif(BUILD_DOXYGEN)
+# Cmake includes
+include(GNUInstallDirs)
 
-add_executable(T3NS ${SOURCES})
-target_link_libraries(T3NS gsl gslcblas ${LAPACK_LIBRARIES} ${HDF5_LIBRARIES} m)
+# Include files
+configure_file(
+    "${PROJECT_SOURCE_DIR}/include/T3NSConfig.h.in"
+    "${PROJECT_BINARY_DIR}/T3NSConfig.h")
+include_directories(include ${CMAKE_BINARY_DIR})
+add_subdirectory(src)
+
+if (ENABLE_TESTS)
+    include(CTest)
+    add_subdirectory(tests)
+endif()

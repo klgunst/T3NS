@@ -36,7 +36,10 @@ extern struct network netw;
  *
  * \param [in] inputfile The path to the inputfile to read in.
  */
-void read_network(const char inputfile[]);
+void read_network(const char inputfile[], const int buflen, 
+                  const char relpath[buflen]);
+
+void make_network(const char netwfile[]);
 
 /**
  * \brief initializes the network as empty.

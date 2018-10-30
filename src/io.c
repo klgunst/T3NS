@@ -35,6 +35,9 @@ static int* read_symmetries(char line[], int sg);
  * Returns 1 if successful, 0 if not. */
 static int read_targetstate(char line[], int *permarray, int no_irr, int sg);
 
+static void relative_path(const int buflen, char relpath[buflen], 
+                          const char inp[]);
+
 /* ========================================================================== */
 
 void read_inputfile(const char inputfile[], struct optScheme * const scheme)
@@ -44,6 +47,8 @@ void read_inputfile(const char inputfile[], struct optScheme * const scheme)
         int *permarray = NULL;
         int buflen = 255;
         char buffer[buflen];
+        char relpath[buflen];
+        relative_path(buflen, relpath, inputfile);
 
         { /* For the specification of the symmetries to use. */
                 int i;
@@ -120,17 +125,20 @@ void read_inputfile(const char inputfile[], struct optScheme * const scheme)
                 printf("Targetstate = %s\n", buffer);
         }
 
-        read_network(inputfile);
+        read_network(inputfile, buflen, relpath);
         print_network();
 
         { /* For the path to the interactions file. */
+                char buffer2[buflen];
                 ro = read_option("interaction", inputfile, buffer);
+                strncpy(buffer2, relpath, buflen);
+                strncat(buffer2, buffer, buflen - strlen(buffer2));
                 if (ro == 0) {
                         fprintf(stderr, "No valid interaction specified in %s.\n", inputfile);
                         exit(EXIT_FAILURE);
                 }
                 printf("Interaction = %s\n", buffer);
-                readinteraction(buffer);
+                readinteraction(buffer2);
         }
 
         read_optScheme(inputfile, scheme);
@@ -324,4 +332,14 @@ static int read_targetstate(char line[], int *permarray, int no_irr, int sg)
                         return 0;
         }
         return 1;
+}
+
+static void relative_path(const int buflen, char relpath[buflen], 
+                          const char inp[])
+{
+        strncpy(relpath, inp, buflen - 1);
+        for (int i = strlen(relpath); i >= 0 ; --i) {
+                if (relpath[i] == '/') break;
+                relpath[i] = '\0';
+        }
 }
