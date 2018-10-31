@@ -85,7 +85,7 @@ void rOperators_give_indices(const struct rOperators * const rops, int indices[]
 {
   if (rops->P_operator)
   { /* bra bra bra | ket ket ket | MPO of the site left of bond_of_rops for is_left, else right. */
-    const int site = netw.bonds[2 * rops->bond_of_operator + !rops->is_left];
+    const int site = netw.bonds[rops->bond_of_operator][!rops->is_left];
     int bonds_of_site[3];
     get_bonds_of_site(site, bonds_of_site);
 
@@ -111,7 +111,7 @@ void rOperators_give_qnumberbonds(const struct rOperators * const rops, int qnum
 {
   if (rops->P_operator)
   {
-    const int site = netw.bonds[2 * rops->bond_of_operator + !rops->is_left];
+    const int site = netw.bonds[rops->bond_of_operator][!rops->is_left];
     int bonds_of_site[3];
     get_bonds_of_site(site, bonds_of_site);
 
@@ -139,7 +139,7 @@ void rOperators_give_couplings(const struct rOperators * const rops, int couplin
 {
   if (rops->P_operator)
   {
-    const int site = netw.bonds[2 * rops->bond_of_operator + !rops->is_left];
+    const int site = netw.bonds[rops->bond_of_operator][!rops->is_left];
     int bonds_of_site[3];
     get_bonds_of_site(site, bonds_of_site);
 
@@ -190,9 +190,9 @@ void rOperators_give_is_in(const struct rOperators * const rops, int is_in[])
 int rOperators_site_to_attach(const struct rOperators * const operator)
 {
   if (operator->P_operator)
-    return netw.bonds[2 * operator->bond_of_operator + !operator->is_left];
+    return netw.bonds[operator->bond_of_operator][!operator->is_left];
   else
-    return netw.bonds[2 * operator->bond_of_operator + operator->is_left];
+    return netw.bonds[operator->bond_of_operator][operator->is_left];
 }
 
 /* ========================================================================== */
@@ -299,7 +299,7 @@ static void print_qnumber(const struct rOperators * const rops, const int op, co
   int coup;
   rOperators_give_qnumberbonds(rops, qnumberbonds);
   rOperators_give_coupling_to_qnumberbonds(rops, mapping_coup_to_qnumber);
-  get_symsecs_arr(symarr, qnumberbonds, nrcoup * 3);
+  get_symsecs_arr(nrcoup * 3, symarr, qnumberbonds);
 
   for (coup = 0; coup < nrcoup; ++coup)
   {
@@ -315,7 +315,7 @@ static void print_qnumber(const struct rOperators * const rops, const int op, co
     }
     assert(ind == 0);
   }
-  clean_symsecs_arr(symarr, qnumberbonds, nrcoup * 3);
+  clean_symsecs_arr(nrcoup * 3, symarr, qnumberbonds);
 }
 
 static void rOperators_give_coupling_to_qnumberbonds(const struct rOperators * const rops, 

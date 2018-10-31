@@ -325,7 +325,7 @@ static void initialize_indexhelper(const int updateCase, const int site, const s
     bonds[BRA] = get_braT3NSbond(tmpbonds[i]);
     bonds[KET] = get_ketT3NSbond(tmpbonds[i]);
     bonds[MPO] = get_hamiltonianbond(tmpbonds[i]);
-    get_symsecs_arr(idh.symarr[i], bonds, 3);
+    get_symsecs_arr(3, idh.symarr[i], bonds);
     for (j = 0; j < 3; ++j)
       idh.maxdims[i][j] = idh.symarr[i][j].nrSecs;
   }
@@ -354,7 +354,7 @@ static void clean_indexhelper(const int site)
     bonds[BRA] = get_braT3NSbond(tmpbonds[i]);
     bonds[KET] = get_ketT3NSbond(tmpbonds[i]);
     bonds[MPO] = get_hamiltonianbond(tmpbonds[i]);
-    clean_symsecs_arr(idh.symarr[i], bonds, 3);
+    clean_symsecs_arr(3, idh.symarr[i], bonds);
   }
   safe_free(idh.qnumbertens);
 }

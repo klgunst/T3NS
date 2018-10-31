@@ -207,7 +207,7 @@ static void print_qnumber(const struct siteTensor * const tens, const int block)
   int coup;
   siteTensor_give_qnumberbonds(tens, qnumberbonds);
   siteTensor_give_coupling_to_qnumberbonds(tens, mapping_coup_to_qnumber);
-  get_symsecs_arr(symarr, qnumberbonds, nrcoup * 3);
+  get_symsecs_arr(nrcoup * 3, symarr, qnumberbonds);
 
   for (coup = 0; coup < nrcoup; ++coup)
   {
@@ -227,7 +227,7 @@ static void print_qnumber(const struct siteTensor * const tens, const int block)
       printf("%14s %c", buffer,  bond != 2  ? '-' : '\n');
     }
   }
-  clean_symsecs_arr(symarr, qnumberbonds, nrcoup * 3);
+  clean_symsecs_arr(nrcoup * 3, symarr, qnumberbonds);
 }
 
 static void siteTensor_give_coupling_to_qnumberbonds(const struct siteTensor * const tens, 

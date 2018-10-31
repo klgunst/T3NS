@@ -317,13 +317,13 @@ static void print_DMRG_instructions(int * const instructions,
                                     int * const hss, const int nr_instructions, 
                                     const int bond, const int is_left)
 {
-        const int site = netw.sitetoorb[netw.bonds[2 * bond + is_left]];
+        const int site = netw.sitetoorb[netw.bonds[bond][is_left]];
         int bonds[3];
         int i;
         struct symsecs MPO;
         get_symsecs(&MPO, -1);
 
-        get_bonds_of_site(netw.bonds[2 * bond + is_left], bonds);
+        get_bonds_of_site(netw.bonds[bond][is_left], bonds);
         assert(bond == bonds[2 * !is_left]);
 
         printf("================================================================================\n" 
@@ -357,8 +357,8 @@ static void print_T3NS_instructions(int * const instructions,
         struct symsecs MPO;
         get_symsecs(&MPO, -1);
 
-        assert(!is_psite(netw.bonds[2 * bond + !is_left]));
-        get_bonds_of_site(netw.bonds[2 * bond + !is_left], bonds);
+        assert(!is_psite(netw.bonds[bond][!is_left]));
+        get_bonds_of_site(netw.bonds[bond][!is_left], bonds);
         assert((bonds[0] == bond && !is_left) || (bonds[1] == bond && !is_left) || 
                (bonds[2] == bond && is_left));
 
@@ -419,7 +419,7 @@ static void print_merge_instructions(int * const instructions,
         }
         else
         {
-                int branching_site = netw.bonds[2 * bond + is_psite(netw.bonds[2 * bond])];
+                int branching_site = netw.bonds[bond][is_psite(netw.bonds[bond][0])];
                 assert(!is_psite(branching_site));
                 get_bonds_of_site(branching_site, bonds);
 

@@ -69,8 +69,8 @@ void random_init(struct siteTensor ** const T3NS, struct rOperators ** const rop
   init_null_rops(rops);
 
   for (i = 0; i < netw.nr_bonds; ++i) {
-    const int siteL = netw.bonds[2 * i];
-    const int siteR = netw.bonds[2 * i + 1];
+    const int siteL = netw.bonds[i][0];
+    const int siteR = netw.bonds[i][1];
     struct siteTensor *tens = NULL;
 
     /* The site tensor should be initialized */
@@ -93,7 +93,7 @@ void random_init(struct siteTensor ** const T3NS, struct rOperators ** const rop
     }
   }
   for (i = 0; i < netw.nr_bonds; ++i) {
-    struct siteTensor * tens = &(*T3NS)[netw.bonds[2 * i]];
+    struct siteTensor * tens = &(*T3NS)[netw.bonds[i][0]];
     init_rops(*rops, tens, i);
   }
 }
@@ -142,8 +142,8 @@ static void init_null_rops(struct rOperators ** const rops)
 static void init_rops(struct rOperators * const rops, 
                       const struct siteTensor * const tens, const int bond)
 {
-  const int siteL = netw.bonds[2 * bond];
-  const int siteR = netw.bonds[2 * bond + 1];
+  const int siteL = netw.bonds[bond][0];
+  const int siteR = netw.bonds[bond][1];
   struct rOperators * const curr_rops = &rops[bond];
 
   if (siteL == -1 || siteR == -1) {
@@ -257,7 +257,7 @@ static void preprocess_rOperators(struct rOperators Operators[], const struct rO
   for (i = 0; i < 3; ++i) {
     const int bond = bonds_involved[i];
     if (bond != -1) {
-      const int isdmrg = is_psite(netw.bonds[2 * bond + rops[bond].is_left]);
+      const int isdmrg = is_psite(netw.bonds[bond][rops[bond].is_left]);
       assert(!rops[bond].P_operator);
       if (isdmrg)
         append_physical_to_rOperators(&Operators[i], &rops[bond]);
@@ -318,7 +318,7 @@ static void postprocess_rOperators(struct rOperators Operators[], struct rOperat
   /* first do all dmrg updates possible */
   for (i = 0; i < 3; ++i) {
     if (Operators[i].P_operator == 1) {
-      const int site = netw.bonds[Operators[i].bond_of_operator * 2 + !Operators[i].is_left];
+      const int site = netw.bonds[Operators[i].bond_of_operator][!Operators[i].is_left];
       const int siteid = find_in_array(4, site_opt, site);
       assert(siteid != -1);
       assert(is_psite(site));
@@ -385,7 +385,7 @@ static void copy_internal_symsecs(const struct siteTensor * const tens,
   int i;
   assert(nr_internal <= 3);
   siteTensor_give_internalbonds(tens, internalbonds);
-  deep_copy_symsecs_from_bookie(internalss, internalbonds, nr_internal);
+  deep_copy_symsecs_from_bookie(nr_internal, internalss, internalbonds);
   for (i = nr_internal; i < 3; ++i) internalbonds[i] = -1;
 }
 

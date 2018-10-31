@@ -324,7 +324,7 @@ static void make_unity_opType(void)
 
 static void init_opType_array_part(const int bond, const int is_left)
 {
-        const int site = netw.bonds[2 * bond + !is_left];
+        const int site = netw.bonds[bond][!is_left];
         const int new_id = bond * 2 + is_left;
 
         if (site == -1) {

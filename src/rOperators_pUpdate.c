@@ -141,7 +141,7 @@ void update_rOperators_physical(struct rOperators * const rops, const struct sit
   int maxdims[3];
   int indices[3];
   siteTensor_give_indices(tens, indices);
-  get_symsecs_arr(symarr, indices, 3);
+  get_symsecs_arr(3, symarr, indices);
   get_symsecs(&symarr[3], get_hamiltonianbond(rops->bond_of_operator));
 
   /* Check if the bonds of the renormalized operators and the bonds of the tensor are 
@@ -306,7 +306,7 @@ void update_rOperators_physical(struct rOperators * const rops, const struct sit
     }
   }
 
-  clean_symsecs_arr(symarr, indices, 3);
+  clean_symsecs_arr(3, symarr, indices);
   clean_symsecs(&symarr[3], get_hamiltonianbond(rops->bond_of_operator));
   safe_free(oldtonew);
   destroy_rOperators(rops);
@@ -324,7 +324,7 @@ static void unique_append_physical_to_rOperators(struct rOperators * const uniqu
      const struct rOperators * const prevrops)
 {
   /* The Lsite for right, and Rsite for left */
-  const int site = netw.bonds[2 * prevrops->bond_of_operator + prevrops->is_left];
+  const int site = netw.bonds[prevrops->bond_of_operator][prevrops->is_left];
   int bonds[3];
   int tmpbond[9];
   struct symsecs symarr[9];
@@ -352,7 +352,7 @@ static void unique_append_physical_to_rOperators(struct rOperators * const uniqu
   tmpbond[7] = get_hamiltonianbond(bonds[1]);
   tmpbond[8] = get_hamiltonianbond(bonds[2]);
 
-  get_symsecs_arr(symarr, tmpbond, 9);
+  get_symsecs_arr(9, symarr, tmpbond);
  
   assert(is_psite(site));
 
@@ -492,7 +492,7 @@ static void unique_append_physical_to_rOperators(struct rOperators * const uniqu
     safe_free(possible_prods);
   }
 
-  clean_symsecs_arr(symarr, tmpbond, 9);
+  clean_symsecs_arr(9, symarr, tmpbond);
   safe_free(compr_instr);
   safe_free(compr_hss);
 }

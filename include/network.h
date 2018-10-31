@@ -13,20 +13,20 @@
  * \brief Struct for the tree tensor network.
  */
 struct network {
-  int nr_bonds;        /**< The number of TNSd, TNSu bonds in the network. */
-  int psites;          /**< Number of physical sites (or orbitals) in the network. */
-  int sites;           /**< Number of total sites (branching and physical). */
-  int *bonds;          /**< Array of length #nr_bonds * 2.
-                         *  Gives for each bond which sites is connected to it.
-                         *  If no site is connnected, it is given by -1. */
-  int *sitetoorb;      /**< Array of length #sites, for every site it gives the mapping of
-                         *  site to orb (0, 1, 2...), and -1 if branching tensor. */
-  int *nr_left_psites; /**< Array of length #nr_bonds.
-                         *  Gives for every bond the number of sites to the left of it. */
-  int *order_psites;   /**< Array of length #nr_bonds * psites.
-                         *  For every bond gives the order of the psites. */
-  int sweeplength;
-  int * sweep;
+        int nr_bonds;        /**< The number of TNSd, TNSu bonds in the network. */
+        int psites;          /**< Number of physical sites (or orbitals) in the network. */
+        int sites;           /**< Number of total sites (branching and physical). */
+        int (*bonds)[2];     /**< Array of length #nr_bonds * 2.
+                              *  Gives for each bond which sites is connected to it.
+                              *  If no site is connnected, it is given by -1. */
+        int *sitetoorb;      /**< Array of length #sites, for every site it gives the mapping of
+                              *  site to orb (0, 1, 2...), and -1 if branching tensor. */
+        int *nr_left_psites; /**< Array of length #nr_bonds.
+                              *  Gives for every bond the number of sites to the left of it. */
+        int *order_psites;   /**< Array of length #nr_bonds * psites.
+                              *  For every bond gives the order of the psites. */
+        int sweeplength;
+        int * sweep;
 };
 extern struct network netw;
 

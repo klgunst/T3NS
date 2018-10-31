@@ -292,7 +292,7 @@ void init_matvec_data(struct matvec_data * const data, const struct rOperators O
 
   for (i = 0; i < siteObject->nrsites; ++i)
     get_bonds_of_site(siteObject->sites[i], &bonds[3 * i]);
-  get_symsecs_arr(data->symarr, bonds, siteObject->nrsites * 3);
+  get_symsecs_arr(siteObject->nrsites * 3, data->symarr, bonds);
   get_maxdims_of_bonds(data->maxdims, bonds, siteObject->nrsites * 3);
 
   makeqnumbersarr_from_operator(&qnumbersarray, &Operators[0], data->maxdims[2]);
@@ -330,7 +330,7 @@ void init_T3NSdata(struct T3NSdata * const data, const struct rOperators Operato
     int bonds[3];
     get_bonds_of_site(siteObject->sites[i], bonds);
     data->symarr[i] = safe_malloc(3, struct symsecs);
-    get_symsecs_arr(data->symarr[i], bonds, 3);
+    get_symsecs_arr(3, data->symarr[i], bonds);
   }
   get_symsecs(&data->MPOsymsec, -1);
 
@@ -382,7 +382,7 @@ void destroy_matvec_data(struct matvec_data * const data)
 
   for (i = 0; i < data->siteObject.nrsites; ++i)
     get_bonds_of_site(data->siteObject.sites[i], &bonds[3 * i]);
-  clean_symsecs_arr(data->symarr, bonds, data->siteObject.nrsites * 3);
+  clean_symsecs_arr(data->siteObject.nrsites * 3, data->symarr, bonds);
 
   safe_free(data->instructions);
   safe_free(data->instrbegin);
@@ -395,7 +395,7 @@ void destroy_T3NSdata(struct T3NSdata * const data)
   for (i = 0; i < data->siteObject.nrsites; ++i) {
     int bonds[3];
     get_bonds_of_site(data->siteObject.sites[i], bonds);
-    clean_symsecs_arr(data->symarr[i], bonds, 3);
+    clean_symsecs_arr(3, data->symarr[i], bonds);
     safe_free(data->symarr[i]);
   }
   clean_symsecs(&data->MPOsymsec, -1);

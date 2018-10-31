@@ -55,7 +55,7 @@ void NN_H_fetch_bUpdate(struct instructionset * const instructions, const int bo
     is_left)
 {
   int bondz[3];
-  get_bonds_of_site(netw.bonds[2 * bond + !is_left], bondz);
+  get_bonds_of_site(netw.bonds[bond][!is_left], bondz);
   const int updateCase = !is_left ? bondz[1] == bond : 2;
 
   if (NN_H_has_su2())
@@ -83,7 +83,7 @@ static int * get_hss_of_rops(void)
 static void H_fetch_DMRG(int ** const instructions, double ** const prefactors, 
     int ** const hamsymsecs_of_new, int * const nr_instructions, const int bond, const int is_left)
 {
-  const int is_border = netw.bonds[2 * bond + !is_left] == -1;
+  const int is_border = netw.bonds[bond][!is_left] == -1;
   const int sign = is_left ? 1 : -1;
 
   double U, t;
@@ -218,7 +218,7 @@ static int * get_hss_of_rops_su2(void)
 static void H_fetch_DMRG_su2(int ** const instructions, double ** const prefactors, 
     int ** const hamsymsecs_of_new, int * const nr_instructions, const int bond, const int is_left)
 {
-  const int is_border = netw.bonds[2 * bond + !is_left] == -1;
+  const int is_border = netw.bonds[bond][!is_left] == -1;
 
   double U, t;
   int i;

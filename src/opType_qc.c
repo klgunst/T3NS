@@ -169,7 +169,7 @@ static int need_complimentary_ops(const int n, const int psite[n],
         if(n == 1 || n == 0)
                 return 1;
 
-        const int site        = netw.bonds[2 * bond + is_left];
+        const int site        = netw.bonds[bond][is_left];
         const int l_psites    = get_left_psites(bond);
         const int r_psites    = netw.psites - l_psites;
         const int prev_psites = is_left ? l_psites : r_psites;

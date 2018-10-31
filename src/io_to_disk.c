@@ -570,7 +570,7 @@ static void write_network_to_disk(const hid_t id)
                                          H5P_DEFAULT, H5P_DEFAULT);
 
         ints_write_attribute(group_id, "nr_bonds", &netw.nr_bonds, 1);
-        ints_write_dataset(group_id, "./bonds", netw.bonds, netw.nr_bonds * 2);
+        ints_write_dataset(group_id, "./bonds", (int*) netw.bonds, netw.nr_bonds * 2);
 
         ints_write_attribute(group_id, "psites", &netw.psites, 1);
         ints_write_attribute(group_id, "sites", &netw.sites, 1);
@@ -592,8 +592,8 @@ static void read_network_from_disk(const hid_t id)
 
         ints_read_attribute(group_id, "nr_bonds", &netw.nr_bonds);
 
-        netw.bonds = safe_malloc(netw.nr_bonds * 2, int);
-        ints_read_dataset(group_id, "./bonds", netw.bonds);
+        netw.bonds = malloc(netw.nr_bonds * sizeof netw.bonds[0]);
+        ints_read_dataset(group_id, "./bonds", (int*) netw.bonds);
 
         ints_read_attribute(group_id, "psites", &netw.psites);
         ints_read_attribute(group_id, "sites", &netw.sites);

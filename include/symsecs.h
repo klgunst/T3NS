@@ -11,25 +11,31 @@
  * \brief Struct with the symmetry sectors for a bond.
  */
 struct symsecs {
-  int nrSecs;    /**< The number of different symmetry sectors possible in the bond. */
-  int* irreps;      /**< The irreps that specify every symmetry sector
-                     *   Array with length nrSecs * nr_symmetries,
-                     *
-                     *   the irrep- labels should be sorted, from low to high
-                     *   and from left symmetry to right symmetry.
-                     */
-  double* fcidims;  /**< The dimension of each symmetry sector in FCI.
-                     *   Array with length nrSecs.
-                     *   I make this double, because fcidims can become very large,
-                     *   The loss of accuracy (becomes not accurate up to 1 with big numbers)
-                     *   will only occur for very large bond dimensions.
-                     *   Not for bond dimensions that we ever hope to handle.
-                     */
-  int* dims;        /**< The dimension of each symmetry sector in the tensor network bond.
-                     *   Array with length nrSecs.
-                     */
-  int totaldims;    /**< Total bond dimension in the bond. */
+        int nrSecs;    /**< The number of different symmetry sectors possible in the bond. */
+        int* irreps;      /**< The irreps that specify every symmetry sector
+                           *   Array with length nrSecs * nr_symmetries,
+                           *
+                           *   the irrep- labels should be sorted, from low to high
+                           *   and from left symmetry to right symmetry.
+                           */
+        double* fcidims;  /**< The dimension of each symmetry sector in FCI.
+                           *   Array with length nrSecs.
+                           *   I make this double, because fcidims can become very large,
+                           *   The loss of accuracy (becomes not accurate up to 1 with big numbers)
+                           *   will only occur for very large bond dimensions.
+                           *   Not for bond dimensions that we ever hope to handle.
+                           */
+        int* dims;        /**< The dimension of each symmetry sector in the tensor network bond.
+                           *   Array with length nrSecs.
+                           */
+        int totaldims;    /**< Total bond dimension in the bond. */
 };
+
+/* brief Initializes the symsec to a nullsymsec.
+ *
+ * \param [in,out] symsec The symsec to set to NULL
+ */
+void init_null_symsecs(struct symsecs * symsec);
 
 /**
  * \brief Prints the symmetry sector with fci dims or truncated dims.
@@ -53,14 +59,14 @@ void get_symsecs(struct symsecs *res, int bond);
 /**
  * \brief Fetches the symmsecs of the inputted bond array.
  *
- * NOTE: If the symmsecs asked is of a physical bond, this physical bond will be freshly allocated
- * and should thus be freed also!
+ * NOTE: If the symmsecs asked is of a physical bond, this physical bond will
+ * be freshly allocated and should thus be freed also!
  *
+ * \param [in] n The number of bonds.
  * \param [out] res The resulting symmsecs.
  * \param [in] bonds The bond array of which we want the symmsecs.
- * \param [in] nmbr The number of bonds.
  */
-void get_symsecs_arr(struct symsecs res[], int bonds[], int nmbr);
+void get_symsecs_arr(int n, struct symsecs res[n], int bonds[n]);
 
 void destroy_symsecs(struct symsecs *sectors);
 
@@ -77,11 +83,11 @@ void clean_symsecs(struct symsecs *res, int bond);
  * Cleans the symsecs, puts everything on 0 or NULL! if memory should be deallocated (e.g. for 
  * physical symsecs) this will also happen.
  *
+ * \param [in] n The number of bonds.
  * \param [in,out] res The symsecs array that should be cleaned.
  * \param [in] bond The bonds of which the symsec are.
- * \param [in] nmbr The number of bonds.
  */
-void clean_symsecs_arr(struct symsecs res[], int bonds[], int nmbr);
+void clean_symsecs_arr(int n, struct symsecs symarr[n], int bonds[n]);
 
 /**
  * \brief Searches a symmsec in a symsecs struct (naively atm)
@@ -127,31 +133,6 @@ void kick_empty_symsecs(struct symsecs * sectors, char o);
  * \param [out] copy The copy.
  * \param [in] tocopy The symsecs to copy.
  */
-void deep_copy_symsecs(struct symsecs * const copy, const struct symsecs * const tocopy);
-
-/**
- * \brief makes a deep copy of several symsecs in the bookkeeper to a given array.
- * \param [out] symarr Array of symsecs structures where the deep copies are stored to.
- * \param [in] bonds Array with the bonds of which symsec copies should be made.
- * \param [in] nrel The number of bonds.
- */
-void deep_copy_symsecs_from_bookie(struct symsecs symarr[], const int bonds[], const int nrel);
-
-/**
- * \brief Frees a selected number of symsecs in the bookkeeper.
- *
- * \param [in] bonds The bonds to free.
- * \param [in] nrel The number of bonds in the array.
- */
-void free_symsecs_from_bookie(const int bonds[], const int nrel);
-
-/**
- * \brief Makes a deep copy of an array of symsecs to the bookkeeper.
- *
- * \param [in] symarr The array of symsecs to copy.
- * \param [in] bonds The bonds in the bookkeeper where to store the deep copies.
- * \param [in] nrel The number of bonds.
- */
-void deep_copy_symsecs_to_bookie(const struct symsecs symarr[], const int bonds[], const int nrel);
+void deep_copy_symsecs(struct symsecs * copy, const struct symsecs * tocopy);
 
 int full_dimension(const struct symsecs * const sym);

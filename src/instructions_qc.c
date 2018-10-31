@@ -50,7 +50,7 @@ void QC_fetch_pUpdate(struct instructionset * const instructions,
                          const int bond, const int is_left)
 {
         int bonds[3];
-        const int site = netw.bonds[2 * bond + is_left];
+        const int site = netw.bonds[bond][is_left];
 
         assert(netw.sitetoorb[site] >= 0);
         get_bonds_of_site(site, bonds);
@@ -74,7 +74,7 @@ void QC_fetch_bUpdate(struct instructionset * const instructions,
                          const int bond, const int is_left)
 {
         int bonds[3];
-        get_bonds_of_site(netw.bonds[2 * bond + !is_left], bonds);
+        get_bonds_of_site(netw.bonds[bond][!is_left], bonds);
         const int updateCase = !is_left ? bonds[1] == bond : 2;
 
         instructions->step = 3;
@@ -113,7 +113,7 @@ static void pUpdate_make_r_count(struct instructionset * const instructions,
         int bonds[3];
         struct opType ops[3];
 
-        const int site  = netw.bonds[2 * bond + is_left];
+        const int site  = netw.bonds[bond][is_left];
         const int psite = netw.sitetoorb[site];
         const int order[3] = {2 * !is_left, 1, 2 * is_left};
         assert(psite >= 0);
@@ -152,7 +152,7 @@ static void pUpdate_make_r_count(struct instructionset * const instructions,
 static void bUpdate_make_r_count(struct instructionset * const instructions, 
                                  const int bond, const int updateCase)
 {
-        const int bsite = netw.bonds[2 * bond + is_psite(netw.bonds[2 * bond])];
+        const int bsite = netw.bonds[bond][is_psite(netw.bonds[bond][0])];
         struct opType ops[3];
         const int order[3][3] = {{1, 2, 0}, {0, 2, 1}, {0, 1, 2}};
         int bonds[3];
@@ -196,7 +196,7 @@ static void merge_make_r_count(struct instructionset * const instructions,
         } else {
                 int bonds[3];
                 const int bsite = 
-                        netw.bonds[2 * bond + is_psite(netw.bonds[2 * bond])];
+                        netw.bonds[bond][is_psite(netw.bonds[bond][0])];
                 assert(!is_psite(bsite));
                 get_bonds_of_site(bsite, bonds);
 
@@ -235,7 +235,7 @@ static void merge_make_r_count(struct instructionset * const instructions,
         } else {
                 int bonds[3];
                 const int bsite = 
-                        netw.bonds[2 * bond + is_psite(netw.bonds[2 * bond])];
+                        netw.bonds[bond][is_psite(netw.bonds[bond][0])];
                 assert(!is_psite(bsite));
                 get_bonds_of_site(bsite, bonds);
 

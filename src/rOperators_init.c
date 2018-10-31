@@ -56,7 +56,7 @@ void init_vacuum_rOperators(struct rOperators * const rops, const int bond_of_op
     is_left)
 {
   int i;
-  assert(netw.bonds[2*bond_of_operator + !is_left] == -1 && "Not a bond for vacuum rOperators!");
+  assert(netw.bonds[bond_of_operator][!is_left] == -1 && "Not a bond for vacuum rOperators!");
   rops->bond_of_operator    = bond_of_operator;
   rops->is_left             = is_left;
   rops->P_operator          = 0;
@@ -150,7 +150,7 @@ static void make_unitOperator(struct rOperators * const ops, const int op)
   }
   rOperators_give_indices(ops, indexbonds);
 
-  get_symsecs_arr(symarr, indexbonds, halfindexes);
+  get_symsecs_arr(halfindexes, symarr, indexbonds);
   get_symsecs(&symMPO, indexbonds[nr_indices - 1]);
   get_maxdims_of_bonds(maxdims, indexbonds, halfindexes);
 
@@ -200,7 +200,7 @@ static void make_unitOperator(struct rOperators * const ops, const int op)
     unitOperator->beginblock[block + 1] = unitOperator->beginblock[block] + D * D;
   }
 
-  clean_symsecs_arr(symarr, indexbonds, halfindexes);
+  clean_symsecs_arr(halfindexes, symarr, indexbonds);
   clean_symsecs(&symMPO, indexbonds[nr_indices - 1]);
 }
 
@@ -224,7 +224,7 @@ static void init_nP_rOperators(struct rOperators * const rops, int ***tmp_nkappa
   indexes[2] = !is_left ? get_ketT3NSbond(bond_of_operator) : get_braT3NSbond(bond_of_operator);
 
   /* expects a is_in of 001 or 110  for find_goodqnumbersectors */
-  get_symsecs_arr(symarr, indexes, 3);
+  get_symsecs_arr(3, symarr, indexes);
   assert(symarr[0].nrSecs == rops->nrhss && "Something wrong with the hamsymsec");
   find_goodqnumbersectors(&dimarray, &qnumbersarray, &total, symarr, 1);
 
@@ -294,7 +294,7 @@ static void init_nP_rOperators(struct rOperators * const rops, int ***tmp_nkappa
     safe_free(idx);
   }
 
-  clean_symsecs_arr(symarr, indexes, 3);
+  clean_symsecs_arr(3, symarr, indexes);
   safe_free(qnumbersarray);
   safe_free(dimarray);
 }
@@ -329,7 +329,7 @@ static void init_P_rOperators(struct rOperators * const rops, int ***nkappa_begi
   /* Since the first row in qnumberbonds in rops is alpha, i, beta for both right and left 
    * renormalized operators */
   rOperators_give_qnumberbonds(rops, qnumberbonds);
-  get_symsecs_arr(symarr, qnumberbonds, 3);
+  get_symsecs_arr(3, symarr, qnumberbonds);
   find_goodqnumbersectors(&dimarray, &qnumbersarray, &total, symarr, 1);
 
   /* Since the third row in qnumberbonds is coupling is bra(inner), ket(inner), MPO with is_in being 
@@ -338,7 +338,7 @@ static void init_P_rOperators(struct rOperators * const rops, int ***nkappa_begi
   bonds[0] = qnumberbonds[6 + 2];            /* MPO */
   bonds[1] = qnumberbonds[6 + is_left];  /* the inner bond that is going out */
   bonds[2] = qnumberbonds[6 + !is_left]; /* the inner bond that is going in */
-  get_symsecs_arr(symarr_internal, bonds, 3);
+  get_symsecs_arr(3, symarr_internal, bonds);
   assert(symarr_internal[0].nrSecs == rops->nrhss && "Something wrong with the hamsymsec");
   find_goodqnumbersectors(&dimarray_internal, &qnumbersarray_internal, &total_internal, 
       symarr_internal, 1);
@@ -496,7 +496,7 @@ static void init_P_rOperators(struct rOperators * const rops, int ***nkappa_begi
   }
   safe_free(qnumbersarray);
   safe_free(dimarray);
-  clean_symsecs_arr(symarr, qnumberbonds, 3);
+  clean_symsecs_arr(3, symarr, qnumberbonds);
 
   for (i = 0; i < symarr_internal[0].nrSecs; ++i)
   {
@@ -511,7 +511,7 @@ static void init_P_rOperators(struct rOperators * const rops, int ***nkappa_begi
   }
   safe_free(qnumbersarray_internal);
   safe_free(dimarray_internal);
-  clean_symsecs_arr(symarr_internal, bonds, 3);
+  clean_symsecs_arr(3, symarr_internal, bonds);
 }
 
 static void initialize_sum_unique_rOperators(struct rOperators * const newrops, const struct 

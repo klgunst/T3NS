@@ -121,7 +121,7 @@ void QR(struct siteTensor * const tens, void * const R)
    * This way Left orthonormality (and only Left) is assured.
    * For SU(2), this Left orthonormality is fullfilled by help with your fusion tree */
 
-  get_symsecs_arr(symarr, indices, nrind);
+  get_symsecs_arr(nrind, symarr, indices);
 
   Ldim = symarr[0].nrSecs * symarr[1].nrSecs;
   start = 0;
@@ -139,7 +139,7 @@ void QR(struct siteTensor * const tens, void * const R)
     QR_blocks(&tens->blocks, start, finish, tens->nrblocks, &symarr[2].dims[sym3]);
     start = finish;
   }
-  clean_symsecs_arr(symarr, indices, nrind);
+  clean_symsecs_arr(nrind, symarr, indices);
 }
 
 void decomposesiteObject(struct siteTensor * const siteObject, struct siteTensor * const T3NS, 
@@ -166,7 +166,7 @@ void decomposesiteObject(struct siteTensor * const siteObject, struct siteTensor
   double mxtr = 0;
 
   get_orders(nr_of_orders, nr_of_SVDs, siteObject->nrsites, orders, bonds, sitelist, common_nxt);
-  deep_copy_symsecs_from_bookie(originalsymsecs, bonds[0], nr_of_SVDs);
+  deep_copy_symsecs_from_bookie(nr_of_SVDs, originalsymsecs, bonds[0]);
 
   /* loop over all the sites to split off. You can also loop over the different orders to do the 
    * SVD */
@@ -181,8 +181,8 @@ void decomposesiteObject(struct siteTensor * const siteObject, struct siteTensor
 
     /* puts the original symsecs back in the bookie. because they are possibly chqnged during the
      * previous SVDs */
-    free_symsecs_from_bookie(bonds[0], nr_of_SVDs);
-    deep_copy_symsecs_to_bookie(originalsymsecs, bonds[0], nr_of_SVDs);
+    free_symsecs_from_bookie(nr_of_SVDs, bonds[0]);
+    deep_copy_symsecs_to_bookie(nr_of_SVDs, originalsymsecs, bonds[0]);
 
     deep_copy_siteTensor(&tensors[0], siteObject);
     printf(  "   * SVD sequence no. %d:\n", i + 1);
@@ -413,7 +413,7 @@ static double splitOfSite(const int siteToSplit, const int splittedBond, struct 
   const int tensnr = check_correct_input_splitOfSite(siteToSplit, splittedBond, &original);
 
   siteTensor_give_qnumberbonds(&original, bonds);
-  get_symsecs_arr(symarr, bonds, 3 * original.nrsites);
+  get_symsecs_arr(3 * original.nrsites, symarr, bonds);
   get_maxdims_of_bonds(maxdims, bonds, 3 * original.nrsites);
 
   init_ortho_and_center(&original, siteToSplit, ortho, center);
@@ -448,7 +448,7 @@ static double splitOfSite(const int siteToSplit, const int splittedBond, struct 
     newSymsec->totaldims += newSymsec->dims[ss];
     safe_free(mem);
   }
-  clean_symsecs_arr(symarr, bonds, 3 * original.nrsites);
+  clean_symsecs_arr(3 * original.nrsites, symarr, bonds);
   destroy_siteTensor(&original);
 
   truncerr = truncateBond(S, newSymsec, mind, maxd, maxtrunc);
@@ -1043,7 +1043,7 @@ static void make_tensor(struct siteTensor * tens, int * perm, const struct symse
 
   siteTensor_give_qnumberbonds(tens, bonds);
   get_maxdims_of_bonds(maxdims, bonds, tens->nrsites * 3);
-  get_symsecs_arr(symarr, bonds, tens->nrsites * 3);
+  get_symsecs_arr(tens->nrsites * 3, symarr, bonds);
 
   for (ss = 0; ss < newSymsec->nrSecs; ++ss)
   {
@@ -1109,5 +1109,5 @@ static void make_tensor(struct siteTensor * tens, int * perm, const struct symse
   }
   assert(cnt == tens->nrblocks);
 
-  clean_symsecs_arr(symarr, bonds, tens->nrsites * 3);
+  clean_symsecs_arr(tens->nrsites * 3, symarr, bonds);
 }

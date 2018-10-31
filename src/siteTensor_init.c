@@ -87,13 +87,13 @@ void init_1siteTensor(struct siteTensor * const tens, const int site, const char
 
   siteTensor_give_couplings(tens, couplings);
 
-  get_symsecs_arr(symarr, couplings, nrind);
+  get_symsecs_arr(nrind, symarr, couplings);
   find_goodqnumbersectors(&dimarray, &qnumbersarray, &tens->nrblocks, symarr, 1);
 
   make_1sblocks(tens, dimarray, qnumbersarray, symarr);
 
   /* Clean the symarr array. And destroy appropriate symsecs (e.g. the ones linked to a physical) */
-  clean_symsecs_arr(symarr, couplings, nrind);
+  clean_symsecs_arr(nrind, symarr, couplings);
 
   /* initialization of the tel array */
   switch(o)
@@ -631,7 +631,7 @@ static void contractsiteTensors(struct siteTensor * const tens, struct siteTenso
   newtoold = make_newtoold(&internalsymsec[0], internalbonds[0]);
   siteTensor_give_qnumberbonds(tens, bonds);
   get_maxdims_of_bonds(maxdims, bonds, nrbonds);
-  get_symsecs_arr(symarr, bonds, nrbonds);
+  get_symsecs_arr(nrbonds, symarr, bonds);
 
   assert(tens->nrsites == 2 && nr_internal == 1 && "At this moment only two-site optimization");
   for (site = 0; site < tens->nrsites; ++site)
@@ -710,7 +710,7 @@ static void contractsiteTensors(struct siteTensor * const tens, struct siteTenso
   }
 
   safe_free(newtoold);
-  clean_symsecs_arr(symarr, bonds, nrbonds);
+  clean_symsecs_arr(nrbonds, symarr, bonds);
 }
 
 static QN_TYPE change_newtooldqnumber(QN_TYPE new, int * newtoold, int * maxdims, const int newdim,
