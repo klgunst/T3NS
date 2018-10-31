@@ -12,6 +12,9 @@ option(DEBUG 		"Debug symbols used" 			  OFF)
 option(DEBUGFLAG        "Compile with DDEBUG flag" 		  OFF)
 option(LOWOPT 		"Optimization level of compilation O/O3"  OFF)
 
+option(BUILD_TESTING 	"Compile the tests" 			  ON)
+option(PERFORMANCETEST  "Compile the performance tests" 	  OFF)
+
 # Find Lapack or MKL
 if("${CMAKE_C_COMPILER_ID}" MATCHES "Intel")
     find_package(MKL)
@@ -72,13 +75,17 @@ else()
     endif()
 endif(LOWOPT)
 
+# Cmake includes
+include(GNUInstallDirs)
+
+# Include files
 configure_file(
     "${PROJECT_SOURCE_DIR}/include/T3NSConfig.h.in"
     "${PROJECT_BINARY_DIR}/T3NSConfig.h")
-
-#Add the sources
-file(GLOB SOURCES "${CMAKE_SOURCE_DIR}/src/*.c")
 include_directories(include ${CMAKE_BINARY_DIR})
+add_subdirectory(src)
 
-add_executable(T3NS ${SOURCES})
-target_link_libraries(T3NS ${GSL_LIBRARIES} ${LAPACK_LIBRARIES} ${HDF5_LIBRARIES})
+include(CTest)
+if(BUILD_TESTING)
+    add_subdirectory(tests)
+endif()
