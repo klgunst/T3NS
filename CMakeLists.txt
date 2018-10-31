@@ -11,7 +11,6 @@ set(CMAKE_MODULE_PATH "${PROJECT_SOURCE_DIR}/cmake/Modules")
 option(DEBUG 		"Debug symbols used" 			  OFF)
 option(DEBUGFLAG        "Compile with DDEBUG flag" 		  OFF)
 option(LOWOPT 		"Optimization level of compilation O/O3"  OFF)
-option(BUILD_TESTING 	"Compile the tests" 			  ON)
 
 # Find Lapack or MKL
 if("${CMAKE_C_COMPILER_ID}" MATCHES "Intel")
@@ -73,17 +72,13 @@ else()
     endif()
 endif(LOWOPT)
 
-# Cmake includes
-include(GNUInstallDirs)
-
-# Include files
 configure_file(
     "${PROJECT_SOURCE_DIR}/include/T3NSConfig.h.in"
     "${PROJECT_BINARY_DIR}/T3NSConfig.h")
-include_directories(include ${CMAKE_BINARY_DIR})
-add_subdirectory(src)
 
-include(CTest)
-if(BUILD_TESTING)
-    add_subdirectory(tests)
-endif()
+#Add the sources
+file(GLOB SOURCES "${CMAKE_SOURCE_DIR}/src/*.c")
+include_directories(include ${CMAKE_BINARY_DIR})
+
+add_executable(T3NS ${SOURCES})
+target_link_libraries(T3NS ${GSL_LIBRARIES} ${LAPACK_LIBRARIES} ${HDF5_LIBRARIES})

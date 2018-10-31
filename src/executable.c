@@ -296,7 +296,7 @@ static void initialize_program(int argc, char *argv[], struct siteTensor **T3NS,
                 assert(scheme->nrRegimes != 0);
                 create_list_of_symsecs(scheme->regimes[0].minD);
 
-                random_init(T3NS, rops);
+                random_init(T3NS, rops, 'r');
         } else {
                 read_optScheme(arguments.args[0], scheme);
                 assert(scheme->nrRegimes != 0);

@@ -98,18 +98,16 @@ void init_1siteTensor(struct siteTensor * const tens, const int site, const char
   /* initialization of the tel array */
   switch(o)
   {
-    case 'n':
-      tens->blocks.tel = NULL;
-      break;
-    case 'm':
-      tens->blocks.tel = safe_malloc(tens->blocks.beginblock[tens->nrblocks], EL_TYPE);
-      break;
-    case '0':
-      tens->blocks.tel = safe_calloc(tens->blocks.beginblock[tens->nrblocks], EL_TYPE);
-      break;
     case 'r':
       tens->blocks.tel = safe_malloc(tens->blocks.beginblock[tens->nrblocks], EL_TYPE);
       srand(time(NULL));
+      for (i = 0; i <  tens->blocks.beginblock[tens->nrblocks]; ++i)
+        tens->blocks.tel[i] = (rand() * 1.) / RAND_MAX;
+      break;
+    case 'c':
+      tens->blocks.tel = safe_malloc(tens->blocks.beginblock[tens->nrblocks], EL_TYPE);
+      /* always same random init */
+      srand(0);
       for (i = 0; i <  tens->blocks.beginblock[tens->nrblocks]; ++i)
         tens->blocks.tel[i] = (rand() * 1.) / RAND_MAX;
       break;

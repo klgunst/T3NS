@@ -26,7 +26,7 @@ static void initialize_program(struct siteTensor **T3NS,
         make_network("${CMAKE_SOURCE_DIR}/tests/networks/lif_T3NS.netw");
         readinteraction("${CMAKE_SOURCE_DIR}/tests/fcidumps/LiF_3.05.FCIDUMP");
         create_list_of_symsecs(scheme->regimes[0].minD);
-        random_init(T3NS, rops);
+        random_init(T3NS, rops, '${TEST_INIT_OPTION}');
 }
 
 static void destroy_T3NS(struct siteTensor **T3NS)

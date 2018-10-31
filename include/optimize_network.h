@@ -10,7 +10,8 @@
  * \param [out] T3NS Pointer to the siteTensor array representing the T3NS.
  * \param [out] rops Pointer to the rOperators array representing the renormalized operators.
  */
-void random_init(struct siteTensor ** const T3NS, struct rOperators ** const rops);
+void random_init(struct siteTensor ** const T3NS, struct rOperators ** const rops,
+                 const char option);
 
 /**
  * \brief Executes the optimization scheme for the tensor network.

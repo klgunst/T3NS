@@ -61,7 +61,8 @@ static int find_in_array(const int size, const int array[size], const int id);
 
 /* ========================================================================== */
 
-void random_init(struct siteTensor ** const T3NS, struct rOperators ** const rops)
+void random_init(struct siteTensor ** const T3NS, struct rOperators ** const rops,
+                 const char option)
 {
   int i;
   init_null_T3NS(T3NS);
@@ -79,7 +80,7 @@ void random_init(struct siteTensor ** const T3NS, struct rOperators ** const rop
       /* Changes the bonddimensions in the bookkeeper so its consistent,
        * meaning dim1 * dim2 >= dim3
        * left site needs to be initialized randomly */
-      init_1siteTensor(tens, siteL, 'r');
+      init_1siteTensor(tens, siteL, option);
       QR(tens, NULL);
 
       if (siteR == -1) { /* normalize the last tensor */
