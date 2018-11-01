@@ -141,6 +141,11 @@ T3NS_DESCRIPTION
 "                  The maximal number of Davidson iterations.\n"
 "                  Default : %d\n"
 "\n"
+"[NOISE]         = flt, flt, flt \n"
+"                  The amount of noise to add.\n"
+"                  Level of Noise : 0.5 * NOISE * W_disc(last_sweep)\n"
+"                  Default : %.3f\n"
+"\n"
 "##############################################################################\n";
 
 /* A description of the arguments we accept. */
@@ -260,7 +265,7 @@ static void initialize_program(int argc, char *argv[], struct siteTensor **T3NS,
         get_allsymstringnames(buffersize_symm, buffer_symm);
         snprintf(buffer, buffersize, doc, buffer_symm, DEFAULT_SWEEPS, 
                  DEFAULT_E_CONV, DEFAULT_SITESIZE, DEFAULT_SOLVER_TOL, 
-                 DEFAULT_SOLVER_MAX_ITS);
+                 DEFAULT_SOLVER_MAX_ITS, DEFAULT_NOISE);
 
         struct argp argp = {options, parse_opt, args_doc, buffer};
 

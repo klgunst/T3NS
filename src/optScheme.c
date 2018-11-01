@@ -252,7 +252,7 @@ void print_optScheme(const struct optScheme * const scheme)
         printf("\n");
         printf("%10s", optionnames[NOISE]);
         for (i = 0; i < scheme->nrRegimes; ++i) {
-                printf("%11.2e", scheme->regimes[i].noise);
+                printf("%11.3f", scheme->regimes[i].noise);
         }
         printf("\n");
         printf("################################################################################\n\n");
