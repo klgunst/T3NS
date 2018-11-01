@@ -15,6 +15,40 @@
 #include "Heff.h"
 #include "wrapper_solvers.h"
 
+
+#define NR_TIMERS 8
+static const char *timernames[] = {"rOperators: append physical", 
+        "rOperators: update physical", "rOperators: update branching", 
+        "Heff: T3NS", "Heff: DMRG", "siteTensor: make multisite tensor",
+        "siteTensor: decompose", "io: write to disk"};
+enum timers {ROP_APPEND, ROP_UPDP, ROP_UPDB, HEFF_T3NS, HEFF_DMRG, 
+        STENS_MAKE, STENS_DECOMP, IO_DISK};
+
+/* only one occurence of these two can be done at one moment */
+static struct timeval start_time;
+static void start_timing(void)
+{
+        gettimeofday(&start_time, NULL);
+}
+
+static double stop_timing(void)
+{
+        struct timeval t_end;
+        gettimeofday(&t_end, NULL);
+        long long t_elapsed = (t_end.tv_sec - start_time.tv_sec) * 1000000LL + 
+                t_end.tv_usec - start_time.tv_usec;
+         return t_elapsed * 1e-6;
+}
+
+static void print_timers(double timings[NR_TIMERS])
+{
+        printf("** TIMERS FOR OPTIMIZATION SCHEME **\n");
+        for(int i = 0; i < NR_TIMERS; ++i) {
+                printf("  >>  %-35s  :: %lf sec\n", timernames[i], timings[i]);
+        }
+        printf("\n");
+}
+
 /* ========================================================================== */
 /* ==================== DECLARATION STATIC FUNCTIONS ======================== */
 /* ========================================================================== */
@@ -32,11 +66,12 @@ static void init_rops(struct rOperators * const rops, const struct siteTensor * 
 /* This executes a regime */
 static double execute_regime(struct siteTensor * const T3NS, struct rOperators * const rops, 
                              const struct regime * const reg, const int regnumber, const int bsize,
-                             char * saveloc, double * trunc_err);
+                             char * saveloc, double * trunc_err, double timings[NR_TIMERS]);
 
 /* This executes a sweep in the regime */
 static double execute_sweep_in_regime(struct siteTensor * const T3NS, struct rOperators * const 
-                                      rops, const struct regime * const reg, double *trunc_err, int * max_bonddim);
+                                      rops, const struct regime * const reg, double *trunc_err, int * max_bonddim,
+                                      double timings[NR_TIMERS]);
 
 /* This preprocesses the needed rOperators for the current optimization */
 static void preprocess_rOperators(struct rOperators Operators[], const struct rOperators * const 
@@ -45,15 +80,12 @@ static void preprocess_rOperators(struct rOperators Operators[], const struct rO
 /* Optimization step */
 static double optimize_siteTensor(struct siteTensor * tens, struct siteTensor * const T3NS, 
                                   const struct rOperators Operators[], const int site_opt[], const int common_nxt[], 
-                                  const struct regime * const reg, double trunc_err, double * trunc_err_sweep, int * max_bonddim);
+                                  const struct regime * const reg, double trunc_err, double * trunc_err_sweep, int * max_bonddim, double timings[NR_TIMERS]);
 
 /* This postprocesses the used rOperators for the current optimization */
 static void postprocess_rOperators(struct rOperators Operators[], struct rOperators * const rops,
                                    const struct siteTensor * const T3NS, const int site_opt[], const int common_nxt[], 
-                                   struct symsecs internalss[], const int internalbonds[]);
-
-/* print different timers */
-static void print_timers(void);
+                                   struct symsecs internalss[], const int internalbonds[], double timings[NR_TIMERS]);
 
 static void copy_internal_symsecs(const struct siteTensor * const tens, 
                                   struct symsecs internalss[3], int internalbonds[3]);
@@ -102,6 +134,8 @@ void random_init(struct siteTensor ** const T3NS, struct rOperators ** const rop
 double execute_optScheme(struct siteTensor * const T3NS, struct rOperators * const rops, 
                          const struct optScheme * const  scheme, const int bsize, char * saveloc)
 {
+        double timings[NR_TIMERS] = {0};
+
         double energy = 3000;
         double trunc_err = scheme->regimes[0].truncerror;
         int i;
@@ -109,7 +143,7 @@ double execute_optScheme(struct siteTensor * const T3NS, struct rOperators * con
         printf("============================================================================\n");
         for (i = 0; i < scheme->nrRegimes; ++i) {
                 double current_energy = execute_regime(T3NS, rops, &scheme->regimes[i], i + 1,
-                                                       bsize, saveloc, &trunc_err);
+                                                       bsize, saveloc, &trunc_err, timings);
                 if (current_energy  < energy) energy = current_energy;
         }
 
@@ -119,7 +153,7 @@ double execute_optScheme(struct siteTensor * const T3NS, struct rOperators * con
                "============================================================================\n"
                "\n", energy);
 
-        print_timers();
+        print_timers(timings);
         return energy;
 }
 
@@ -178,7 +212,7 @@ static void init_rops(struct rOperators * const rops,
 
 static double execute_regime(struct siteTensor * const T3NS, struct rOperators * const rops, 
                              const struct regime * const reg, const int regnumber, const int bsize,
-                             char * saveloc, double * trunc_err)
+                             char * saveloc, double * trunc_err, double timings[NR_TIMERS])
 {
         int flag = 1;
         int sweepnrs = 0;
@@ -193,7 +227,7 @@ static double execute_regime(struct siteTensor * const T3NS, struct rOperators *
                 int max_bonddim = 0;
 
                 gettimeofday(&t_start, NULL);
-                sweep_energy = execute_sweep_in_regime(T3NS, rops, reg, trunc_err, &max_bonddim);
+                sweep_energy = execute_sweep_in_regime(T3NS, rops, reg, trunc_err, &max_bonddim, timings);
                 gettimeofday(&t_end, NULL);
 
                 t_elapsed = (t_end.tv_sec - t_start.tv_sec) * 1000000LL + t_end.tv_usec - t_start.tv_usec;
@@ -210,7 +244,10 @@ static double execute_regime(struct siteTensor * const T3NS, struct rOperators *
 
                 flag = fabs(energy - sweep_energy) > reg->energy_conv;
                 if (sweep_energy < energy) energy = sweep_energy;
+
+                start_timing();
                 write_to_disk(saveloc, T3NS, rops);
+                timings[IO_DISK] += stop_timing();
         }
 
         printf("============================================================================\n" );
@@ -223,7 +260,8 @@ static double execute_regime(struct siteTensor * const T3NS, struct rOperators *
 }
 
 static double execute_sweep_in_regime(struct siteTensor * const T3NS, struct rOperators * const 
-                                      rops, const struct regime * const reg, double *trunc_err, int * max_bonddim)
+                                      rops, const struct regime * const reg, double *trunc_err, int * max_bonddim,
+                                      double timings[NR_TIMERS])
 {
         double sweep_energy = 3000;
         int bonds_involved[3], sites_opt[4], common_nxt[4];
@@ -243,13 +281,18 @@ static double execute_sweep_in_regime(struct siteTensor * const T3NS, struct rOp
                 /* The order of makesiteTensor and preprocess_rOperators is really important!
                  * In makesiteTensor the symsec is set to an internal symsec. This is what you need also for
                  * preprocess_rOperators */
+                start_timing();
                 makesiteTensor(&tens, T3NS, sites_opt);
+                timings[STENS_MAKE] += stop_timing();
+
+                start_timing();
                 preprocess_rOperators(Operators, rops, bonds_involved);
+                timings[ROP_APPEND] += stop_timing();
                 copy_internal_symsecs(&tens, internalss, internalbonds);
 
-                curr_energy = optimize_siteTensor(&tens, T3NS, Operators, sites_opt, common_nxt, reg, *trunc_err, &trunc_err_sweep, max_bonddim);
+                curr_energy = optimize_siteTensor(&tens, T3NS, Operators, sites_opt, common_nxt, reg, *trunc_err, &trunc_err_sweep, max_bonddim, timings);
 
-                postprocess_rOperators(Operators, rops, T3NS, sites_opt, common_nxt, internalss, internalbonds);
+                postprocess_rOperators(Operators, rops, T3NS, sites_opt, common_nxt, internalss, internalbonds, timings);
 
                 if (sweep_energy > curr_energy) sweep_energy = curr_energy;
         }
@@ -288,13 +331,13 @@ static void add_noise(struct siteTensor * tens, double noiseLevel)
                 const double random_nr = rand() / RAND_MAX - 0.5;
                 tens->blocks.tel[i] += random_nr * noiseLevel;
         }
-        const double norm = dnrm2_(&N, tens->blocks.tel, &ONE);
-        dscal_(&N, &norm, tens->blocks.tel, &ONE);
+        const double divnorm = 1. / dnrm2_(&N, tens->blocks.tel, &ONE);
+        dscal_(&N, &divnorm, tens->blocks.tel, &ONE);
 }
 
 static double optimize_siteTensor(struct siteTensor * tens, struct siteTensor * const T3NS, 
                                   const struct rOperators Operators[], const int site_opt[], const int common_nxt[], 
-                                  const struct regime * const reg, double trunc_err, double * trunc_err_sweep, int * max_bonddim)
+                                  const struct regime * const reg, double trunc_err, double * trunc_err_sweep, int * max_bonddim, double timings[NR_TIMERS])
 { 
         double energy;
         EL_TYPE *diagonal;
@@ -306,8 +349,10 @@ static double optimize_siteTensor(struct siteTensor * tens, struct siteTensor * 
                 size = tens->blocks.beginblock[tens->nrblocks];
                 init_T3NSdata(&mv_dat, Operators, tens);
                 diagonal = make_diagonal(&mv_dat, 0);
+                start_timing();
                 sparse_eigensolve(tens->blocks.tel, size, &energy, matvecT3NS, diagonal, reg->davidson_rtl, 
                                   reg->davidson_max_its, "D", DAVIDSON_KEEP_DEFLATE, DAVIDSON_MAX_VECS, &mv_dat);
+                timings[HEFF_T3NS] += stop_timing();
                 destroy_T3NSdata(&mv_dat);
                 safe_free(diagonal);
         } else { /* DMRG */
@@ -316,15 +361,19 @@ static double optimize_siteTensor(struct siteTensor * tens, struct siteTensor * 
                 size = tens->blocks.beginblock[tens->nrblocks];
                 init_matvec_data(&mv_dat, Operators, tens);
                 diagonal = make_diagonal(&mv_dat, 1);
+                start_timing();
                 sparse_eigensolve(tens->blocks.tel, size, &energy, matvecDMRG, diagonal, reg->davidson_rtl, 
                                   reg->davidson_max_its, "D", DAVIDSON_KEEP_DEFLATE, DAVIDSON_MAX_VECS, &mv_dat);
+                timings[HEFF_DMRG] += stop_timing();
                 destroy_matvec_data(&mv_dat);
                 safe_free(diagonal);
         }
 
         /* same noise as CheMPS2 */
         add_noise(tens, reg->noise * trunc_err);
+        start_timing();
         decomposesiteObject(tens, T3NS, site_opt, common_nxt, reg->minD, reg->maxD, reg->truncerror, trunc_err, trunc_err_sweep, max_bonddim);
+        timings[STENS_DECOMP] += stop_timing();
         destroy_siteTensor(tens);
 
         printf("**  \t\tEnergy : %.16lf\n\n", energy);
@@ -333,11 +382,12 @@ static double optimize_siteTensor(struct siteTensor * tens, struct siteTensor * 
 
 static void postprocess_rOperators(struct rOperators Operators[], struct rOperators * const rops,
                                    const struct siteTensor * const T3NS, const int site_opt[], const int common_nxt[], 
-                                   struct symsecs internalss[], const int internalbonds[])
+                                   struct symsecs internalss[], const int internalbonds[], double timings[NR_TIMERS])
 {
         int i;
         int unupdated, unupdatedbond = 0;
 
+        start_timing();
         /* first do all dmrg updates possible */
         for (i = 0; i < 3; ++i) {
                 if (Operators[i].P_operator == 1) {
@@ -363,7 +413,9 @@ static void postprocess_rOperators(struct rOperators Operators[], struct rOperat
                         }
                 }
         }
+        timings[ROP_UPDP] += stop_timing();
 
+        start_timing();
         /* now do the possible T3NS update. */
         for (i = 0; i < 4; ++i) {
                 const int site = site_opt[i];
@@ -387,18 +439,12 @@ static void postprocess_rOperators(struct rOperators Operators[], struct rOperat
                         update_rOperators_branching(new_operator, ops, tens);
                 }
         }
+        timings[ROP_UPDB] += stop_timing();
 
         for (i = 0; i < 3; ++i) {
                 if (internalbonds[i] != -1)
                         destroy_symsecs(&internalss[i]);
         }
-}
-
-static void print_timers(void)
-{
-        printf("\n\n");
-        printf("** TIMERS FOR OPTIMIZATION SCHEME **\n");
-        printf("\n");
 }
 
 static void copy_internal_symsecs(const struct siteTensor * const tens, 

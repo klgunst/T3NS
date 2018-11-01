@@ -22,8 +22,14 @@ static int set_hamiltonian(char hamiltonian[], int * const hassu2);
 
 /* ========================================================================== */
 
+#define BUFLEN 255
+static char interact[BUFLEN];
+
 void readinteraction(char interactionstring[])
 {
+        strncpy(interact, interactionstring, BUFLEN - 1);
+        interact[BUFLEN - 1] = '\0';
+
         int hassu2 = 0;
         if (!set_hamiltonian(interactionstring, &hassu2))
                 exit(EXIT_FAILURE);
@@ -40,6 +46,11 @@ void readinteraction(char interactionstring[])
                         interactionstring);
                 exit(EXIT_FAILURE);
         }
+}
+
+void print_interaction(void)
+{
+        printf("Interaction = %s\n", interact);
 }
 
 void get_physsymsecs(struct symsecs *res, int bond)

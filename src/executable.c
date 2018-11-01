@@ -284,8 +284,7 @@ static void initialize_program(int argc, char *argv[], struct siteTensor **T3NS,
         argp_parse(&argp, argc, argv, 0, 0, &arguments);
         if (arguments.saveloc == NULL) {
                 *saveloc = NULL;
-        }
-        else {
+        } else {
                 strncpy(*saveloc, arguments.saveloc, sloc_size - 1);
                 (*saveloc)[sloc_size - 1] = '\0';
                 recursive_mkdir(*saveloc, sloc_size, 0750);
@@ -300,13 +299,13 @@ static void initialize_program(int argc, char *argv[], struct siteTensor **T3NS,
                 read_inputfile(arguments.args[0], scheme);
                 assert(scheme->nrRegimes != 0);
                 create_list_of_symsecs(scheme->regimes[0].minD);
-
                 random_init(T3NS, rops, 'r');
         } else {
                 read_optScheme(arguments.args[0], scheme);
                 assert(scheme->nrRegimes != 0);
                 read_from_disk(arguments.h5file, T3NS, rops);
         }
+        print_input(scheme);
 
         gettimeofday(&t_end, NULL);
 

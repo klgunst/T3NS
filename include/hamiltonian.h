@@ -23,6 +23,8 @@ void destroy_hamiltonian(void);
  */
 void readinteraction(char interactionstring[]);
 
+void print_interaction(void);
+
 /**
  * \brief Gets the the symsecs struct of the physical bonds given a certain model.
  *

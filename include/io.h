@@ -19,3 +19,5 @@ void read_inputfile(const char inputfile[], struct optScheme * const scheme);
  * \return The number of items set in buffer and -1 if option is not found.
  */
 int read_option(const char option[], const char inputfile[], char buffer[]);
+
+void print_input(const struct optScheme * scheme);

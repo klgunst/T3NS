@@ -90,9 +90,6 @@ void read_inputfile(const char inputfile[], struct optScheme * const scheme)
                                 "                         %s\n", buffer);
                         exit(EXIT_FAILURE);
                 }
-
-                get_sgsstring(bookie.nrSyms, buffer);
-                printf("Symmetries  = %s\n", buffer);
         }
 
         { /* For the specification of the target state. */
@@ -120,13 +117,9 @@ void read_inputfile(const char inputfile[], struct optScheme * const scheme)
                                 "                         %s\n", buffer, buffer2);
                         exit(EXIT_FAILURE);
                 }
-
-                get_tsstring(buffer);
-                printf("Targetstate = %s\n", buffer);
         }
 
         read_network(inputfile, buflen, relpath);
-        print_network();
 
         { /* For the path to the interactions file. */
                 char buffer2[buflen];
@@ -137,17 +130,28 @@ void read_inputfile(const char inputfile[], struct optScheme * const scheme)
                         fprintf(stderr, "No valid interaction specified in %s.\n", inputfile);
                         exit(EXIT_FAILURE);
                 }
-                printf("Interaction = %s\n", buffer);
                 readinteraction(buffer2);
         }
 
         read_optScheme(inputfile, scheme);
-        print_optScheme(scheme);
 
         if (!consistencynetworkinteraction())
                 exit(EXIT_FAILURE);
 
         safe_free(permarray);
+}
+
+void print_input(const struct optScheme * scheme)
+{
+        char buffer[255];
+        get_sgsstring(bookie.nrSyms, buffer);
+        printf("Symmetries  = %s\n", buffer);
+
+        get_tsstring(buffer);
+        printf("Targetstate = %s\n", buffer);
+        print_interaction();
+        print_optScheme(scheme);
+        print_network();
 }
 
 int read_option(const char option[], const char inputfile[], char buffer[])
