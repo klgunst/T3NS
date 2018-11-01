@@ -12,9 +12,9 @@
 #define STRTOKSEP " ,\t\n"
 
 enum regimeoptions {MIN_D, MAX_D, TRUNCERR, D, SITESIZE, 
-        DAVID_RTL, DAVID_ITS, SWEEPS, E_CONV };
+        DAVID_RTL, DAVID_ITS, SWEEPS, E_CONV, NOISE};
 static const char *optionnames[] = {"minD", "maxD", "TRUNC_ERR", "D", 
-        "SITE_SIZE", "DAVID_RTL", "DAVID_ITS", "SWEEPS", "E_CONV"};
+        "SITE_SIZE", "DAVID_RTL", "DAVID_ITS", "SWEEPS", "E_CONV", "NOISE"};
 
 /* ========================================================================== */
 /* ========================== STATIC FUNCTIONS ============================== */
@@ -42,6 +42,9 @@ static void fill_regimeoptions_default(struct optScheme * const scheme,
                 case E_CONV:
                         reg->energy_conv = DEFAULT_E_CONV;
                         break;
+                case NOISE:
+                        reg->noise = DEFAULT_NOISE;
+                        break;
                 default:
                         fprintf(stderr, "%s@%s: No default defined for option %s\n",
                                 __FILE__, __func__, optionnames[option]);
@@ -63,7 +66,7 @@ static void fill_regimeoptions(char buffer[], struct optScheme * const scheme,
                 void * const towrite[] = {&reg->minD, &reg->maxD, 
                         &reg->truncerror, &reg->minD, &reg->sitesize, 
                         &reg->davidson_rtl, &reg->davidson_max_its, 
-                        &reg->max_sweeps, &reg->energy_conv};
+                        &reg->max_sweeps, &reg->energy_conv, &reg->noise};
                 errno = 0;
                 switch (option) {
                 case MIN_D:
@@ -83,6 +86,7 @@ static void fill_regimeoptions(char buffer[], struct optScheme * const scheme,
                 case TRUNCERR:
                 case DAVID_RTL:
                 case E_CONV:
+                case NOISE:
                         pntd = towrite[option];
                         *pntd = strtod(pch, &endptr);
                         if(errno != 0 || *endptr != '\0') {
@@ -163,7 +167,7 @@ void read_optScheme(const char inputfile[], struct optScheme * const scheme)
 
         read_bonddim(inputfile, scheme);
 
-        for (opt = SITESIZE; opt <= E_CONV; ++opt) {
+        for (opt = SITESIZE; opt <= NOISE; ++opt) {
                 const int ro = read_option(optionnames[opt], inputfile, buffer);
                 if (ro == -1) {
                         fill_regimeoptions_default(scheme, opt);
@@ -244,6 +248,11 @@ void print_optScheme(const struct optScheme * const scheme)
         printf("%10s", optionnames[E_CONV]);
         for (i = 0; i < scheme->nrRegimes; ++i) {
                 printf("%11.2e", scheme->regimes[i].energy_conv);
+        }
+        printf("\n");
+        printf("%10s", optionnames[NOISE]);
+        for (i = 0; i < scheme->nrRegimes; ++i) {
+                printf("%11.2e", scheme->regimes[i].noise);
         }
         printf("\n");
         printf("################################################################################\n\n");

@@ -144,7 +144,7 @@ void QR(struct siteTensor * const tens, void * const R)
 
 void decomposesiteObject(struct siteTensor * const siteObject, struct siteTensor * const T3NS, 
     const int sitelist[], const int common_nxt[],  const int mind, const int maxd,
-    const double maxtrunc)
+    const double maxtrunc, double trunc_err, double * trunc_err_sweep, int * max_bonddim)
 {
   const int factorial[] = { 0, 1, 2, 6 };
   const int nr_of_SVDs = siteObject->nrsites - 1;
@@ -207,8 +207,15 @@ void decomposesiteObject(struct siteTensor * const siteObject, struct siteTensor
           printf("          - maximal dimension %d\n", mxrD);
   printf("          - maximal truncation error %.4e\n", mxtr);
 
+
   change_symsecs_to_best(selection, nr_of_orders, nr_of_SVDs, symseclist, bonds);
   change_tensors_to_best(selection, nr_of_orders, siteObject->nrsites, T3NS, tensorlist);
+  if (*max_bonddim < mxrD) {
+          *max_bonddim = mxrD;
+  }
+  if (*trunc_err_sweep < mxtr) {
+          *trunc_err_sweep = mxtr;
+  }
 }
 
 /* ========================================================================== */

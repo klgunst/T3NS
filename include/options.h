@@ -8,3 +8,4 @@
 # define DEFAULT_SOLVER_MAX_ITS 100
 # define DEFAULT_SWEEPS 4
 # define DEFAULT_E_CONV 1e-6
+# define DEFAULT_NOISE 0

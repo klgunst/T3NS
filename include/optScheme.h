@@ -21,6 +21,7 @@ struct regime {
 
   int max_sweeps;                   /**< Maximum sweeps */
   double energy_conv;               /**< The energy convergence criterion */
+  double noise;                     /**< Noise to add */
 };
 
 /**
