@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.12.0)
+cmake_minimum_required(VERSION 3.9.0)
 project(T3NS 
     LANGUAGES C 
     DESCRIPTION "An implementation of the Three-legged Tree Tensor Network algorithm."
