@@ -6,11 +6,13 @@
 #include <stdint.h>
 
 #include "lapack.h"
+
 #include "debug.h"
 #include "davidson.h"
 #include "macros.h"
 
 #define DAVIDIT
+#define DIAG_CUTOFF 1e-12
 
 /* ========================================================================== */
 /* ==================== DECLARATION STATIC FUNCTIONS ======================== */
@@ -24,8 +26,8 @@ static void expand_submatrix(double* const submatrix, double* const V, double* c
 static double calculate_residue(double* const residue, double* const result, double* const eigv, 
     const double theta, double* const V, double* const VA, const int basis_size, const int m);
 
-static void create_new_vec_t(double* const residue, const double* const diagonal, const double theta, 
-    const int size);
+static void create_new_vec_t(double * residue, double * eigvec, const double * diagonal,
+                             const double theta, const int size);
 
 static void deflate(double* sub_matrix, double* V, double* VA, int max_vectors, int basis_size, 
     int keep_deflate, double* eigv);
@@ -106,7 +108,7 @@ int davidson(double* result, double* energy, int max_vectors, int keep_deflate, 
     cnt_matvecs++;
     printf("%d\t%d\t%e\t%lf\n", its, INFO, residue_norm, eigvalues[0]);
 #endif
-    create_new_vec_t(vec_t, diagonal, eigvalues[0], basis_size);
+    create_new_vec_t(vec_t, result, diagonal, eigvalues[0], basis_size);
   }
 
 #ifdef DAVIDIT
@@ -223,19 +225,39 @@ static double calculate_residue(double* const residue, double* const result, dou
   return sqrt(norm2);
 }
 
-static void create_new_vec_t(double* const residue, const double* const diagonal, const double theta, 
-    const int size)
+static void create_new_vec_t(double * residue, double * eigvec, const double * diagonal,
+                             const double theta, const int size)
 {
-  /* quick implementation */
-  int i;
-  const double cutoff = 1e-12;
-#pragma omp parallel for default(none) private(i)
-  for (i = 0; i < size; i++)
-    if (fabs(diagonal[i] - theta) > cutoff)
-      residue[i] = residue[i] / fabs(diagonal[i] - theta);
-    else{
-      residue[i] = residue[i] / cutoff;
-    }
+        const int ONE = 1;
+        double uKr = 0;
+        double uKu = 0;
+        /* quick implementation */
+#pragma omp parallel for default(none) shared(eigvec,diagonal,residue) reduction(+:uKr,uKu)
+        for (int i = 0; i < size; ++i) {
+                const double diff     = diagonal[i] - theta;
+                const double fabsdiff = fabs(diff);
+                double uK = 0;
+                if (fabsdiff > DIAG_CUTOFF) {
+                        uK = eigvec[i] / diff;
+                } else {
+                        uK = (diff < 0 ? -1 : 1) * eigvec[i] / DIAG_CUTOFF;
+                }
+                uKr += uK * residue[i];
+                uKu += uK * eigvec[i];
+        }
+        const double alpha = -uKr / uKu;
+        daxpy_(&size, &alpha, eigvec, &ONE, residue, &ONE);
+
+#pragma omp parallel for default(none) shared(diagonal,residue)
+        for (int i = 0; i < size; ++i) {
+                const double diff     = diagonal[i] - theta;
+                const double fabsdiff = fabs(diff);
+                if (fabsdiff > DIAG_CUTOFF) {
+                        residue[i] = - residue[i] / diff;
+                } else {
+                        residue[i] = -(diff < 0 ? -1 : 1) * residue[i] / DIAG_CUTOFF;
+                }
+        }
 }
 
 static void deflate(double* sub_matrix, double* V, double* VA, int max_vectors, int basis_size, 
