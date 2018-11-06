@@ -299,13 +299,14 @@ static void initialize_program(int argc, char *argv[], struct siteTensor **T3NS,
                 read_inputfile(arguments.args[0], scheme);
                 assert(scheme->nrRegimes != 0);
                 create_list_of_symsecs(scheme->regimes[0].minD);
+                print_input(scheme);
                 random_init(T3NS, rops, 'r');
         } else {
                 read_optScheme(arguments.args[0], scheme);
                 assert(scheme->nrRegimes != 0);
                 read_from_disk(arguments.h5file, T3NS, rops);
+                print_input(scheme);
         }
-        print_input(scheme);
 
         gettimeofday(&t_end, NULL);
 
