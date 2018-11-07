@@ -266,7 +266,7 @@ void tensprod_symsecs(struct symsecs * const res, const struct symsecs * const s
    * the symmsecs with D = 0.
    */
   int i;
-  assert(o == 'f' || o == 'n');
+  assert(o == 'f' || o == 'n' || o == 'd');
 
   res->nrSecs = 0;
   res->irreps    = NULL;
@@ -277,20 +277,18 @@ void tensprod_symsecs(struct symsecs * const res, const struct symsecs * const s
   /* This function will give a rough first irreps array with also a lot of forbidden symmsecs. */
   build_all_sectors(res, sectors1, sectors2);
   res->fcidims = safe_calloc(res->nrSecs,  double);
-  if (o == 'n') res->dims = safe_calloc(res->nrSecs,  int);
+  if (o != 'f') res->dims = safe_calloc(res->nrSecs,  int);
 
-  for (i = 0; i < sectors1->nrSecs; i++)
-  {
+  for (i = 0; i < sectors1->nrSecs; i++) {
     int j;
     /* zero dimension symmsec */
-    if ((o == 'f' && sectors1->fcidims[i] < 0.5) || (o == 'n' && sectors1->dims[i] == 0))
+    if ((o == 'f' && sectors1->fcidims[i] < 0.5) || (o != 'f' && sectors1->dims[i] == 0))
       continue;
 
-    for (j = 0; j < sectors2->nrSecs; j++)
-    {
+    for (j = 0; j < sectors2->nrSecs; j++) {
       int nr_symmsecs;
       int *resultsymmsec;
-      if ((o == 'f' && sectors2->fcidims[j] < 0.5) || (o == 'n' && sectors2->dims[j] == 0))
+      if ((o == 'f' && sectors2->fcidims[j] < 0.5) || (o != 'f' && sectors2->dims[j] == 0))
         continue;
 
       /* for non-abelian symmetries, like SU(2), there are multiple irreps that are valid as
@@ -299,17 +297,19 @@ void tensprod_symsecs(struct symsecs * const res, const struct symsecs * const s
                         &sectors2->irreps[j * bookie.nrSyms], sign, bookie.sgs,
                         bookie.nrSyms);
 
-      for (nr_symmsecs--; nr_symmsecs >= 0; nr_symmsecs--)
-      {
+      for (nr_symmsecs--; nr_symmsecs >= 0; nr_symmsecs--) {
         int pos_symmsec = search_symmsec(resultsymmsec + bookie.nrSyms * nr_symmsecs, res);
         if (pos_symmsec < 0)
           break;
         if (o == 'f')
           res->fcidims[pos_symmsec] += sectors1->fcidims[i] * sectors2->fcidims[j];
-        if (o == 'n')
-        {
+        if (o == 'n') {
           res->fcidims[pos_symmsec] = 1;
           res->dims[pos_symmsec] = 1;
+        }
+        if (o == 'd') {
+          res->fcidims[pos_symmsec] += sectors1->fcidims[i] * sectors2->fcidims[j];
+          res->dims[pos_symmsec] += sectors1->dims[i] * sectors2->dims[j];
         }
       }
       safe_free(resultsymmsec);
@@ -317,7 +317,7 @@ void tensprod_symsecs(struct symsecs * const res, const struct symsecs * const s
   }
 
   /* now we have the 'worst-case' res. Kick out all the symmsecs with dimension 0. */
-  kick_empty_symsecs(res, o);
+  kick_empty_symsecs(res, o == 'd' ? 'n' : o);
 }
 
 /* ========================================================================== */

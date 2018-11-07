@@ -20,6 +20,8 @@ static void calc_fcidims(void);
 
 static void scale_dims(int max_dim);
 
+static void calc_dims(int max_dim);
+
 /* ========================================================================== */
 
 void create_list_of_symsecs(int max_dim)
@@ -27,7 +29,8 @@ void create_list_of_symsecs(int max_dim)
         bookie.nr_bonds = netw.nr_bonds;
         bookie.list_of_symsecs = safe_malloc(bookie.nr_bonds, struct symsecs);
         calc_fcidims();
-        scale_dims(max_dim);
+        //scale_dims(max_dim);
+        calc_dims(max_dim);
 }
 
 void init_bookie(void)
@@ -194,25 +197,36 @@ static void kick_impossibles(struct symsecs * const sector)
         }
 }
 
-static void init_vacuumstate(struct symsecs * sectors)
+static void init_vacuumstate(struct symsecs * sectors, char o)
 { 
+        assert(o == 'f' || o == 'd');
         sectors->nrSecs     = 1;
         sectors->irreps     = safe_malloc(sectors->nrSecs * bookie.nrSyms, int);
         sectors->fcidims    = safe_malloc(sectors->nrSecs, double);
         sectors->fcidims[0] = 1;
-        sectors->dims       = NULL;
+        if (o == 'f') {
+                sectors->dims = NULL;
+        } else if (o == 'd') {
+                sectors->dims    = safe_malloc(sectors->nrSecs, int);
+                sectors->dims[0] = 1;
+        }
         for (int i = 0; i < bookie.nrSyms; ++i) 
                 sectors->irreps[i] = 0;
 }
 
-static void init_targetstate(struct symsecs * sectors)
+static void init_targetstate(struct symsecs * sectors, char o)
 { 
         destroy_symsecs(sectors);
         sectors->nrSecs     = 1;
         sectors->irreps     = safe_malloc(sectors->nrSecs * bookie.nrSyms, int);
         sectors->fcidims    = safe_malloc(sectors->nrSecs, double);
         sectors->fcidims[0] = 1;
-        sectors->dims       = NULL;
+        if (o == 'f') {
+                sectors->dims = NULL;
+        } else if (o == 'd') {
+                sectors->dims    = safe_malloc(sectors->nrSecs, int);
+                sectors->dims[0] = 1;
+        }
         for (int i = 0; i < bookie.nrSyms; ++i) 
                 sectors->irreps[i] = bookie.target_state[i]; 
 }
@@ -256,12 +270,15 @@ static int select_lowest(struct symsecs *sectors1, struct symsecs *sectors2)
         return return_val;
 }
 
-static void make_symsec(struct symsecs *symsec, int bond, int is_left)
+static void make_symsec(struct symsecs *symsec, int bond, int is_left, char o)
 {
         if (netw.bonds[bond][!is_left] == -1) {
-                is_left ?  init_vacuumstate(symsec) : init_targetstate(symsec);
+                is_left ?  init_vacuumstate(symsec, o) : init_targetstate(symsec, o);
                 return;
         }
+
+        assert(o == 'f' || o == 'd');
+        assert(!(o == 'd') || is_left);
 
         struct symsecs sectors1, sectors2;
         struct symsecs * sectors2p = &sectors2;
@@ -289,28 +306,28 @@ static void make_symsec(struct symsecs *symsec, int bond, int is_left)
         assert(sectors2p->nrSecs != 0);
 
         if (flag && is_left) {
-                tensprod_symsecs(symsec, &sectors1, sectors2p, +1, 'f');
+                tensprod_symsecs(symsec, &sectors1, sectors2p, +1, o);
                 destroy_symsecs(sectors2p); 
                 kick_impossibles(symsec);
                 return;
         }
         if(flag && !is_left) {
                 struct symsecs temp;
-                tensprod_symsecs(&temp, &sectors1, sectors2p, -1, 'f');
+                tensprod_symsecs(&temp, &sectors1, sectors2p, -1, o);
                 select_lowest(symsec, &temp);
                 destroy_symsecs(&temp);
                 destroy_symsecs(sectors2p); 
                 return;
         }
         if(!flag && is_left) {
-                tensprod_symsecs(symsec, &sectors1, sectors2p, +1, 'f');
+                tensprod_symsecs(symsec, &sectors1, sectors2p, +1, o);
                 kick_impossibles(symsec);
                 return;
         }
         while(!flag) {
                 struct symsecs temp, temp2;
-                tensprod_symsecs(&temp, &sectors1, sectors2p, -1, 'f');
-                tensprod_symsecs(&temp2, &sectors1, symsec, -1, 'f');
+                tensprod_symsecs(&temp, &sectors1, sectors2p, -1, o);
+                tensprod_symsecs(&temp2, &sectors1, symsec, -1, o);
 
                 flag  = select_lowest(sectors2p, &temp2); 
                 flag *= select_lowest(symsec,  &temp);
@@ -326,10 +343,10 @@ static void calc_fcidims(void)
                 init_null_symsecs(&bookie.list_of_symsecs[bond]);
 
         for (int bond = 0; bond < bookie.nr_bonds; ++bond)
-                make_symsec(&bookie.list_of_symsecs[bond], bond, 1);
+                make_symsec(&bookie.list_of_symsecs[bond], bond, 1, 'f');
 
         for (int bond = bookie.nr_bonds - 1; bond >= 0; --bond)
-                make_symsec(&bookie.list_of_symsecs[bond], bond, 0);
+                make_symsec(&bookie.list_of_symsecs[bond], bond, 0, 'f');
 }
 
 static void scale_dims(int max_dim)
@@ -351,6 +368,43 @@ static void scale_dims(int max_dim)
 
                         sectors->totaldims += sectors->dims[i];
                         assert(sectors->dims[i] > 0);
+                }
+        }
+}
+
+static void calc_dims(int max_dim)
+{
+        for (int bond = 0; bond < bookie.nr_bonds; ++bond) {
+                struct symsecs newSymsec;
+                struct symsecs * bookiess = &bookie.list_of_symsecs[bond];
+                init_null_symsecs(&newSymsec);
+                make_symsec(&newSymsec, bond, 1, 'd');
+                bookiess->dims = safe_malloc(bookiess->nrSecs, int);
+                bookiess->totaldims = 0;
+                for (int i = 0; i < bookiess->nrSecs; ++i) {
+                        int * irrep = &bookiess->irreps[i * bookie.nrSyms];
+                        const int pos = search_symmsec(irrep, &newSymsec);
+                        assert(pos >= 0);
+                        if (newSymsec.dims[pos] > bookiess->fcidims[i]) {
+                                bookiess->dims[i] = bookiess->fcidims[i];
+                        } else {
+                                bookiess->dims[i] = newSymsec.dims[pos];
+                        }
+                        bookiess->totaldims += bookiess->dims[i];
+                }
+                destroy_symsecs(&newSymsec);
+                if (bookiess->totaldims <= max_dim)
+                        continue;
+
+                double ratio = max_dim * 1. / bookiess->totaldims;
+                bookiess->totaldims = 0;
+                for (int i = 0; i < bookiess->nrSecs; ++i) {
+                        bookiess->dims[i] = ceil(ratio * bookiess->fcidims[i]);
+                        if (bookiess->dims[i] == 0) {
+                                bookiess->dims[i] = 1;
+                        }
+                        bookiess->totaldims += bookiess->dims[i];
+                        assert(bookiess->dims[i] > 0);
                 }
         }
 }
