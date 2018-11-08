@@ -350,8 +350,10 @@ static double optimize_siteTensor(struct siteTensor * tens, struct siteTensor * 
                 init_T3NSdata(&mv_dat, Operators, tens);
                 diagonal = make_diagonal(&mv_dat, 0);
                 start_timing();
-                sparse_eigensolve(tens->blocks.tel, size, &energy, matvecT3NS, diagonal, reg->davidson_rtl, 
-                                  reg->davidson_max_its, "D", DAVIDSON_KEEP_DEFLATE, DAVIDSON_MAX_VECS, &mv_dat);
+                sparse_eigensolve(tens->blocks.tel, &energy, size, DAVIDSON_MAX_VECS, 
+                                  DAVIDSON_KEEP_DEFLATE, reg->davidson_rtl, 
+                                  reg->davidson_max_its, diagonal, matvecT3NS, 
+                                  &mv_dat, "D");
                 timings[HEFF_T3NS] += stop_timing();
                 destroy_T3NSdata(&mv_dat);
                 safe_free(diagonal);
@@ -362,8 +364,10 @@ static double optimize_siteTensor(struct siteTensor * tens, struct siteTensor * 
                 init_matvec_data(&mv_dat, Operators, tens);
                 diagonal = make_diagonal(&mv_dat, 1);
                 start_timing();
-                sparse_eigensolve(tens->blocks.tel, size, &energy, matvecDMRG, diagonal, reg->davidson_rtl, 
-                                  reg->davidson_max_its, "D", DAVIDSON_KEEP_DEFLATE, DAVIDSON_MAX_VECS, &mv_dat);
+                sparse_eigensolve(tens->blocks.tel, &energy, size, DAVIDSON_MAX_VECS, 
+                                  DAVIDSON_KEEP_DEFLATE, reg->davidson_rtl, 
+                                  reg->davidson_max_its, diagonal, matvecDMRG, 
+                                  &mv_dat, "D");
                 timings[HEFF_DMRG] += stop_timing();
                 destroy_matvec_data(&mv_dat);
                 safe_free(diagonal);

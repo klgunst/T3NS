@@ -23,8 +23,7 @@ static const char *optionnames[] = {"minD", "maxD", "TRUNC_ERR", "D",
 static void fill_regimeoptions_default(struct optScheme * const scheme,
                                        const enum regimeoptions option)
 {
-        int i;
-        for (i = 0; i < scheme->nrRegimes; ++i) {
+        for (int i = 0; i < scheme->nrRegimes; ++i) {
                 struct regime * const reg = &scheme->regimes[i];
                 switch (option) {
                 case SITESIZE:
@@ -163,11 +162,8 @@ static void read_bonddim(const char inputfile[], struct optScheme* const scheme)
 void read_optScheme(const char inputfile[], struct optScheme * const scheme)
 {
         char buffer[255];
-        enum regimeoptions opt;
-
         read_bonddim(inputfile, scheme);
-
-        for (opt = SITESIZE; opt <= NOISE; ++opt) {
+        for (enum regimeoptions opt = SITESIZE; opt <= NOISE; ++opt) {
                 const int ro = read_option(optionnames[opt], inputfile, buffer);
                 if (ro == -1) {
                         fill_regimeoptions_default(scheme, opt);
@@ -192,9 +188,8 @@ void destroy_optScheme(struct optScheme * scheme)
 
 void print_optScheme(const struct optScheme * const scheme)
 {
-        int i;
         int useD = 1;
-        for (i = 0; i < scheme->nrRegimes; ++i)
+        for (int i = 0; i < scheme->nrRegimes; ++i)
                 if (scheme->regimes[i].minD != scheme->regimes[i].maxD || 
                     scheme->regimes[i].truncerror != 0) {
                         useD = 0;
@@ -204,54 +199,54 @@ void print_optScheme(const struct optScheme * const scheme)
         printf("############################## CONVERGENCE SCHEME ##############################\n");
         if (useD) {
                 printf("%10s", optionnames[D]);
-                for (i = 0; i < scheme->nrRegimes; ++i) {
+                for (int i = 0; i < scheme->nrRegimes; ++i) {
                         printf("%11d", scheme->regimes[i].minD);
                 }
                 printf("\n");
         } else {
                 printf("%10s", optionnames[MIN_D]);
-                for (i = 0; i < scheme->nrRegimes; ++i) {
+                for (int i = 0; i < scheme->nrRegimes; ++i) {
                         printf("%11d", scheme->regimes[i].minD);
                 }
                 printf("\n");
                 printf("%10s", optionnames[MAX_D]);
-                for (i = 0; i < scheme->nrRegimes; ++i) {
+                for (int i = 0; i < scheme->nrRegimes; ++i) {
                         printf("%11d", scheme->regimes[i].maxD);
                 }
                 printf("\n");
                 printf("%10s", optionnames[TRUNCERR]);
-                for (i = 0; i < scheme->nrRegimes; ++i) {
+                for (int i = 0; i < scheme->nrRegimes; ++i) {
                         printf("%11.2e", scheme->regimes[i].truncerror);
                 }
                 printf("\n");
         }
         printf("%10s", optionnames[SITESIZE]);
-        for (i = 0; i < scheme->nrRegimes; ++i) {
+        for (int i = 0; i < scheme->nrRegimes; ++i) {
                 printf("%11d", scheme->regimes[i].sitesize);
         }
         printf("\n");
         printf("%10s", optionnames[DAVID_RTL]);
-        for (i = 0; i < scheme->nrRegimes; ++i) {
+        for (int i = 0; i < scheme->nrRegimes; ++i) {
                 printf("%11.2e", scheme->regimes[i].davidson_rtl);
         }
         printf("\n");
         printf("%10s", optionnames[DAVID_ITS]);
-        for (i = 0; i < scheme->nrRegimes; ++i) {
+        for (int i = 0; i < scheme->nrRegimes; ++i) {
                 printf("%11d", scheme->regimes[i].davidson_max_its);
         }
         printf("\n");
         printf("%10s", optionnames[SWEEPS]);
-        for (i = 0; i < scheme->nrRegimes; ++i) {
+        for (int i = 0; i < scheme->nrRegimes; ++i) {
                 printf("%11d", scheme->regimes[i].max_sweeps);
         }
         printf("\n");
         printf("%10s", optionnames[E_CONV]);
-        for (i = 0; i < scheme->nrRegimes; ++i) {
+        for (int i = 0; i < scheme->nrRegimes; ++i) {
                 printf("%11.2e", scheme->regimes[i].energy_conv);
         }
         printf("\n");
         printf("%10s", optionnames[NOISE]);
-        for (i = 0; i < scheme->nrRegimes; ++i) {
+        for (int i = 0; i < scheme->nrRegimes; ++i) {
                 printf("%11.3f", scheme->regimes[i].noise);
         }
         printf("\n");

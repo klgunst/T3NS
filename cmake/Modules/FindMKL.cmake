@@ -60,7 +60,7 @@ find_library(MKL_INTERFACE_LIBRARY
              NO_DEFAULT_PATH)
 
 find_library(MKL_SEQUENTIAL_LAYER_LIBRARY
-	     NAMES ${THR_LIB}
+             NAMES ${SEQ_LIB}
              PATHS $ENV{MKLROOT}/lib
                    $ENV{MKLROOT}/lib/intel64
                    $ENV{INTEL}/mkl/lib/intel64
