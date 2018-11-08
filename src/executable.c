@@ -22,62 +22,6 @@
 #include "options.h"
 #include "debug.h"
 
-/* ========================================================================== */
-/* ==================== DECLARATION STATIC FUNCTIONS ======================== */
-/* ========================================================================== */
-
-static void initialize_program(int argc, char *argv[], struct siteTensor **T3NS, 
-                               struct rOperators **rops, 
-                               struct optScheme * scheme, 
-                               const int buffersize, char ** saveloc);
-
-static void cleanup_before_exit(struct siteTensor **T3NS, 
-                                struct rOperators **rops, 
-                                struct optScheme * const scheme);
-
-static void destroy_T3NS(struct siteTensor **T3NS);
-
-static void destroy_all_rops(struct rOperators **rops);
-
-/* ========================================================================== */
-
-int main(int argc, char *argv[])
-{
-        struct siteTensor *T3NS;
-        struct rOperators *rops;
-        struct optScheme scheme;
-        long long t_elapsed;
-        double d_elapsed;
-        struct timeval t_start, t_end;
-        const int bsize = 255;
-        char buffer[255];
-        char * pbuffer = buffer;
-
-        gettimeofday(&t_start, NULL);
-
-        /* line by line write-out */
-        setvbuf(stdout, NULL, _IOLBF, BUFSIZ);
-
-        initialize_program(argc, argv, &T3NS, &rops, &scheme, bsize, &pbuffer);
-
-        execute_optScheme(T3NS, rops, &scheme, pbuffer);
-
-        cleanup_before_exit(&T3NS, &rops, &scheme);
-        printf("SUCCESFULL END!\n");
-        gettimeofday(&t_end, NULL);
-
-        t_elapsed = (t_end.tv_sec - t_start.tv_sec) * 1000000LL + 
-                t_end.tv_usec - t_start.tv_usec;
-        d_elapsed = t_elapsed * 1e-6;
-
-        printf("elapsed time for calculation in total: %lf sec\n", d_elapsed);
-        return EXIT_SUCCESS;
-}
-
-/* ========================================================================== */ 
-/* ===================== DEFINITION STATIC FUNCTIONS ======================== */
-/* ========================================================================== */
-
 const char *argp_program_version     = "T3NS " T3NS_VERSION;
 const char *argp_program_bug_address = "<" T3NS_MAIL ">";
 
@@ -205,15 +149,14 @@ static error_t parse_opt(int key, char *arg, struct argp_state *state)
         return 0;
 }
 
-static int recursive_mkdir(const char * pathname, const int bsize, 
-                           const mode_t mode)
+static int recursive_mkdir(const char * pathname, const mode_t mode)
 {
-        char buffer[bsize];
-        char currpath[bsize];
-        int length = bsize - 1;
+        char buffer[MY_STRING_LEN];
+        char currpath[MY_STRING_LEN];
+        int length = MY_STRING_LEN - 1;
 
-        strncpy(buffer, pathname, bsize);
-        buffer[bsize - 1] = '\0';
+        strncpy(buffer, pathname, MY_STRING_LEN);
+        buffer[MY_STRING_LEN - 1] = '\0';
 
         if (pathname[0] == '/') {
                 currpath[0] = '\0';
@@ -232,7 +175,7 @@ static int recursive_mkdir(const char * pathname, const int bsize,
 
                 if (length < 0) {
                         fprintf(stderr, "Error at %s: buffersize (%d) not big enough for path \"%s\"\n",
-                                __func__, bsize, pathname);
+                                __func__, MY_STRING_LEN, pathname);
                         return 0;
                 }
 
@@ -250,19 +193,15 @@ static int recursive_mkdir(const char * pathname, const int bsize,
 }
 
 static void initialize_program(int argc, char *argv[], struct siteTensor **T3NS, 
-                               struct rOperators **rops, 
-                               struct optScheme * scheme, 
-                               const int sloc_size, char ** saveloc)
+                               struct rOperators **rops, struct optScheme * scheme, 
+                               char ** saveloc)
 {
-        long long t_elapsed;
-        double d_elapsed;
         struct timeval t_start, t_end;
-        const int buffersize_symm = 100;
-        char buffer_symm[buffersize_symm];
-        const int buffersize = sizeof doc / sizeof doc[0] + buffersize_symm + 100;
+        char buffer_symm[MY_STRING_LEN];
+        int buffersize = sizeof doc / sizeof doc[0] + MY_STRING_LEN + 100;
         char buffer[buffersize];
 
-        get_allsymstringnames(buffersize_symm, buffer_symm);
+        get_allsymstringnames(buffer_symm);
         snprintf(buffer, buffersize, doc, buffer_symm, DEFAULT_SWEEPS, 
                  DEFAULT_E_CONV, DEFAULT_SITESIZE, DEFAULT_SOLVER_TOL, 
                  DEFAULT_SOLVER_MAX_ITS, DEFAULT_NOISE);
@@ -277,7 +216,7 @@ static void initialize_program(int argc, char *argv[], struct siteTensor **T3NS,
 
         /* Defaults: */
         arguments.saveloc = H5_DEFAULT_LOCATION;
-        arguments.h5file = NULL;
+        arguments.h5file  = NULL;
 
         /* Parse our arguments; every option seen by parse_opt will be
          * reflected in arguments. */
@@ -285,9 +224,9 @@ static void initialize_program(int argc, char *argv[], struct siteTensor **T3NS,
         if (arguments.saveloc == NULL) {
                 *saveloc = NULL;
         } else {
-                strncpy(*saveloc, arguments.saveloc, sloc_size - 1);
-                (*saveloc)[sloc_size - 1] = '\0';
-                recursive_mkdir(*saveloc, sloc_size, 0750);
+                strncpy(*saveloc, arguments.saveloc, MY_STRING_LEN - 1);
+                (*saveloc)[MY_STRING_LEN - 1] = '\0';
+                recursive_mkdir(*saveloc, 0750);
                 if (access(*saveloc, F_OK) != 0) {
                         fprintf(stderr, "Error at %s: Making of directory \"%s\" failed.\n",
                                 __func__, *saveloc);
@@ -298,7 +237,7 @@ static void initialize_program(int argc, char *argv[], struct siteTensor **T3NS,
         if (arguments.h5file == NULL) {
                 read_inputfile(arguments.args[0], scheme);
                 assert(scheme->nrRegimes != 0);
-                create_list_of_symsecs(scheme->regimes[0].minD);
+                create_list_of_symsecs(scheme->regimes[0].minD, 1);
                 print_input(scheme);
                 init_calculation(T3NS, rops, 'r');
         } else {
@@ -310,10 +249,24 @@ static void initialize_program(int argc, char *argv[], struct siteTensor **T3NS,
 
         gettimeofday(&t_end, NULL);
 
-        t_elapsed = (t_end.tv_sec - t_start.tv_sec) * 1000000LL + 
+        long long t_elapsed = (t_end.tv_sec - t_start.tv_sec) * 1000000LL + 
                 t_end.tv_usec - t_start.tv_usec;
-        d_elapsed = t_elapsed * 1e-6;
+        double d_elapsed = t_elapsed * 1e-6;
         printf("elapsed time for preparing calculation: %lf sec\n", d_elapsed);
+}
+
+static void destroy_T3NS(struct siteTensor **T3NS)
+{
+        for (int i = 0; i < netw.sites; ++i)
+                destroy_siteTensor(&(*T3NS)[i]);
+        safe_free(*T3NS);
+}
+
+static void destroy_all_rops(struct rOperators **rops)
+{
+        for (int i = 0; i < netw.nr_bonds; ++i)
+                destroy_rOperators(&(*rops)[i]);
+        safe_free(*rops);
 }
 
 static void cleanup_before_exit(struct siteTensor **T3NS, 
@@ -328,18 +281,33 @@ static void cleanup_before_exit(struct siteTensor **T3NS,
         destroy_optScheme(scheme);
 }
 
-static void destroy_T3NS(struct siteTensor **T3NS)
-{
-        int i;
-        for (i = 0; i < netw.sites; ++i)
-                destroy_siteTensor(&(*T3NS)[i]);
-        safe_free(*T3NS);
-}
+/* ========================================================================== */
 
-static void destroy_all_rops(struct rOperators **rops)
+int main(int argc, char *argv[])
 {
-        int i;
-        for (i = 0; i < netw.nr_bonds; ++i)
-                destroy_rOperators(&(*rops)[i]);
-        safe_free(*rops);
+        struct siteTensor *T3NS;
+        struct rOperators *rops;
+        struct optScheme scheme;
+        struct timeval t_start, t_end;
+        char buffer[MY_STRING_LEN];
+        char * pbuffer = buffer;
+
+        gettimeofday(&t_start, NULL);
+
+        /* line by line write-out */
+        setvbuf(stdout, NULL, _IOLBF, BUFSIZ);
+
+        initialize_program(argc, argv, &T3NS, &rops, &scheme, &pbuffer);
+
+        execute_optScheme(T3NS, rops, &scheme, pbuffer);
+
+        cleanup_before_exit(&T3NS, &rops, &scheme);
+        printf("SUCCESFULL END!\n");
+        gettimeofday(&t_end, NULL);
+
+        long long t_elapsed = (t_end.tv_sec - t_start.tv_sec) * 1000000LL + 
+                t_end.tv_usec - t_start.tv_usec;
+        double d_elapsed = t_elapsed * 1e-6;
+        printf("elapsed time for calculation in total: %lf sec\n", d_elapsed);
+        return EXIT_SUCCESS;
 }

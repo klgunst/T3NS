@@ -39,8 +39,9 @@ extern struct bookkeeper bookie;
  * The bookkeeper is stored in a global variable bookie.
  *
  * \param [in] max_dim The maximal dimension of the bonds that is allowed.
+ * \param [in] interm_scale Scale intermediately or scale the complete fci dims.
  */
-void create_list_of_symsecs(int max_dim);
+void create_list_of_symsecs(int max_dim, int interm_scale);
 
 /**
  * \brief initializes the bookie as empty.
@@ -80,14 +81,14 @@ int get_pg_symmetry(void);
  * \param [in] sg The number of symmetry groups or -1 if defaults were used.
  * \param [out] buffer The buffer where the string is stored.
  */
-void get_sgsstring(int sg, char buffer[]);
+void get_sgsstring(int sg, char * buffer);
 
 /**
  * \brief Returns a correctly formatted string of the target state.
  *
  * \param [out] buffer The buffer where the string is stored.
  */
-void get_tsstring(char buffer[]);
+void get_tsstring(char * buffer);
 
 /**
  * \brief makes a deep copy of several symsecs in the bookkeeper to a given array.
@@ -95,8 +96,8 @@ void get_tsstring(char buffer[]);
  * \param [out] symarr Array of symsecs structures where the deep copies are stored to.
  * \param [in] bonds Array with the bonds of which symsec copies should be made.
  */
-void deep_copy_symsecs_from_bookie(int n, struct symsecs symarr[n], 
-                                   const int bonds[n]);
+void deep_copy_symsecs_from_bookie(int n, struct symsecs  * symarr, 
+                                   const int * bonds);
 
 /**
  * \brief Frees a selected number of symsecs in the bookkeeper.
@@ -104,7 +105,7 @@ void deep_copy_symsecs_from_bookie(int n, struct symsecs symarr[n],
  * \param [in] bonds The bonds to free.
  * \param [in] nrel The number of bonds in the array.
  */
-void free_symsecs_from_bookie(int n, const int bonds[n]);
+void free_symsecs_from_bookie(int n, const int * bonds);
 
 /**
  * \brief Makes a deep copy of an array of symsecs to the bookkeeper.
@@ -113,5 +114,5 @@ void free_symsecs_from_bookie(int n, const int bonds[n]);
  * \param [in] bonds The bonds in the bookkeeper where to store the deep copies.
  * \param [in] nrel The number of bonds.
  */
-void deep_copy_symsecs_to_bookie(int n, const struct symsecs symarr[n], 
-                                 const int bonds[n]);
+void deep_copy_symsecs_to_bookie(int n, const struct symsecs * symarr, 
+                                 const int * bonds);

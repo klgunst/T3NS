@@ -29,7 +29,7 @@ static void initialize_program(struct siteTensor **T3NS,
         bookie.sgs = sgs[testnr];
         make_network("${CMAKE_SOURCE_DIR}/tests/networks/10_DMRG.netw");
         readinteraction("${CMAKE_SOURCE_DIR}/tests/fcidumps/N2.STO3G.FCIDUMP");
-        create_list_of_symsecs(scheme->regimes[0].minD);
+        create_list_of_symsecs(scheme->regimes[0].minD, 1);
         init_calculation(T3NS, rops, '${TEST_INIT_OPTION}');
 }
 
@@ -50,8 +50,7 @@ static void destroy_all_rops(struct rOperators **rops)
 }
 
 static void cleanup_before_exit(struct siteTensor **T3NS, 
-                                struct rOperators **rops, 
-                                struct optScheme * const scheme)
+                                struct rOperators **rops)
 {
         destroy_network();
         destroy_T3NS(T3NS);
@@ -74,7 +73,7 @@ int main(int argc, char *argv[])
         for (int i = 0; i < 4; ++i) {
                 initialize_program(&T3NS, &rops, &scheme, i);
                 double energy = execute_optScheme(T3NS, rops, &scheme, NULL);
-                cleanup_before_exit(&T3NS, &rops, &scheme);
+                cleanup_before_exit(&T3NS, &rops);
                 OK = fabs(energy + 107.648250974014) < 1e-8 && OK;
         }
 

@@ -12,160 +12,6 @@
 
 struct bookkeeper bookie;
 
-/* ========================================================================== */
-/* ==================== DECLARATION STATIC FUNCTIONS ======================== */
-/* ========================================================================== */
-
-static void calc_fcidims(void);
-
-static void scale_dims(int max_dim);
-
-static void calc_dims(int max_dim);
-
-/* ========================================================================== */
-
-void create_list_of_symsecs(int max_dim)
-{
-        bookie.nr_bonds = netw.nr_bonds;
-        bookie.list_of_symsecs = safe_malloc(bookie.nr_bonds, struct symsecs);
-        calc_fcidims();
-        //scale_dims(max_dim);
-        calc_dims(max_dim);
-}
-
-void init_bookie(void)
-{
-        bookie.sgs = NULL;
-        bookie.nrSyms = 0;
-        bookie.target_state = NULL;
-        bookie.nr_bonds = 0;
-        bookie.list_of_symsecs = NULL;
-}
-
-void destroy_bookkeeper(void)
-{
-        for (int cnt = 0; cnt < bookie.nr_bonds; ++cnt)
-                destroy_symsecs(&bookie.list_of_symsecs[cnt]);
-        safe_free(bookie.list_of_symsecs);
-        safe_free(bookie.sgs);
-        safe_free(bookie.target_state);
-}
-
-void deep_copy_symsecs_from_bookie(int n, struct symsecs symarr[n], 
-                                   const int bonds[n])
-{
-        for (int i = 0; i < n; ++i)
-                deep_copy_symsecs(&symarr[i], &bookie.list_of_symsecs[bonds[i]]);
-}
-
-void free_symsecs_from_bookie(int n, const int bonds[n])
-{
-        int i;
-        for (i = 0; i < n; ++i) 
-                destroy_symsecs(&bookie.list_of_symsecs[bonds[i]]);
-}
-
-void deep_copy_symsecs_to_bookie(int n, const struct symsecs symarr[n], 
-                                 const int bonds[n])
-{
-        for (int i = 0; i < n; ++i)
-                deep_copy_symsecs(&bookie.list_of_symsecs[bonds[i]], &symarr[i]);
-}
-
-void print_bookkeeper(int fci)
-{
-        const int bufsize = 255;
-        char str_one[bufsize];
-        char str_two[bufsize];
-        printf("\n"
-               "########################\n"
-               "###### BOOKKEEPER ######\n"
-               "########################\n"
-               "\n"
-               "# TNS BONDS : \n");
-
-        for (int i = 0; i < bookie.nr_bonds; ++i) {
-                int site_one = netw.bonds[i][0];
-                int site_two = netw.bonds[i][1];
-                struct symsecs currsymsecs = bookie.list_of_symsecs[i];
-
-                if (site_one == -1) {
-                        strncpy(str_one, "vacuum", bufsize - 1);
-                } else {
-                        char kind = netw.sitetoorb[site_one] != -1 ? 'p': 'b';
-                        sprintf(str_one, "%c%d", kind, site_one);
-                }
-
-                if (site_two == -1) {
-                        strncpy(str_two, "target", bufsize - 1);
-                } else {
-                        char kind = netw.sitetoorb[site_two] != -1 ? 'p': 'b';
-                        sprintf(str_two, "%c%d", kind, site_two);
-                }
-
-                printf("%d : %s -> %s : ", i, str_one, str_two);
-                print_symsecs(&currsymsecs, fci);
-        }
-}
-
-int get_particlestarget(void)
-{
-        int N = 0;
-        int flag = 0;
-        for (int i = 0; i < bookie.nrSyms; ++i) {
-                if (bookie.sgs[i] == U1) {
-                        flag = 1;
-                        N += bookie.target_state[i];
-                }
-        }
-        if (!flag)
-                fprintf(stderr, "No U(1)-symmetries in the system specified! The call get_particlestarget is maybe not such a good idea...\n");
-        return N;
-}
-
-int get_pg_symmetry(void)
-{
-        for (int i = 0; i < bookie.nrSyms; ++i)
-                if (bookie.sgs[i] >= C1)
-                        return bookie.sgs[i];
-        return -1;
-}
-
-void get_sgsstring(int sg, char buffer[])
-{
-        buffer[0] = '\0';
-        if (sg == -1) {
-                for (int i = 0; i < bookie.nrSyms; ++i) {
-                        if (bookie.sgs[i] == Z2) {
-                                strcat(buffer, "(Z2)\t");
-                        } else {
-                                strcat(buffer, get_symstring(bookie.sgs[i]));
-                                strcat(buffer, "\t");
-                        }
-                }
-        } else {
-                for (int i = sg != bookie.nrSyms; i < bookie.nrSyms; ++i) {
-                        strcat(buffer, get_symstring(bookie.sgs[i]));
-                        strcat(buffer, "\t");
-                }
-        }
-}
-
-void get_tsstring(char buffer[])
-{
-        char buffer2[255];
-        buffer[0] = '\0';
-        for (int i = 0; i < bookie.nrSyms; ++i) {
-                get_irrstring(buffer2, bookie.sgs[i], bookie.target_state[i]);
-                strcat(buffer, buffer2);
-                strcat(buffer, "\t");
-        }
-}
-
-/* ========================================================================== */
-/* ===================== DEFINITION STATIC FUNCTIONS ======================== */
-/* ========================================================================== */
-
 static void kick_impossibles(struct symsecs * const sector)
 {
         int nrSecss = 0;
@@ -362,7 +208,7 @@ static void scale_dims(int max_dim)
                 sectors->totaldims = 0;
 
                 for (int i = 0; i < sectors->nrSecs; ++i) {
-                        sectors->dims[i] = ceil(ratio * sectors->fcidims[i]);
+                        sectors->dims[i] = (int) ceil(ratio * sectors->fcidims[i]);
                         if (sectors->dims[i] == 0)
                                 sectors->dims[i] = 1;
 
@@ -391,7 +237,7 @@ static void calc_dims(int max_dim)
                         }
                         assert(pos >= 0);
                         if (newSymsec.dims[pos] > bookiess->fcidims[i]) {
-                                bookiess->dims[i] = bookiess->fcidims[i];
+                                bookiess->dims[i] = (int) bookiess->fcidims[i];
                         } else {
                                 bookiess->dims[i] = newSymsec.dims[pos];
                         }
@@ -404,12 +250,158 @@ static void calc_dims(int max_dim)
                 double ratio = max_dim * 1. / bookiess->totaldims;
                 bookiess->totaldims = 0;
                 for (int i = 0; i < bookiess->nrSecs; ++i) {
-                        bookiess->dims[i] = ceil(ratio * bookiess->dims[i]);
+                        bookiess->dims[i] = (int) ceil(ratio * bookiess->dims[i]);
                         if (bookiess->dims[i] == 0) {
                                 bookiess->dims[i] = 1;
                         }
                         bookiess->totaldims += bookiess->dims[i];
                         assert(bookiess->dims[i] > 0);
                 }
+        }
+}
+
+/* ========================================================================== */
+
+void create_list_of_symsecs(int max_dim, int interm_scale)
+{
+        bookie.nr_bonds = netw.nr_bonds;
+        bookie.list_of_symsecs = safe_malloc(bookie.nr_bonds, struct symsecs);
+        calc_fcidims();
+
+
+        if (interm_scale) {
+                calc_dims(max_dim);
+        } else {
+                scale_dims(max_dim);
+        }
+}
+
+void init_bookie(void)
+{
+        bookie.sgs = NULL;
+        bookie.nrSyms = 0;
+        bookie.target_state = NULL;
+        bookie.nr_bonds = 0;
+        bookie.list_of_symsecs = NULL;
+}
+
+void destroy_bookkeeper(void)
+{
+        for (int cnt = 0; cnt < bookie.nr_bonds; ++cnt)
+                destroy_symsecs(&bookie.list_of_symsecs[cnt]);
+        safe_free(bookie.list_of_symsecs);
+        safe_free(bookie.sgs);
+        safe_free(bookie.target_state);
+}
+
+void deep_copy_symsecs_from_bookie(int n, struct symsecs  * symarr, 
+                                   const int * bonds)
+{
+        for (int i = 0; i < n; ++i)
+                deep_copy_symsecs(&symarr[i], &bookie.list_of_symsecs[bonds[i]]);
+}
+
+void free_symsecs_from_bookie(int n, const int * bonds)
+{
+        for (int i = 0; i < n; ++i) 
+                destroy_symsecs(&bookie.list_of_symsecs[bonds[i]]);
+}
+
+void deep_copy_symsecs_to_bookie(int n, const struct symsecs * symarr, 
+                                 const int * bonds)
+{
+        for (int i = 0; i < n; ++i)
+                deep_copy_symsecs(&bookie.list_of_symsecs[bonds[i]], &symarr[i]);
+}
+
+void print_bookkeeper(int fci)
+{
+        char str_one[MY_STRING_LEN];
+        char str_two[MY_STRING_LEN];
+        printf("\n"
+               "########################\n"
+               "###### BOOKKEEPER ######\n"
+               "########################\n"
+               "\n"
+               "# TNS BONDS : \n");
+
+        for (int i = 0; i < bookie.nr_bonds; ++i) {
+                int site_one = netw.bonds[i][0];
+                int site_two = netw.bonds[i][1];
+                struct symsecs currsymsecs = bookie.list_of_symsecs[i];
+
+                if (site_one == -1) {
+                        strncpy(str_one, "vacuum", MY_STRING_LEN - 1);
+                } else {
+                        char kind = (char) (netw.sitetoorb[site_one] != -1 ? 
+                                            'p': 'b');
+                        sprintf(str_one, "%c%d", kind, site_one);
+                }
+
+                if (site_two == -1) {
+                        strncpy(str_two, "target", MY_STRING_LEN - 1);
+                } else {
+                        char kind = (char) (netw.sitetoorb[site_two] != -1 ? 
+                                            'p': 'b');
+                        sprintf(str_two, "%c%d", kind, site_two);
+                }
+
+                printf("%d : %s -> %s : ", i, str_one, str_two);
+                print_symsecs(&currsymsecs, fci);
+        }
+}
+
+int get_particlestarget(void)
+{
+        int N = 0;
+        int flag = 0;
+        for (int i = 0; i < bookie.nrSyms; ++i) {
+                if (bookie.sgs[i] == U1) {
+                        flag = 1;
+                        N += bookie.target_state[i];
+                }
+        }
+        if (!flag)
+                fprintf(stderr, "No U(1)-symmetries in the system specified!\n"
+                        "The call get_particlestarget is maybe not such a good idea...\n");
+        return N;
+}
+
+int get_pg_symmetry(void)
+{
+        for (int i = 0; i < bookie.nrSyms; ++i)
+                if (bookie.sgs[i] >= C1)
+                        return bookie.sgs[i];
+        return -1;
+}
+
+void get_sgsstring(int sg, char * buffer)
+{
+        buffer[0] = '\0';
+        if (sg == -1) {
+                for (int i = 0; i < bookie.nrSyms; ++i) {
+                        if (bookie.sgs[i] == Z2) {
+                                strcat(buffer, "(Z2)\t");
+                        } else {
+                                strcat(buffer, get_symstring(bookie.sgs[i]));
+                                strcat(buffer, "\t");
+                        }
+                }
+        } else {
+                for (int i = sg != bookie.nrSyms; i < bookie.nrSyms; ++i) {
+                        strcat(buffer, get_symstring(bookie.sgs[i]));
+                        strcat(buffer, "\t");
+                }
+        }
+}
+
+void get_tsstring(char * buffer)
+{
+        char buffer2[MY_STRING_LEN];
+        buffer[0] = '\0';
+        for (int i = 0; i < bookie.nrSyms; ++i) {
+                get_irrstring(buffer2, bookie.sgs[i], bookie.target_state[i]);
+                strcat(buffer, buffer2);
+                strcat(buffer, "\t");
         }
 }

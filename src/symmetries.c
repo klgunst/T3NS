@@ -7,12 +7,6 @@
 #include "macros.h"
 #include "debug.h"
 
-/* ========================================================================== */
-/* ==================== DECLARATION STATIC FUNCTIONS ======================== */
-/* ========================================================================== */
-
-/* ========================================================================== */
-
 int get_max_irrep(int *prop1, int nr1, int *prop2, int nr2, int inc, 
                   enum symmetrygroup sg)
 {
@@ -100,10 +94,10 @@ const char * get_symstring(enum symmetrygroup sg)
         return symmetrynames[sg];
 }
 
-void get_allsymstringnames(const int buffersize, char buffer[buffersize])
+void get_allsymstringnames(char * buffer)
 {
         const int nrsymm = sizeof symmetrynames / sizeof symmetrynames[0];
-        int len = buffersize - 1;
+        int len = MY_STRING_LEN - 1;
         buffer[0] = '\0';
         for (int i = 0; i < nrsymm; ++i) {
                 strncat(buffer, get_symstring(i), len);
@@ -572,7 +566,3 @@ int multiplicity(const int nrSyms, const enum symmetrygroup sgs[nrSyms],
         }
         return result;
 }
-
-/* ========================================================================== */
-/* ===================== DEFINITION STATIC FUNCTIONS ======================== */
-/* ========================================================================== */

@@ -67,7 +67,7 @@ void tensprod_irrep(int *min_irrep, int *nr_irreps, int *step, int irrep1, int i
  */
 const char * get_symstring(enum symmetrygroup sg);
 
-void get_allsymstringnames(const int buffersize, char buffer[buffersize]);
+void get_allsymstringnames(char * buffer);
 
 /**
  * \brief Searches for an inputted string the right symmetrygroup.

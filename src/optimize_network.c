@@ -291,9 +291,9 @@ static struct sweep_info execute_sweep(struct siteTensor * T3NS,
         start_timing(1);
         while (next_opt_step(reg->sitesize, &o_dat.nr_bonds_opt, o_dat.bonds_opt, 
                              &o_dat.nr_sites, o_dat.sites, o_dat.common_next)) {
-                printf("**\tOptimize sites ");
+                printf("**\tOptimize sites");
                 for (int i = 0; i < o_dat.nr_sites; ++i) {
-                        printf("%d%s ", o_dat.sites[i], i == o_dat.nr_sites - 1 
+                        printf(" %d %s", o_dat.sites[i], i == o_dat.nr_sites - 1 
                                ? ":\n" : "&");
                 }
 
