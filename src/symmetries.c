@@ -306,7 +306,7 @@ double prefactor_pAppend(const int * symvalues, int is_left,
         }
 }
 
-double prefactor_adjoint(const int ** irrep_arr, char c, 
+double prefactor_adjoint(int ** irrep_arr, char c, 
                          const enum symmetrygroup * sgs, int nrsy)
 {
         /* This returns the prefactor needed for the making of the adjoint of a three-legged T3NS-tensor.
@@ -336,7 +336,7 @@ double prefactor_adjoint(const int ** irrep_arr, char c,
         return prefactor;
 }
 
-double prefactor_pUpdate(const int ** irrep_arr, int is_left, 
+double prefactor_pUpdate(int ** irrep_arr, int is_left, 
                          const enum symmetrygroup * sgs, int nrsy)
 {
         /* This returns the prefactor needed for the updating of a renormalized operator with a site 
@@ -382,8 +382,8 @@ double prefactor_pUpdate(const int ** irrep_arr, int is_left,
         return prefactor;
 }
 
-double prefactor_mirror_coupling(int ** irrep_arr, const enum symmetrygroup * sgs, 
-                                 int nrsy)
+double prefactor_mirror_coupling(int ** irrep_arr, 
+                                 const enum symmetrygroup * sgs, int nrsy)
 {
         /* This returns the prefactor needed for the mirroring of a coupling a
          * b c to a coupling c b a. */
@@ -474,13 +474,6 @@ double prefactor_add_P_operator(int * const (*irreps)[3], int isleft,
                         prefactor *= Z2_prefactor_add_P_operator(symvalues, isleft);
                         break;
                 case SU2 :
-                        for (int j = 0; j < 2; ++j)
-                                for (int k = 0; k < 3; ++k)
-                                        symvalues[j][k] = (irreps[j][k])[i];
-
-                        prefactor *= SU2_prefactor_add_P_operator(symvalues, isleft);
-                        break;
-
                 case U1 :
                 default :
                         break;
@@ -523,7 +516,7 @@ double prefactor_combine_MPOs(int * const (*irreps)[3], int * const *irrMPO,
         return prefactor;
 }
 
-int need_multiplicity(const int nrSyms, const enum symmetrygroup * sgs)
+int need_multiplicity(int nrSyms, const enum symmetrygroup * sgs)
 {
         for (int i = 0; i < nrSyms; ++i)
                 if (sgs[i] == SU2)
@@ -531,8 +524,7 @@ int need_multiplicity(const int nrSyms, const enum symmetrygroup * sgs)
         return 0;
 }
 
-int multiplicity(const int nrSyms, const enum symmetrygroup * sgs, 
-                 const int * irreps)
+int multiplicity(int nrSyms, const enum symmetrygroup * sgs, const int * irreps)
 {
         int result = 1;
         for (int i = 0; i < nrSyms; ++i) {

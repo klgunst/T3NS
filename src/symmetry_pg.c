@@ -39,7 +39,7 @@ void PG_tensprod_irrep(int *min_irrep, int *nr_irreps, int *step,
         *min_irrep = irrep1 ^ irrep2;
 }
 
-void PG_get_irrstring(char buffer[], int pg, int irr)
+void PG_get_irrstring(char * buffer, int pg, int irr)
 {
         if (irr >= 0 && irr < nr_irreps_pg[pg])
                 sprintf(buffer, irrepnames[pg][irr]);
@@ -47,7 +47,7 @@ void PG_get_irrstring(char buffer[], int pg, int irr)
                 sprintf(buffer, "INVALID");
 }
 
-int PG_which_irrep(char buffer[], int pg, int *irr)
+int PG_which_irrep(char * buffer, int pg, int *irr)
 {
         const int length = nr_irreps_pg[pg];
         return find_str_in_array(buffer, irrepnames[pg], length, irr);

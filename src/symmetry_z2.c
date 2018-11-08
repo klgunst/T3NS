@@ -19,23 +19,23 @@ void Z2_tensprod_irrep(int *min_irrep, int *nr_irreps, int *step,
         *min_irrep = (irrep1 +  irrep2) % 2;
 }
 
-const char* irrstring[] = {"even", "odd"};
+const char * irrstring[] = {"even", "odd"};
 
-void Z2_get_irrstring(char buffer[], int irr)
+void Z2_get_irrstring(char * buffer, int irr)
 {
         if (irr >= 0 && irr < 2)
-                sprintf(buffer, irrstring[irr]);
+                snprintf(buffer, MY_STRING_LEN, irrstring[irr]);
         else
-                sprintf(buffer, "INVALID");
+                snprintf(buffer, MY_STRING_LEN, "INVALID");
 }
 
-int Z2_which_irrep(char buffer[], int *irr)
+int Z2_which_irrep(char * buffer, int *irr)
 {
-        int length = sizeof irrstring / sizeof(char*);
+        int length = sizeof irrstring / sizeof irrstring[0];
         return find_str_in_array(buffer, irrstring, length, irr);
 }
 
-double Z2_prefactor_pAppend(const int symv[], const int is_left)
+double Z2_prefactor_pAppend(const int * symv, int is_left)
 {
         /** 
          * Notations: bra means it belongs to the bra T3NS (not that it is an outward bond!!)
@@ -73,7 +73,7 @@ double Z2_prefactor_pAppend(const int symv[], const int is_left)
                 return (symv[7] * symv[5]  + symv[7]) % 2 ? -1 : 1;
 }
 
-double Z2_prefactor_adjoint(const int symv[], const char c)
+double Z2_prefactor_adjoint(const int * symv, char c)
 {
         switch(c) {
         case 'l':
@@ -95,7 +95,7 @@ double Z2_prefactor_adjoint(const int symv[], const char c)
         }
 }
 
-double Z2_prefactor_pUpdate(const int symv[], const int is_left)
+double Z2_prefactor_pUpdate(const int * symv, int is_left)
 {
         /* Sign is :
          * for left renormalized operators:
@@ -116,7 +116,7 @@ double Z2_prefactor_pUpdate(const int symv[], const int is_left)
                 return (symv[1] + symv[4]) % 2 ? -1 : 1;
 }
 
-double Z2_prefactor_bUpdate(const int symv[3][3], const int uCase)
+double Z2_prefactor_bUpdate(int (*symv)[3], int uCase)
 {
         /* tensor : 
          *   ket(alpha) ket(beta) ket(gamma)*
@@ -166,13 +166,13 @@ double Z2_prefactor_bUpdate(const int symv[3][3], const int uCase)
         }
 }
 
-double Z2_prefactor_mirror_coupling(int symv[])
+double Z2_prefactor_mirror_coupling(const int * symv)
 {
         /* a b c => c b a : a + bc */
         return (symv[0] + symv[1] * symv[2]) % 2 ? -1 : 1;
 }
 
-double Z2_prefactor_DMRGmatvec(const int symv[])
+double Z2_prefactor_DMRGmatvec(const int * symv)
 {
         /*
          * indexes of tens are 
@@ -191,7 +191,7 @@ double Z2_prefactor_DMRGmatvec(const int symv[])
         return (symv[2] * symv[8] + symv[11] + symv[2]) % 2 ? -1 : 1;
 }
 
-double Z2_prefactor_add_P_operator(const int symv[2][3], const int isleft)
+double Z2_prefactor_add_P_operator(int (*symv)[3], int isleft)
 {
         /* For left:
          *
@@ -239,7 +239,7 @@ double Z2_prefactor_add_P_operator(const int symv[2][3], const int isleft)
                 return (symv[1][2] + symv[1][0]) % 2 ? -1 : 1;
 }
 
-double Z2_prefactor_combine_MPOs(const int symv[2][3], const int symvMPO[3])
+double Z2_prefactor_combine_MPOs(int (*symv)[3], int * symvMPO)
 {
         /*
          * We have as coupling:

@@ -23,7 +23,8 @@ int Z2_get_max_irrep(void);
  * \param [in] irrep1 The first irrep of the tensorproduct.
  * \param [in] irrep2 The second irrep of the tensorproduct.
  */
-void Z2_tensprod_irrep(int *min_irrep, int *nr_irreps, int *step, int irrep1, int irrep2);
+void Z2_tensprod_irrep(int *min_irrep, int *nr_irreps, int *step, 
+                       int irrep1, int irrep2);
 
 /**
  * \brief Returns the irrepstring, or INVALID if invalid.
@@ -31,7 +32,7 @@ void Z2_tensprod_irrep(int *min_irrep, int *nr_irreps, int *step, int irrep1, in
  * \param [out] buffer The resulting string. 
  * \param [in] irr The irrep.
  */
-void  Z2_get_irrstring(char buffer[], int irr);
+void Z2_get_irrstring(char * buffer, int irr);
 
 /**
  * \brief finds which irrep is given in the buffer.
@@ -40,20 +41,20 @@ void  Z2_get_irrstring(char buffer[], int irr);
  * \param [out] irr The irrep.
  * \return 1 if successful, 0 otherwise.
  */
-int Z2_which_irrep(char buffer[], int *irr);
+int Z2_which_irrep(char * buffer, int *irr);
 
-double Z2_prefactor_pUpdate(const int symvalues[], const int is_left);
+double Z2_prefactor_pAppend(const int * symv, int is_left);
 
-double Z2_prefactor_pAppend(const int symvalues[], const int is_left);
+double Z2_prefactor_adjoint(const int * symv, char c);
 
-double Z2_prefactor_adjoint(const int symvalues[], const char c);
+double Z2_prefactor_pUpdate(const int * symv, int is_left);
 
-double Z2_prefactor_mirror_coupling(int symvalues[]);
+double Z2_prefactor_bUpdate(int (*symv)[3], int uCase);
 
-double Z2_prefactor_DMRGmatvec(const int symvalues[]);
+double Z2_prefactor_mirror_coupling(const int * symv);
 
-double Z2_prefactor_bUpdate(const int symvalues[3][3], const int updateCase);
+double Z2_prefactor_DMRGmatvec(const int * symv);
 
-double Z2_prefactor_add_P_operator(const int symvalues[2][3], const int isleft);
+double Z2_prefactor_add_P_operator(int (*symv)[3], int isleft);
 
-double Z2_prefactor_combine_MPOs(const int symvalues[2][3], const int symvaluesMPO[3]);
+double Z2_prefactor_combine_MPOs(int (*symv)[3], int * symvMPO);

@@ -14,15 +14,14 @@ int SU2_get_max_irrep(int *prop1, int nr1, int *prop2, int nr2, int inc)
 {
         int twoj1max = 0;
         int twoj2max = 0;
-        int i;
-        for (i = 0; i < nr1; ++i) 
+        for (int i = 0; i < nr1; ++i) 
                 twoj1max = twoj1max < prop1[i * inc] ? prop1[i * inc] : twoj1max;
-        for (i = 0; i < nr2; ++i) 
+        for (int i = 0; i < nr2; ++i) 
                 twoj2max = twoj2max < prop2[i * inc] ? prop2[i * inc] : twoj2max;
         return twoj1max + twoj2max + 1;
 }
 
-void SU2_tensprod_irrep(int *min_irrep, int *nr_irreps, int *step, 
+void SU2_tensprod_irrep(int * min_irrep, int * nr_irreps, int * step, 
                         int irrep1, int irrep2)
 {
         int max_irrep = irrep1 + irrep2;
@@ -33,16 +32,16 @@ void SU2_tensprod_irrep(int *min_irrep, int *nr_irreps, int *step,
         *step = 2;
 }
 
-void SU2_get_irrstring(char buffer[], int irr)
+void SU2_get_irrstring(char * buffer, int irr)
 {
         if (irr >= 0)
-                sprintf(buffer, "%d%s", irr % 2 ? irr : irr / 2, 
+                snprintf(buffer, MY_STRING_LEN, "%d%s", irr % 2 ? irr : irr / 2, 
                         irr % 2 ? "/2" : "");
         else 
-                sprintf(buffer, "INVALID");
+                snprintf(buffer, MY_STRING_LEN, "INVALID");
 }
 
-int SU2_which_irrep(char buffer[], int *irr)
+int SU2_which_irrep(char * buffer, int * irr)
 {
         *irr = atoi(buffer);
         /* no error in reading buffer */
@@ -51,57 +50,57 @@ int SU2_which_irrep(char buffer[], int *irr)
         return 0;
 }
 
-double SU2_prefactor_mirror_coupling(int symv[])
+double SU2_prefactor_mirror_coupling(const int * symv)
 {
         return bracket(symv[0]);
 }
 
-double SU2_prefactor_pAppend(const int symv[], const int is_left)
+double SU2_prefactor_pAppend(const int * symv, int is_left)
 {
-        if (is_left)
-                return bracket(symv[2]) * bracket(symv[5]) * bracket(symv[8]) *
-                        gsl_sf_coupling_9j(symv[0], symv[3], symv[6],
-                                           symv[1], symv[4], symv[7],
-                                           symv[2], symv[5], symv[8]);
-        else
+        if (is_left) {
+                double result =  bracket(symv[2]);
+                result *=  bracket(symv[5]);
+                result *=  bracket(symv[8]);
+                return result * gsl_sf_coupling_9j(symv[0], symv[3], symv[6],
+                                                   symv[1], symv[4], symv[7],
+                                                   symv[2], symv[5], symv[8]);
+        } else {
+                double result =  bracket(symv[0]);
+                result *=  bracket(symv[3]);
+                result *=  bracket(symv[8]);
                 return ((symv[1] + symv[4] + symv[7]) % 4 ? -1 : 1) * 
-                        bracket(symv[0]) * bracket(symv[3]) * bracket(symv[8]) *
-                        gsl_sf_coupling_9j(symv[0], symv[3], symv[6],
-                                           symv[2], symv[5], symv[8],
-                                           symv[1], symv[4], symv[7]);
+                        result * gsl_sf_coupling_9j(symv[0], symv[3], symv[6],
+                                                    symv[2], symv[5], symv[8],
+                                                    symv[1], symv[4], symv[7]);
+        }
 }
 
-double SU2_prefactor_DMRGmatvec(const int symv[], const int MPO)
+double SU2_prefactor_DMRGmatvec(const int * symv, int MPO)
 {
-        return divbracket(symv[2]) * divbracket(symv[8]) * 
+        double result = divbracket(symv[2]);
+        return result * divbracket(symv[8]) * 
                 ((symv[2] + symv[8] + MPO) % 4 ? -1 : 1);
 }
 
-double SU2_prefactor_add_P_operator(const int symv[2][3], const int isleft)
+double SU2_prefactor_combine_MPOs(int (*symv)[3], int * symvMPO)
 {
-        return 1;
+        double result = ((symv[0][2] + symv[1][2] + symvMPO[2]) % 4 ? -1 : 1) * 
+                bracket(symvMPO[2]);
+        return result * gsl_sf_coupling_9j(symv[0][0], symv[1][0], symvMPO[0],
+                                           symv[0][1], symv[1][1], symvMPO[1],
+                                           symv[0][2], symv[1][2], symvMPO[2]);
 }
 
-double SU2_prefactor_combine_MPOs(const int symv[2][3], const int symvMPO[3])
+double SU2_prefactor_bUpdate(int (*symv)[3], int uCase)
 {
-        return ((symv[0][2] + symv[1][2] + symvMPO[2]) % 4 ? -1 : 1) * 
-                bracket(symvMPO[2]) * 
-                gsl_sf_coupling_9j(symv[0][0], symv[1][0], symvMPO[0],
-                                   symv[0][1], symv[1][1], symvMPO[1],
-                                   symv[0][2], symv[1][2], symvMPO[2]);
+        const int sign = (symv[2][0] + symv[2][1] + symv[2][2] + symv[uCase][0] 
+                          + symv[uCase][1] + symv[uCase][2]) % 4 ? -1 : 1;
+        double result = sign * bracket(symv[uCase][0]);
+        result *= bracket(symv[uCase][1]);
+        result *= bracket(symv[2][2]);
+        return result * gsl_sf_coupling_9j(symv[0][0], symv[0][1], symv[0][2],
+                                           symv[1][0], symv[1][1], symv[1][2],
+                                           symv[2][0], symv[2][1], symv[2][2]);
 }
 
-double SU2_prefactor_bUpdate(const int symv[3][3], const int uCase)
-{
-        const int sign = (symv[2][0] + symv[2][1] + symv[2][2] + 
-                          symv[uCase][0] + symv[uCase][1] + symv[uCase][2]) % 4 
-                ? -1 : 1;
-
-        return sign * bracket(symv[uCase][0]) * bracket(symv[uCase][1]) * 
-                bracket(symv[2][2]) * 
-                gsl_sf_coupling_9j(symv[0][0], symv[0][1], symv[0][2],
-                                   symv[1][0], symv[1][1], symv[1][2],
-                                   symv[2][0], symv[2][1], symv[2][2]);
-}
-
-int SU2_multiplicity(const int irrep) {return irrep + 1;}
+int SU2_multiplicity(int irrep) {return irrep + 1;}

@@ -30,7 +30,8 @@ int U1_get_max_irrep(int *prop1, int nr1, int *prop2, int nr2, int inc);
  * \param [in] irrep2 The second irrep of the tensorproduct.
  * \param [in] sign -1 if the inverse of irrep2 should be taken, +1 otherwise.
  */
-void U1_tensprod_irrep(int *min_irrep, int *nr_irreps, int *step, int irrep1, int irrep2, int sign);
+void U1_tensprod_irrep(int *min_irrep, int *nr_irreps, int *step, 
+                       int irrep1, int irrep2, int sign);
 
 /**
  * \brief Returns the irrepstring, or INVALID if invalid.
@@ -38,7 +39,7 @@ void U1_tensprod_irrep(int *min_irrep, int *nr_irreps, int *step, int irrep1, in
  * \param[out] buffer The string.
  * \param[in] irr The irrep.
  */
-void U1_get_irrstring(char buffer[], int irr);
+void U1_get_irrstring(char * buffer, int irr);
 
 /**
  * \brief finds which irrep is given in the buffer.
@@ -47,4 +48,4 @@ void U1_get_irrstring(char buffer[], int irr);
  * \param [out] irr The irrep.
  * \return 1 if successful, 0 otherwise.
  */
-int U1_which_irrep(char buffer[], int *irr);
+int U1_which_irrep(char * buffer, int *irr);

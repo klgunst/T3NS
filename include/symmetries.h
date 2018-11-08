@@ -142,13 +142,12 @@ int valid_sgs(enum symmetrygroup * sgs, int nrsy);
  */
 int consistent_state(enum symmetrygroup * sgs, int * ts, int nrsy);
 
-double prefactor_pAppend(const int * symvalues, int is_left, 
-                         enum symmetrygroup sg);
+double prefactor_pAppend(const int * symv, int is_left, enum symmetrygroup sg);
 
-double prefactor_adjoint(const int ** irrep_arr, char c, 
+double prefactor_adjoint(int ** irrep_arr, char c, 
                          const enum symmetrygroup * sgs, int nrsy);
 
-double prefactor_pUpdate(const int ** irrep_arr, int is_left, 
+double prefactor_pUpdate(int ** irrep_arr, int is_left, 
                          const enum symmetrygroup * sgs, int nrsy);
 
 double prefactor_mirror_coupling(int ** irrep_arr, 
@@ -166,7 +165,6 @@ double prefactor_add_P_operator(int * const (*irreps)[3], int isleft,
 double prefactor_combine_MPOs(int * const (*irreps)[3], int * const *irrMPO, 
                               const enum symmetrygroup * sgs, int nrsy);
 
-int need_multiplicity(const int nrSyms, const enum symmetrygroup * sgs);
+int need_multiplicity(int nrSyms, const enum symmetrygroup * sgs);
 
-int multiplicity(const int nrSyms, const enum symmetrygroup * sgs, 
-                 const int * irreps);
+int multiplicity(int nrSyms, const enum symmetrygroup * sgs, const int * irreps);

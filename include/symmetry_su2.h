@@ -29,7 +29,8 @@ int SU2_get_max_irrep(int *prop1, int nr1, int *prop2, int nr2, int inc);
  * \param [in] irrep1 The first irrep of the tensorproduct.
  * \param [in] irrep2 The second irrep of the tensorproduct.
  */
-void SU2_tensprod_irrep(int *min_irrep, int *nr_irreps, int *step, int irrep1, int irrep2);
+void SU2_tensprod_irrep(int * min_irrep, int * nr_irreps, int * step, 
+                        int irrep1, int irrep2);
 
 /**
  * \brief Returns the irrepstring, or INVALID if invalid.
@@ -37,7 +38,7 @@ void SU2_tensprod_irrep(int *min_irrep, int *nr_irreps, int *step, int irrep1, i
  * \param[out] buffer The string.
  * \param[in] irr The irrep.
  */
-void SU2_get_irrstring(char buffer[], int irr);
+void SU2_get_irrstring(char * buffer, int irr);
 
 /**
  * \brief finds which irrep is given in the buffer.
@@ -46,18 +47,16 @@ void SU2_get_irrstring(char buffer[], int irr);
  * \param [out] irr The irrep.
  * \return 1 if successful, 0 otherwise.
  */
-int SU2_which_irrep(char buffer[], int *irr);
+int SU2_which_irrep(char * buffer, int * irr);
 
-double SU2_prefactor_mirror_coupling(int symvalues[]);
+double SU2_prefactor_mirror_coupling(const int * symv);
 
-double SU2_prefactor_pAppend(const int symvalues[], const int is_left);
+double SU2_prefactor_pAppend(const int * symv, int is_left);
 
-double SU2_prefactor_DMRGmatvec(const int symvalues[], const int MPO);
+double SU2_prefactor_DMRGmatvec(const int * symv, int MPO);
 
-double SU2_prefactor_add_P_operator(const int symvalues[2][3], const int isleft);
+double SU2_prefactor_combine_MPOs(int (*symv)[3], int * symvMPO);
 
-double SU2_prefactor_combine_MPOs(const int symvalues[2][3], const int symvaluesMPO[3]);
-
-double SU2_prefactor_bUpdate(const int symvalues[3][3], const int updateCase);
+double SU2_prefactor_bUpdate(int (*symv)[3], int uCase);
 
 int SU2_multiplicity(const int irrep);
