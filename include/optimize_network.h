@@ -9,9 +9,10 @@
  *
  * \param [out] T3NS Pointer to the siteTensor array representing the T3NS.
  * \param [out] rops Pointer to the rOperators array representing the renormalized operators.
+ * \param [in] option initialization option for the tensors.
  */
-void random_init(struct siteTensor ** const T3NS, struct rOperators ** const rops,
-                 const char option);
+void init_calculation(struct siteTensor ** T3NS, struct rOperators ** rOps, 
+                      char option);
 
 /**
  * \brief Executes the optimization scheme for the tensor network.
@@ -19,6 +20,8 @@ void random_init(struct siteTensor ** const T3NS, struct rOperators ** const rop
  * \param [in, out] T3NS Pointer to the siteTensor array representing the T3NS.
  * \param [in, out] rops Pointer to the rOperators array representing the renormalized operators.
  * \param [in] scheme The optimization scheme to execute.
+ * \param [in] saveloc The location where to save the hdf5 files.
+ * \return The lowest found energy during the scheme.
  */
 double execute_optScheme(struct siteTensor * const T3NS, struct rOperators * const rops, 
-    const struct optScheme * const  scheme, const int bsize, char * saveloc);
+                         const struct optScheme * const  scheme, const char * saveloc);

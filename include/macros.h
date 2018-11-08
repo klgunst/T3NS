@@ -11,6 +11,7 @@
 /* macro that defines the size of the qnumbers stored */
 #define QN_TYPE int_fast64_t
 #define QN_TYPE_H5 H5T_STD_I64LE
+#define MY_STRING_LEN 256
 
 #define safe_malloc(s, t) safe_malloc_helper((s), sizeof(t), #t, __FILE__, __LINE__, __func__)
 #define safe_calloc(s, t) safe_calloc_helper((s), sizeof(t), #t, __FILE__, __LINE__, __func__)

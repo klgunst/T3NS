@@ -13,11 +13,11 @@
 /* ==================== DECLARATION STATIC FUNCTIONS ======================== */
 /* ========================================================================== */
 
-static void unique_append_physical_to_rOperators(struct rOperators * const uniquerops,
+static void unique_rOperators_append_phys(struct rOperators * const uniquerops,
      const int * const instructions, const int * const hamsymsecs_of_new, const int nr_instructions,
      const struct rOperators * const fullrops);
 
-static void initialize_unique_append_physical_to_rOperators(struct rOperators * const uniquerops, 
+static void initialize_unique_rOperators_append_phys(struct rOperators * const uniquerops, 
     const int bond_of_operator, const int is_left, const int * const instructions, 
     const int * const hamsymsecs_of_new, const int nr_instructions);
 
@@ -46,7 +46,7 @@ static int consistency_check_for_update_physical(const struct rOperators * const
 
 /* ========================================================================== */
 
-void append_physical_to_rOperators(struct rOperators * const newrops, const struct rOperators * 
+void rOperators_append_phys(struct rOperators * const newrops, const struct rOperators * 
     const oldrops)
 {
   /**
@@ -71,7 +71,7 @@ void append_physical_to_rOperators(struct rOperators * const newrops, const stru
   /* hamsymsecs_of_new is an extra array with the hamsymsecs index of every resulting operator */
   fetch_pUpdate(&instructions, &prefactors, &hamsymsecs_of_new, &nr_instructions, 
       oldrops->bond_of_operator, oldrops->is_left);
-  unique_append_physical_to_rOperators(&uniquerops, instructions, hamsymsecs_of_new, 
+  unique_rOperators_append_phys(&uniquerops, instructions, hamsymsecs_of_new, 
       nr_instructions, oldrops);
 
   sum_unique_rOperators(newrops, &uniquerops, instructions, hamsymsecs_of_new, prefactors, 
@@ -319,7 +319,7 @@ void update_rOperators_physical(struct rOperators * const rops, const struct sit
 /* ===================== DEFINITION STATIC FUNCTIONS ======================== */
 /* ========================================================================== */
 
-static void unique_append_physical_to_rOperators(struct rOperators * const uniquerops,
+static void unique_rOperators_append_phys(struct rOperators * const uniquerops,
     const int * const instructions, const int * const hamsymsecs_of_new, const int nr_instructions,
      const struct rOperators * const prevrops)
 {
@@ -356,7 +356,7 @@ static void unique_append_physical_to_rOperators(struct rOperators * const uniqu
  
   assert(is_psite(site));
 
-  initialize_unique_append_physical_to_rOperators(uniquerops, bonds[2 * prevrops->is_left], 
+  initialize_unique_rOperators_append_phys(uniquerops, bonds[2 * prevrops->is_left], 
       prevrops->is_left, instructions, hamsymsecs_of_new, nr_instructions);
 
   assert(rOperators_give_nr_of_couplings(prevrops) == 1 && 
@@ -497,7 +497,7 @@ static void unique_append_physical_to_rOperators(struct rOperators * const uniqu
   safe_free(compr_hss);
 }
 
-static void initialize_unique_append_physical_to_rOperators(struct rOperators * const uniquerops, 
+static void initialize_unique_rOperators_append_phys(struct rOperators * const uniquerops, 
     const int bond_of_operator, const int is_left, const int * const instructions, 
     const int * const hamsymsecs_of_new, const int nr_instructions)
 {

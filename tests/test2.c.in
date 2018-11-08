@@ -30,7 +30,7 @@ static void initialize_program(struct siteTensor **T3NS,
         make_network("${CMAKE_SOURCE_DIR}/tests/networks/10_DMRG.netw");
         readinteraction("${CMAKE_SOURCE_DIR}/tests/fcidumps/N2.STO3G.FCIDUMP");
         create_list_of_symsecs(scheme->regimes[0].minD);
-        random_init(T3NS, rops, '${TEST_INIT_OPTION}');
+        init_calculation(T3NS, rops, '${TEST_INIT_OPTION}');
 }
 
 static void destroy_T3NS(struct siteTensor **T3NS)
@@ -73,7 +73,7 @@ int main(int argc, char *argv[])
         int OK = 1;
         for (int i = 0; i < 4; ++i) {
                 initialize_program(&T3NS, &rops, &scheme, i);
-                double energy = execute_optScheme(T3NS, rops, &scheme, 0, NULL);
+                double energy = execute_optScheme(T3NS, rops, &scheme, NULL);
                 cleanup_before_exit(&T3NS, &rops, &scheme);
                 OK = fabs(energy + 107.648250974014) < 1e-8 && OK;
         }

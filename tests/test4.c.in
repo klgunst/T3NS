@@ -26,7 +26,7 @@ static void initialize_program(struct siteTensor **T3NS,
         make_network("${CMAKE_SOURCE_DIR}/tests/networks/lif_T3NS.netw");
         readinteraction("${CMAKE_SOURCE_DIR}/tests/fcidumps/LiF_3.05.FCIDUMP");
         create_list_of_symsecs(scheme->regimes[0].minD);
-        random_init(T3NS, rops, '${TEST_INIT_OPTION}');
+        init_calculation(T3NS, rops, '${TEST_INIT_OPTION}');
 }
 
 static void destroy_T3NS(struct siteTensor **T3NS)
@@ -68,7 +68,7 @@ int main(int argc, char *argv[])
         struct rOperators *rops;
 
         initialize_program(&T3NS, &rops, &scheme);
-        double energy = execute_optScheme(T3NS, rops, &scheme, 0, NULL);
+        double energy = execute_optScheme(T3NS, rops, &scheme, NULL);
         cleanup_before_exit(&T3NS, &rops, &scheme);
         const int OK = fabs(energy - conv_energy) < 1e-5;
 

@@ -350,8 +350,8 @@ void get_string_of_bond(char buffer[], const int bond)
         }
 }
 
-int next_opt_step(const int maxsites, int bonds_involved[3], 
-                  int sites_opt[4], int common_nxt[4])
+int next_opt_step(int maxsites, int * nr_bond, int * bonds_involved, 
+                  int * nr_sites, int * sites_opt, int * common_nxt)
 {
         /* only two-site optimization implemented atm */
         static int curr_state = 0;
@@ -363,6 +363,12 @@ int next_opt_step(const int maxsites, int bonds_involved[3],
 
         get_sites_to_opt(sites_opt, maxsites, curr_state);
         get_bonds_involved(bonds_involved, sites_opt);
+        for (*nr_sites = 0; *nr_sites < maxsites; ++(*nr_sites)) {
+                if (sites_opt[*nr_sites] == -1) break;
+        }
+        for (*nr_bond = 0; *nr_bond < 3; ++(*nr_bond)) {
+                if (bonds_involved[*nr_bond] == -1) break;
+        }
 
         ++curr_state;
         get_common_with_next(sites_opt, common_nxt, maxsites, 

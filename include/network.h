@@ -107,7 +107,8 @@ void get_string_of_bond(char buffer[], const int bond);
  *
  * \return Returns 1 if sweep is not finished yet, 0 if sweep is finished.
  */
-int next_opt_step(const int maxsites, int bonds_involved[3], int sites_opt[4], int common_nxt[4]);
+int next_opt_step(int maxsites, int * nr_bond, int * bonds_involved, 
+                  int * nr_sites, int * sites_opt, int * common_nxt);
 
 /**
  * \brief Gives the common bond between the two sites.

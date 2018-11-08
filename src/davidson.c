@@ -62,7 +62,7 @@ static int max_vecs_to_alloc(int max_vectors, int keep_deflate, int size)
         return new_mvecs;
 }
 
-static void init_david_dat(double * result, const double * diagonal, 
+static void init_david_dat(const double * result, const double * diagonal, 
                            int size, int max_vecs, int keep_deflate)
 {
         /* sizes */
@@ -165,8 +165,8 @@ static void deflate(int keep_deflate)
 
         safe_free(new_result);
 
-        for (david_dat.m = 0; david_dat.m < keep_deflate; ++david_dat.m)
-                expand_submatrix();
+        david_dat.m = 0;
+        while (david_dat.m < keep_deflate) { expand_submatrix(); }
 }
 
 static double calculate_residue(double * result)
@@ -186,7 +186,7 @@ static double calculate_residue(double * result)
         return sqrt(norm2);
 }
 
-static void create_new_vec_t(double * result)
+static void create_new_vec_t(const double * result)
 {
         double uKr = 0;
         double uKu = 0;

@@ -60,7 +60,7 @@ int main(int argc, char *argv[])
 
         initialize_program(argc, argv, &T3NS, &rops, &scheme, bsize, &pbuffer);
 
-        execute_optScheme(T3NS, rops, &scheme, bsize, pbuffer);
+        execute_optScheme(T3NS, rops, &scheme, pbuffer);
 
         cleanup_before_exit(&T3NS, &rops, &scheme);
         printf("SUCCESFULL END!\n");
@@ -300,7 +300,7 @@ static void initialize_program(int argc, char *argv[], struct siteTensor **T3NS,
                 assert(scheme->nrRegimes != 0);
                 create_list_of_symsecs(scheme->regimes[0].minD);
                 print_input(scheme);
-                random_init(T3NS, rops, 'r');
+                init_calculation(T3NS, rops, 'r');
         } else {
                 read_optScheme(arguments.args[0], scheme);
                 assert(scheme->nrRegimes != 0);

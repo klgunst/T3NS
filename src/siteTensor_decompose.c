@@ -144,7 +144,7 @@ void QR(struct siteTensor * const tens, void * const R)
 
 void decomposesiteObject(struct siteTensor * const siteObject, struct siteTensor * const T3NS, 
     const int sitelist[], const int common_nxt[],  const int mind, const int maxd,
-    const double maxtrunc, double trunc_err, double * trunc_err_sweep, int * max_bonddim)
+    const double maxtrunc, double * trunc_err_sweep, int * max_bonddim)
 {
   const int factorial[] = { 0, 1, 2, 6 };
   const int nr_of_SVDs = siteObject->nrsites - 1;

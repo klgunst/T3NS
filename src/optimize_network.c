@@ -4,19 +4,28 @@
 #include <math.h>
 #include <time.h>
 
+#ifdef T3NS_MKL
+#include "mkl.h"
+#else
+#include <cblas.h>
+#endif
+
 #include "optimize_network.h"
-#include "io_to_disk.h"
-#include "network.h"
-#include "bookkeeper.h"
-#include "lapack.h"
 #include "macros.h"
 #include "debug.h"
 #include "options.h"
+#include "network.h"
+#include "bookkeeper.h"
 #include "Heff.h"
 #include "wrapper_solvers.h"
+#include "io_to_disk.h"
 
 
+#define MAX_BONDS_OPT 3
+#define MAX_NR_INTERNALS 3
+#define MAX_SITES 4
 #define NR_TIMERS 8
+#define NR_PARALLEL_TIMERS 2
 static const char *timernames[] = {"rOperators: append physical", 
         "rOperators: update physical", "rOperators: update branching", 
         "Heff: T3NS", "Heff: DMRG", "siteTensor: make multisite tensor",
@@ -24,155 +33,349 @@ static const char *timernames[] = {"rOperators: append physical",
 enum timers {ROP_APPEND, ROP_UPDP, ROP_UPDB, HEFF_T3NS, HEFF_DMRG, 
         STENS_MAKE, STENS_DECOMP, IO_DISK};
 
-/* only one occurence of these two can be done at one moment */
-static struct timeval start_time;
-static void start_timing(void)
+/* Different timers in parallel possible */
+static struct timeval start_time[NR_PARALLEL_TIMERS];
+static void start_timing(int timernr)
 {
-        gettimeofday(&start_time, NULL);
+        if (timernr < 0 || timernr >= NR_PARALLEL_TIMERS) {
+                fprintf(stderr, "Error @%s: Invalid timernr %d.\n", 
+                        __func__, timernr);
+                return;
+        }
+        gettimeofday(&start_time[timernr], NULL);
 }
 
-static double stop_timing(void)
+static double stop_timing(int timernr)
 {
+        if (timernr < 0 || timernr >= NR_PARALLEL_TIMERS) {
+                fprintf(stderr, "Error @%s: Invalid timernr %d.\n", 
+                        __func__, timernr);
+                return 0;
+        }
         struct timeval t_end;
         gettimeofday(&t_end, NULL);
-        long long t_elapsed = (t_end.tv_sec - start_time.tv_sec) * 1000000LL + 
-                t_end.tv_usec - start_time.tv_usec;
-         return t_elapsed * 1e-6;
+        long long t_elapsed = (t_end.tv_sec - start_time[timernr].tv_sec) * 
+                1000000LL + t_end.tv_usec - start_time[timernr].tv_usec;
+        return t_elapsed * 1e-6;
 }
 
-static void print_timers(double timings[NR_TIMERS])
+static void print_timers(const double * timings)
 {
-        printf("** TIMERS FOR OPTIMIZATION SCHEME **\n");
         for(int i = 0; i < NR_TIMERS; ++i) {
                 printf("  >>  %-35s  :: %lf sec\n", timernames[i], timings[i]);
         }
-        printf("\n");
 }
 
-/* ========================================================================== */
-/* ==================== DECLARATION STATIC FUNCTIONS ======================== */
-/* ========================================================================== */
-
-/* Initializes the T3NS array on null siteTensors */
-static void init_null_T3NS(struct siteTensor ** const T3NS);
-
-/* Initializes the rops array on null rOperators */
-static void init_null_rops(struct rOperators ** const rops);
-
-/* This initializes the initial rops for the calculations */
-static void init_rops(struct rOperators * const rops, const struct siteTensor * const tens, 
-                      const int bond);
-
-/* This executes a regime */
-static double execute_regime(struct siteTensor * const T3NS, struct rOperators * const rops, 
-                             const struct regime * const reg, const int regnumber, const int bsize,
-                             char * saveloc, double * trunc_err, double timings[NR_TIMERS]);
-
-/* This executes a sweep in the regime */
-static double execute_sweep_in_regime(struct siteTensor * const T3NS, struct rOperators * const 
-                                      rops, const struct regime * const reg, double *trunc_err, int * max_bonddim,
-                                      double timings[NR_TIMERS]);
-
-/* This preprocesses the needed rOperators for the current optimization */
-static void preprocess_rOperators(struct rOperators Operators[], const struct rOperators * const 
-                                  rops, const int bonds_involved[]);
-
-/* Optimization step */
-static double optimize_siteTensor(struct siteTensor * tens, struct siteTensor * const T3NS, 
-                                  const struct rOperators Operators[], const int site_opt[], const int common_nxt[], 
-                                  const struct regime * const reg, double trunc_err, double * trunc_err_sweep, int * max_bonddim, double timings[NR_TIMERS]);
-
-/* This postprocesses the used rOperators for the current optimization */
-static void postprocess_rOperators(struct rOperators Operators[], struct rOperators * const rops,
-                                   const struct siteTensor * const T3NS, const int site_opt[], const int common_nxt[], 
-                                   struct symsecs internalss[], const int internalbonds[], double timings[NR_TIMERS]);
-
-static void copy_internal_symsecs(const struct siteTensor * const tens, 
-                                  struct symsecs internalss[3], int internalbonds[3]);
-
-static int find_in_array(const int size, const int array[size], const int id);
-
-/* ========================================================================== */
-
-void random_init(struct siteTensor ** const T3NS, struct rOperators ** const rops,
-                 const char option)
+static void init_null_T3NS(struct siteTensor ** T3NS)
 {
-        int i;
-        init_null_T3NS(T3NS);
-        init_null_rops(rops);
+        *T3NS = safe_malloc(netw.sites, struct siteTensor);
+        for (int i = 0; i < netw.sites; ++i) init_null_siteTensor(&(*T3NS)[i]);
+}
 
-        for (i = 0; i < netw.nr_bonds; ++i) {
-                const int siteL = netw.bonds[i][0];
-                const int siteR = netw.bonds[i][1];
-                struct siteTensor *tens = NULL;
+static void init_null_rops(struct rOperators ** rops)
+{
+        *rops = safe_malloc(netw.nr_bonds, struct rOperators);
+        for (int i = 0; i < netw.nr_bonds; ++i) init_null_rOperators(&(*rops)[i]);
+}
 
-                /* The site tensor should be initialized */
-                if (siteL != -1) {
-                        tens = &(*T3NS)[siteL];
+static struct optimize_data {
+        int nr_bonds_opt;
+        int bonds_opt[MAX_BONDS_OPT];
+        struct rOperators operators[MAX_BONDS_OPT];
 
-                        /* Changes the bonddimensions in the bookkeeper so its consistent,
-                         * meaning dim1 * dim2 >= dim3
-                         * left site needs to be initialized randomly */
-                        init_1siteTensor(tens, siteL, option);
-                        QR(tens, NULL);
+        int nr_internals;
+        struct symsecs internalss[MAX_NR_INTERNALS];
+        int internalbonds[MAX_NR_INTERNALS];
 
-                        if (siteR == -1) { /* normalize the last tensor */
-                                const int ONE = 1;
-                                const int N = tens->blocks.beginblock[tens->nrblocks];
-                                const double norm = dnrm2_(&N, tens->blocks.tel, &ONE);
-                                const double inv_norm = -1 / norm;
-                                dscal_(&N, &inv_norm, tens->blocks.tel, &ONE);
-                        }
+        int nr_sites;
+        int sites[MAX_SITES];
+        int common_next[MAX_SITES];
+        struct siteTensor msiteObj;
+} o_dat;
+
+static void set_internal_symsecs(void)
+{
+        o_dat.nr_internals = siteTensor_give_nr_internalbonds(&o_dat.msiteObj);
+        assert(o_dat.nr_internals <= MAX_NR_INTERNALS);
+        siteTensor_give_internalbonds(&o_dat.msiteObj, o_dat.internalbonds);
+        deep_copy_symsecs_from_bookie(o_dat.nr_internals, o_dat.internalss, 
+                                      o_dat.internalbonds);
+
+        for (int i = o_dat.nr_internals; i < MAX_NR_INTERNALS; ++i) 
+                o_dat.internalbonds[i] = -1;
+}
+
+static void preprocess_rOperators(const struct rOperators * rops)
+{
+        for (int i = 0; i < o_dat.nr_bonds_opt; ++i) {
+                const int bond = o_dat.bonds_opt[i];
+                const struct rOperators * opToProc = &rops[bond];
+                assert(!opToProc->P_operator);
+
+                if (is_psite(netw.bonds[bond][opToProc->is_left])) {
+                        rOperators_append_phys(&o_dat.operators[i], opToProc);
+                } else {
+                        o_dat.operators[i] = *opToProc;
                 }
         }
-        for (i = 0; i < netw.nr_bonds; ++i) {
-                struct siteTensor * tens = &(*T3NS)[netw.bonds[i][0]];
-                init_rops(*rops, tens, i);
+}
+
+static void add_noise(double noiseLevel)
+{
+        const int N = siteTensor_get_size(&o_dat.msiteObj);
+        srand(time(NULL));
+        for(int i = 0; i < N; ++i) {
+                const double random_nr = rand() / RAND_MAX - 0.5;
+                o_dat.msiteObj.blocks.tel[i] += random_nr * noiseLevel;
+        }
+        const double norm = cblas_dnrm2(N, o_dat.msiteObj.blocks.tel, 1);
+        cblas_dscal(N, 1. / norm, o_dat.msiteObj.blocks.tel, 1);
+}
+
+struct optimize_info {
+        double energy;
+        double trunc;
+        int maxdim;
+};
+
+static struct optimize_info optimize_siteTensor(struct siteTensor * T3NS, 
+                                                const struct regime * reg, 
+                                                double trunc_err, 
+                                                double * timings)
+{ 
+        struct optimize_info info = {0};
+
+        /* optimize bond */
+        if (o_dat.nr_bonds_opt == 3) {/* T3NS */
+                struct T3NSdata mv_dat;
+                const int size = siteTensor_get_size(&o_dat.msiteObj);
+                init_T3NSdata(&mv_dat, o_dat.operators, &o_dat.msiteObj);
+                EL_TYPE * diagonal = make_diagonal(&mv_dat, 0);
+                start_timing(0);
+                sparse_eigensolve(o_dat.msiteObj.blocks.tel, &info.energy, size, 
+                                  DAVIDSON_MAX_VECS, DAVIDSON_KEEP_DEFLATE, 
+                                  reg->davidson_rtl, reg->davidson_max_its, 
+                                  diagonal, matvecT3NS, &mv_dat, "D");
+                timings[HEFF_T3NS] += stop_timing(0);
+                destroy_T3NSdata(&mv_dat);
+                safe_free(diagonal);
+        } else if (o_dat.nr_bonds_opt == 2){ /* DMRG */
+                struct matvec_data mv_dat;
+                const int size = siteTensor_get_size(&o_dat.msiteObj);
+                init_matvec_data(&mv_dat, o_dat.operators, &o_dat.msiteObj);
+                EL_TYPE * diagonal = make_diagonal(&mv_dat, 1);
+                start_timing(0);
+                sparse_eigensolve(o_dat.msiteObj.blocks.tel, &info.energy, size, 
+                                  DAVIDSON_MAX_VECS, DAVIDSON_KEEP_DEFLATE, 
+                                  reg->davidson_rtl, reg->davidson_max_its, 
+                                  diagonal, matvecDMRG, &mv_dat, "D");
+                timings[HEFF_DMRG] += stop_timing(0);
+                destroy_matvec_data(&mv_dat);
+                safe_free(diagonal);
+        } else {
+                fprintf(stderr, "Error @%s: Wrong o_dat.nr_bonds_opt = %d.\n",
+                        __func__, o_dat.nr_bonds_opt);
+                exit(EXIT_FAILURE);
+        }
+
+        start_timing(0);
+        /* same noise as CheMPS2 */
+        add_noise(reg->noise * trunc_err);
+        decomposesiteObject(&o_dat.msiteObj, T3NS, o_dat.sites, o_dat.common_next, 
+                            reg->minD, reg->maxD, reg->truncerror, &info.trunc, 
+                            &info.maxdim);
+        destroy_siteTensor(&o_dat.msiteObj);
+        timings[STENS_DECOMP] += stop_timing(0);
+
+        printf("**  \t\tEnergy : %.16lf\n\n", info.energy);
+        return info;
+}
+
+static int find_in_array(const int size, const int * array, const int id)
+{
+        for (int i = 0; i < size; ++i)
+                if (array[i] == id)
+                        return i;
+        return -1;
+}
+
+static void postprocess_rOperators(struct rOperators * rops,
+                                   const struct siteTensor * T3NS,
+                                   double * timings)
+{
+        int unupdated = -1, unupdatedbond = -1;
+
+        /* first do all dmrg updates possible */
+        start_timing(0);
+        for (int i = 0; i < o_dat.nr_bonds_opt; ++i) {
+                struct rOperators * currOp = &o_dat.operators[i];
+                if (!currOp->P_operator)
+                        continue;
+
+                const int site = netw.bonds[currOp->bond_of_operator][!currOp->is_left];
+                const int siteid = find_in_array(o_dat.nr_sites, o_dat.sites, site);
+                assert(siteid != -1 && is_psite(site));
+                if (o_dat.common_next[siteid]) {
+                        /* This Operator is not updated since it has a 
+                         * common site with the next step */
+                        assert(unupdated == -1 && unupdatedbond == -1);
+                        unupdated = i;
+                        unupdatedbond = currOp->bond_of_operator;
+                        destroy_rOperators(currOp);
+                        continue;
+                }
+
+                const struct siteTensor * tens = &T3NS[site];
+                struct rOperators * newOp = &rops[currOp->bond_of_operator];
+                const int internalid = find_in_array(o_dat.nr_internals, 
+                                                     o_dat.internalbonds, 
+                                                     currOp->bond_of_operator);
+                assert(internalid != -1);
+
+                destroy_rOperators(newOp);
+                update_rOperators_physical(currOp, tens, 
+                                           &o_dat.internalss[internalid]);
+                *newOp= *currOp;
+        }
+        timings[ROP_UPDP] += stop_timing(0);
+
+        /* now do the possible T3NS update. Only 1 or none always */
+        start_timing(0);
+        for (int i = 0; i < o_dat.nr_sites; ++i) {
+                const int site = o_dat.sites[i];
+
+                if (is_psite(site) || o_dat.common_next[i])
+                        continue;
+
+                const struct siteTensor * tens   = &T3NS[site];
+                struct rOperators * new_operator = &rops[unupdatedbond];
+                int bonds[3];
+                get_bonds_of_site(site, bonds);
+
+                destroy_rOperators(new_operator);
+                struct rOperators ops[2] = {
+                        o_dat.operators[unupdated == 0], 
+                        o_dat.operators[unupdated == 2 ? 1 : 2]
+                };
+                assert(unupdated == 0 || o_dat.operators[0].bond_of_operator == bonds[0]);
+                assert(unupdated == 1 || o_dat.operators[1].bond_of_operator == bonds[1]);
+                assert(unupdated == 2 || o_dat.operators[2].bond_of_operator == bonds[2]);
+                assert(!ops[0].P_operator && !ops[1].P_operator);
+
+                update_rOperators_branching(new_operator, ops, tens);
+        }
+        timings[ROP_UPDB] += stop_timing(0);
+
+        for (int i = 0; i < o_dat.nr_internals; ++i) {
+                destroy_symsecs(&o_dat.internalss[i]);
         }
 }
 
-double execute_optScheme(struct siteTensor * const T3NS, struct rOperators * const rops, 
-                         const struct optScheme * const  scheme, const int bsize, char * saveloc)
+struct sweep_info {
+        double sw_energy;
+        double sw_trunc;
+        int sw_maxdim;
+
+        double sweeptimings[NR_TIMERS];
+        double tottime;
+};
+
+static struct sweep_info execute_sweep(struct siteTensor * T3NS, 
+                                       struct rOperators * rops, 
+                                       const struct regime * reg, 
+                                       double trunc_err, const char * saveloc)
 {
-        double timings[NR_TIMERS] = {0};
+        struct sweep_info swinfo = {0};
+        int first = 1;
 
-        double energy = 3000;
-        double trunc_err = scheme->regimes[0].truncerror;
-        int i;
+        start_timing(1);
+        while (next_opt_step(reg->sitesize, &o_dat.nr_bonds_opt, o_dat.bonds_opt, 
+                             &o_dat.nr_sites, o_dat.sites, o_dat.common_next)) {
+                printf("**\tOptimize sites ");
+                for (int i = 0; i < o_dat.nr_sites; ++i) {
+                        printf("%d%s ", o_dat.sites[i], i == o_dat.nr_sites - 1 
+                               ? ":\n" : "&");
+                }
 
-        printf("============================================================================\n");
-        for (i = 0; i < scheme->nrRegimes; ++i) {
-                double current_energy = execute_regime(T3NS, rops, &scheme->regimes[i], i + 1,
-                                                       bsize, saveloc, &trunc_err, timings);
-                if (current_energy  < energy) energy = current_energy;
+                /* The order of makesiteTensor and preprocess_rOperators is
+                 * really important!
+                 * In makesiteTensor the symsec is set to an internal symsec. 
+                 * This is what you need also for preprocess_rOperators */
+                start_timing(0);
+                makesiteTensor(&o_dat.msiteObj, T3NS, o_dat.sites);
+                swinfo.sweeptimings[STENS_MAKE] += stop_timing(0);
+
+                start_timing(0);
+                preprocess_rOperators(rops);
+                swinfo.sweeptimings[ROP_APPEND] += stop_timing(0);
+                set_internal_symsecs();
+
+                struct optimize_info info = 
+                        optimize_siteTensor(T3NS, reg, trunc_err, swinfo.sweeptimings);
+
+                postprocess_rOperators(rops, T3NS, swinfo.sweeptimings);
+
+                if (first || swinfo.sw_energy > info.energy) 
+                        swinfo.sw_energy = info.energy;
+                if (first || swinfo.sw_trunc < info.trunc) 
+                        swinfo.sw_trunc = info.trunc;
+                if (first || swinfo.sw_maxdim < info.maxdim) 
+                        swinfo.sw_maxdim = info.maxdim;
+                first = 0;
         }
 
-        printf("============================================================================\n"
-               "END OF CONVERGENCE SCHEME.\n"
-               "MINIMUM ENERGY ENCOUNTERED : %.16lf\n"
-               "============================================================================\n"
-               "\n", energy);
+        start_timing(0);
+        write_to_disk(saveloc, T3NS, rops);
+        swinfo.sweeptimings[IO_DISK] += stop_timing(0);
+        swinfo.tottime = stop_timing(1);
 
-        print_timers(timings);
+        return swinfo;
+}
+
+static void print_sweep_info(const struct sweep_info * info, int sw_nr, int regnr)
+{
+        printf("============================================================================\n" );
+        printf("END OF SWEEP %d IN REGIME %d.\n", sw_nr, regnr                                  );
+        printf("MINIMUM ENERGY ENCOUNTERED DURING THIS SWEEP: %.16lf\n", info->sw_energy        );
+        printf("MAXIMUM TRUNCATION ERROR ENCOUNTERED DURING THIS SWEEP: %.4e\n", info->sw_trunc );
+        printf("MAXIMUM BOND DIMENSION ENCOUNTERED DURING THIS SWEEP: %d\n", info->sw_maxdim    );
+        printf("TIME NEEDED : %lf sec\n", info->tottime                                         );
+        print_timers(info->sweeptimings);
+        printf("============================================================================\n\n");
+}
+
+static double execute_regime(struct siteTensor * T3NS, struct rOperators * rops, 
+                             const struct regime * reg, int regnumber, 
+                             double * trunc_err, const char * saveloc, 
+                             double * timings)
+{
+        int sweepnrs = 0;
+        double energy = 0;
+
+        for (sweepnrs = 0; sweepnrs < reg->max_sweeps; ++sweepnrs) {
+                struct sweep_info info = execute_sweep(T3NS, rops, reg, 
+                                                       *trunc_err, saveloc);
+                *trunc_err = info.sw_trunc;
+                print_sweep_info(&info, sweepnrs + 1, regnumber);
+                for (int i = 0; i < NR_TIMERS; ++i) { 
+                        timings[i] += info.sweeptimings[i];
+                }
+
+                int flag = sweepnrs != 0 && 
+                        fabs(energy - info.sw_energy) < reg->energy_conv;
+                if (sweepnrs == 0 || info.sw_energy < energy) 
+                        energy = info.sw_energy;
+                if (flag) { break; }
+        }
+        printf("============================================================================\n" );
+        printf("END OF REGIME %d AFTER %d/%d SWEEPS.\n", regnumber, sweepnrs, reg->max_sweeps   );
+        if (sweepnrs != reg->max_sweeps) {
+                printf("THE ENERGY DID NOT CONVERGE UP TO ASKED TOLERANCE OF %e\n", reg->energy_conv);
+        }
+        printf("MINIMUM ENERGY ENCOUNTERED : %.16lf\n", energy                                  );
+        printf("============================================================================\n\n");
+
         return energy;
-}
-
-/* ========================================================================== */
-/* ===================== DEFINITION STATIC FUNCTIONS ======================== */
-/* ========================================================================== */
-
-static void init_null_T3NS(struct siteTensor ** const T3NS)
-{
-        int i;
-        *T3NS = safe_malloc(netw.sites, struct siteTensor);
-        for (i = 0; i < netw.sites; ++i) init_null_siteTensor(&(*T3NS)[i]);
-}
-
-static void init_null_rops(struct rOperators ** const rops)
-{
-        int i;
-        *rops = safe_malloc(netw.nr_bonds, struct rOperators);
-        for (i = 0; i < netw.nr_bonds; ++i) init_null_rOperators(&(*rops)[i]);
 }
 
 static void init_rops(struct rOperators * const rops, 
@@ -194,7 +397,7 @@ static void init_rops(struct rOperators * const rops,
 
                 get_bonds_of_site(siteL, bonds);
                 assert(bonds[2] == bond);
-                append_physical_to_rOperators(curr_rops, &rops[bonds[0]]); 
+                rOperators_append_phys(curr_rops, &rops[bonds[0]]); 
                 safe_free(bookie.list_of_symsecs[bond].dims);
                 bookie.list_of_symsecs[bond].dims = tempdim;
                 /* Just pass the same symsecs as internal one. Doesnt really matter that dims != 1.
@@ -210,263 +413,62 @@ static void init_rops(struct rOperators * const rops,
         }
 }
 
-static double execute_regime(struct siteTensor * const T3NS, struct rOperators * const rops, 
-                             const struct regime * const reg, const int regnumber, const int bsize,
-                             char * saveloc, double * trunc_err, double timings[NR_TIMERS])
+/* ========================================================================== */
+
+void init_calculation(struct siteTensor ** T3NS, struct rOperators ** rOps, 
+                      char option)
 {
-        int flag = 1;
-        int sweepnrs = 0;
-        long long t_elapsed;
-        double d_elapsed;
-        struct timeval t_start, t_end;
+        init_null_T3NS(T3NS);
+        init_null_rops(rOps);
+
+        for (int i = 0; i < netw.nr_bonds; ++i) {
+                const int siteL = netw.bonds[i][0];
+                const int siteR = netw.bonds[i][1];
+
+                if (siteL == -1) /* No left site to initialize */
+                        continue;
+
+                struct siteTensor * tens = &(*T3NS)[siteL];
+                init_1siteTensor(tens, siteL, option);
+                QR(tens, NULL);
+
+                if (siteR != -1) /* If the last site, then normalize wavefunc */
+                        continue;
+
+                const int N = siteTensor_get_size(tens);
+                const double norm = cblas_dnrm2(N, tens->blocks.tel, 1);
+                cblas_dscal(N, 1 / norm, tens->blocks.tel, 1);
+        }
+
+        for (int i = 0; i < netw.nr_bonds; ++i) {
+                const int siteL = netw.bonds[i][0];
+                struct siteTensor * tens = &(*T3NS)[siteL];
+                init_rops(*rOps, tens, i);
+        }
+}
+
+double execute_optScheme(struct siteTensor * const T3NS, struct rOperators * const rops, 
+                         const struct optScheme * const  scheme, const char * saveloc)
+{
+        double timings[NR_TIMERS] = {0};
+
         double energy = 3000;
+        double trunc_err = scheme->regimes[0].truncerror;
 
-        while (flag && sweepnrs < reg->max_sweeps)
-        {
-                double sweep_energy;
-                int max_bonddim = 0;
-
-                gettimeofday(&t_start, NULL);
-                sweep_energy = execute_sweep_in_regime(T3NS, rops, reg, trunc_err, &max_bonddim, timings);
-                gettimeofday(&t_end, NULL);
-
-                t_elapsed = (t_end.tv_sec - t_start.tv_sec) * 1000000LL + t_end.tv_usec - t_start.tv_usec;
-                d_elapsed = t_elapsed * 1e-6;
-
-                ++sweepnrs;
-                printf("============================================================================\n" );
-                printf("END OF SWEEP %d IN REGIME %d.\n", sweepnrs, regnumber                           );
-                printf("TIME NEEDED : %lf sec\n", d_elapsed                                             );
-                printf("MINIMUM ENERGY ENCOUNTERED DURING THIS SWEEP: %.16lf\n", sweep_energy           );
-                printf("MAXIMUM TRUNCATION ERROR ENCOUNTERED DURING THIS SWEEP: %.4e\n",*trunc_err      );
-                printf("MAXIMUM BOND DIMENSION ENCOUNTERED DURING THIS SWEEP: %d\n", max_bonddim        );
-                printf("============================================================================\n\n");
-
-                flag = fabs(energy - sweep_energy) > reg->energy_conv;
-                if (sweep_energy < energy) energy = sweep_energy;
-
-                start_timing();
-                write_to_disk(saveloc, T3NS, rops);
-                timings[IO_DISK] += stop_timing();
+        printf("============================================================================\n");
+        for (int i = 0; i < scheme->nrRegimes; ++i) {
+                double current_energy = execute_regime(T3NS, rops, &scheme->regimes[i], 
+                                                       i + 1, &trunc_err, saveloc, timings);
+                if (current_energy  < energy) energy = current_energy;
         }
 
-        printf("============================================================================\n" );
-        printf("END OF REGIME %d AFTER %d/%d SWEEPS.\n", regnumber, sweepnrs, reg->max_sweeps   );
-        if (flag)
-                printf("THE ENERGY DID NOT CONVERGE UP TO ASKED TOLERANCE OF %e\n", reg->energy_conv  );
-        printf("MINIMUM ENERGY ENCOUNTERED : %.16lf\n", energy                                  );
-        printf("============================================================================\n\n");
+        printf("============================================================================\n"
+               "END OF CONVERGENCE SCHEME.\n"
+               "MINIMUM ENERGY ENCOUNTERED : %.16lf\n"
+               "============================================================================\n"
+               "\n", energy);
+ 
+        printf("** TIMERS FOR OPTIMIZATION SCHEME\n");
+        print_timers(timings);
         return energy;
-}
-
-static double execute_sweep_in_regime(struct siteTensor * const T3NS, struct rOperators * const 
-                                      rops, const struct regime * const reg, double *trunc_err, int * max_bonddim,
-                                      double timings[NR_TIMERS])
-{
-        double sweep_energy = 3000;
-        int bonds_involved[3], sites_opt[4], common_nxt[4];
-        double trunc_err_sweep = 0;
-
-        while (next_opt_step(reg->sitesize, bonds_involved, sites_opt, common_nxt)) {
-                struct rOperators Operators[3];
-                double curr_energy;
-                struct siteTensor tens;
-                struct symsecs internalss[3];
-                int internalbonds[3];
-                int i;
-
-                printf("**\tOptimize sites %d", sites_opt[0]);
-                for (i = 1; i < 4 && sites_opt[i] != -1; ++i) printf(" & %d", sites_opt[i]);
-                printf(" :\n");
-                /* The order of makesiteTensor and preprocess_rOperators is really important!
-                 * In makesiteTensor the symsec is set to an internal symsec. This is what you need also for
-                 * preprocess_rOperators */
-                start_timing();
-                makesiteTensor(&tens, T3NS, sites_opt);
-                timings[STENS_MAKE] += stop_timing();
-
-                start_timing();
-                preprocess_rOperators(Operators, rops, bonds_involved);
-                timings[ROP_APPEND] += stop_timing();
-                copy_internal_symsecs(&tens, internalss, internalbonds);
-
-                curr_energy = optimize_siteTensor(&tens, T3NS, Operators, sites_opt, common_nxt, reg, *trunc_err, &trunc_err_sweep, max_bonddim, timings);
-
-                postprocess_rOperators(Operators, rops, T3NS, sites_opt, common_nxt, internalss, internalbonds, timings);
-
-                if (sweep_energy > curr_energy) sweep_energy = curr_energy;
-        }
-        *trunc_err = trunc_err_sweep;
-        /* make this with bonddim and truncerr a struct? */
-        return sweep_energy;
-}
-
-static void preprocess_rOperators(struct rOperators Operators[], const struct rOperators * const 
-                                  rops, const int bonds_involved[])
-{
-        int i;
-        for (i = 0; i < 3; ++i) {
-                const int bond = bonds_involved[i];
-                if (bond != -1) {
-                        const int isdmrg = is_psite(netw.bonds[bond][rops[bond].is_left]);
-                        assert(!rops[bond].P_operator);
-                        if (isdmrg)
-                                append_physical_to_rOperators(&Operators[i], &rops[bond]);
-                        else
-                                Operators[i] = rops[bond];
-                } else {
-                        assert(i == 2);
-                        assert(Operators[0].is_left && !Operators[1].is_left);
-                        init_null_rOperators(&Operators[i]);
-                }
-        }
-}
-
-static void add_noise(struct siteTensor * tens, double noiseLevel)
-{
-        int N = siteTensor_get_size(tens);
-        const int ONE = 1;
-        srand(time(NULL));
-        for(int i = 0; i < N; ++i) {
-                const double random_nr = rand() / RAND_MAX - 0.5;
-                tens->blocks.tel[i] += random_nr * noiseLevel;
-        }
-        const double divnorm = 1. / dnrm2_(&N, tens->blocks.tel, &ONE);
-        dscal_(&N, &divnorm, tens->blocks.tel, &ONE);
-}
-
-static double optimize_siteTensor(struct siteTensor * tens, struct siteTensor * const T3NS, 
-                                  const struct rOperators Operators[], const int site_opt[], const int common_nxt[], 
-                                  const struct regime * const reg, double trunc_err, double * trunc_err_sweep, int * max_bonddim, double timings[NR_TIMERS])
-{ 
-        double energy;
-        EL_TYPE *diagonal;
-        int size;
-
-        /* optimize bond */
-        if (Operators[2].bond_of_operator != -1) {/* T3NS */
-                struct T3NSdata mv_dat;
-                size = tens->blocks.beginblock[tens->nrblocks];
-                init_T3NSdata(&mv_dat, Operators, tens);
-                diagonal = make_diagonal(&mv_dat, 0);
-                start_timing();
-                sparse_eigensolve(tens->blocks.tel, &energy, size, DAVIDSON_MAX_VECS, 
-                                  DAVIDSON_KEEP_DEFLATE, reg->davidson_rtl, 
-                                  reg->davidson_max_its, diagonal, matvecT3NS, 
-                                  &mv_dat, "D");
-                timings[HEFF_T3NS] += stop_timing();
-                destroy_T3NSdata(&mv_dat);
-                safe_free(diagonal);
-        } else { /* DMRG */
-                /* preparing optimization */
-                struct matvec_data mv_dat;
-                size = tens->blocks.beginblock[tens->nrblocks];
-                init_matvec_data(&mv_dat, Operators, tens);
-                diagonal = make_diagonal(&mv_dat, 1);
-                start_timing();
-                sparse_eigensolve(tens->blocks.tel, &energy, size, DAVIDSON_MAX_VECS, 
-                                  DAVIDSON_KEEP_DEFLATE, reg->davidson_rtl, 
-                                  reg->davidson_max_its, diagonal, matvecDMRG, 
-                                  &mv_dat, "D");
-                timings[HEFF_DMRG] += stop_timing();
-                destroy_matvec_data(&mv_dat);
-                safe_free(diagonal);
-        }
-
-        /* same noise as CheMPS2 */
-        add_noise(tens, reg->noise * trunc_err);
-        start_timing();
-        decomposesiteObject(tens, T3NS, site_opt, common_nxt, reg->minD, reg->maxD, reg->truncerror, trunc_err, trunc_err_sweep, max_bonddim);
-        timings[STENS_DECOMP] += stop_timing();
-        destroy_siteTensor(tens);
-
-        printf("**  \t\tEnergy : %.16lf\n\n", energy);
-        return energy;
-}
-
-static void postprocess_rOperators(struct rOperators Operators[], struct rOperators * const rops,
-                                   const struct siteTensor * const T3NS, const int site_opt[], const int common_nxt[], 
-                                   struct symsecs internalss[], const int internalbonds[], double timings[NR_TIMERS])
-{
-        int i;
-        int unupdated, unupdatedbond = 0;
-
-        start_timing();
-        /* first do all dmrg updates possible */
-        for (i = 0; i < 3; ++i) {
-                if (Operators[i].P_operator == 1) {
-                        const int site = netw.bonds[Operators[i].bond_of_operator][!Operators[i].is_left];
-                        const int siteid = find_in_array(4, site_opt, site);
-                        assert(siteid != -1);
-                        assert(is_psite(site));
-                        if (!common_nxt[siteid]) {
-                                const struct siteTensor * const tens = &T3NS[site];
-                                struct rOperators * const new_operator = &rops[Operators[i].bond_of_operator];
-                                const int internalid = find_in_array(3, internalbonds, Operators[i].bond_of_operator);
-
-                                assert(internalid != -1);
-
-                                destroy_rOperators(new_operator);
-                                update_rOperators_physical(&Operators[i], tens, &internalss[internalid]);
-                                *new_operator = Operators[i];
-                        } else {
-                                /* This Operator is not updated since it has a common site with the next step */
-                                unupdated = i;
-                                unupdatedbond = Operators[unupdated].bond_of_operator;
-                                destroy_rOperators(&Operators[unupdated]);
-                        }
-                }
-        }
-        timings[ROP_UPDP] += stop_timing();
-
-        start_timing();
-        /* now do the possible T3NS update. */
-        for (i = 0; i < 4; ++i) {
-                const int site = site_opt[i];
-                if (site == -1) {
-                        break;
-                } else if (!is_psite(site) && !common_nxt[i]) {
-                        const struct siteTensor * const tens = &T3NS[site];
-                        struct rOperators * const new_operator = &rops[unupdatedbond];
-                        int bonds[3];
-                        get_bonds_of_site(site, bonds);
-
-                        destroy_rOperators(new_operator);
-                        struct rOperators ops[2] = {Operators[unupdated == 0], Operators[unupdated == 2 ? 1 : 2]};
-
-                        assert(unupdated == 0 || Operators[0].bond_of_operator == bonds[0]);
-                        assert(unupdated == 1 || Operators[1].bond_of_operator == bonds[1]);
-                        assert(unupdated == 2 || Operators[2].bond_of_operator == bonds[2]);
-
-                        assert(!ops[0].P_operator && !ops[1].P_operator);
-
-                        update_rOperators_branching(new_operator, ops, tens);
-                }
-        }
-        timings[ROP_UPDB] += stop_timing();
-
-        for (i = 0; i < 3; ++i) {
-                if (internalbonds[i] != -1)
-                        destroy_symsecs(&internalss[i]);
-        }
-}
-
-static void copy_internal_symsecs(const struct siteTensor * const tens, 
-                                  struct symsecs internalss[3], int internalbonds[3])
-{
-        const int nr_internal = siteTensor_give_nr_internalbonds(tens);
-        int i;
-        assert(nr_internal <= 3);
-        siteTensor_give_internalbonds(tens, internalbonds);
-        deep_copy_symsecs_from_bookie(nr_internal, internalss, internalbonds);
-        for (i = nr_internal; i < 3; ++i) internalbonds[i] = -1;
-}
-
-static int find_in_array(const int size, const int array[size], const int id)
-{
-        int i;
-        for (i = 0; i < size; ++i)
-                if (array[i] == id)
-                        return i;
-        return -1;
 }

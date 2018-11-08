@@ -260,7 +260,7 @@ int rOperators_site_to_attach(const struct rOperators * const operator);
  * \param [out] newrops The resulting rOperators.
  * \param [in] oldrops The original rOperators.
  */
-void append_physical_to_rOperators(struct rOperators * const newrops, const struct rOperators * 
+void rOperators_append_phys(struct rOperators * const newrops, const struct rOperators * 
     const oldrops);
 
 /**

@@ -52,7 +52,7 @@ find_package(HDF5 REQUIRED)
 
 # show all warnings
 if("${CMAKE_C_COMPILER_ID}" MATCHES "Intel")
-    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -w3")
+    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wall -Wremarks -Wchecks -w3 -wd2547")
 else()
     set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wall")
 endif()
