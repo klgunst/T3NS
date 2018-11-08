@@ -24,17 +24,20 @@
 #define MAX_BONDS_OPT 3
 #define MAX_NR_INTERNALS 3
 #define MAX_SITES 4
-#define NR_TIMERS 8
+#define NR_TIMERS 12
 #define NR_PARALLEL_TIMERS 2
 static const char *timernames[] = {"rOperators: append physical", 
         "rOperators: update physical", "rOperators: update branching", 
-        "Heff: T3NS", "Heff: DMRG", "siteTensor: make multisite tensor",
-        "siteTensor: decompose", "io: write to disk"};
-enum timers {ROP_APPEND, ROP_UPDP, ROP_UPDB, HEFF_T3NS, HEFF_DMRG, 
-        STENS_MAKE, STENS_DECOMP, IO_DISK};
+        "Heff T3NS: prepare data", "Heff T3NS: diagonal", "Heff T3NS: matvec", 
+        "Heff DMRG: prepare data", "Heff DMRG: diagonal", "Heff DMRG: matvec", 
+        "siteTensor: make multisite tensor", "siteTensor: decompose", 
+        "io: write to disk"};
+enum timers {ROP_APPEND, ROP_UPDP, ROP_UPDB, PREP_HEFF_T3NS, DIAG_T3NS, HEFF_T3NS, 
+        PREP_HEFF_DMRG, DIAG_DMRG, HEFF_DMRG, STENS_MAKE, STENS_DECOMP, IO_DISK};
 
 /* Different timers in parallel possible */
 static struct timeval start_time[NR_PARALLEL_TIMERS];
+
 static void start_timing(int timernr)
 {
         if (timernr < 0 || timernr >= NR_PARALLEL_TIMERS) {
@@ -149,8 +152,15 @@ static struct optimize_info optimize_siteTensor(struct siteTensor * T3NS,
         if (o_dat.nr_bonds_opt == 3) {/* T3NS */
                 struct T3NSdata mv_dat;
                 const int size = siteTensor_get_size(&o_dat.msiteObj);
+
+                start_timing(0);
                 init_T3NSdata(&mv_dat, o_dat.operators, &o_dat.msiteObj);
+                timings[PREP_HEFF_T3NS] += stop_timing(0);
+
+                start_timing(0);
                 EL_TYPE * diagonal = make_diagonal(&mv_dat, 0);
+                timings[DIAG_T3NS] += stop_timing(0);
+
                 start_timing(0);
                 sparse_eigensolve(o_dat.msiteObj.blocks.tel, &info.energy, size, 
                                   DAVIDSON_MAX_VECS, DAVIDSON_KEEP_DEFLATE, 
@@ -162,8 +172,15 @@ static struct optimize_info optimize_siteTensor(struct siteTensor * T3NS,
         } else if (o_dat.nr_bonds_opt == 2){ /* DMRG */
                 struct matvec_data mv_dat;
                 const int size = siteTensor_get_size(&o_dat.msiteObj);
+
+                start_timing(0);
                 init_matvec_data(&mv_dat, o_dat.operators, &o_dat.msiteObj);
+                timings[PREP_HEFF_DMRG] += stop_timing(0);
+
+                start_timing(0);
                 EL_TYPE * diagonal = make_diagonal(&mv_dat, 1);
+                timings[DIAG_DMRG] += stop_timing(0);
+
                 start_timing(0);
                 sparse_eigensolve(o_dat.msiteObj.blocks.tel, &info.energy, size, 
                                   DAVIDSON_MAX_VECS, DAVIDSON_KEEP_DEFLATE, 

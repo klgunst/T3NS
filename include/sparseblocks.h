@@ -8,7 +8,8 @@
 /**
  * \brief The structure for the sparse blocks of the tensors. 
  *
- * Completely unusable on its own since things like nkappa_tot are stored in its parent-structure.
+ * Completely unusable on its own since things like nkappa_tot are stored in its 
+ * parent-structure.
  */
 struct sparseblocks {
   int * beginblock;          /**< Start of a certain sparse block. 
@@ -27,79 +28,6 @@ struct sparseblocks {
 };
 
 /**
- * \brief Initializes a sparseblocks structure on NULL.
- *
- * \param [out] blocks The pointer to the null-struct.
- */
-void init_null_sparseblocks(struct sparseblocks * const blocks);
-
-/** 
- * \brief Makes a sparseblocks instance with malloc or calloc
- *
- * \param [out] The sparseblocks struct
- * \param [in] beginblock the beginblock array, gets hard copied.
- * \param [in] nr_blocks The number of blocks.
- * \param [in] o o is 'c' if calloc, 'm' if malloc for tel.
- */
-void init_sparseblocks(struct sparseblocks * const blocks, const int * const beginblock, 
-    const int nr_blocks, char o);
-
-/**
- * \brief Makes a deep copy of a sparseblock.
- *
- * \param [out] copy The copy.
- * \param [in] tocopy The sparseblocks to copy
- * \param [in] nrblocks The number of sparse blocks.
- */
-void deep_copy_sparseblocks(struct sparseblocks * const copy, const struct sparseblocks * const 
-    tocopy, const int nrblocks);
-
-/**
- * \brief Destroys a sparseblocks struct.
- *
- * \param [in] blocks The sparseblocks to destroy.
- */
-void destroy_sparseblocks(struct sparseblocks * const blocks);
-
-/**
- * \brief Kicks the zero-element blocks from the sparseblocks structure.
- *
- * \param [in,out] blocks The sparseblocks structure to kick zero-elements out of.
- * \param [in] nr_blocks The number of blocks in the sparseblocks object.
- */
-void kick_zero_blocks(struct sparseblocks * const blocks, const int nr_blocks);
-
-/**
- * \brief Returns the size of the given block.
- *
- * This function does NOT check if id is out of bounds!!
- *
- * \param [in] blocks The sparseblocks structure.
- * \param [in] id The block index.
- * \return The size of the block.
- */
-int get_size_block(const struct sparseblocks * const blocks, const int id);
-
-/**
- * \brief Returns the pointer of the start of the tensor elements of a given block.
- *
- * \param [in] blocks The sparseblocks structure.
- * \param [in] id The block-id of which to return the tensor elements.
- * \return The pointer to the tensor elements of the asked block.
- */
-EL_TYPE * get_tel_block(const struct sparseblocks * const blocks, const int id);
-
-/**
- * \brief Prints the given block.
- *
- * This function does NOT check if id is out of bounds!!
- *
- * \param [in] blocks The sparseblocks structure.
- * \param [in] id The block index.
- */
-void print_block(const struct sparseblocks * const blocks, const int id);
-
-/**
  * \brief makes a QR decomposition of the blocks running from start to finish.
  *
  * R is forgotten.
@@ -112,5 +40,78 @@ void print_block(const struct sparseblocks * const blocks, const int id);
  * \param [in, out] N The size of the third dimension of the blocks. N can change if Q has 
  * zero-columns that should be kicked out.
  */
-void QR_blocks(struct sparseblocks * const blocks, const int start, const int finish, 
-    const int total, int * const N);
+void QR_blocks(struct sparseblocks * blocks, int start, int finish, 
+               int total, int * N);
+
+/**
+ * \brief Initializes a sparseblocks structure on NULL.
+ *
+ * \param [out] blocks The pointer to the null-struct.
+ */
+void init_null_sparseblocks(struct sparseblocks * blocks);
+
+/** 
+ * \brief Makes a sparseblocks instance with malloc or calloc
+ *
+ * \param [out] The sparseblocks struct
+ * \param [in] beginblock the beginblock array, gets hard copied.
+ * \param [in] nr_blocks The number of blocks.
+ * \param [in] o o is 'c' if calloc, 'm' if malloc for tel.
+ */
+void init_sparseblocks(struct sparseblocks * blocks, const int * beginblock, 
+                       int nr_blocks, char o);
+
+/**
+ * \brief Makes a deep copy of a sparseblock.
+ *
+ * \param [out] copy The copy.
+ * \param [in] tocopy The sparseblocks to copy
+ * \param [in] nrblocks The number of sparse blocks.
+ */
+void deep_copy_sparseblocks(struct sparseblocks * copy, 
+                            const struct sparseblocks * tocopy, int nrblocks);
+
+/**
+ * \brief Destroys a sparseblocks struct.
+ *
+ * \param [in] blocks The sparseblocks to destroy.
+ */
+void destroy_sparseblocks(struct sparseblocks * blocks);
+
+/**
+ * \brief Kicks the zero-element blocks from the sparseblocks structure.
+ *
+ * \param [in,out] blocks The sparseblocks structure to kick zero-elements out of.
+ * \param [in] nr_blocks The number of blocks in the sparseblocks object.
+ */
+void kick_zero_blocks(struct sparseblocks * blocks, int nr_blocks);
+
+/**
+ * \brief Returns the size of the given block.
+ *
+ * This function does NOT check if id is out of bounds!!
+ *
+ * \param [in] blocks The sparseblocks structure.
+ * \param [in] id The block index.
+ * \return The size of the block.
+ */
+int get_size_block(const struct sparseblocks * blocks, int id);
+
+/**
+ * \brief Returns the pointer of the start of the tensor elements of a given block.
+ *
+ * \param [in] blocks The sparseblocks structure.
+ * \param [in] id The block-id of which to return the tensor elements.
+ * \return The pointer to the tensor elements of the asked block.
+ */
+EL_TYPE * get_tel_block(const struct sparseblocks * blocks, int id);
+
+/**
+ * \brief Prints the given block.
+ *
+ * This function does NOT check if id is out of bounds!!
+ *
+ * \param [in] blocks The sparseblocks structure.
+ * \param [in] id The block index.
+ */
+void print_block(const struct sparseblocks * blocks, int id);

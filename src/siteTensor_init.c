@@ -107,7 +107,7 @@ void init_1siteTensor(struct siteTensor * const tens, const int site, const char
     case 'c':
       tens->blocks.tel = safe_malloc(tens->blocks.beginblock[tens->nrblocks], EL_TYPE);
       /* always same random init */
-      srand(42);
+      srand(0);
       for (i = 0; i <  tens->blocks.beginblock[tens->nrblocks]; ++i)
         tens->blocks.tel[i] = (rand() * 1.) / RAND_MAX;
       break;

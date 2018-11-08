@@ -29,7 +29,8 @@ enum symmetrygroup { Z2, U1, SU2, POINT_GROUP_SYMMETRY };
  * \param [in] sg The symmetry group of which prop1 and prop2 are irreps.
  * \return returns the maximal label of the irreps that can be generated.
  */
-int get_max_irrep(int *prop1, int nr1, int *prop2, int nr2, int inc, enum symmetrygroup sg);
+int get_max_irrep(int * prop1, int nr1, int * prop2, int nr2, int inc, 
+                  enum symmetrygroup sg);
 
 /**
  * \brief Gives the resulting symmetry sectors from tensor product of two other symmetry sectors. 
@@ -42,8 +43,8 @@ int get_max_irrep(int *prop1, int nr1, int *prop2, int nr2, int inc, enum symmet
  * \param [in] sgs The symmetry groups of the system.
  * \param [in] nr_symmetries The number of symmetries in the system.
  */
-void tensprod_symmsec(int **resultsymmsec, int *nr_symmsecs, int *symmsec1, int *symmsec2, int sign,
-    enum symmetrygroup *sgs, int nr_symmetries);
+void tensprod_symmsec(int **resultsymmsec, int *nr_symmsecs, int *symmsec1, 
+                      int *symmsec2, int sign, enum symmetrygroup* sgs, int nrsy);
 
 /**
  * \brief Gives the resulting irreps from tensor product of two other irreps belonging to sg.
@@ -56,8 +57,8 @@ void tensprod_symmsec(int **resultsymmsec, int *nr_symmsecs, int *symmsec1, int 
  * \param [in] sign -1 if the inverse of irrep2 should be taken, +1 otherwise.
  * \param [in] sg The symmetry group of the irreps.
  */
-void tensprod_irrep(int *min_irrep, int *nr_irreps, int *step, int irrep1, int irrep2, int sign, 
-    enum symmetrygroup sg);
+void tensprod_irrep(int *min_irrep, int *nr_irreps, int *step, int irrep1, 
+                    int irrep2, int sign, enum symmetrygroup sg);
 
 /**
  * \brief Returns the string of the symmetrygroup.
@@ -76,7 +77,8 @@ void get_allsymstringnames(char * buffer);
  * \param [out] sg The resulting symmetrygroup.
  * \return Returns 1 if successful, otherwise 0.
  */
-int which_symmgroup(char buffer[], enum symmetrygroup *sg);
+int which_symmgroup(char * buffer, enum symmetrygroup * sg);
+
 
 /**
  * \brief Gets the string of the irrep.
@@ -85,7 +87,8 @@ int which_symmgroup(char buffer[], enum symmetrygroup *sg);
  * \param [in] sg The symmetrygroup.
  * \param [in] irr The irrep.
  */
-void get_irrstring(char buffer[], enum symmetrygroup sg, int irr);
+void get_irrstring(char * buffer, enum symmetrygroup sg, int irr);
+
 
 /**
  * \brief Finds the irrep that is inputted in a string.
@@ -95,7 +98,7 @@ void get_irrstring(char buffer[], enum symmetrygroup sg, int irr);
  * \param [out] irr The found irrep.
  * \return Returns 1 if successful, otherwise 0.
  */
-int which_irrep(char buffer[], enum symmetrygroup sg, int *irr);
+int which_irrep(char * buffer, enum symmetrygroup sg, int * irr);
 
 /**
  * \brief Searches for a string in a given array of strings.
@@ -107,7 +110,7 @@ int which_irrep(char buffer[], enum symmetrygroup sg, int *irr);
  * \param [out] ind The index of which the array is found in the string.
  * \return 1 if the search was successful, 0 otherwise.
  */
-int find_str_in_array(char buffer[], const char* arr[], int length, int *ind);
+int find_str_in_array(char * buffer, const char ** arr, int length, int * ind);
 
 /**
  * \brief Finds the parity of the targetstate with given irreps for other symmetrygroups.
@@ -118,7 +121,7 @@ int find_str_in_array(char buffer[], const char* arr[], int length, int *ind);
  * \param [in] nr_symmetries The number of symmetries in the system.
  * \return 1 if the determination of the parity was successful, 0 otherwise.
  */
-int find_Z2(enum symmetrygroup *sgs, int *ts, int nr_symmetries);
+int find_Z2(enum symmetrygroup * sgs, int * ts, int nrsy);
 
 /**
  * \brief Checks if the inputted symmetrygroups are valid ones (well for me at least)
@@ -127,7 +130,7 @@ int find_Z2(enum symmetrygroup *sgs, int *ts, int nr_symmetries);
  * \param [in] nr_symmetries The number of symmetrygroups in sgs.
  * \return 1 if successful, otherwise 0.
  */
-int valid_sgs(enum symmetrygroup *sgs, int nr_symmetries);
+int valid_sgs(enum symmetrygroup * sgs, int nrsy);
 
 /**
  * \brief Checks if the inputted state is consistent.
@@ -137,33 +140,33 @@ int valid_sgs(enum symmetrygroup *sgs, int nr_symmetries);
  * \param [in] nr_symmetries The number of symmetries in sgs and ts.
  * \return 1 if successful, 0 otherwise.
  */
-int consistent_state(enum symmetrygroup *sgs, int *ts, int nr_symmetries);
+int consistent_state(enum symmetrygroup * sgs, int * ts, int nrsy);
 
-double prefactor_pAppend(const int symvalues[], const int is_left, const enum 
-    symmetrygroup sg);
+double prefactor_pAppend(const int * symvalues, int is_left, 
+                         enum symmetrygroup sg);
 
-double prefactor_adjoint(const int * irrep_arr[], const char c, const enum
-    symmetrygroup * const sgs, const int nr_symmetries);
+double prefactor_adjoint(const int ** irrep_arr, char c, 
+                         const enum symmetrygroup * sgs, int nrsy);
 
-double prefactor_pUpdate(const int * irrep_arr[], const int is_left, 
-    const enum symmetrygroup * const sgs, const int nr_symmetries);
+double prefactor_pUpdate(const int ** irrep_arr, int is_left, 
+                         const enum symmetrygroup * sgs, int nrsy);
 
-double prefactor_mirror_coupling(int * irrep_arr[], const enum symmetrygroup * const sgs, 
-    const int nr_symmetries);
+double prefactor_mirror_coupling(int ** irrep_arr, 
+                                 const enum symmetrygroup * sgs, int nrsy);
 
-double prefactor_DMRGmatvec(int * irrep_arr[], int * MPO, 
-    const enum symmetrygroup * const sgs, const int nr_symmetries);
+double prefactor_DMRGmatvec(int ** irrep_arr, int * MPO, 
+                            const enum symmetrygroup * sgs, int nrsy);
 
-double prefactor_bUpdate(int * const irrep_arr[3][3], const int updateCase,
-    const enum symmetrygroup * const sgs, const int nr_symmetries);
+double prefactor_bUpdate(int * const (*irrep_arr)[3], int updateCase,
+                         const enum symmetrygroup * sgs, int nrsy);
 
-double prefactor_add_P_operator(int * const irreps[2][3], const int isleft, 
-    const enum symmetrygroup * const sgs, const int nr_symmetries);
+double prefactor_add_P_operator(int * const (*irreps)[3], int isleft, 
+                                const enum symmetrygroup * sgs, int nrsy);
 
-double prefactor_combine_MPOs(int * const irreps[2][3], int * const irrMPO[3], 
-    const enum symmetrygroup * const sgs, const int nr_symmetries);
+double prefactor_combine_MPOs(int * const (*irreps)[3], int * const *irrMPO, 
+                              const enum symmetrygroup * sgs, int nrsy);
 
-int need_multiplicity(const int nrSyms, const enum symmetrygroup sgs[nrSyms]);
+int need_multiplicity(const int nrSyms, const enum symmetrygroup * sgs);
 
-int multiplicity(const int nrSyms, const enum symmetrygroup sgs[nrSyms], 
-                 const int irreps[nrSyms]);
+int multiplicity(const int nrSyms, const enum symmetrygroup * sgs, 
+                 const int * irreps);
