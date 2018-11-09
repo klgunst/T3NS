@@ -10,11 +10,12 @@ set(CMAKE_MODULE_PATH "${PROJECT_SOURCE_DIR}/cmake/Modules")
 
 option(DEBUG 		"Debug symbols used" 			  OFF)
 option(DEBUGFLAG        "Compile with DDEBUG flag" 		  OFF)
-option(LOWOPT 		"Optimization level of compilation O/O3"  OFF)
 option(MKL 		"Compile using MKL" 			  OFF)
-
+option(ENABLE_XHOST     "Enable processor-specific optimizations" ON)
+option(DAVID_INFO     	"Print intermediate results for the Davidson algorithm" ON)
 option(BUILD_TESTING 	"Compile the tests" 			  ON)
 option(PERFORMANCETEST  "Compile the performance tests" 	  OFF)
+set(MAX_SYMMETRIES "4" CACHE STRING "")
 
 # Find Lapack or MKL
 if(MKL)
@@ -67,21 +68,23 @@ if(DEBUG)
     endif()
 endif(DEBUG)
 
+add_definitions(-DMAX_SYMMETRIES=${MAX_SYMMETRIES})
 # set DDEBUG flag
 if(DEBUGFLAG)
-    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -DDEBUG")
+    add_definitions(-DDEBUG)
 endif(DEBUGFLAG)
+if(DAVID_INFO)
+    add_definitions(-DDAVID_INFO)
+endif(DAVID_INFO)
 
 # for aggressive optimization or not
-if(LOWOPT)
-    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS}")
-else()
+if(ENABLE_XHOST)
     if("${CMAKE_C_COMPILER_ID}" MATCHES "Intel")
-	set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -xHOST -O3")
+	set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -xHOST")
     else()
-	set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -march=native -O3")
+	set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -march=native")
     endif()
-endif(LOWOPT)
+endif(ENABLE_XHOST)
 
 # Cmake includes
 include(GNUInstallDirs)

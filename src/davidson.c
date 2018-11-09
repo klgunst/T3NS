@@ -15,7 +15,6 @@
 #include "davidson.h"
 #include "macros.h"
 
-#define DAVID_INFO
 #define DIAG_CUTOFF 1e-12
 
 /* For algorithm see http://people.inf.ethz.ch/arbenz/ewp/Lnotes/chapter12.pdf, algorithm 12.1 */
