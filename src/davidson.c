@@ -254,7 +254,7 @@ int davidson(double * result, double * energy, int size, int max_vecs,
         printf("---------------------------------\n");
 #endif
 
-        while ((residue_norm > davidson_tol) && (its++ < max_its)) {
+        while ((residue_norm > davidson_tol) && its < max_its) {
                 new_search_vector();
                 long long shift = (long long) david_dat.m * david_dat.size;
 
@@ -273,6 +273,7 @@ int davidson(double * result, double * energy, int size, int max_vecs,
 
                 d_energy = *energy - david_dat.eigvalues[0];
                 *energy  = david_dat.eigvalues[0];
+                ++its;
 #ifdef DAVID_INFO
                 ++cnt_matvecs;
                 printf("%-4d  %e    %lf\n", its, residue_norm, david_dat.eigvalues[0]);
@@ -280,8 +281,8 @@ int davidson(double * result, double * energy, int size, int max_vecs,
                 create_new_vec_t(result);
         }
 
-        printf("   * Davidson: (iterations : %d), (d_energy : %.2e), (trunc : %.2e)\n",
-               its, residue_norm, d_energy);
+        printf("   * Davidson: (iterations : %d), (d_energy : %.1e), (trunc : %.1e)\n",
+               its, d_energy, residue_norm);
 #ifdef DAVID_INFO
         if (residue_norm > davidson_tol) {
                 printf("     - Davidson stopped before converging.\n");
