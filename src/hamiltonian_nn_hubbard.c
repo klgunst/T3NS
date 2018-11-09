@@ -80,14 +80,14 @@ void NN_H_get_physsymsecs(struct symsecs *res)
 
         res->nrSecs = hdat.su2 ? 3 : 4;
         res->totaldims = res->nrSecs;
-        res->irreps = safe_malloc(res->nrSecs * bookie.nrSyms, int);
+        res->irreps = safe_malloc(res->nrSecs, *res->irreps);
         res->dims = safe_malloc(res->nrSecs, int);
         res->fcidims = safe_malloc(res->nrSecs, double);
         for (i = 0; i < res->nrSecs; ++i) {
                 res->dims   [i] = 1;
                 res->fcidims[i] = 1;
                 for (j = 0; j < 3; ++j)
-                        res->irreps[i * bookie.nrSyms + j] = irreparr[i][j];
+                        res->irreps[i][j] = irreparr[i][j];
 
                 /* Z2 should come first */
                 assert(bookie.sgs[0] == Z2);
@@ -291,11 +291,11 @@ static void prepare_MPOsymsecs(void)
                 ? sizeof irreps_SU2 / sizeof irreps_SU2[0]
                 : sizeof irreps_U1 / sizeof irreps_U1[0];
 
-        int *curr_irrep, *curr_dims;
+        int (*curr_irrep)[MAX_SYMMETRIES], *curr_dims;
         double *curr_fcidims;
 
         MPOsymsecs.nrSecs = size;
-        MPOsymsecs.irreps = safe_malloc(MPOsymsecs.nrSecs * bookie.nrSyms, int);
+        MPOsymsecs.irreps = safe_malloc(MPOsymsecs.nrSecs, *MPOsymsecs.irreps);
         MPOsymsecs.fcidims = safe_malloc(MPOsymsecs.nrSecs, double);
         MPOsymsecs.dims = safe_malloc(MPOsymsecs.nrSecs, int);
         MPOsymsecs.totaldims = MPOsymsecs.nrSecs;
@@ -305,31 +305,30 @@ static void prepare_MPOsymsecs(void)
         curr_fcidims = MPOsymsecs.fcidims;
 
         if (hdat.su2) {
-                int i;
-                for (i = 0; i < size; ++i) {
+                for (int i = 0; i < size; ++i) {
                         /* Z2 */
-                        *(curr_irrep++) = abs(irreps[i * 2]) % 2;
+                        MPOsymsecs.irreps[i][0] = abs(irreps[i * 2]) % 2;
                         /* U1 */
-                        *(curr_irrep++) = irreps[i * 2];
+                        MPOsymsecs.irreps[i][1] = irreps[i * 2];
                         /* SU2 */
-                        *(curr_irrep++) = irreps[i * 2 + 1];
+                        MPOsymsecs.irreps[i][2] = irreps[i * 2 + 1];
 
-                        *(curr_dims++) = 1;
-                        *(curr_fcidims++) = 1;
+                        MPOsymsecs.dims[i] = 1;
+                        MPOsymsecs.fcidims[i] = 1;
                 }
         } else {
                 int i;
                 for (i = 0; i < size; ++i) {
                         /* Z2 */
-                        *(curr_irrep++) = abs(irreps[i * 2] + 
-                                              irreps[i * 2 + 1]) % 2;
+                        MPOsymsecs.irreps[i][0] = abs(irreps[i * 2] + 
+                                                      irreps[i * 2 + 1]) % 2;
                         /* U1 */
-                        *(curr_irrep++) = irreps[i * 2];
+                        MPOsymsecs.irreps[i][1] = irreps[i * 2];
                         /* U1 */
-                        *(curr_irrep++) = irreps[i * 2 + 1];
+                        MPOsymsecs.irreps[i][2] = irreps[i * 2 + 1];
 
-                        *(curr_dims++) = 1;
-                        *(curr_fcidims++) = 1;
+                        MPOsymsecs.dims[i] = 1;
+                        MPOsymsecs.fcidims[i] = 1;
                 }
         }
 }

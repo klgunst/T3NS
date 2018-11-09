@@ -890,8 +890,7 @@ static void adapt_symsec_and_others(double ***U, double ***S, double ***V,
 
       /*adapt newSymsec */
       for (i = 0; i < bookie.nrSyms; ++i)
-        newSymsec->irreps[cnt * bookie.nrSyms + i] = 
-          newSymsec->irreps[ss * bookie.nrSyms + i];
+        newSymsec->irreps[cnt][i] = newSymsec->irreps[ss][i];
       newSymsec->fcidims[cnt] = newSymsec->fcidims[ss];
       newSymsec->dims[cnt]    = newSymsec->dims[ss];
 
@@ -912,8 +911,8 @@ static void adapt_symsec_and_others(double ***U, double ***S, double ***V,
   *centerqn   = realloc(*centerqn  , newSymsec->nrSecs * cnrsites * sizeof(int*));
   *centernrqn = realloc(*centernrqn, newSymsec->nrSecs * sizeof(int));
 
-  newSymsec->irreps = realloc(newSymsec->irreps, newSymsec->nrSecs * bookie.nrSyms * 
-      sizeof(int));
+  newSymsec->irreps = realloc(newSymsec->irreps, newSymsec->nrSecs * 
+                              sizeof *newSymsec->irreps);
   newSymsec->fcidims = realloc(newSymsec->fcidims, newSymsec->nrSecs * sizeof(double));
   newSymsec->dims    = realloc(newSymsec->dims, newSymsec->nrSecs * sizeof(int));
 }

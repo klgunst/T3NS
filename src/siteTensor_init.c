@@ -758,8 +758,7 @@ static int * make_newtoold(const struct symsecs * const internalss, const int bo
     {
       int k;
       for (k = 0; k < bookie.nrSyms; ++k)
-        if (internalss->irreps[i * bookie.nrSyms + k] != 
-            newss.irreps[j * bookie.nrSyms + k])
+        if (internalss->irreps[i][k] != newss.irreps[j][k])
           break;
       if (k == bookie.nrSyms)
       {

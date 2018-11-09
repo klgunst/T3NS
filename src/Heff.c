@@ -161,7 +161,7 @@ void matvecDMRG(double * vec, double * result, void * vdata)
     find_indexes(newqn[1], &data->maxdims[3], &indexes[3]);
     assert(indexes[2] == indexes[3]); /* inner bond is equal */
     for (i = 0; i < 6; ++i) 
-      irreparr[i] = &data->symarr[i].irreps[bookie.nrSyms * indexes[i]];
+      irreparr[i] = data->symarr[i].irreps[indexes[i]];
 
     Nnew = 1;
     for (i = 0; i < 2; ++i) Nnew *= data->symarr[i].dims[indexes[i]];
@@ -185,7 +185,7 @@ void matvecDMRG(double * vec, double * result, void * vdata)
       find_indexes(oldqn[1], &data->maxdims[3], &indexes[9]);
       assert(indexes[8] == indexes[9]); /* inner bond is equal */
       for (i = 6; i < 12; ++i) 
-        irreparr[i] = &data->symarr[i - 6].irreps[bookie.nrSyms * indexes[i]];
+        irreparr[i] = data->symarr[i - 6].irreps[indexes[i]];
 
       Nold = 1;
       for (i = 6; i < 8; ++i) Nold *= data->symarr[i - 6].dims[indexes[i]];
@@ -215,7 +215,7 @@ void matvecDMRG(double * vec, double * result, void * vdata)
         { { newqn[0], oldqn[0], innerdims + hss[0] * innerdimsq }, 
           { newqn[1], oldqn[1], innerdims + hss[1] * innerdimsq } };
         int Opsb[2];
-        int * irrepMPO = &MPOss.irreps[bookie.nrSyms * hss[1]];
+        int * irrepMPO = MPOss.irreps[hss[1]];
 
         if (instr == endinstr)
           continue;
@@ -673,7 +673,7 @@ static double * make_diagonal_DMRG(struct matvec_data * const data)
 
     for (i = 0; i < 6; ++i) 
     {
-      irreparr[i] = &data->symarr[i].irreps[bookie.nrSyms * indexes[i]];
+      irreparr[i] = data->symarr[i].irreps[indexes[i]];
       irreparr[i + 6] = irreparr[i];
     }
 
@@ -697,7 +697,7 @@ static double * make_diagonal_DMRG(struct matvec_data * const data)
       { { qn[0], qn[0], innerdims + hss[0] * innerdimsq }, 
         { qn[1], qn[1], innerdims + hss[1] * innerdimsq } };
 
-      int * irrepMPO = &MPOss.irreps[bookie.nrSyms * hss[1]];
+      int * irrepMPO = MPOss.irreps[hss[1]];
       int Opsb[2];
 
       if (instr == endinstr)

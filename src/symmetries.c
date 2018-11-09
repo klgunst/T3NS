@@ -7,16 +7,17 @@
 #include "macros.h"
 #include "debug.h"
 
-int get_max_irrep(int * prop1, int nr1, int * prop2, int nr2, int inc, 
-                  enum symmetrygroup sg)
+int get_max_irrep(int (*prop1)[MAX_SYMMETRIES], int nr1, 
+                  int (*prop2)[MAX_SYMMETRIES], int nr2,
+                  enum symmetrygroup sg, int whichsym)
 {
         switch(sg) {
         case Z2 :
                 return Z2_get_max_irrep();
         case U1 :
-                return U1_get_max_irrep(prop1, nr1, prop2, nr2, inc);
+                return U1_get_max_irrep(prop1, nr1, prop2, nr2, whichsym);
         case SU2 :
-                return SU2_get_max_irrep(prop1, nr1, prop2, nr2, inc);
+                return SU2_get_max_irrep(prop1, nr1, prop2, nr2, whichsym);
         default :
                 return PG_get_max_irrep(sg - C1);
         }

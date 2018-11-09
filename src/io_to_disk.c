@@ -345,7 +345,7 @@ static void read_symsec_from_disk(const hid_t id, struct symsecs * const ssec,
         ssec->dims = safe_malloc(ssec->nrSecs, int);
         ints_read_dataset(group_id, "./dims", ssec->dims);
 
-        ssec->irreps = safe_malloc(ssec->nrSecs * bookie.nrSyms, int);
+        ssec->irreps = safe_malloc(ssec->nrSecs, *ssec->irreps);
         ints_read_dataset(group_id, "./irreps", ssec->irreps);
         
         ssec->fcidims = safe_malloc(ssec->nrSecs, double);

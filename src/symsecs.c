@@ -20,7 +20,7 @@ void print_symsecs(struct symsecs *currsymsec, int fci)
 {
         char buffer[255];
         for (int i = 0; i < currsymsec->nrSecs; ++i) {
-                int *irrep = currsymsec->irreps + i * bookie.nrSyms;
+                int * irrep = currsymsec->irreps[i];
                 printf("(");
                 for (int j = 0; j < bookie.nrSyms; ++j) {
                         get_irrstring(buffer, bookie.sgs[j], irrep[j]);
@@ -102,7 +102,7 @@ int search_symmsec(int* symmsec, const struct symsecs *sectors)
         for (int i = 0; i < sectors->nrSecs; ++i) {
                 int j;
                 for (j = 0; j < bookie.nrSyms; ++j) {
-                        if (symmsec[j] != sectors->irreps[i * bookie.nrSyms + j])
+                        if (symmsec[j] != sectors->irreps[i][j])
                                 break;
                 }
                 if (j == bookie.nrSyms) {
@@ -116,7 +116,7 @@ void get_sectorstring(const struct symsecs* const symsec, int id, char buffer[])
 {
         int i;
         char tempbuffer[20];
-        int *irrep = &symsec->irreps[id * bookie.nrSyms];
+        int * irrep = symsec->irreps[id];
         buffer[0] = '\0';
         for (i = 0; i < bookie.nrSyms; ++i) {
                 get_irrstring(tempbuffer, bookie.sgs[i], irrep[i]);
@@ -162,8 +162,7 @@ void kick_empty_symsecs(struct symsecs *sectors, char o)
                         continue;
 
                 for (int j = 0; j < bookie.nrSyms; ++j) {
-                        sectors->irreps[cnt * bookie.nrSyms + j] = 
-                                sectors->irreps[i * bookie.nrSyms + j];
+                        sectors->irreps[cnt][j] = sectors->irreps[i][j];
                 }
                 sectors->fcidims[cnt] = sectors->fcidims[i];
                 if (o == 'n') {
@@ -174,8 +173,7 @@ void kick_empty_symsecs(struct symsecs *sectors, char o)
         }
 
         sectors->nrSecs = cnt;
-        sectors->irreps  = realloc(sectors->irreps, cnt * bookie.nrSyms * 
-                                   sizeof(int));
+        sectors->irreps = realloc(sectors->irreps, cnt * sizeof sectors->irreps[0]);
         sectors->fcidims = realloc(sectors->fcidims, cnt * sizeof(double));
         if (o == 'n') sectors->dims = realloc(sectors->dims, cnt * sizeof(int));
         if (!sectors->irreps || !sectors->fcidims) {
@@ -187,12 +185,13 @@ void kick_empty_symsecs(struct symsecs *sectors, char o)
 
 void deep_copy_symsecs(struct symsecs * copy, const struct symsecs * tocopy)
 {
-        copy->nrSecs    = tocopy->nrSecs;
-        copy->dims      = safe_malloc(copy->nrSecs, int);
+        copy->nrSecs = tocopy->nrSecs;
+        copy->dims = safe_malloc(copy->nrSecs, int);
 
-        copy->irreps    = safe_malloc(copy->nrSecs * bookie.nrSyms, int);
-        for (int i = 0; i < tocopy->nrSecs * bookie.nrSyms; ++i) 
-                copy->irreps[i] = tocopy->irreps[i];
+        copy->irreps = safe_malloc(copy->nrSecs, copy->irreps[0]);
+        for (int i = 0; i < tocopy->nrSecs; ++i) 
+                for (int j = 0; j < bookie.nrSyms; ++j)
+                        copy->irreps[i][j] = tocopy->irreps[i][j];
 
         copy->fcidims   = safe_malloc(copy->nrSecs, double);
         for (int i = 0; i < tocopy->nrSecs; ++i)
@@ -210,9 +209,8 @@ int full_dimension(const struct symsecs * const sym)
 
         int result = 0;
         for (int i = 0; i < sym->nrSecs; ++i) {
-                result += multiplicity(bookie.nrSyms, bookie.sgs,
-                                       &sym->irreps[bookie.nrSyms * i]) *
-                        sym->dims[i];
+                result += sym->dims[i] *
+                        multiplicity(bookie.nrSyms, bookie.sgs, sym->irreps[i]);
         }
         return result;
 }

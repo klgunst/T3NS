@@ -151,7 +151,7 @@ void QC_get_physsymsecs(struct symsecs *res, int site)
 
         res->nrSecs = hdat.su2 ? 3 : 4;
         res->totaldims = res->nrSecs;
-        res->irreps = safe_malloc(res->nrSecs * bookie.nrSyms, int);
+        res->irreps = safe_malloc(res->nrSecs, *res->irreps);
         res->dims = safe_malloc(res->nrSecs, int);
         res->fcidims = safe_malloc(res->nrSecs, double);
 
@@ -159,12 +159,11 @@ void QC_get_physsymsecs(struct symsecs *res, int site)
                 res->dims   [i] = 1;
                 res->fcidims[i] = 1;
                 for (j = 0; j < 3; ++j)
-                        res->irreps[i * bookie.nrSyms + j] = irreparr[i][j];
+                        res->irreps[i][j] = irreparr[i][j];
 
                 /* trivial if even parity, otherwise irrep of orbital*/
                 if (get_pg_symmetry() != -1)
-                        res->irreps[i * bookie.nrSyms + j] = 
-                                res->irreps[i * bookie.nrSyms] ? 
+                        res->irreps[i][j] = res->irreps[i][0] ?  
                                 hdat.orbirrep[netw.sitetoorb[site]] : 0;
 
                 /* Z2 should come first */
@@ -189,7 +188,7 @@ int QC_get_nr_hamsymsec(void)
          * thus 8 * NR_OF_PG
          */
         const int pg       = get_pg_symmetry();
-        const int nr_of_pg = pg == -1 ? 1 : get_max_irrep(NULL,0,NULL,0,0, pg);
+        const int nr_of_pg = pg == -1 ? 1 : get_max_irrep(NULL,0,NULL,0, pg,0);
 
         if (hdat.su2)
                 return sizeof irreps_QCSU2 / sizeof irreps_QCSU2[0] * nr_of_pg;
@@ -200,7 +199,7 @@ int QC_get_nr_hamsymsec(void)
 int QC_get_trivialhamsymsec(void)
 {
         const int pg       = get_pg_symmetry();
-        const int nr_of_pg = pg == -1 ? 1 : get_max_irrep(NULL,0,NULL,0,0, pg);
+        const int nr_of_pg = pg == -1 ? 1 : get_max_irrep(NULL,0,NULL,0, pg, 0);
         const int * irreps = hdat.su2 ? &irreps_QCSU2[0][0] : &irreps_QC[0][0];
         const int size = QC_get_nr_hamsymsec() / nr_of_pg;
 
@@ -223,7 +222,7 @@ int QC_hermitian_symsec(const int orig_symsec)
          * thus 8 * NR_OF_PG
          */
         const int pg       = get_pg_symmetry();
-        const int nr_of_pg = pg == -1 ? 1 : get_max_irrep(NULL,0,NULL,0,0, pg);
+        const int nr_of_pg = pg == -1 ? 1 : get_max_irrep(NULL,0,NULL,0, pg,0);
         const int * irreps = hdat.su2 ? &irreps_QCSU2[0][0] : &irreps_QC[0][0];
         const int size     = QC_get_nr_hamsymsec() / nr_of_pg;
 
@@ -281,7 +280,7 @@ void QC_tprods_ham(int * const nr_of_prods, int ** const possible_prods,
          * thus 8 * NR_OF_PG
          */
         const int pg        = get_pg_symmetry();
-        const int nr_of_pg  = pg == -1 ? 1 : get_max_irrep(NULL,0,NULL,0,0, pg);
+        const int nr_of_pg  = pg == -1 ? 1 : get_max_irrep(NULL,0,NULL,0, pg,0);
         const int size  = hdat.su2 
                 ? sizeof irreps_QCSU2 / sizeof irreps_QCSU2[0]
                 : sizeof irreps_QC / sizeof irreps_QC[0];
@@ -313,7 +312,7 @@ int QC_MPO_couples_to_singlet(const int n, const int MPO[n])
 {
         assert(n == 3);
         const int pg       = get_pg_symmetry();
-        const int nr_of_pg = pg == -1 ? 1 : get_max_irrep(NULL,0,NULL,0,0, pg);
+        const int nr_of_pg = pg == -1 ? 1 : get_max_irrep(NULL,0,NULL,0, pg,0);
 
         int pg_irrep[n];
         int other_irr[n];
@@ -869,7 +868,7 @@ static int check_orbirrep(void)
                 return 1;
         }
 
-        max_pg = get_max_irrep(NULL, 0, NULL, 0, 0, pg_symm);
+        max_pg = get_max_irrep(NULL, 0, NULL, 0, pg_symm,0);
         for (i = 0; i < hdat.norb; ++i) {
                 if (hdat.orbirrep[i] < 0 || hdat.orbirrep[i] >= max_pg)
                         return 0;
@@ -912,7 +911,7 @@ static int double_operator(const int operator)
 static void prepare_MPOsymsecs(void)
 {
         const int pg        = get_pg_symmetry();
-        const int nr_of_pg  = pg == -1 ? 1 : get_max_irrep(NULL,0,NULL,0,0, pg);
+        const int nr_of_pg  = pg == -1 ? 1 : get_max_irrep(NULL,0,NULL,0,pg,0);
         const int * irreps = hdat.su2 ? &irreps_QCSU2[0][0] : &irreps_QC[0][0];
         const int size  = hdat.su2 
                 ? sizeof irreps_QCSU2 / sizeof irreps_QCSU2[0]
@@ -924,38 +923,32 @@ static void prepare_MPOsymsecs(void)
         assert(bookie.nrSyms == 3 + (pg != -1));
 
         MPOsymsecs.nrSecs = nr_of_pg * size;
-        MPOsymsecs.irreps = safe_malloc(MPOsymsecs.nrSecs * bookie.nrSyms, int);
+        MPOsymsecs.irreps = safe_malloc(MPOsymsecs.nrSecs, *MPOsymsecs.irreps);
         MPOsymsecs.fcidims = safe_malloc(MPOsymsecs.nrSecs, double);
         MPOsymsecs.dims = safe_malloc(MPOsymsecs.nrSecs, int);
         MPOsymsecs.totaldims = MPOsymsecs.nrSecs;
 
-        curr_irrep   = MPOsymsecs.irreps;
-        curr_dims    = MPOsymsecs.dims;
-        curr_fcidims = MPOsymsecs.fcidims;
-
         for (i = 0; i < size; ++i) {
                 int j;
                 for (j = 0; j < nr_of_pg; ++j) {
+                        int cnt = i * nr_of_pg + j;
                         /* Z2 */
                         if (hdat.su2)
-                                *(curr_irrep++) = abs(irreps[i * 2]) % 2;
+                                MPOsymsecs.irreps[cnt][0] = abs(irreps[i * 2]) % 2;
                         else
-                                *(curr_irrep++) = abs(irreps[i * 2] + 
-                                                      irreps[i * 2 + 1]) % 2;
+                                MPOsymsecs.irreps[cnt][0] = abs(irreps[i * 2] + 
+                                                                irreps[i * 2 + 1]) % 2;
                         /* U1 */
-                        *(curr_irrep++) = irreps[i * 2];
+                        MPOsymsecs.irreps[cnt][1] = irreps[i * 2];
                         /* U1 or SU2 */
-                        *(curr_irrep++) = irreps[i * 2 + 1];
+                        MPOsymsecs.irreps[cnt][2] = irreps[i * 2 + 1];
                         if (pg != -1)
-                                *(curr_irrep++) = j;
+                                MPOsymsecs.irreps[cnt][3] = j;
 
-                        *(curr_dims++) = 1;
-                        *(curr_fcidims++) = 1;
+                        MPOsymsecs.dims[cnt] = 1;
+                        MPOsymsecs.fcidims[cnt] = 1;
                 }
         }
-        assert(curr_irrep-MPOsymsecs.irreps == bookie.nrSyms*MPOsymsecs.nrSecs);
-        assert(curr_dims - MPOsymsecs.dims == MPOsymsecs.nrSecs);
-        assert(curr_fcidims - MPOsymsecs.fcidims == MPOsymsecs.nrSecs);
 }
 
 static int add_product(int * const res, const int i, const int j, 
@@ -1118,7 +1111,7 @@ static int u1_symsec_tag(const int * tag, const int nr_tags, const int tagsize)
 {
         assert(tagsize == 3);
         const int pg       = get_pg_symmetry();
-        const int nr_of_pg = pg == -1 ? 1 : get_max_irrep(NULL,0,NULL,0,0, pg);
+        const int nr_of_pg = pg == -1 ? 1 : get_max_irrep(NULL,0,NULL,0, pg,0);
         const int size = sizeof irreps_QC / sizeof irreps_QC[0];
 
         int i;
@@ -1282,7 +1275,7 @@ static int su2_symsec_tag(const int * tag, const int nr_tags, const int tagsize)
                 return QC_get_trivialhamsymsec();
 
         const int pg       = get_pg_symmetry();
-        const int nr_of_pg = pg == -1 ? 1 : get_max_irrep(NULL,0,NULL,0,0, pg);
+        const int nr_of_pg = pg == -1 ? 1 : get_max_irrep(NULL,0,NULL,0, pg,0);
         const int size = sizeof irreps_QCSU2 / sizeof irreps_QCSU2[0];
 
         int i;

@@ -37,6 +37,7 @@ T3NS_DESCRIPTION
 "\n"
 "SYMMETRIES       = Symmetries used. Possible values are:\n"
 "                       %s\n"
+"                   The program is compiled for maximally %d symmetries.\n"
 "\n"
 "TARGET STATE     = The Irreps of the state to target.\n"
 "\n"
@@ -202,9 +203,9 @@ static void initialize_program(int argc, char *argv[], struct siteTensor **T3NS,
         char buffer[buffersize];
 
         get_allsymstringnames(buffer_symm);
-        snprintf(buffer, buffersize, doc, buffer_symm, DEFAULT_SWEEPS, 
-                 DEFAULT_E_CONV, DEFAULT_SITESIZE, DEFAULT_SOLVER_TOL, 
-                 DEFAULT_SOLVER_MAX_ITS, DEFAULT_NOISE);
+        snprintf(buffer, buffersize, doc, buffer_symm, MAX_SYMMETRIES, 
+                 DEFAULT_SWEEPS, DEFAULT_E_CONV, DEFAULT_SITESIZE, 
+                 DEFAULT_SOLVER_TOL, DEFAULT_SOLVER_MAX_ITS, DEFAULT_NOISE);
 
         struct argp argp = {options, parse_opt, args_doc, buffer};
 

@@ -25,8 +25,8 @@ static void build_all_sectors(struct symsecs * res,
 
   for (i = 0; i < bookie.nrSyms; i++) {
     indices[i] = 0;
-    max_irrep[i] = get_max_irrep(sectors1->irreps + i, sectors1->nrSecs, sectors2->irreps + i, 
-        sectors2->nrSecs, bookie.nrSyms, bookie.sgs[i]);
+    max_irrep[i] = get_max_irrep(sectors1->irreps, sectors1->nrSecs, sectors2->irreps, 
+        sectors2->nrSecs, bookie.sgs[i], i);
 
     nrSecs *= max_irrep[i];
   }
@@ -45,14 +45,14 @@ static void build_all_sectors(struct symsecs * res,
     }
     cnt++;
   }
-  res->irreps = safe_malloc(res->nrSecs * bookie.nrSyms, int);
+  res->irreps = safe_malloc(res->nrSecs, *res->irreps);
 
   cnt = 0;
   cnt2 = 0;
   while (cnt != nrSecs) {
     if (consistent_state(bookie.sgs, indices, bookie.nrSyms)) {
       for (i = 0; i < bookie.nrSyms; i++)
-        res->irreps[cnt2 * bookie.nrSyms + i] = indices[i];
+        res->irreps[cnt2][i] = indices[i];
       cnt2++;
     }
 
@@ -90,8 +90,8 @@ void find_goodqnumbersectors(int ****dimarray, int ****qnumbersarray, int *total
 
   for (i = 0; i < bookie.nrSyms; i++)
   {
-    prevsym[0][i] = symarr[0].irreps[0 * bookie.nrSyms + i];
-    prevsym[1][i] = symarr[1].irreps[0 * bookie.nrSyms + i];
+    prevsym[0][i] = symarr[0].irreps[0][i];
+    prevsym[1][i] = symarr[1].irreps[0][i];
     tensprod_irrep(&min_irrep[i], &nr_irreps[i], &step[i], prevsym[0][i],
         prevsym[1][i], sign, bookie.sgs[i]);
     max_irrep[i] = min_irrep[i] + step[i] * (nr_irreps[i] - 1);
@@ -109,9 +109,9 @@ void find_goodqnumbersectors(int ****dimarray, int ****qnumbersarray, int *total
 
     for (i = 0; i < bookie.nrSyms;i++)
     {
-      if (symarr[0].irreps[sym1 * bookie.nrSyms + i] != prevsym[0][i])
+      if (symarr[0].irreps[sym1][i] != prevsym[0][i])
       {
-        prevsym[0][i] = symarr[0].irreps[sym1 * bookie.nrSyms + i];
+        prevsym[0][i] = symarr[0].irreps[sym1][i];
         tensprod_irrep(&min_irrep[i], &nr_irreps[i], &step[i], prevsym[0][i],
             prevsym[1][i], sign, bookie.sgs[i]);
         max_irrep[i] = min_irrep[i] + step[i] * (nr_irreps[i] - 1);
@@ -132,9 +132,9 @@ void find_goodqnumbersectors(int ****dimarray, int ****qnumbersarray, int *total
 
       for (i = 0; i < bookie.nrSyms;i++)
       {
-        if (symarr[1].irreps[sym2 * bookie.nrSyms + i] != prevsym[1][i])
+        if (symarr[1].irreps[sym2][i] != prevsym[1][i])
         {
-          prevsym[1][i] = symarr[1].irreps[sym2 * bookie.nrSyms + i];
+          prevsym[1][i] = symarr[1].irreps[sym2][i];
           tensprod_irrep(&min_irrep[i], &nr_irreps[i], &step[i], prevsym[0][i],
               prevsym[1][i], sign, bookie.sgs[i]);
           max_irrep[i] = min_irrep[i] + step[i] * (nr_irreps[i] - 1);
@@ -346,8 +346,8 @@ void tensprod_symsecs(struct symsecs * const res, const struct symsecs * const s
 
       /* for non-abelian symmetries, like SU(2), there are multiple irreps that are valid as
        * result of the tensorproduct of two irreps */
-      tensprod_symmsec(&resultsymmsec, &nr_symmsecs, &sectors1->irreps[i * bookie.nrSyms], 
-                        &sectors2->irreps[j * bookie.nrSyms], sign, bookie.sgs,
+      tensprod_symmsec(&resultsymmsec, &nr_symmsecs, sectors1->irreps[i], 
+                        sectors2->irreps[j], sign, bookie.sgs,
                         bookie.nrSyms);
 
       for (nr_symmsecs--; nr_symmsecs >= 0; nr_symmsecs--) {

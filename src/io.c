@@ -80,6 +80,12 @@ void read_inputfile(const char inputfile[], struct optScheme * const scheme)
                                 bookie.sgs = tempsgs;
                                 permarray = temppermarray;
                         }
+                        if (bookie.nrSyms > MAX_SYMMETRIES) {
+                                fprintf(stderr, "Error: program was compiled for a maximum of %d symmetries.\n"
+                                        "Recompile with a DMAX_SYMMETRIES flag set at least to %d to do the calculation.\n",
+                                        MAX_SYMMETRIES, bookie.nrSyms);
+                                exit(EXIT_FAILURE);
+                        }
                 }
 
                 if (!valid_sgs(bookie.sgs, bookie.nrSyms)) {

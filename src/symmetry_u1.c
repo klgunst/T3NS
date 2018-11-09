@@ -4,14 +4,15 @@
 #include "symmetry_u1.h"
 #include "macros.h"
 
-int U1_get_max_irrep(int *prop1, int nr1, int *prop2, int nr2, int inc)
+int U1_get_max_irrep(int (*prop1)[MAX_SYMMETRIES], int nr1, 
+                  int (*prop2)[MAX_SYMMETRIES], int nr2, int whichsym)
 {
         int N1max = 0;
         int N2max = 0;
         for (int i = 0; i < nr1; ++i) 
-                N1max = N1max < prop1[i * inc] ? prop1[i * inc] : N1max;
+                N1max = N1max < prop1[i][whichsym] ? prop1[i][whichsym] : N1max;
         for (int i = 0; i < nr2; ++i) 
-                N2max = N2max < prop2[i * inc] ? prop2[i * inc] : N2max;
+                N2max = N2max < prop2[i][whichsym] ? prop2[i][whichsym] : N2max;
         return N1max + N2max + 1;
 }
 

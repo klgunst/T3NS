@@ -10,14 +10,15 @@
 static inline double bracket(const int twoj)    {return sqrt(twoj + 1);}
 static inline double divbracket(const int twoj) {return 1 / bracket(twoj);}
 
-int SU2_get_max_irrep(int *prop1, int nr1, int *prop2, int nr2, int inc)
+int SU2_get_max_irrep(int (*prop1)[MAX_SYMMETRIES], int nr1, 
+                  int (*prop2)[MAX_SYMMETRIES], int nr2, int whichsym)
 {
         int twoj1max = 0;
         int twoj2max = 0;
         for (int i = 0; i < nr1; ++i) 
-                twoj1max = twoj1max < prop1[i * inc] ? prop1[i * inc] : twoj1max;
+                twoj1max = twoj1max < prop1[i][whichsym] ? prop1[i][whichsym] : twoj1max;
         for (int i = 0; i < nr2; ++i) 
-                twoj2max = twoj2max < prop2[i * inc] ? prop2[i * inc] : twoj2max;
+                twoj2max = twoj2max < prop2[i][whichsym] ? prop2[i][whichsym] : twoj2max;
         return twoj1max + twoj2max + 1;
 }
 

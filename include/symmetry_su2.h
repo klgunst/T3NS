@@ -18,7 +18,8 @@
  * \param [in] inc increment between irreps in prop1 and prop2.
  * \return returns the maximal label of the irreps that can be generated.
  */
-int SU2_get_max_irrep(int *prop1, int nr1, int *prop2, int nr2, int inc);
+int SU2_get_max_irrep(int (*prop1)[MAX_SYMMETRIES], int nr1, 
+                  int (*prop2)[MAX_SYMMETRIES], int nr2, int whichsym);
 
 /**
  * \brief Gives the resulting irreps from tensor product of two other irreps belonging to sg.

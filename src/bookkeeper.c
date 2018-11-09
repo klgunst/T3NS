@@ -19,22 +19,20 @@ static void kick_impossibles(struct symsecs * const sector)
                 int j;
                 for (j = 0; j < bookie.nrSyms; ++j) {
                         if (bookie.sgs[j] == U1 && 
-                            sector->irreps[i * bookie.nrSyms + j] > bookie.target_state[j]) {
+                            sector->irreps[i][j] > bookie.target_state[j]) {
                                 break;
                         }
                 } 
                 if (j != bookie.nrSyms) continue;
 
                 for (j = 0; j < bookie.nrSyms; ++j)
-                        sector->irreps[nrSecss * bookie.nrSyms + j] = 
-                                sector->irreps[i * bookie.nrSyms + j];
+                        sector->irreps[nrSecss][j] = sector->irreps[i][j];
                 sector->fcidims[nrSecss] = sector->fcidims[i];
                 ++nrSecss;
         }
 
         sector->nrSecs = nrSecss;
-        sector->irreps  = realloc(sector->irreps, 
-                                  nrSecss * bookie.nrSyms * sizeof(int));
+        sector->irreps  = realloc(sector->irreps, nrSecss * sizeof *sector->irreps);
         sector->fcidims = realloc(sector->fcidims, nrSecss * sizeof(double));
         if (!sector->irreps || !sector->fcidims) {
                 fprintf(stderr, "Error @%s: Reallocation of array failed.\n",
@@ -47,7 +45,7 @@ static void init_vacuumstate(struct symsecs * sectors, char o)
 { 
         assert(o == 'f' || o == 'd');
         sectors->nrSecs     = 1;
-        sectors->irreps     = safe_malloc(sectors->nrSecs * bookie.nrSyms, int);
+        sectors->irreps     = safe_malloc(sectors->nrSecs, *sectors->irreps);
         sectors->fcidims    = safe_malloc(sectors->nrSecs, double);
         sectors->fcidims[0] = 1;
         if (o == 'f') {
@@ -57,14 +55,14 @@ static void init_vacuumstate(struct symsecs * sectors, char o)
                 sectors->dims[0] = 1;
         }
         for (int i = 0; i < bookie.nrSyms; ++i) 
-                sectors->irreps[i] = 0;
+                sectors->irreps[0][i] = 0;
 }
 
 static void init_targetstate(struct symsecs * sectors, char o)
 { 
         destroy_symsecs(sectors);
         sectors->nrSecs     = 1;
-        sectors->irreps     = safe_malloc(sectors->nrSecs * bookie.nrSyms, int);
+        sectors->irreps     = safe_malloc(sectors->nrSecs, *sectors->irreps);
         sectors->fcidims    = safe_malloc(sectors->nrSecs, double);
         sectors->fcidims[0] = 1;
         if (o == 'f') {
@@ -74,15 +72,14 @@ static void init_targetstate(struct symsecs * sectors, char o)
                 sectors->dims[0] = 1;
         }
         for (int i = 0; i < bookie.nrSyms; ++i) 
-                sectors->irreps[i] = bookie.target_state[i]; 
+                sectors->irreps[0][i] = bookie.target_state[i]; 
 }
 
 static int is_equal_symsector(struct symsecs *sectors1, int i, 
                               struct symsecs *sectors2, int j)
 {
         for (int k = 0; k < bookie.nrSyms; ++k) {
-                if (sectors1->irreps[i * bookie.nrSyms + k] != 
-                    sectors2->irreps[j * bookie.nrSyms + k])
+                if (sectors1->irreps[i][k] != sectors2->irreps[j][k])
                         return 0;
         }
         return 1;
@@ -228,7 +225,7 @@ static void calc_dims(int max_dim)
                 bookiess->dims = safe_malloc(bookiess->nrSecs, int);
                 bookiess->totaldims = 0;
                 for (int i = 0; i < bookiess->nrSecs; ++i) {
-                        int * irrep = &bookiess->irreps[i * bookie.nrSyms];
+                        int * irrep = bookiess->irreps[i];
                         const int pos = search_symmsec(irrep, &newSymsec);
                         if (pos < 0) {
                                 fprintf(stderr, "Error @%s: irrep not found.\n",

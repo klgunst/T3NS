@@ -29,8 +29,9 @@ enum symmetrygroup { Z2, U1, SU2, POINT_GROUP_SYMMETRY };
  * \param [in] sg The symmetry group of which prop1 and prop2 are irreps.
  * \return returns the maximal label of the irreps that can be generated.
  */
-int get_max_irrep(int * prop1, int nr1, int * prop2, int nr2, int inc, 
-                  enum symmetrygroup sg);
+int get_max_irrep(int (*prop1)[MAX_SYMMETRIES], int nr1, 
+                  int (*prop2)[MAX_SYMMETRIES], int nr2,
+                  enum symmetrygroup sg, int whichsym);
 
 /**
  * \brief Gives the resulting symmetry sectors from tensor product of two other symmetry sectors. 

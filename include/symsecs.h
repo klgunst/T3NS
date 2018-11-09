@@ -12,7 +12,8 @@
  */
 struct symsecs {
         int nrSecs;    /**< The number of different symmetry sectors possible in the bond. */
-        int* irreps;      /**< The irreps that specify every symmetry sector
+        int (*irreps)[MAX_SYMMETRIES];      
+                          /**< The irreps that specify every symmetry sector
                            *   Array with length nrSecs * nr_symmetries,
                            *
                            *   the irrep- labels should be sorted, from low to high

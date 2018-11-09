@@ -184,11 +184,11 @@ static void make_unitOperator(struct rOperators * const ops, const int op)
     /* only for halfindexes == 1 */
     for (j = 0; j < halfindexes; ++j)
     {
-      irrep_arr[j] = symarr[j].irreps + bookie.nrSyms * (ind % maxdims[j]);
+      irrep_arr[j] = symarr[j].irreps[ind % maxdims[j]];
       irrep_arr[2 - j] = irrep_arr[j];
       ind         = ind / maxdims[j];
     }
-    irrep_arr[1] = symMPO.irreps + bookie.nrSyms * get_trivialhamsymsec();
+    irrep_arr[1] = symMPO.irreps[get_trivialhamsymsec()];
     /* coupling is bra MPO ket and should be ket MPO bra for right rops, so you should mirror the
      * coupling. For left rops, nothing should be changed. */
     if (!ops->is_left)

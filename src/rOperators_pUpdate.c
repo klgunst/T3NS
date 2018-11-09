@@ -220,13 +220,13 @@ void update_rOperators_physical(struct rOperators * const rops, const struct sit
           (T3NSqnumber / maxdims[0]) / maxdims[1],
           newhss };
         const int * irrep_arr[7] = 
-        { symarr[0].irreps + bookie.nrSyms * ind_arr[0],
-          symarr[1].irreps + bookie.nrSyms * ind_arr[1],
-          symarr[2].irreps + bookie.nrSyms * ind_arr[2],
-          symarr[0].irreps + bookie.nrSyms * ind_arr[3],
-          symarr[1].irreps + bookie.nrSyms * ind_arr[4],
-          symarr[2].irreps + bookie.nrSyms * ind_arr[5],
-          symarr[3].irreps + bookie.nrSyms * ind_arr[6] };
+        { symarr[0].irreps[ind_arr[0]],
+          symarr[1].irreps[ind_arr[1]],
+          symarr[2].irreps[ind_arr[2]],
+          symarr[0].irreps[ind_arr[3]],
+          symarr[1].irreps[ind_arr[4]],
+          symarr[2].irreps[ind_arr[5]],
+          symarr[3].irreps[ind_arr[6]] };
 
         /* new_sb is size of NxN'
          * old_sb is size of MxM'
@@ -573,7 +573,7 @@ static double calculate_prefactor_append_physical(const int indexes[], const str
   {
     for (j = 0; j < 9; ++j)
     {
-      symvalues[j] = symarr[j].irreps[indexes[j] * bookie.nrSyms + i];
+      symvalues[j] = symarr[j].irreps[indexes[j]][i];
     }
     prefactor *= prefactor_pAppend(symvalues, is_left, bookie.sgs[i]);
   }
@@ -692,8 +692,7 @@ static int * make_oldtonew(const struct symsecs * const internalss, const int bo
     {
       int j;
       for (j = 0; j < bookie.nrSyms; ++j)
-        if (internalss->irreps[cnt * bookie.nrSyms + j] != 
-            newss.irreps[i * bookie.nrSyms + j])
+        if (internalss->irreps[cnt][j] != newss.irreps[i][j])
           break;
       if (j == bookie.nrSyms)
       {

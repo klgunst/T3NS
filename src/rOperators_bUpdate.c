@@ -375,7 +375,7 @@ static void fill_indexes(struct update_data * const data, const enum tensor_type
   assert(qn < mdims[2]);
 
   for (i = 0; i < 3; ++i) {
-    data->irreps[opmap][i] = &idh.symarr[opmap][i].irreps[bookie.nrSyms * idarr[i]];
+    data->irreps[opmap][i] = idh.symarr[opmap][i].irreps[idarr[i]];
     if (i != MPO)
       data->teldims[opmap][i] = idh.symarr[opmap][i].dims[idarr[i]];
   }
@@ -386,7 +386,7 @@ static inline void fill_index(const int val, struct update_data * const data,
 {
   const int opmap = idh.id_ops[operator];
   data->id[opmap][bondtype] = val;
-  data->irreps[opmap][bondtype] = &idh.symarr[opmap][bondtype].irreps[bookie.nrSyms * val];
+  data->irreps[opmap][bondtype] = idh.symarr[opmap][bondtype].irreps[val];
   if (bondtype != MPO)
     data->teldims[opmap][bondtype] = idh.symarr[opmap][bondtype].dims[val];
 }
