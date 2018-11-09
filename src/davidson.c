@@ -280,22 +280,18 @@ int davidson(double * result, double * energy, int size, int max_vecs,
                 create_new_vec_t(result);
         }
 
+        printf("   * Davidson: (iterations : %d), (d_energy : %.2e), (trunc : %.2e)\n",
+               its, residue_norm, d_energy);
 #ifdef DAVID_INFO
-        if (its <= max_its) {
-                printf("Davidson converged in %d iterations with %e residue and d_energy %e.\n", 
-                       its, residue_norm, d_energy);
-        } else {
-                printf("Davidson didn't converge within %d iterations! d_energy is %e.\n", 
-                       max_its, d_energy);
+        if (residue_norm > davidson_tol) {
+                printf("     - Davidson stopped before converging.\n");
         }
         gettimeofday(&t_end, NULL);
         t_elapsed = (t_end.tv_sec - t_start.tv_sec) * 1000000LL + 
                 t_end.tv_usec - t_start.tv_usec;
         d_elapsed = t_elapsed * 1e-6;
-        printf("Elapsed time : %lf sec\n", d_elapsed);
-        printf("Average time per matvec : %lf sec\n", d_elapsed / cnt_matvecs);
-#else
-        printf("\t\t ** DAVIDSON ITERATIONS : %d\n", its);
+        printf("     - Elapsed time : %lf sec (%lf sec / matvec)\n", 
+               d_elapsed, d_elapsed / cnt_matvecs);
 #endif
 
         clean_david_dat();
