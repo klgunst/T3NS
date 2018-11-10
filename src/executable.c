@@ -212,8 +212,6 @@ static void initialize_program(int argc, char *argv[], struct siteTensor **T3NS,
         struct arguments arguments;
 
         gettimeofday(&t_start, NULL);
-        init_bookie();
-        init_netw();
 
         /* Defaults: */
         arguments.saveloc = H5_DEFAULT_LOCATION;

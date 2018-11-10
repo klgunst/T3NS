@@ -44,11 +44,6 @@ extern struct bookkeeper bookie;
 void create_list_of_symsecs(int max_dim, int interm_scale);
 
 /**
- * \brief initializes the bookie as empty.
- */
-void init_bookie(void);
-
-/**
  * \brief Frees the memory allocated to the global bookie variable.
  */
 void destroy_bookkeeper(void);

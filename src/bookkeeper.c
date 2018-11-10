@@ -273,15 +273,6 @@ void create_list_of_symsecs(int max_dim, int interm_scale)
         }
 }
 
-void init_bookie(void)
-{
-        bookie.sgs = NULL;
-        bookie.nrSyms = 0;
-        bookie.target_state = NULL;
-        bookie.nr_bonds = 0;
-        bookie.list_of_symsecs = NULL;
-}
-
 void destroy_bookkeeper(void)
 {
         for (int cnt = 0; cnt < bookie.nr_bonds; ++cnt)

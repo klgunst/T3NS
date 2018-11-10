@@ -101,7 +101,7 @@ void init_1siteTensor(struct siteTensor * const tens, const int site, const char
  * a -1 sentinel is included.
  */
 void makesiteTensor(struct siteTensor * const tens, struct siteTensor * const T3NS, 
-    const int sitelist[]);
+    const int sitelist[], int nr_sites);
 
 /**
  * \brief Destroys a siteTensor struct.

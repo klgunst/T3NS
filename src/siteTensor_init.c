@@ -128,7 +128,7 @@ void destroy_siteTensor(struct siteTensor * const tens)
 }
 
 void makesiteTensor(struct siteTensor * const tens, struct siteTensor * const T3NS, 
-    const int sitelist[])
+    const int sitelist[], int nr_sites)
 {
   /**
    * Thus for this, first, I need all to calculate all the internal bonds for this site object.
@@ -176,8 +176,7 @@ void makesiteTensor(struct siteTensor * const tens, struct siteTensor * const T3
   struct symsecs internalsymsec[3];
   int i;
 
-  for (tens->nrsites = 0; tens->nrsites < 4; ++tens->nrsites) 
-    if (sitelist[tens->nrsites] == -1) break;
+  tens->nrsites = nr_sites;
   assert(tens->nrsites <= 2 && "At this moment only two-siteoptimization");
 
   tens->sites = safe_malloc(tens->nrsites, int);

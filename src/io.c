@@ -125,7 +125,7 @@ void read_inputfile(const char inputfile[], struct optScheme * const scheme)
                 }
         }
 
-        read_network(inputfile, buflen, relpath);
+        read_network(inputfile, relpath);
 
         { /* For the path to the interactions file. */
                 char buffer2[buflen];

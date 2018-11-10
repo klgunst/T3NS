@@ -22,8 +22,6 @@ static void initialize_program(struct siteTensor **T3NS,
                 {Z2,U1,SU2},
                 {Z2,U1,SU2, D2h}
         };
-        init_bookie();
-        init_netw();
         bookie.target_state = tstate[testnr];
         bookie.nrSyms = nrsyms[testnr];
         bookie.sgs = sgs[testnr];

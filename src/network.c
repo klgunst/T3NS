@@ -10,33 +10,266 @@
 
 struct network netw;
 
+static int check_network(void)
+{
+        /* Check on number of ending sites  should be exactly 1. */
+        int nr_endings = 0;
+        for (int i = 0; i < netw.nr_bonds; ++i) {
+                if (netw.bonds[i][1] == -1) 
+                        ++nr_endings;
+        }
+        if (nr_endings != 1) { 
+                fprintf(stderr, "The number of ending sites is equal to %d (should be 1).\n", 
+                        nr_endings);
+                return 1;
+        }
+
+        int * nr_legs = safe_calloc(netw.sites, int);
+        /* calculate number of legs of every site */
+        for (int i = 0; i < netw.nr_bonds; ++i) {
+                if (netw.bonds[i][0] != -1 && netw.bonds[i][1] != -1) {
+                        ++nr_legs[netw.bonds[i][0]];
+                        ++nr_legs[netw.bonds[i][1]];
+                }
+        }
+
+        for (int i = 0; i < netw.sites; ++i) {
+                const int bool_p = (nr_legs[i] == 1 || nr_legs[i] == 2) && 
+                        is_psite(i);
+                const int bool_b =  nr_legs[i] <= 3 && is_psite(i) == 0;
+
+                if (bool_p == 0 && bool_b == 0) {
+                        fprintf(stderr, "Site %d of type %s has %d legs (illegal number of legs).\n", 
+                                i, is_psite(i) ? "Physical" : "Branching", nr_legs[i]);
+                        return 2;
+                }
+        }
+
+        /* NOTE: introduce another check for loops */
+        /* NOTE: introduce another check for disconnected tree network */
+        safe_free(nr_legs);
+        return 0;
+}
+
+static int strcmp_ign_ws(const char * s1, const char * s2)
+{
+        const char * p1 = s1;
+        const char * p2 = s2;
+
+        while (*p1) {
+                while (isspace(*p1)) ++p1;
+                if (!*p1) break;
+
+                while (isspace(*p2)) ++p2;
+                if (!*p2)      return  1;
+                if (*p2 > *p1) return -1;
+                if (*p1 > *p2) return  1;
+
+                ++p1;
+                ++p2;
+        }
+        while (isspace(*p2)) ++p2;
+
+        if (*p2) return -1;
+        return 0;
+}
+
+static void get_sites_to_opt(int maxsites, struct stepSpecs * specs, int state)
+{
+        if (maxsites != 2) {
+                fprintf (stderr, "Error: optimization with more than two sites not implemented yet.\n"
+                         "Executing calculation with two-site optimization.\n");
+                maxsites = 2;
+        }
+
+        const int current_bond = netw.sweep[state];
+        const int siteL = netw.bonds[current_bond][0];
+        const int siteR = netw.bonds[current_bond][1];
+        const int is_dmrg = is_psite(siteL) && is_psite(siteR);
+        if (is_dmrg) {
+                specs->sites_opt[0] = siteL;
+                specs->sites_opt[1] = siteR;
+        } else { /* For two site optimisation */
+                specs->sites_opt[0] = siteL;
+                specs->sites_opt[1] = siteR;
+        }
+        specs->nr_sites_opt = 2;
+        assert(specs->sites_opt[0] != -1 && specs->sites_opt[1] != -1);
+}
+
+static void get_common_with_next(int maxsites, struct stepSpecs * specs, 
+                                 int next_state)
+{
+        struct stepSpecs nextSpecs;
+        get_sites_to_opt(maxsites, &nextSpecs, next_state);
+        for (int i = 0; i < specs->nr_sites_opt; ++i) {
+                specs->common_next[i] = 0;
+                for (int j = 0; j < nextSpecs.nr_sites_opt; ++j) {
+                        if (specs->sites_opt[i] == nextSpecs.sites_opt[j]) {
+                                specs->common_next[i] = 1;
+                                break;
+                        }
+                }
+        }
+}
+
+static inline void swap(int * a, int * b)
+{
+        const int temp = *a;
+        *a = *b;
+        *b = temp;
+}
+
+static void get_bonds_involved(struct stepSpecs * specs)
+{
+        int allbonds[STEPSPECS_MSITES * 3];
+        for (int site = 0; site < specs->nr_sites_opt; ++site)
+                get_bonds_of_site(specs->sites_opt[site], &allbonds[3 * site]);
+
+        specs->nr_bonds_opt = 0;
+        for (int i = 0; i < 3 * specs->nr_sites_opt; ++i) {
+                if (is_psite(specs->sites_opt[i / 3]) && 
+                    i % 3 == 1) /* physical bond */
+                        continue;
+
+                int j;
+                for (j = 0; j < 3 * specs->nr_sites_opt; ++j) {
+                        if (allbonds[i] == allbonds[j] && i != j)
+                                break;
+                }
+                if (j != 3 * specs->nr_sites_opt)
+                        continue;
+
+                assert(specs->nr_bonds_opt < STEPSPECS_MBONDS);
+                specs->bonds_opt[specs->nr_bonds_opt++] = allbonds[i];
+        }
+        assert(specs->nr_bonds_opt == 3 || (is_psite(specs->sites_opt[0]) && 
+                                            is_psite(specs->sites_opt[1]) 
+                                            && specs->nr_bonds_opt == 2));
+        /* sort array */
+        if (specs->bonds_opt[0] > specs->bonds_opt[1]) 
+                swap(&specs->bonds_opt[0], &specs->bonds_opt[1]);
+        if (specs->nr_sites_opt == STEPSPECS_MBONDS && 
+            specs->bonds_opt[1] > specs->bonds_opt[2])
+                swap(&specs->bonds_opt[1], &specs->bonds_opt[2]);
+        if (specs->bonds_opt[0] > specs->bonds_opt[1])
+                swap(&specs->bonds_opt[0], &specs->bonds_opt[1]);
+}
+
+static void create_nr_left_psites(void)
+{
+        int * temp = safe_calloc(netw.nr_bonds, int);
+        netw.nr_left_psites = safe_calloc(netw.nr_bonds, int);
+
+        for (int bond = 0; bond < netw.nr_bonds; ++bond) {
+                if (netw.bonds[bond][0] != -1)
+                        continue;
+                for (int i = 0; i < netw.nr_bonds; ++i) temp[i] = 0;
+                int curr_bnd = bond;
+                int new_site;
+                while ((new_site = netw.bonds[curr_bnd][1]) != -1) {
+                        const int prev_bnd = curr_bnd;
+                        /* find bond where new site is the first one (unique) */
+                        for (curr_bnd = 0; curr_bnd < netw.nr_bonds; ++curr_bnd)
+                                if (netw.bonds[curr_bnd][0] == new_site)
+                                        break;
+
+                        temp[curr_bnd] += temp[prev_bnd] + 
+                                (netw.nr_left_psites[curr_bnd] == 0) * 
+                                is_psite(new_site);
+                        netw.nr_left_psites[curr_bnd] += temp[curr_bnd];
+                }
+        }
+        safe_free(temp);
+}
+
+static void create_order_psites(void)
+{
+        netw.order_psites = safe_malloc(netw.nr_bonds, int *);
+        for (int i = 0; i < netw.nr_bonds; ++i)
+                netw.order_psites[i] = safe_calloc(netw.psites, int);
+
+        /* FOR LEFTS */
+        for (int bond = 0; bond < netw.nr_bonds; ++bond) {
+                const int site = netw.bonds[bond][0];
+                if (site == -1) {
+                        assert(netw.nr_left_psites[bond] == 0);
+                        continue;
+                }
+                int bonds[3];
+                get_bonds_of_site(site, bonds);
+
+                if (is_psite(site)) {
+                        int i;
+                        for (i = 0; i < netw.nr_left_psites[bonds[0]]; ++i) {
+                                netw.order_psites[bond][i] = 
+                                        netw.order_psites[bonds[0]][i];
+                        }
+
+                        netw.order_psites[bond][i] = netw.sitetoorb[site];
+                        assert(netw.nr_left_psites[bonds[0]] + 1 == 
+                               netw.nr_left_psites[bond]);
+                } else {
+                        for (int i = 0; i < netw.nr_left_psites[bonds[0]]; ++i) {
+                                netw.order_psites[bond][i] = 
+                                        netw.order_psites[bonds[0]][i];
+                        }
+                        for (int i = 0; i < netw.nr_left_psites[bonds[1]]; ++i) {
+                                netw.order_psites[bond][netw.nr_left_psites[bonds[0]] + i]
+                                        = netw.order_psites[bonds[1]][i];
+                        }
+                        for (int i = 0; i < netw.nr_left_psites[bonds[1]]; ++i) {
+                                assert(netw.nr_left_psites[bonds[0]] + netw.nr_left_psites[bonds[1]] == 
+                                       netw.nr_left_psites[bond]);
+                        }
+                }
+        }
+
+        /* FOR RIGHTS */
+        for (int bond = netw.nr_bonds - 1; bond >= 0; --bond) {
+                const int site = netw.bonds[bond][1];
+                if (site == -1) {
+                        assert(netw.nr_left_psites[bond] == netw.psites);
+                        continue;
+                }
+                int bonds[3];
+                get_bonds_of_site(site, bonds);
+
+                if (is_psite(site)) {
+                        for (int i = netw.nr_left_psites[bonds[2]]; i < netw.psites; ++i) {
+                                netw.order_psites[bond][i - 1] 
+                                        = netw.order_psites[bonds[2]][i];
+                        }
+                        netw.order_psites[bond][netw.psites - 1] = 
+                                netw.sitetoorb[site];
+                        assert(netw.nr_left_psites[bonds[2]] - 1 == 
+                               netw.nr_left_psites[bond]);
+                } else {
+                        const int bond1 = bonds[0] == bond ? bonds[1] : bonds[0];
+                        const int bond2 = bonds[2];
+                        for (int i = 0; i < netw.nr_left_psites[bond1]; ++i) {
+                                netw.order_psites[bond][netw.nr_left_psites[bond] + i] 
+                                        = netw.order_psites[bond1][i];
+                        }
+                        for (int i = netw.nr_left_psites[bond2]; i < netw.psites; ++i) {
+                                netw.order_psites[bond][netw.nr_left_psites[bond] + 
+                                        netw.nr_left_psites[bond1] + i - 
+                                        netw.nr_left_psites[bond2]]
+                                        = netw.order_psites[bond2][i];
+                        }
+                        assert(netw.nr_left_psites[bond2] - 
+                               netw.nr_left_psites[bond1] == 
+                               netw.nr_left_psites[bond]);
+                }
+        }
+}
+
 /* ========================================================================== */
-/* ==================== DECLARATION STATIC FUNCTIONS ======================== */
-/* ========================================================================== */
 
-static int check_network(void);
-
-/* returns 0 if the two strings are the same ignoring whitespaces, otherwise -1 or 1. */
-static int strcmp_ign_ws(const char *s1, const char *s2);
-
-static void create_nr_left_psites(void);
-
-static void create_order_psites(void);
-
-static void get_common_with_next(const int sites_opt[4], int common_nxt[4], const int maxsites, 
-                                 const int next_state);
-
-static void get_sites_to_opt(int sites_next[4], const int maxsites, const int curr_state);
-
-static void get_bonds_involved(int bonds_involved[3], const int sites_opt[4]);
-
-/* ========================================================================== */
-
-void read_network(const char inputfile[], const int buflen, 
-                  const char relpath[buflen])
+void read_network(const char * inputfile, const char * relpath)
 { 
-        char buffer[255];
-        char buffer2[255];
+        char buffer[MY_STRING_LEN];
+        char buffer2[MY_STRING_LEN];
         int ro;
 
         if ((ro = read_option("networkfile", inputfile, buffer)) == -1)
@@ -47,17 +280,17 @@ void read_network(const char inputfile[], const int buflen,
                 exit(EXIT_FAILURE);
         }
 
-        strncpy(buffer2, relpath, buflen);
-        strncat(buffer2, buffer, buflen - strlen(buffer2));
+        strncpy(buffer2, relpath, MY_STRING_LEN);
+        strncat(buffer2, buffer, MY_STRING_LEN - strlen(buffer2));
 
         make_network(buffer2);
 }
 
-void make_network(const char netwfile[])
+void make_network(const char * netwfile)
 {
         char buffer[255];
-        int starting, ending, cnt, ln_cnt, site_cnt;
         char kind;
+        int starting, ending, cnt, ln_cnt, site_cnt;
         FILE *fp = fopen(netwfile, "r");
 
         if (fp == NULL) {
@@ -81,7 +314,7 @@ void make_network(const char netwfile[])
         netw.sitetoorb = safe_calloc(netw.sites, int);
         ln_cnt++;
         site_cnt = 0;
-        while ((kind = getc(fp)) != '\n') {
+        while ((kind = (char) getc(fp)) != '\n') {
                 int value = kind - '0';
                 if (kind == ' ') {
                         if (netw.sitetoorb[site_cnt] < 0)
@@ -120,7 +353,7 @@ void make_network(const char netwfile[])
         netw.sweep = safe_calloc(netw.sweeplength, int);
         ln_cnt++;
         site_cnt = 0;
-        while ((kind = getc(fp)) != '\n') {
+        while ((kind = (char) getc(fp)) != '\n') {
                 int value = kind - '0';
                 if (kind == ' ') {
                         site_cnt++;
@@ -192,73 +425,63 @@ void make_network(const char netwfile[])
         create_order_psites();
 }
 
-void init_netw(void)
-{
-        netw.nr_bonds  = 0;
-        netw.psites    = 0;
-        netw.sites     = 0;
-        netw.bonds     = NULL;
-        netw.sitetoorb = NULL;
-}
-
 void destroy_network(void)
 {
         safe_free(netw.bonds);
         safe_free(netw.sitetoorb);
         safe_free(netw.nr_left_psites);
+        for (int i = 0; i < netw.nr_bonds; ++i)
+                safe_free(netw.order_psites[i]);
         safe_free(netw.order_psites);
         safe_free(netw.sweep);
 }
 
 void print_network(void)
 {
-        int i;
         printf("################################### NETWORK ####################################\n");
-        printf("Site to orbital: \n");
-        for (i = 0; i < netw.sites; i++) {
-                if (is_psite (i))
-                        printf("%d ", netw.sitetoorb[i]);
-                else
-                        printf("* ");
+        printf("Site to orbital: ");
+        for (int i = 0; i < netw.sites; ++i) {
+                if (is_psite (i)) {
+                        printf("%d", netw.sitetoorb[i]);
+                } else {
+                        printf("*");
+                }
+                printf("%c", i < netw.sites - 1 ? ' ' : '\n');
         }
-        printf("\n");
-
         printf("Bonds : \n");
-        for (i = 0; i < netw.nr_bonds; i++) printf("%d -> %d\n", netw.bonds[i][0], netw.bonds[i][1]);
+        for (int i = 0; i < netw.nr_bonds; ++i) 
+                printf("%d -> %d\n", netw.bonds[i][0], netw.bonds[i][1]);
         printf("################################################################################\n\n");
 }
 
-int is_psite(const int site)
+int is_psite(int site)
 {
         assert(site < netw.sites && site >= 0);
         return netw.sitetoorb[site] >= 0;
 }
 
-int get_left_psites(const int bond) { return netw.nr_left_psites[bond]; }
+int get_left_psites(int bond) { return netw.nr_left_psites[bond]; }
 
-int * get_order_psites(const int bond, const int is_left)
+const int * get_order_psites(int bond, int is_left)
 {
-        return &netw.order_psites[bond * netw.psites + 
-                (is_left ? 0 : netw.nr_left_psites[bond])];
+        return &netw.order_psites[bond][is_left ? 0 : netw.nr_left_psites[bond]];
 }
 
-int site_is_left_of_bond(const int site, const int bond)
+int site_is_left_of_bond(int site, int bond)
 {
         const int * const array  = get_order_psites(bond, 1);
         const int nr_sites       = get_left_psites(bond);
-        int i;
-        for (i = 0; i < nr_sites; ++i) {
+        for (int i = 0; i < nr_sites; ++i) {
                 if (site == array[i]) 
                         return 1;
         }
         return 0;
 }
 
-void get_bonds_of_site(int site, int bonds[])
+void get_bonds_of_site(int site, int * bonds)
 {
         int i;
         bonds[0] = -1; bonds[1] = -1; bonds[2] = -1;
-
         for (i = 0; i < netw.nr_bonds; ++i) {
                 if (netw.bonds[i][1] == site) {
                         bonds[0] = i;
@@ -288,34 +511,38 @@ void get_bonds_of_site(int site, int bonds[])
         assert(i != netw.nr_bonds);
 }
 
-int get_braT3NSbond(const int bond)
+int get_braT3NSbond(int bond)
 {
         if (bond < netw.nr_bonds) /* virtual bond */
                 return bond + netw.nr_bonds;
-        else if (bond >= netw.nr_bonds * 2 && bond < netw.nr_bonds * 2 + netw.sites)
+        else if (bond >= netw.nr_bonds * 2 && 
+                 bond < netw.nr_bonds * 2 + netw.sites)
                 return bond + netw.sites;
 
-        fprintf(stderr, "ERROR : asked a braT3NSbond for bond=%d.\n", bond);
+        fprintf(stderr, "Error @%s: asked a braT3NSbond for bond=%d.\n", 
+                __func__, bond);
         exit(EXIT_FAILURE);
 }
 
-int get_ketT3NSbond(const int bond)
+int get_ketT3NSbond(int bond)
 {
         if (bond < netw.nr_bonds) /* virtual bond */
                 return bond;
-        else if (bond >= netw.nr_bonds * 2 && bond < netw.nr_bonds * 2 + netw.sites)
+        else if (bond >= netw.nr_bonds * 2 && 
+                 bond < netw.nr_bonds * 2 + netw.sites)
                 return bond;
 
-        fprintf(stderr, "ERROR : asked a ketT3NSbond for bond=%d.\n", bond);
+        fprintf(stderr, "Error @%s: asked a ketT3NSbond for bond=%d.\n", 
+                __func__, bond);
         exit(EXIT_FAILURE);
 }
 
-int get_hamiltonianbond(const int bond)
+int get_hamiltonianbond(int bond)
 {
         return -1;
 }
 
-int get_netw_bond(const int bond)
+int get_netw_bond(int bond)
 {
         if (bond >= netw.nr_bonds * 2 || bond < 0) {
                 fprintf(stderr, "%s@%s: Wrong bond index passed: %d\n", 
@@ -325,7 +552,7 @@ int get_netw_bond(const int bond)
         return bond % netw.nr_bonds;
 }
 
-int are_bra_and_ket_bonds(const int bra, const int ket)
+int are_bra_and_ket_bonds(int bra, int ket)
 {
         if (ket < netw.nr_bonds)
                 return ket == bra - netw.nr_bonds;
@@ -334,7 +561,7 @@ int are_bra_and_ket_bonds(const int bra, const int ket)
         return 0;
 }
 
-void get_string_of_bond(char buffer[], const int bond)
+void get_string_of_bond(char * buffer, int bond)
 {
         if (bond < 0) {
                 strcpy(buffer, "MPO");
@@ -350,9 +577,9 @@ void get_string_of_bond(char buffer[], const int bond)
         }
 }
 
-int next_opt_step(int maxsites, int * nr_bond, int * bonds_involved, 
-                  int * nr_sites, int * sites_opt, int * common_nxt)
+int next_opt_step(int maxsites, struct stepSpecs * specs)
 {
+        assert(STEPSPECS_MSITES >= maxsites);
         /* only two-site optimization implemented atm */
         static int curr_state = 0;
         /* end of a sweep */
@@ -361,31 +588,24 @@ int next_opt_step(int maxsites, int * nr_bond, int * bonds_involved,
                 return 0;
         }
 
-        get_sites_to_opt(sites_opt, maxsites, curr_state);
-        get_bonds_involved(bonds_involved, sites_opt);
-        for (*nr_sites = 0; *nr_sites < maxsites; ++(*nr_sites)) {
-                if (sites_opt[*nr_sites] == -1) break;
-        }
-        for (*nr_bond = 0; *nr_bond < 3; ++(*nr_bond)) {
-                if (bonds_involved[*nr_bond] == -1) break;
-        }
+        get_sites_to_opt(maxsites, specs, curr_state);
+        get_bonds_involved(specs);
 
         ++curr_state;
-        get_common_with_next(sites_opt, common_nxt, maxsites, 
-                             curr_state == netw.sweeplength ? 0 : curr_state);
+        get_common_with_next(maxsites, specs, curr_state == netw.sweeplength ? 
+                             0 : curr_state);
         return 1;
 }
 
-int get_common_bond(const int site1 , const int site2)
+int get_common_bond(int site1, int site2)
 {
         int bonds1[3];
         int bonds2[3];
-        int i, j;
 
         get_bonds_of_site(site1, bonds1);
         get_bonds_of_site(site2, bonds2);
-        for (i = 0; i < 3; ++i)
-                for (j = 0; j < 3; ++j)
+        for (int i = 0; i < 3; ++i)
+                for (int j = 0; j < 3; ++j)
                         if (bonds1[i] == bonds2[j]) 
                                 return bonds1[i];
         return -1;
@@ -393,279 +613,5 @@ int get_common_bond(const int site1 , const int site2)
 
 int is_dmrg_bond(const int bond)
 {
-        return is_psite(netw.bonds[bond][0]) && 
-                is_psite(netw.bonds[bond][1]);
-}
-
-/* ========================================================================== */
-/* ===================== DEFINITION STATIC FUNCTIONS ======================== */
-/* ========================================================================== */
-
-static int check_network(void)
-{
-        int cnt;
-        int nr_legs[netw.sites];
-
-        /* Check on number of ending sites  should be exactly 1. */
-        int nr_endings = 0;
-        for (cnt = 0; cnt < netw.nr_bonds; ++cnt)
-                if (netw.bonds[cnt][1] == -1) ++nr_endings;
-        if (nr_endings != 1) {
-                fprintf(stderr, "The number of ending sites is equal to %d (should be 1).\n", 
-                        nr_endings);
-                return 1;
-        }
-
-        /* calculate number of legs of every site */
-        for (cnt = 0; cnt < netw.sites; ++cnt) nr_legs[cnt] = 0;
-        for (cnt = 0; cnt < netw.nr_bonds; ++cnt) {
-                if (netw.bonds[cnt][0] != -1 && netw.bonds[cnt][1] != -1) {
-                        ++nr_legs[netw.bonds[cnt][0]];
-                        ++nr_legs[netw.bonds[cnt][1]];
-                }
-        }
-
-        for (cnt = 0; cnt < netw.sites; ++cnt) {
-                const int bool_p = (nr_legs[cnt] == 1 || nr_legs[cnt] == 2) && 
-                                    is_psite(cnt);
-                const int bool_b =  nr_legs[cnt] <= 3 && is_psite(cnt) == 0;
-
-                if (bool_p == 0 && bool_b == 0) {
-                        fprintf(stderr, "Site %d of type %s has %d legs (illegal number of legs).\n", 
-                                cnt, is_psite(cnt) ? "Physical" : "Branching", 
-                                nr_legs[cnt]);
-                        return 2;
-                }
-        }
-
-        /* NOTE: introduce another check for loops */
-        /* NOTE: introduce another check for disconnected tree network */
-        return 0;
-}
-
-static int strcmp_ign_ws(const char *s1, const char *s2)
-{
-        const unsigned char *p1 = (const unsigned char *)s1;
-        const unsigned char *p2 = (const unsigned char *)s2;
-
-        while (*p1) {
-                while (isspace(*p1)) ++p1;
-                if (!*p1) break;
-
-                while (isspace(*p2)) ++p2;
-                if (!*p2)      return  1;
-                if (*p2 > *p1) return -1;
-                if (*p1 > *p2) return  1;
-
-                ++p1;
-                ++p2;
-        }
-        while (isspace(*p2)) ++p2;
-
-        if (*p2) return -1;
-        return 0;
-}
-
-static void create_nr_left_psites(void)
-{
-        int bond;
-        int temp[netw.nr_bonds];
-        for (bond = 0; bond < netw.nr_bonds; ++bond) temp[bond] = 0;
-
-        netw.nr_left_psites = safe_calloc(netw.nr_bonds, int);
-
-        for (bond = 0; bond < netw.nr_bonds; ++bond) {
-                if (netw.bonds[bond][0] == -1) {
-                        int curr_bnd;
-                        int new_site;
-                        for (curr_bnd = 0; curr_bnd < netw.nr_bonds; ++curr_bnd) 
-                                temp[curr_bnd] = 0;
-                        curr_bnd = bond;
-                        while ((new_site = netw.bonds[curr_bnd][1]) != -1) {
-                                const int prev_bnd = curr_bnd;
-                                /* find bond where new site is the first one (unique) */
-                                for (curr_bnd = 0; curr_bnd < netw.nr_bonds; ++curr_bnd)
-                                        if (netw.bonds[curr_bnd][0] == new_site)
-                                                break;
-
-                                temp[curr_bnd] += temp[prev_bnd] + 
-                                        (netw.nr_left_psites[curr_bnd] == 0) * 
-                                        is_psite(new_site);
-
-                                netw.nr_left_psites[curr_bnd] += temp[curr_bnd];
-                        }
-                }
-        }
-}
-
-static void create_order_psites(void)
-{
-        int bond;
-        netw.order_psites = safe_calloc(netw.nr_bonds * netw.psites, int);
-
-        /* FOR LEFTS */
-        for (bond = 0; bond < netw.nr_bonds; ++bond) {
-                const int site = netw.bonds[bond][0];
-                if (site == -1) // vacuum
-                        assert(netw.nr_left_psites[bond] == 0);
-                else {
-                        int bonds[3];
-                        get_bonds_of_site(site, bonds);
-
-                        if (is_psite(site)) {
-                                int i;
-                                for (i = 0; i < netw.nr_left_psites[bonds[0]]; ++i)
-                                        netw.order_psites[bond * netw.psites + i] 
-                                                = netw.order_psites[bonds[0] * netw.psites + i];
-
-                                netw.order_psites[bond * netw.psites + i] = netw.sitetoorb[site];
-                                assert(netw.nr_left_psites[bonds[0]] + 1 == netw.nr_left_psites[bond]);
-                        } else {
-                                int i;
-                                for (i = 0; i < netw.nr_left_psites[bonds[0]]; ++i)
-                                        netw.order_psites[bond * netw.psites + i] 
-                                                = netw.order_psites[bonds[0] * netw.psites + i];
-
-                                for (i = 0; i < netw.nr_left_psites[bonds[1]]; ++i)
-                                        netw.order_psites[bond * netw.psites + netw.nr_left_psites[bonds[0]] + i]
-                                                = netw.order_psites[bonds[1] * netw.psites + i];
-
-                                for (i = 0; i < netw.nr_left_psites[bonds[1]]; ++i)
-                                        assert(netw.nr_left_psites[bonds[0]] + netw.nr_left_psites[bonds[1]] == 
-                                               netw.nr_left_psites[bond]);
-                        }
-                }
-        }
-
-        /* FOR RIGHTS */
-        for (bond = netw.nr_bonds - 1; bond >= 0; --bond) {
-                const int site = netw.bonds[bond][1];
-                if (site == -1) //vacuum
-                        assert(netw.nr_left_psites[bond] == netw.psites);
-                else {
-                        int bonds[3];
-                        get_bonds_of_site(site, bonds);
-
-                        if (is_psite(site)) {
-                                int i;
-                                for (i = netw.nr_left_psites[bonds[2]]; i < netw.psites; ++i)
-                                        netw.order_psites[bond * netw.psites + i - 1] 
-                                                = netw.order_psites[bonds[2] * netw.psites + i];
-
-                                netw.order_psites[bond * netw.psites + netw.psites - 1] = netw.sitetoorb[site];
-                                assert(netw.nr_left_psites[bonds[2]] - 1 == netw.nr_left_psites[bond]);
-                        } else {
-                                int i;
-                                const int bond1 = bonds[0] == bond ? bonds[1] : bonds[0];
-                                const int bond2 = bonds[2];
-                                for (i = 0; i < netw.nr_left_psites[bond1]; ++i)
-                                        netw.order_psites[bond * netw.psites + netw.nr_left_psites[bond] + i] 
-                                                = netw.order_psites[bond1 * netw.psites + i];
-
-                                for (i = netw.nr_left_psites[bond2]; i < netw.psites; ++i)
-                                        netw.order_psites[bond * netw.psites + netw.nr_left_psites[bond] + 
-                                                netw.nr_left_psites[bond1] + i - netw.nr_left_psites[bond2]]
-                                                = netw.order_psites[bond2 * netw.psites + i];
-                                assert(- netw.nr_left_psites[bond1] + netw.nr_left_psites[bond2] == 
-                                       netw.nr_left_psites[bond]);
-                        }
-                }
-        }
-}
-
-static void get_common_with_next(const int sites_opt[4], int common_nxt[4], 
-                                 const int maxsites, const int next_state)
-{
-        int i;
-        int sites_next[4];
-        get_sites_to_opt(sites_next, maxsites, next_state);
-
-        for (i = 0; i < 4; ++i) {
-                int j;
-
-                if (sites_opt[i] == -1)
-                        break;
-
-                common_nxt[i] = 0;
-                for (j = 0; j < 4; ++j) {
-                        if (sites_opt[i] == sites_next[j]) {
-                                common_nxt[i] = 1;
-                                break;
-                        }
-                }
-        }
-        for (; i < 4; ++i)
-                common_nxt[i] = -1;
-}
-
-static void get_sites_to_opt(int sites_opt[4], const int maxsites, 
-                             const int curr_state)
-{
-        const int current_bond = netw.sweep[curr_state];
-        const int siteL = netw.bonds[current_bond][0];
-        const int siteR = netw.bonds[current_bond][1];
-        const int is_dmrg = is_psite(siteL) && is_psite(siteR);
-
-        if (is_dmrg) {
-                sites_opt[0] = siteL;
-                sites_opt[1] = siteR;
-                assert(sites_opt[0] != -1 && sites_opt[1] != -1);
-                sites_opt[2] = -1;
-                sites_opt[3] = -1;
-        } else { /* For two site optimisation */
-                sites_opt[0] = siteL;
-                sites_opt[1] = siteR;
-                assert(sites_opt[0] != -1 && sites_opt[1] != -1);
-                sites_opt[2] = -1;
-                sites_opt[3] = -1;
-        }
-}
-
-static inline void swap(int * const a, int * const b)
-{
-        const int temp = *a;
-        *a = *b;
-        *b = temp;
-}
-
-static void get_bonds_involved(int bonds_involved[3], const int sites_opt[4])
-{
-        int allbonds[12];
-        int nr_sites;
-        int i;
-        int cnt = 0;
-
-        for (nr_sites = 0; nr_sites < 4; ++nr_sites) {
-                if (sites_opt[nr_sites] == -1)
-                        break;
-                get_bonds_of_site(sites_opt[nr_sites], &allbonds[3 * nr_sites]);
-        }
-
-        for (i = 0; i < 3 * nr_sites; ++i) {
-                int j;
-                if (is_psite(sites_opt[i / 3]) && i % 3 == 1) /* physical bond */
-                        continue;
-
-                for (j = 0; j < 3 * nr_sites; ++j) {
-                        if (allbonds[i] == allbonds[j] && i != j)
-                                break;
-                }
-                if (j == 3 * nr_sites) {
-                        assert(cnt < 3);
-                        bonds_involved[cnt] = allbonds[i];
-                        ++cnt;
-                }
-        }
-        assert((cnt == 3 || (is_psite(sites_opt[0]) && is_psite(sites_opt[1]) 
-                             && sites_opt[2] == -1 && sites_opt[3] == -1)) 
-               && "optimisation is a branching opt or DMRG");
-        for (; cnt < 3; ++cnt) bonds_involved[cnt] = -1;
-
-        /* sort array */
-        if (bonds_involved[0] > bonds_involved[1]) 
-                swap(&bonds_involved[0], &bonds_involved[1]);
-        if (bonds_involved[1] > bonds_involved[2] && bonds_involved[2] != -1) 
-                swap(&bonds_involved[1], &bonds_involved[2]);
-        if (bonds_involved[0] > bonds_involved[1])
-                swap(&bonds_involved[0], &bonds_involved[1]);
+        return is_psite(netw.bonds[bond][0]) && is_psite(netw.bonds[bond][1]);
 }

@@ -20,10 +20,7 @@
 #include "wrapper_solvers.h"
 #include "io_to_disk.h"
 
-
-#define MAX_BONDS_OPT 3
 #define MAX_NR_INTERNALS 3
-#define MAX_SITES 4
 #define NR_TIMERS 12
 #define NR_PARALLEL_TIMERS 2
 static const char *timernames[] = {"rOperators: append physical", 
@@ -82,18 +79,13 @@ static void init_null_rops(struct rOperators ** rops)
 }
 
 static struct optimize_data {
-        int nr_bonds_opt;
-        int bonds_opt[MAX_BONDS_OPT];
-        struct rOperators operators[MAX_BONDS_OPT];
+        struct stepSpecs specs;
+        struct rOperators operators[STEPSPECS_MBONDS];
+        struct siteTensor msiteObj;
 
         int nr_internals;
         struct symsecs internalss[MAX_NR_INTERNALS];
         int internalbonds[MAX_NR_INTERNALS];
-
-        int nr_sites;
-        int sites[MAX_SITES];
-        int common_next[MAX_SITES];
-        struct siteTensor msiteObj;
 } o_dat;
 
 static void set_internal_symsecs(void)
@@ -110,8 +102,8 @@ static void set_internal_symsecs(void)
 
 static void preprocess_rOperators(const struct rOperators * rops)
 {
-        for (int i = 0; i < o_dat.nr_bonds_opt; ++i) {
-                const int bond = o_dat.bonds_opt[i];
+        for (int i = 0; i < o_dat.specs.nr_bonds_opt; ++i) {
+                const int bond = o_dat.specs.bonds_opt[i];
                 const struct rOperators * opToProc = &rops[bond];
                 assert(!opToProc->P_operator);
 
@@ -147,9 +139,7 @@ static struct optimize_info optimize_siteTensor(struct siteTensor * T3NS,
                                                 double * timings)
 { 
         struct optimize_info info = {0};
-
-        /* optimize bond */
-        if (o_dat.nr_bonds_opt == 3) {/* T3NS */
+        if (o_dat.specs.nr_bonds_opt == 3) {/* T3NS */
                 struct T3NSdata mv_dat;
                 const int size = siteTensor_get_size(&o_dat.msiteObj);
 
@@ -169,7 +159,7 @@ static struct optimize_info optimize_siteTensor(struct siteTensor * T3NS,
                 timings[HEFF_T3NS] += stop_timing(0);
                 destroy_T3NSdata(&mv_dat);
                 safe_free(diagonal);
-        } else if (o_dat.nr_bonds_opt == 2){ /* DMRG */
+        } else if (o_dat.specs.nr_bonds_opt == 2){ /* DMRG */
                 struct matvec_data mv_dat;
                 const int size = siteTensor_get_size(&o_dat.msiteObj);
 
@@ -191,16 +181,16 @@ static struct optimize_info optimize_siteTensor(struct siteTensor * T3NS,
                 safe_free(diagonal);
         } else {
                 fprintf(stderr, "Error @%s: Wrong o_dat.nr_bonds_opt = %d.\n",
-                        __func__, o_dat.nr_bonds_opt);
+                        __func__, o_dat.specs.nr_bonds_opt);
                 exit(EXIT_FAILURE);
         }
 
         start_timing(0);
         /* same noise as CheMPS2 */
         add_noise(reg->noise * trunc_err);
-        decomposesiteObject(&o_dat.msiteObj, T3NS, o_dat.sites, o_dat.common_next, 
-                            reg->minD, reg->maxD, reg->truncerror, &info.trunc, 
-                            &info.maxdim);
+        decomposesiteObject(&o_dat.msiteObj, T3NS, o_dat.specs.sites_opt, 
+                            o_dat.specs.common_next, reg->minD, reg->maxD, 
+                            reg->truncerror, &info.trunc, &info.maxdim);
         destroy_siteTensor(&o_dat.msiteObj);
         timings[STENS_DECOMP] += stop_timing(0);
 
@@ -224,15 +214,16 @@ static void postprocess_rOperators(struct rOperators * rops,
 
         /* first do all dmrg updates possible */
         start_timing(0);
-        for (int i = 0; i < o_dat.nr_bonds_opt; ++i) {
+        for (int i = 0; i < o_dat.specs.nr_bonds_opt; ++i) {
                 struct rOperators * currOp = &o_dat.operators[i];
                 if (!currOp->P_operator)
                         continue;
 
                 const int site = netw.bonds[currOp->bond_of_operator][!currOp->is_left];
-                const int siteid = find_in_array(o_dat.nr_sites, o_dat.sites, site);
+                const int siteid = find_in_array(o_dat.specs.nr_sites_opt, 
+                                                 o_dat.specs.sites_opt, site);
                 assert(siteid != -1 && is_psite(site));
-                if (o_dat.common_next[siteid]) {
+                if (o_dat.specs.common_next[siteid]) {
                         /* This Operator is not updated since it has a 
                          * common site with the next step */
                         assert(unupdated == -1 && unupdatedbond == -1);
@@ -258,10 +249,10 @@ static void postprocess_rOperators(struct rOperators * rops,
 
         /* now do the possible T3NS update. Only 1 or none always */
         start_timing(0);
-        for (int i = 0; i < o_dat.nr_sites; ++i) {
-                const int site = o_dat.sites[i];
+        for (int i = 0; i < o_dat.specs.nr_sites_opt; ++i) {
+                const int site = o_dat.specs.sites_opt[i];
 
-                if (is_psite(site) || o_dat.common_next[i])
+                if (is_psite(site) || o_dat.specs.common_next[i])
                         continue;
 
                 const struct siteTensor * tens   = &T3NS[site];
@@ -306,12 +297,11 @@ static struct sweep_info execute_sweep(struct siteTensor * T3NS,
         int first = 1;
 
         start_timing(1);
-        while (next_opt_step(reg->sitesize, &o_dat.nr_bonds_opt, o_dat.bonds_opt, 
-                             &o_dat.nr_sites, o_dat.sites, o_dat.common_next)) {
+        while (next_opt_step(reg->sitesize, &o_dat.specs)) {
                 printf("**\tOptimize sites");
-                for (int i = 0; i < o_dat.nr_sites; ++i) {
-                        printf(" %d %s", o_dat.sites[i], i == o_dat.nr_sites - 1 
-                               ? ":\n" : "&");
+                for (int i = 0; i < o_dat.specs.nr_sites_opt; ++i) {
+                        printf(" %d %s", o_dat.specs.sites_opt[i], 
+                               i == o_dat.specs.nr_sites_opt - 1 ? ":\n" : "&");
                 }
 
                 /* The order of makesiteTensor and preprocess_rOperators is
@@ -319,7 +309,8 @@ static struct sweep_info execute_sweep(struct siteTensor * T3NS,
                  * In makesiteTensor the symsec is set to an internal symsec. 
                  * This is what you need also for preprocess_rOperators */
                 start_timing(0);
-                makesiteTensor(&o_dat.msiteObj, T3NS, o_dat.sites);
+                makesiteTensor(&o_dat.msiteObj, T3NS, o_dat.specs.sites_opt,
+                               o_dat.specs.nr_sites_opt);
                 swinfo.sweeptimings[STENS_MAKE] += stop_timing(0);
 
                 start_timing(0);
