@@ -360,7 +360,7 @@ static double execute_regime(struct siteTensor * T3NS, struct rOperators * rops,
         int sweepnrs = 0;
         double energy = 0;
 
-        for (sweepnrs = 0; sweepnrs < reg->max_sweeps; ++sweepnrs) {
+        while(sweepnrs < reg->max_sweeps) {
                 struct sweep_info info = execute_sweep(T3NS, rops, reg, 
                                                        *trunc_err, saveloc);
                 *trunc_err = info.sw_trunc;
@@ -373,11 +373,12 @@ static double execute_regime(struct siteTensor * T3NS, struct rOperators * rops,
                         fabs(energy - info.sw_energy) < reg->energy_conv;
                 if (sweepnrs == 0 || info.sw_energy < energy) 
                         energy = info.sw_energy;
+                ++sweepnrs;
                 if (flag) { break; }
         }
-        printf("============================================================================\n" );
-        printf("END OF REGIME %d AFTER %d/%d SWEEPS.\n", regnumber, sweepnrs, reg->max_sweeps   );
-        if (sweepnrs != reg->max_sweeps) {
+        printf("============================================================================\n"  );
+        printf("END OF REGIME %d AFTER %d/%d SWEEPS.\n", regnumber, sweepnrs, reg->max_sweeps);
+        if (sweepnrs == reg->max_sweeps) {
                 printf("THE ENERGY DID NOT CONVERGE UP TO ASKED TOLERANCE OF %e\n", reg->energy_conv);
         }
         printf("MINIMUM ENERGY ENCOUNTERED : %.16lf\n", energy                                  );
