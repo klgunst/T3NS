@@ -28,12 +28,19 @@ static void kick_impossibles(struct symsecs * const sector)
                 for (j = 0; j < bookie.nrSyms; ++j)
                         sector->irreps[nrSecss][j] = sector->irreps[i][j];
                 sector->fcidims[nrSecss] = sector->fcidims[i];
+                if (sector->dims != NULL) {
+                        sector->dims[nrSecss] = sector->dims[i];
+                }
                 ++nrSecss;
         }
 
         sector->nrSecs = nrSecss;
         sector->irreps  = realloc(sector->irreps, nrSecss * sizeof *sector->irreps);
         sector->fcidims = realloc(sector->fcidims, nrSecss * sizeof(double));
+        if (sector->dims != NULL) {
+                sector->dims = realloc(sector->dims, nrSecss * sizeof(int));
+        }
+
         if (!sector->irreps || !sector->fcidims) {
                 fprintf(stderr, "Error @%s: Reallocation of array failed.\n",
                         __func__);
