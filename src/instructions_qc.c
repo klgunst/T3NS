@@ -317,7 +317,7 @@ static void start_fill_instruction(struct instructionset * const instructions,
 
 static void fill_instruction(const int new_instr[step], const double pr)
 {
-        if(COMPARE(pr, 0))
+        if(COMPARE_ELEMENT_TO_ZERO(pr))
                 return;
 
         if (cinstrline != NULL)
