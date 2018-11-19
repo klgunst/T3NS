@@ -99,23 +99,18 @@ void init_1siteTensor(struct siteTensor * const tens, const int site, const char
   switch(o)
   {
     case 'r':
-      tens->blocks.tel = safe_malloc(tens->blocks.beginblock[tens->nrblocks], EL_TYPE);
       srand(time(NULL));
-      for (i = 0; i <  tens->blocks.beginblock[tens->nrblocks]; ++i)
-        tens->blocks.tel[i] = (rand() * 1.) / RAND_MAX;
       break;
     case 'c':
-      tens->blocks.tel = safe_malloc(tens->blocks.beginblock[tens->nrblocks], EL_TYPE);
-      /* always same random init */
       srand(0);
-      for (i = 0; i <  tens->blocks.beginblock[tens->nrblocks]; ++i)
-        tens->blocks.tel[i] = (rand() * 1.) / RAND_MAX;
       break;
-
     default:
       fprintf(stderr, "%s@%s: Unknown option \'%c\' was inputted.\n", __FILE__, __func__, o);
       exit(EXIT_FAILURE);
   }
+  tens->blocks.tel = safe_malloc(tens->blocks.beginblock[tens->nrblocks], EL_TYPE);
+  for (i = 0; i <  tens->blocks.beginblock[tens->nrblocks]; ++i)
+          tens->blocks.tel[i] = (rand() - RAND_MAX / 2.) / RAND_MAX;
 }
 
 void destroy_siteTensor(struct siteTensor * const tens)
@@ -676,7 +671,6 @@ static void contractsiteTensors(struct siteTensor * const tens, struct siteTenso
     {
       //QN_TYPE curr_QN = tens->qnumbers[resblock * tens->nrsites + site];
       QN_TYPE curr_QN = oldqnumeros[site];
-      int i;
       for (i = 0; i < 3; ++i)
       {
         indexes[site * 3 + i] = curr_QN % maxdims[site * 3 + i];

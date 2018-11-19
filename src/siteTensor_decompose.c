@@ -736,8 +736,9 @@ static double truncateBond(double **S, struct symsecs * const newSymsec, const i
   for (ss = 0; ss < newSymsec->nrSecs; ++ss)
   {
     int i;
-    for (i = 0; i < newSymsec->dims[ss]; ++i, ++currS)
-      *currS = S[ss][i];
+    for (i = 0; i < newSymsec->dims[ss]; ++i, ++currS) {
+            *currS = S[ss][i];
+    }
   }
   dlasrt_(&ID, &newSymsec->totaldims, tempS, &INFO);
   assert(INFO == 0);
@@ -745,8 +746,7 @@ static double truncateBond(double **S, struct symsecs * const newSymsec, const i
   for (ss = 0; ss < runupto; ++ss)
   {
     truncerr -= tempS[ss] * tempS[ss];
-    if (truncerr < maxtrunc)
-    {
+    if (truncerr < maxtrunc) {
       ++ss;
       break;
     }
@@ -756,15 +756,23 @@ static double truncateBond(double **S, struct symsecs * const newSymsec, const i
     truncerr -= tempS[ss] * tempS[ss];
 
   rescale = 1. / sqrt(1 - truncerr);
-  if (ss < newSymsec->totaldims) // all singular values larger than this one are included.
-    minimalS = tempS[ss];
-  else // all bonds included.
-    minimalS = 0;
+  if (ss < newSymsec->totaldims) {// all singular values larger than this one are included.
+          int ONE =1;
+          int nmbr = newSymsec->totaldims - ss;
+          truncerr = ddot_(&nmbr, tempS + ss, &ONE, tempS + ss, &ONE);
+          double weight = dnrm2_(&ss, tempS, &ONE);
+          rescale = 1 / weight;
+          minimalS = tempS[ss];
+        }
+  else {// all bonds included.
+          minimalS = -1;
+          truncerr = 0;
+          rescale = 1;
+  }
   safe_free(tempS);
 
   newSymsec->totaldims = 0;
-  for (ss = 0; ss < newSymsec->nrSecs; ++ss)
-  {
+  for (ss = 0; ss < newSymsec->nrSecs; ++ss) {
     int i;
     for (i = 0; i < newSymsec->dims[ss]; ++i)
       if (S[ss][i] > minimalS)

@@ -37,10 +37,11 @@ void print_symsecs(struct symsecs *currsymsec, int fci)
                 }
                 else {
                         printf("%d)%s", currsymsec->dims[i],
-                               i == currsymsec->nrSecs - 1 ? " " : ", ");
+                               i == currsymsec->nrSecs - 1 ? "" : ", ");
                 }
         }
-        printf("\ntotal dims: %d\n", currsymsec->totaldims);
+        printf("\n");
+        //printf("\ntotal dims: %d\n", currsymsec->totaldims);
 }
 
 void get_symsecs(struct symsecs *res, int bond)
