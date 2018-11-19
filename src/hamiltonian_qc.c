@@ -799,7 +799,7 @@ static void read_integrals(double **one_p_int, char fil[])
                 else
                         matrix_el = &hdat.core_energy;
 
-                if (!COMPARE(*matrix_el, 0))
+                if (!COMPARE_ELEMENT_TO_ZERO(*matrix_el))
                         fprintf(stderr, "Doubly inputted value at line %d\n", 
                                 ln_cnt);
                 *matrix_el = value;
@@ -844,7 +844,7 @@ static void fillin_Vijkl(const int i, const int j, const int k, const int l)
         const int curr_ind = i + hdat.norb * j + norb2 * k + norb3 * l;
         const double value = hdat.Vijkl[curr_ind];
 
-        if (!COMPARE(value, 0))
+        if (!COMPARE_ELEMENT_TO_ZERO(value))
         {
                 hdat.Vijkl[k + hdat.norb * l + norb2 * i + norb3 * j] = value;
                 hdat.Vijkl[j + hdat.norb * i + norb2 * l + norb3 * k] = value;

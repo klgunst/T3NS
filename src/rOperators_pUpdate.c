@@ -442,7 +442,7 @@ static void unique_rOperators_append_phys(struct rOperators * const uniquerops,
           rOperators_give_nr_blocks_for_hss(prevrops, hamsymsec_old));
 
       /* symsec not found */
-      if (oldblock == -1 || COMPARE(prefactor, 0.0))
+      if (oldblock == -1 || COMPARE_ELEMENT_TO_ZERO(prefactor))
         continue;
       newblock = newsec - uniquerops->begin_blocks_of_hss[hamsymsec_new];
 

@@ -5,8 +5,7 @@
 #include <inttypes.h>
 
 /* For comparing doubles */
-#define TOLERANCE 1e-16
-#define COMPARE(X, Y)   (fabs((X) - (Y)) < TOLERANCE)
+#define COMPARE_ELEMENT_TO_ZERO(X) ((X) == 0)
 
 /* macro that defines the size of the qnumbers stored */
 #define QN_TYPE int_fast64_t
