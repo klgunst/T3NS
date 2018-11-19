@@ -601,16 +601,13 @@ static void read_network_from_disk(const hid_t id)
         netw.sitetoorb = safe_malloc(netw.sites, int);
         ints_read_dataset(group_id, "./sitetoorb", netw.sitetoorb);
 
-        netw.nr_left_psites = safe_malloc(netw.nr_bonds, int);
-        ints_read_dataset(group_id, "./nr_left_psites", netw.nr_left_psites);
-
-        netw.order_psites = safe_malloc(netw.nr_bonds * netw.psites, int);
-        ints_read_dataset(group_id, "./order_psites", netw.order_psites);
-
         ints_read_attribute(group_id, "sweeplength", &netw.sweeplength);
 
         netw.sweep = safe_malloc(netw.sweeplength, int);
         ints_read_dataset(group_id, "./sweep", netw.sweep);
 
         H5Gclose(group_id);
+
+        create_nr_left_psites();
+        create_order_psites();
 }

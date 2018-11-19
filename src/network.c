@@ -156,7 +156,7 @@ static void get_bonds_involved(struct stepSpecs * specs)
                 swap(&specs->bonds_opt[0], &specs->bonds_opt[1]);
 }
 
-static void create_nr_left_psites(void)
+void create_nr_left_psites(void)
 {
         int * temp = safe_calloc(netw.nr_bonds, int);
         netw.nr_left_psites = safe_calloc(netw.nr_bonds, int);
@@ -183,7 +183,7 @@ static void create_nr_left_psites(void)
         safe_free(temp);
 }
 
-static void create_order_psites(void)
+void create_order_psites(void)
 {
         netw.order_psites = safe_malloc(netw.nr_bonds, int *);
         for (int i = 0; i < netw.nr_bonds; ++i)

@@ -125,3 +125,7 @@ int next_opt_step(int maxsites, struct stepSpecs * specs);
 int get_common_bond(int site1 , int site2);
 
 int is_dmrg_bond(int bond);
+
+void create_nr_left_psites(void);
+
+void create_order_psites(void);
