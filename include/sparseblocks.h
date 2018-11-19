@@ -3,7 +3,7 @@
 /* macro that defines the type of the tensor elements */
 #define EL_TYPE double
 #define EL_TYPE_H5 H5T_IEEE_F64LE
-#define COMPARE_ELEMENT_TO_ZERO(X) COMPARE(X, 0)
+#define COMPARE_ELEMENT_TO_ZERO(X) ((X) == 0)
 
 /**
  * \brief The structure for the sparse blocks of the tensors. 
