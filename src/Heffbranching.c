@@ -2,10 +2,10 @@
 #include <stdio.h>
 #include <omp.h>
 
-#ifdef DEBUG
-#include <sys/time.h>
-#include <math.h>
-#include <time.h>
+#ifdef T3NS_MKL
+#include "mkl.h"
+#else
+#include <cblas.h>
 #endif
 
 #include "Heff.h"
@@ -14,452 +14,484 @@
 #include "debug.h"
 #include "bookkeeper.h"
 #include "sort.h"
-#include "lapack.h"
 #include "network.h"
 #include "hamiltonian.h"
 #include "instructions.h"
 
+// enum for the different types of tensors we come accross during a T3NS Heff.
 enum tensor_type {NEW, OLD, OPS1, OPS2, OPS3, WORK1, WORK2};
 
 struct indexdata {
-  int id[4][2][3];
-  QN_TYPE qn[4][2];
-  int idMPO[3];
-  int * irreps[4][2][3];
-  int * irrMPO[3];
-  int dim[2][3];
-  int map[3];
+        int id[4][2][3];       // index of the bonds: id[SITE][NEW/OLD][BOND]
+        QN_TYPE qn[4][2];      /* the quantum numbers: qn[SITE][NEW/OLD]
+                                * qn[SITE][NEW/OLD] = id[SITE][NEW/OLD][0] + 
+                                *     id[SITE][NEW/OLD][1] * dim0 + 
+                                *     id[SITE][NEW/OLD][2] * dim0 * dim1 
+                                */
+        int idMPO[3];          // id of the MPOs.
+        int * irreps[4][2][3]; // pointers to the irreps for the @p id 's.
+        int * irrMPO[3];       // pointers to the irreps for the @p idMPO 's.
+        int dim[2][3];         // dimensions for the outer bonds for NEW/OLD.
+        int map[3];            // mapping
 
-  int sb_op[3];
-  EL_TYPE * tel[7];
+        int qnB_id[2];         // The id of the current qnB 
+                               // (as in the data struct)
+        int sb_op[3];          // The symmetry block for the different 
+                               // rOperators.
+        EL_TYPE * tel[7];      // Pointers to the elements of the 
+                               // symmetry blocks (for each tensor_type).
 };
 
 struct contractinfo {
-  enum tensor_type tels[3];
-  char TRANS[2];
-  int M;
-  int N;
-  int K;
-  int L;
+        enum tensor_type tels[3];
+        CBLAS_TRANSPOSE trans[2];
+        int M;
+        int N;
+        int K;
+        int L;
 };
 
-/* ========================================================================== */
-/* ==================== DECLARATION STATIC FUNCTIONS ======================== */
-/* ========================================================================== */
+static double calc_prefactor(const struct indexdata * idd, 
+                             const struct T3NSdata * data)
+{
+        double prefactor = 1;
+        if (data->rOperators_on_site[0] != data->posB) {
+                prefactor *= prefactor_add_P_operator(idd->irreps[data->rOperators_on_site[0]], 
+                                                      1, bookie.sgs, bookie.nrSyms);
+        }
 
-static void make_map(struct indexdata * const idd, const struct T3NSdata * const data);
+        if (data->rOperators_on_site[1] != data->posB) {
+                prefactor *= prefactor_add_P_operator(idd->irreps[data->rOperators_on_site[1]], 
+                                                      1, bookie.sgs, bookie.nrSyms);
+        }
 
-static int search_block_with_qn(int * const sb, const QN_TYPE qn, const int pos, const struct 
-    siteTensor * const tens);
+        if (data->rOperators_on_site[2] != data->posB) {
+                prefactor *= prefactor_add_P_operator(idd->irreps[data->rOperators_on_site[2]], 
+                                                      0, bookie.sgs, bookie.nrSyms);
+        }
+        prefactor *= prefactor_combine_MPOs(idd->irreps[data->posB], idd->irrMPO, 
+                                            bookie.sgs, bookie.nrSyms);
 
-static void fill_indexes(const int sb, const struct T3NSdata * const data, struct indexdata * 
-    const idd, const enum tensor_type tp, double * const vector);
+        return prefactor;
+}
 
-static void fill_MPO_indexes(struct indexdata * const idd, const int * const instr, const struct 
-    T3NSdata * const data);
+static void prepare_cinfo(struct indexdata * const idd, 
+                          struct contractinfo * cinfo, const int * order)
+{
+        int workdim[3] = {idd->dim[OLD][0], idd->dim[OLD][1], idd->dim[OLD][2]};
+        const enum tensor_type optype[3] = {OPS1, OPS2, OPS3};
+        enum tensor_type resulttel = OLD;
 
-static void find_operator_sb(struct indexdata * const idd, const struct T3NSdata * const data);
+        for (int i = 0; i < 3; ++i) {
+                cinfo[i].tels[0] = order[i] == idd->map[0] ? 
+                        optype[order[i]] : resulttel;
+                cinfo[i].tels[1] = order[i] != idd->map[0] ? 
+                        optype[order[i]] : resulttel;
 
-static int find_operator_tel(struct indexdata * const idd, const struct rOperators Operators[3],
-    const int * const instr);
+                cinfo[i].trans[0] = CblasNoTrans;
+                cinfo[i].trans[1] = 
+                        order[i] == idd->map[0] ? CblasNoTrans : CblasTrans;
 
-static void transform_old_to_new_sb(const int MPO, const struct T3NSdata * const data, 
-    struct indexdata * const idd, const struct contractinfo cinfo[3]);
+                assert(workdim[order[i]] == idd->dim[OLD][order[i]]);
+                workdim[order[i]] = idd->dim[NEW][order[i]];
 
-static void make_cinfo(struct indexdata * const idd, struct contractinfo cinfo[3]);
+                cinfo[i].M = order[i] == idd->map[2] ? 
+                        workdim[idd->map[0]] * workdim[idd->map[1]] :
+                        workdim[idd->map[0]];
 
-static void prepare_cinfo(struct indexdata * const idd, struct contractinfo cinfo[3], 
-    const int contractorder[3]);
+                cinfo[i].N = order[i] == idd->map[0] ? 
+                        workdim[idd->map[1]] * workdim[idd->map[2]] :
+                        workdim[order[i]];
 
-static void do_contract(const struct contractinfo * const cinfo, EL_TYPE * const tel[7],
-    const double ALPHA, const double BETA);
+                cinfo[i].K = idd->dim[OLD][order[i]];
 
-static double calc_prefactor(const struct indexdata * const idd, const struct T3NSdata *const data);
+                cinfo[i].L = order[i] == idd->map[1] ? workdim[idd->map[2]] : 1;
 
-/* ========================================================================== */
+                assert(cinfo[i].M * cinfo[i].N * cinfo[i].L == 
+                       workdim[0] * workdim[1] * workdim[2]);
+
+                if (i != 2) {
+                        const enum tensor_type wmem = i == 0 ? WORK1 : WORK2;
+                        idd->tel[wmem] = safe_malloc(workdim[0] * workdim[1] * 
+                                                     workdim[2], EL_TYPE);
+                        cinfo[i].tels[2] = wmem;
+                        resulttel = cinfo[i].tels[2];
+                } else {
+                        cinfo[i].tels[2] = NEW;
+                }
+        }
+}
+
+static void make_cinfo(struct indexdata * idd, struct contractinfo * cinfo)
+{
+        const int order[6][3] = {
+                {0,1,2}, {0,2,1}, {1,0,2}, {1,2,0}, {2,0,1}, {2,1,0}
+        };
+
+        int best = 0;
+        int nr_operations = 0;
+
+        for (int i = 0; i < 6; ++i) {
+                int curr_operations = 0;
+                int workdim[3] = {
+                        idd->dim[OLD][0], 
+                        idd->dim[OLD][1], 
+                        idd->dim[OLD][2]
+                };
+
+                for (int j = 0; j < 3; ++j) {
+                        curr_operations += workdim[0] * workdim[1] * 
+                                workdim[2] * idd->dim[NEW][order[i][j]];
+
+                        workdim[order[i][j]] = idd->dim[NEW][order[i][j]];
+                }
+                if (i == 0 || nr_operations > curr_operations) {
+                        best = i;
+                        nr_operations = curr_operations;
+                }
+        }
+
+        /* best way is found, now prepare it */
+        prepare_cinfo(idd, cinfo, order[best]);
+}
+
+static void do_contract(const struct contractinfo * cinfo, EL_TYPE ** tel,
+                        double alpha, double beta)
+{
+        const int lda = cinfo->trans[0] == CblasNoTrans ? cinfo->M : cinfo->K;
+        const int ldb = cinfo->trans[1] == CblasNoTrans ? cinfo->K : cinfo->N;
+        const int ldc = cinfo->M;
+        const int strideA = cinfo->M * cinfo->K;
+        const int strideC = cinfo->M * cinfo->N;
+
+        assert(cinfo->tels[2] == NEW || 
+               cinfo->tels[2] == WORK1 || 
+               cinfo->tels[2] == WORK2);
+
+        EL_TYPE * A = tel[cinfo->tels[0]];
+        EL_TYPE * B = tel[cinfo->tels[1]];
+        EL_TYPE * C = tel[cinfo->tels[2]];
+
+        /* Maybe look at batch dgemm from mkl for this.
+         * Although I am not sure this will make a difference 
+         * since this is probably more for parallel dgemm */
+        for (int l = 0; l < cinfo->L; ++l, A += strideA, C += strideC) {
+                cblas_dgemm(CblasColMajor, cinfo->trans[0], cinfo->trans[1], 
+                            cinfo->M, cinfo->N, cinfo->K, 
+                            alpha, A, lda, B, ldb, beta, C, ldc);
+        }
+}
+
+static void make_map(struct indexdata * idd, const struct T3NSdata * data)
+{
+        int cnt = 0;
+        /* only for twosite! */
+        for (int i = 0; i < 3; ++i) {
+                cnt += data->rOperators_on_site[i] == data->posB;
+        }
+        assert(cnt == 2);
+        idd->map[0] = data->rOperators_on_site[1] != data->posB ? 1 : 0;
+        idd->map[1] = data->rOperators_on_site[1] != data->posB ? 0 : 1;
+        idd->map[2] = 2;
+}
+
+static int search_block_with_qn(int * sb, QN_TYPE qn, 
+                                const struct T3NSdata * data)
+{
+        const int Nb = data->siteObject.nrblocks;
+        const int Ns = data->siteObject.nrsites;
+        const QN_TYPE * currqn = 
+                &data->siteObject.qnumbers[++*sb * Ns + data->posB];
+
+        for (; *sb < Nb; ++*sb, currqn += Ns) {
+                if (*currqn == qn) { return 1; }
+        }
+        return 0;
+}
+
+static void fill_indexes(int sb, struct indexdata * idd, 
+                         const struct T3NSdata * data, enum tensor_type tp, 
+                         double * vector)
+{
+        const int nrsites = data->siteObject.nrsites;
+        const QN_TYPE * const qn_arr = &data->siteObject.qnumbers[nrsites * sb];
+
+        for (int i = 0; i < nrsites; ++i) {
+                QN_TYPE qn = qn_arr[i];
+                idd->qn[i][tp] = qn;
+                idd->id[i][tp][0] = qn % data->symarr[i][0].nrSecs;
+                qn                = qn / data->symarr[i][0].nrSecs;
+                idd->irreps[i][tp][0] = 
+                        data->symarr[i][0].irreps[idd->id[i][tp][0]];
+
+                idd->id[i][tp][1] = qn % data->symarr[i][1].nrSecs;
+                qn                = qn / data->symarr[i][1].nrSecs;
+                idd->irreps[i][tp][1] = 
+                        data->symarr[i][1].irreps[idd->id[i][tp][1]];
+
+                idd->id[i][tp][2] = qn;
+                assert(qn < data->symarr[i][2].nrSecs);
+                idd->irreps[i][tp][2] = 
+                        data->symarr[i][2].irreps[idd->id[i][tp][2]];
+        }
+
+        for (int i = 0; i < 3; ++i) {
+                const int site = data->rOperators_on_site[i];
+
+                if (site == data->posB) { 
+                        /* This rOperator will be contracted 
+                         * with the branching tensor */
+                        assert(!data->Operators[i].P_operator);
+
+                        /* only dimension of the i'th leg is needed */
+                        idd->dim[tp][i] = 
+                                data->symarr[site][i].dims[idd->id[site][tp][i]]; 
+                } else { 
+                        /* This rOperator will be contracted 
+                         * with a physical tensor */
+                        assert(data->Operators[i].P_operator);
+
+                        idd->dim[tp][i] = 
+                                data->symarr[site][0].dims[idd->id[site][tp][0]] * 
+                                data->symarr[site][1].dims[idd->id[site][tp][1]] * 
+                                data->symarr[site][2].dims[idd->id[site][tp][2]];
+                }
+        }
+
+        idd->tel[tp] = vector + data->siteObject.blocks.beginblock[sb];
+        assert(get_size_block(&data->siteObject.blocks, sb) == 
+               idd->dim[tp][0] * idd->dim[tp][1] * idd->dim[tp][2]);
+}
+
+static void fill_MPO_indexes(struct indexdata * idd, const int * instr, 
+                             const struct T3NSdata * data)
+{
+        idd->idMPO[0] = data->Operators[0].hss_of_ops[instr[0]];
+        idd->idMPO[1] = data->Operators[1].hss_of_ops[instr[1]];
+        idd->idMPO[2] = data->Operators[2].hss_of_ops[instr[2]];
+
+        idd->irrMPO[0] = data->MPOsymsec.irreps[idd->idMPO[0]];
+        idd->irrMPO[1] = data->MPOsymsec.irreps[idd->idMPO[1]];
+        idd->irrMPO[2] = data->MPOsymsec.irreps[idd->idMPO[2]];
+}
+
+static void find_operator_sb(struct indexdata * idd, 
+                             const struct T3NSdata * data)
+{
+        const struct rOperators * const Operators = data->Operators;
+
+        for (int i = 0; i < 3; ++i) {
+                const int site = data->rOperators_on_site[i];
+                const int diminner = data->symarr[data->posB][i].nrSecs;
+                const QN_TYPE qninner = idd->id[data->posB][NEW][i] +
+                        idd->id[data->posB][OLD][i] * diminner +
+                        idd->idMPO[i] * diminner * diminner;
+
+                const QN_TYPE * const qnarray = 
+                        rOperators_give_qnumbers_for_hss(&Operators[i],
+                                                         idd->idMPO[i]);
+                const int nr_blocks = 
+                        rOperators_give_nr_blocks_for_hss(&Operators[i],
+                                                          idd->idMPO[i]);
+
+                if (site == data->posB) {
+                        assert(!data->Operators[i].P_operator);
+                        idd->sb_op[i] = qnumbersSearch(&qninner, 1, qnarray,
+                                                       1, nr_blocks);
+                        assert(idd->sb_op[i] != - 1);
+                } else {
+                        assert(data->Operators[i].P_operator);
+                        const QN_TYPE qn[3] = {
+                                idd->qn[site][NEW], 
+                                idd->qn[site][OLD], 
+                                qninner
+                        };
+
+                        idd->sb_op[i] = qnumbersSearch(qn, 3, qnarray,
+                                                       3, nr_blocks);
+                        assert(idd->sb_op[i] != -1);
+                }
+        }
+}
+
+static int find_operator_tel(struct indexdata * idd, 
+                             const struct rOperators * Operators, 
+                             const int * instr)
+{
+        const enum tensor_type optype[3] = {OPS1, OPS2, OPS3};
+        for (int i = 0; i < 3; ++i) {
+                assert(Operators[i].nrops > instr[i]);
+                idd->tel[optype[i]] = 
+                        get_tel_block(&(Operators[i].operators[instr[i]]), 
+                                      idd->sb_op[i]);
+
+                if (idd->tel[optype[i]] == NULL) { return 0; }
+
+                assert(get_size_block(&Operators[i].operators[instr[i]], 
+                                      idd->sb_op[i]) == 
+                       idd->dim[NEW][i] * idd->dim[OLD][i]);
+
+                assert(Operators[i].hss_of_ops[instr[i]] == idd->idMPO[i]);
+        }
+        return 1;
+}
+
+static void transform_old_to_new_sb(int MPO, struct indexdata * idd, 
+                                    const struct T3NSdata * data, 
+                                    const struct contractinfo * cinfo)
+{
+        const int * instr = &data->instructions[3 * data->instrbegin[MPO]];
+        const int * const endinstr = &data->instructions[3 * data->instrbegin[MPO + 1]];
+        const double * pref = &data->prefactors[data->instrbegin[MPO]];
+
+        if (instr == endinstr) { return; }
+
+        fill_MPO_indexes(idd, instr, data);
+        const double prefsym = calc_prefactor(idd, data);
+
+        find_operator_sb(idd, data);
+
+        for (; instr < endinstr; instr += 3, ++pref) {
+                const double totpref = *pref * prefsym;
+                if (!find_operator_tel(idd, data->Operators, instr)) {
+                        continue;
+                }
+                do_contract(&cinfo[0], idd->tel, 1, 0);
+                do_contract(&cinfo[1], idd->tel, 1, 0);
+                do_contract(&cinfo[2], idd->tel, totpref, 1);
+        }
+}
+
+static void loop_oldqnBs(struct indexdata * idd, const struct T3NSdata * data,
+                         int newqnB_id, double * vec)
+{
+        const int oldnr_qnB = data->nr_qnBtoqnB[newqnB_id];
+        QN_TYPE * oldqnB_arr = data->qnBtoqnB_arr[newqnB_id];
+
+        for (int oldqnB_id = 0; oldqnB_id < oldnr_qnB; ++oldqnB_id) {
+                const QN_TYPE oldqnB = oldqnB_arr[oldqnB_id];
+                const int nrMPOcombos = data->nrMPOcombos[newqnB_id][oldqnB_id];
+                const int * const MPOs = data->MPOs[newqnB_id][oldqnB_id];
+
+                int oldsb = -1;
+                while (search_block_with_qn(&oldsb, oldqnB, data)) {
+                        struct contractinfo cinfo[3];
+                        fill_indexes(oldsb, idd, data, OLD, vec);
+                        make_cinfo(idd, cinfo);
+
+                        for (const int * MPO = MPOs; 
+                             MPO < &MPOs[nrMPOcombos]; ++MPO) {
+                                transform_old_to_new_sb(*MPO, idd, data, cinfo);
+                        }
+                        safe_free(idd->tel[WORK1]);
+                        safe_free(idd->tel[WORK2]);
+                }
+        }
+}
 
 void matvecT3NS(double * vec, double * result, void * vdata)
 {
-  const struct T3NSdata * const data = vdata;
-  int i;
-  int newqnB_id;
-
-  for (i = 0; i < siteTensor_get_size(&data->siteObject); ++i) result[i] = 0;
-
-#pragma omp parallel for schedule(dynamic) default(none) shared(vec, result) private(newqnB_id)
-  for (newqnB_id = 0; newqnB_id < data->nr_qnB; ++newqnB_id) {
-    struct indexdata idd;
-
-    int new_sb = -1;
-    const QN_TYPE newqnB = data->qnB_arr[newqnB_id];
-    const int nr_qnBtoqnB = data->nr_qnBtoqnB[newqnB_id];
-    const QN_TYPE * const qnBtoqnB_arr = data->qnBtoqnB_arr[newqnB_id];
-    make_map(&idd, data);
-
-    while (search_block_with_qn(&new_sb, newqnB, data->posB, &data->siteObject)) {
-      int oldqnB_id;
-      fill_indexes(new_sb, data, &idd, NEW, result);
-        
-      for (oldqnB_id = 0; oldqnB_id < nr_qnBtoqnB; ++oldqnB_id) {
-        int old_sb = -1;
-        const QN_TYPE oldqnB = qnBtoqnB_arr[oldqnB_id];
-        const int nrMPOcombos = data->nrMPOcombos[newqnB_id][oldqnB_id];
-        const int * const MPOs = data->MPOs[newqnB_id][oldqnB_id];
-
-        while (search_block_with_qn(&old_sb, oldqnB, data->posB, &data->siteObject)) {
-          const int * MPO;
-          struct contractinfo cinfo[3];
-          fill_indexes(old_sb, data, &idd, OLD, vec);
-          make_cinfo(&idd, cinfo);
-          for (MPO = MPOs; MPO < &MPOs[nrMPOcombos]; ++MPO)
-            transform_old_to_new_sb(*MPO, data, &idd, cinfo);
-
-          safe_free(idd.tel[WORK1]);
-          safe_free(idd.tel[WORK2]);
+        const struct T3NSdata * const data = vdata;
+        for (int i = 0; i < siteTensor_get_size(&data->siteObject); ++i) {
+                result[i] = 0;
         }
-      }
-    }
-  }
-}
 
-double * make_diagonal_T3NS(struct T3NSdata * const data)
-{
-  const struct siteTensor tens = data->siteObject;
-  double * result = safe_calloc(tens.blocks.beginblock[tens.nrblocks], double);
-  int newqnB_id;
+#pragma omp parallel for schedule(dynamic) default(none) shared(vec, result)
+        for (int newqnB_id = 0; newqnB_id < data->nr_qnB; ++newqnB_id) {
+                struct indexdata idd;
+                const QN_TYPE newqnB = data->qnB_arr[newqnB_id];
+                make_map(&idd, data);
 
-  for (newqnB_id = 0; newqnB_id < data->nr_qnB; ++newqnB_id) {
-    struct indexdata idd;
-
-    int sb = -1;
-    const QN_TYPE qnB = data->qnB_arr[newqnB_id];
-    const int nr_qnBtoqnB = data->nr_qnBtoqnB[newqnB_id];
-    const QN_TYPE * const qnBtoqnB_arr = data->qnBtoqnB_arr[newqnB_id];
-    make_map(&idd, data);
-
-    while (search_block_with_qn(&sb, qnB, data->posB, &tens)) {
-      int oldqnB_id;
-      fill_indexes(sb, data, &idd, NEW, result);
-      fill_indexes(sb, data, &idd, OLD, result);
-
-      for (oldqnB_id = 0; oldqnB_id < nr_qnBtoqnB; ++oldqnB_id)
-        if (qnBtoqnB_arr[oldqnB_id] == qnB) break;
-      assert(oldqnB_id != nr_qnBtoqnB);
-
-      if (oldqnB_id != nr_qnBtoqnB) {
-        const int nrMPOcombos = data->nrMPOcombos[newqnB_id][oldqnB_id];
-        const int * const MPOs = data->MPOs[newqnB_id][oldqnB_id];
-        const int * MPO;
-        const int dimp1[3] = {idd.dim[OLD][0] + 1, idd.dim[OLD][1] + 1, idd.dim[OLD][2] + 1};
-
-        assert(idd.dim[OLD][0] == idd.dim[NEW][0] && idd.dim[OLD][1] == idd.dim[NEW][1] && 
-            idd.dim[OLD][2] == idd.dim[NEW][2]);
-
-        idd.tel[WORK1] = safe_malloc(idd.dim[OLD][0] * idd.dim[OLD][1], double);
-        idd.tel[WORK2] = NULL;
-
-        for (MPO = MPOs; MPO < &MPOs[nrMPOcombos]; ++MPO) {
-          int * instr    = &data->instructions[3 * data->instrbegin[*MPO]];
-          int * endinstr = &data->instructions[3 * data->instrbegin[*MPO + 1]];
-          double * pref  = &data->prefactors[data->instrbegin[*MPO]];
-          double prefsym;
-
-          if (instr == endinstr) continue;
-
-          fill_MPO_indexes(&idd, instr, data);
-          find_operator_sb(&idd, data);
-          prefsym = calc_prefactor(&idd, data);
-
-          for (; instr < endinstr; instr += 3, ++pref) {
-            const double totpref = *pref * prefsym;
-            if (find_operator_tel(&idd, data->Operators, instr)) {
-              int m, n, k;
-              for (m = 0; m < idd.dim[OLD][idd.map[0]]; ++m) {
-                const double elM = totpref * idd.tel[OPS1 + idd.map[0]][m * dimp1[idd.map[0]]];
-                for (n = 0; n < idd.dim[OLD][idd.map[1]]; ++n) {
-                  const double elMN = elM * idd.tel[OPS1 + idd.map[1]][n * dimp1[idd.map[1]]];
-                  for (k = 0; k < idd.dim[OLD][idd.map[2]]; ++k) {
-                    idd.tel[NEW][m + n * idd.dim[OLD][idd.map[0]] + k * 
-                      idd.dim[OLD][idd.map[0]] * idd.dim[OLD][idd.map[1]]] += 
-                      elMN * idd.tel[OPS1 + idd.map[2]][k * dimp1[idd.map[2]]];
-                  }
+                int newsb = -1;
+                while (search_block_with_qn(&newsb, newqnB, data)) {
+                        fill_indexes(newsb, &idd, data, NEW, result);
+                        loop_oldqnBs(&idd, data, newqnB_id, vec);
                 }
-              }
-            }
-          }
         }
-        safe_free(idd.tel[WORK1]);
-      }
-    }
-  }
-  return result;
 }
 
-/* ========================================================================== */
-/* ===================== DEFINITION STATIC FUNCTIONS ======================== */
-/* ========================================================================== */
-
-static void make_map(struct indexdata * const idd, const struct T3NSdata * const data)
+static void diag_old_to_new_sb(int MPO, struct indexdata * idd,
+                               const struct T3NSdata * data)
 {
-  int i;
-  int cnt = 0;
-  /* only for twosite! */
-  for (i = 0; i < 3; ++i) cnt += data->rOperators_on_site[i] == data->posB;
-  assert(cnt == 2);
-  idd->map[0] = data->rOperators_on_site[1] != data->posB ? 1 : 0;
-  idd->map[1] = data->rOperators_on_site[1] != data->posB ? 0 : 1;
-  idd->map[2] = 2;
+        int * instr    = &data->instructions[3 * data->instrbegin[MPO]];
+        int * endinstr = &data->instructions[3 * data->instrbegin[MPO + 1]];
+        double * pref  = &data->prefactors[data->instrbegin[MPO]];
+        if (instr == endinstr) { return; }
+
+        fill_MPO_indexes(idd, instr, data);
+        find_operator_sb(idd, data);
+        const double prefsym = calc_prefactor(idd, data);
+
+        const int M = idd->dim[OLD][idd->map[0]];
+        const int N = idd->dim[OLD][idd->map[1]];
+        const int K = idd->dim[OLD][idd->map[2]];
+        const int Mp1 = M + 1;
+        const int Np1 = N + 1;
+        const int Kp1 = K + 1;
+
+        for (; instr < endinstr; instr += 3, ++pref) {
+                if (!find_operator_tel(idd, data->Operators, instr)) {
+                        continue;
+                }
+
+                const double totpref = *pref * prefsym;
+                const double * tel3 = idd->tel[OPS1 + idd->map[2]];
+                double * telres = idd->tel[NEW];
+
+                for (int k = 0; k < K; ++k, tel3 += Kp1) {
+                        const double elK = totpref * *tel3;
+                        const double * tel2 = idd->tel[OPS1 + idd->map[1]];
+
+                        for (int n = 0; n < N; ++n, tel2 += Np1) {
+                                const double elNK = elK * *tel2;
+                                const double *tel1 = idd->tel[OPS1+idd->map[0]];
+
+                                for (int m = 0; m < M; ++m, tel1 += Mp1, ++telres) {
+                                        *telres += elNK * *tel1;
+                                }
+                        }
+                }
+        }
 }
 
-static int search_block_with_qn(int * const sb, const QN_TYPE qn, const int pos, const struct 
-    siteTensor * const tens)
+EL_TYPE * make_diagonal_T3NS(const struct T3NSdata * const data)
 {
-  for (++*sb; *sb < tens->nrblocks; ++*sb)
-    if (tens->qnumbers[*sb * tens->nrsites + pos] == qn)
-      return 1;
-  return 0;
-}
+        EL_TYPE * result = 
+                safe_calloc(siteTensor_get_size(&data->siteObject), EL_TYPE);
 
-static void fill_indexes(const int sb, const struct T3NSdata * const data, struct indexdata * 
-    const idd, const enum tensor_type tp, double * const vector)
-{
-  const int nrsites = data->siteObject.nrsites;
-  const QN_TYPE * const qn_arr = &data->siteObject.qnumbers[nrsites * sb];
-  int i;
+#pragma omp parallel for schedule(dynamic) default(none) shared(result)
+        for (int newqnB_id = 0; newqnB_id < data->nr_qnB; ++newqnB_id) {
+                struct indexdata idd;
+                make_map(&idd, data);
 
-  for (i = 0; i < nrsites; ++i) {
-    QN_TYPE qn = qn_arr[i];
-    idd->qn[i][tp] = qn;
-    idd->id[i][tp][0] = qn % data->symarr[i][0].nrSecs;
-    qn                = qn / data->symarr[i][0].nrSecs;
-    idd->irreps[i][tp][0] = data->symarr[i][0].irreps[idd->id[i][tp][0]];
+                const QN_TYPE qnB = data->qnB_arr[newqnB_id];
+                const int N = data->nr_qnBtoqnB[newqnB_id];
+                int oldqnB_id;
+                for (oldqnB_id = 0; oldqnB_id < N; ++oldqnB_id) {
+                        if (data->qnBtoqnB_arr[newqnB_id][oldqnB_id] == qnB) {
+                                break;
+                        }
+                }
+                assert(oldqnB_id != nr_qnBtoqnB);
 
-    idd->id[i][tp][1] = qn % data->symarr[i][1].nrSecs;
-    qn                = qn / data->symarr[i][1].nrSecs;
-    idd->irreps[i][tp][1] = data->symarr[i][1].irreps[idd->id[i][tp][1]];
+                const int nrMPOcombos = data->nrMPOcombos[newqnB_id][oldqnB_id];
+                const int * const MPOs = data->MPOs[newqnB_id][oldqnB_id];
 
-    idd->id[i][tp][2] = qn;
-    assert(qn < data->symarr[i][2].nrSecs);
-    idd->irreps[i][tp][2] = data->symarr[i][2].irreps[idd->id[i][tp][2]];
-  }
+                int sb = -1;
+                while (search_block_with_qn(&sb, qnB, data)) {
+                        fill_indexes(sb, &idd, data, NEW, result);
+                        fill_indexes(sb, &idd, data, OLD, result);
 
-  for (i = 0; i < 3; ++i) {
-    const int site = data->rOperators_on_site[i];
+                        idd.tel[WORK1] = safe_malloc(idd.dim[OLD][0] * 
+                                                     idd.dim[OLD][1], EL_TYPE);
+                        idd.tel[WORK2] = NULL;
 
-    if (site == data->posB) { /* This rOperator will be contracted with the branching tensor */
-      assert(!data->Operators[i].P_operator);
-
-      /* only dimension of the i'th leg is needed */
-      idd->dim[tp][i] = data->symarr[site][i].dims[idd->id[site][tp][i]]; 
-    } else { /* This rOperator will be contracted with a physical tensor */
-      assert(data->Operators[i].P_operator);
-
-      idd->dim[tp][i] = data->symarr[site][0].dims[idd->id[site][tp][0]] * 
-        data->symarr[site][1].dims[idd->id[site][tp][1]] * 
-        data->symarr[site][2].dims[idd->id[site][tp][2]];
-    }
-  }
-
-  idd->tel[tp] = vector + data->siteObject.blocks.beginblock[sb];
-  assert(get_size_block(&data->siteObject.blocks, sb) == 
-      idd->dim[tp][0] * idd->dim[tp][1] * idd->dim[tp][2]);
-}
-
-static void fill_MPO_indexes(struct indexdata * const idd, const int * const instr, const struct 
-    T3NSdata * const data)
-{
-  idd->idMPO[0] = data->Operators[0].hss_of_ops[instr[0]];
-  idd->idMPO[1] = data->Operators[1].hss_of_ops[instr[1]];
-  idd->idMPO[2] = data->Operators[2].hss_of_ops[instr[2]];
-
-  idd->irrMPO[0] = data->MPOsymsec.irreps[idd->idMPO[0]];
-  idd->irrMPO[1] = data->MPOsymsec.irreps[idd->idMPO[1]];
-  idd->irrMPO[2] = data->MPOsymsec.irreps[idd->idMPO[2]];
-}
-
-static void find_operator_sb(struct indexdata * const idd, const struct T3NSdata * const data)
-{
-  int i;
-  const struct rOperators * const Operators = data->Operators;
-
-  for (i = 0; i < 3; ++i) {
-    const int site = data->rOperators_on_site[i];
-    const int diminner = data->symarr[data->posB][i].nrSecs;
-    const QN_TYPE qninner = idd->id[data->posB][NEW][i] + idd->id[data->posB][OLD][i] * diminner + 
-      idd->idMPO[i] * diminner * diminner;
-
-    const QN_TYPE * const qnarray = rOperators_give_qnumbers_for_hss(&Operators[i], idd->idMPO[i]);
-    const int nr_blocks = rOperators_give_nr_blocks_for_hss(&Operators[i], idd->idMPO[i]);
-
-    if (site == data->posB) {
-      assert(!data->Operators[i].P_operator);
-      idd->sb_op[i] = qnumbersSearch(&qninner, 1, qnarray, 1, nr_blocks);
-      assert(idd->sb_op[i] != - 1);
-    } else {
-      assert(data->Operators[i].P_operator);
-      const QN_TYPE qn[3] = {idd->qn[site][NEW], idd->qn[site][OLD], qninner};
-      idd->sb_op[i] = qnumbersSearch(qn, 3, qnarray, 3, nr_blocks);
-      assert(idd->sb_op[i] != -1);
-    }
-  }
-}
-
-static int find_operator_tel(struct indexdata * const idd, const struct rOperators Operators[3],
-    const int * const instr)
-{
-  int i;
-  const enum tensor_type optype[3] = {OPS1, OPS2, OPS3};
-  for (i = 0; i < 3; ++i) {
-    assert(Operators[i].nrops > instr[i]);
-    idd->tel[optype[i]] = get_tel_block(&(Operators[i].operators[instr[i]]), idd->sb_op[i]);
-
-    if (idd->tel[optype[i]] == NULL)
-      return 0;
-
-    assert(get_size_block(&Operators[i].operators[instr[i]], idd->sb_op[i]) == 
-        idd->dim[NEW][i] * idd->dim[OLD][i]);
-    assert(Operators[i].hss_of_ops[instr[i]] == idd->idMPO[i]);
-  }
-  return 1;
-}
-
-static void transform_old_to_new_sb(const int MPO, const struct T3NSdata * const data, 
-    struct indexdata * const idd, const struct contractinfo cinfo[3])
-{
-  const int * instr          = &data->instructions[3 * data->instrbegin[MPO]];
-  const int * const endinstr = &data->instructions[3 * data->instrbegin[MPO + 1]];
-  const double * pref        = &data->prefactors[data->instrbegin[MPO]];
-  double prefsym;
-
-  if (instr == endinstr)
-    return;
-
-  fill_MPO_indexes(idd, instr, data);
-  prefsym = calc_prefactor(idd, data);
-
-  find_operator_sb(idd, data);
-
-  for (; instr < endinstr; instr += 3, ++pref) {
-    const double totpref = *pref * prefsym;
-    if (find_operator_tel(idd, data->Operators, instr)) {
-      const double ZERO = 0;
-      const double ONE = 1;
-      do_contract(&cinfo[0], idd->tel, ONE, ZERO);
-      do_contract(&cinfo[1], idd->tel, ONE, ZERO);
-      do_contract(&cinfo[2], idd->tel, totpref, ONE);
-    }
-  }
-}
-
-static void make_cinfo(struct indexdata * const idd, struct contractinfo cinfo[3])
-{
-  const int contractorder[6][3] = {{0,1,2}, {0,2,1}, {1,0,2}, {1,2,0}, {2,0,1}, {2,1,0}};
-  int i;
-  int best = 0;
-  int nr_operations = 0;
-
-  for (i = 0; i < 6; ++i)
-  {
-    int j;
-    int curr_operations = 0;
-    const int * const curr_co = contractorder[i];
-    int workdim[3] = {idd->dim[OLD][0], idd->dim[OLD][1], idd->dim[OLD][2]};
-
-    for (j = 0; j < 3; ++j) {
-      curr_operations += workdim[0] * workdim[1] * workdim[2] * idd->dim[NEW][curr_co[j]];
-      workdim[curr_co[j]] = idd->dim[NEW][curr_co[j]];
-    }
-
-    if (i == 0 || nr_operations > curr_operations) {
-      best = i;
-      nr_operations = curr_operations;
-    }
-  }
-
-  /* best way is found, now prepare it */
-  prepare_cinfo(idd, cinfo, contractorder[best]);
-}
-
-static void prepare_cinfo(struct indexdata * const idd, struct contractinfo cinfo[3], 
-    const int contractorder[3])
-{
-  int workdim[3] = {idd->dim[OLD][0], idd->dim[OLD][1], idd->dim[OLD][2]};
-  const enum tensor_type optype[3] = {OPS1, OPS2, OPS3};
-  enum tensor_type resulttel = OLD;
-  int i;
-
-  for (i = 0; i < 3; ++i) {
-    cinfo[i].tels[0] = contractorder[i] == idd->map[0] ? optype[contractorder[i]] : resulttel;
-    cinfo[i].tels[1] = contractorder[i] != idd->map[0] ? optype[contractorder[i]] : resulttel;
-
-    cinfo[i].TRANS[0] = 'N';
-    cinfo[i].TRANS[1] = contractorder[i] == idd->map[0] ? 'N' : 'T';
-
-    assert(workdim[contractorder[i]] == idd->dim[OLD][contractorder[i]]);
-    workdim[contractorder[i]] = idd->dim[NEW][contractorder[i]];
-
-    cinfo[i].M = contractorder[i] == idd->map[2] ? workdim[idd->map[0]] * workdim[idd->map[1]] 
-      : workdim[idd->map[0]];
-
-    cinfo[i].N = contractorder[i] == idd->map[0] ? workdim[idd->map[1]] * workdim[idd->map[2]] 
-      : workdim[contractorder[i]];
-    cinfo[i].K = idd->dim[OLD][contractorder[i]];
-    cinfo[i].L = contractorder[i] == idd->map[1] ? workdim[idd->map[2]] : 1;
-
-    assert(cinfo[i].M * cinfo[i].N * cinfo[i].L == workdim[0] * workdim[1] * workdim[2]);
-
-    if (i != 2) {
-      const enum tensor_type wmem = i == 0 ? WORK1 : WORK2;
-      idd->tel[wmem] = safe_malloc(workdim[0] * workdim[1] * workdim[2], EL_TYPE);
-      cinfo[i].tels[2] = wmem;
-      resulttel = cinfo[i].tels[2];
-    } else {
-      cinfo[i].tels[2] = NEW;
-    }
-  }
-}
-
-static void do_contract(const struct contractinfo * const cinfo, EL_TYPE * const tel[7],
-    const double ALPHA, const double BETA)
-{
-  const int LDA = cinfo->TRANS[0] == 'N' ? cinfo->M : cinfo->K;
-  const int LDB = cinfo->TRANS[1] == 'N' ? cinfo->K : cinfo->N;
-  const int strideA = cinfo->M * cinfo->K;
-  const int strideB = cinfo->M * cinfo->N;
-  int l;
-  assert(cinfo->tels[2] == NEW || cinfo->tels[2] == WORK1 || cinfo->tels[2] == WORK2);
-
-  EL_TYPE * els[3] = {tel[cinfo->tels[0]], tel[cinfo->tels[1]], tel[cinfo->tels[2]]};
-
-  for (l = 0; l < cinfo->L; ++l)
-    dgemm_(&cinfo->TRANS[0], &cinfo->TRANS[1], &cinfo->M, &cinfo->N, &cinfo->K, &ALPHA, 
-        els[0] + strideA * l, &LDA, els[1], &LDB, &BETA, els[2] + strideB * l, &cinfo->M);
-}
-
-static double calc_prefactor(const struct indexdata * const idd, const struct T3NSdata * const data)
-{
-  double prefactor = 1;
-  assert(data->Operators[0].P_operator == (data->rOperators_on_site[0] != data->posB));
-  if (data->rOperators_on_site[0] != data->posB)
-  {
-    prefactor *= prefactor_add_P_operator(idd->irreps[data->rOperators_on_site[0]], 1, bookie.sgs, 
-        bookie.nrSyms);
-  }
-  assert(data->Operators[1].P_operator == (data->rOperators_on_site[1] != data->posB));
-  if (data->rOperators_on_site[1] != data->posB)
-  {
-    prefactor *= prefactor_add_P_operator(idd->irreps[data->rOperators_on_site[1]], 1, bookie.sgs, 
-        bookie.nrSyms);
-  }
-  assert(data->Operators[2].P_operator == (data->rOperators_on_site[2] != data->posB));
-  if (data->rOperators_on_site[2] != data->posB)
-  {
-    prefactor *= prefactor_add_P_operator(idd->irreps[data->rOperators_on_site[2]], 0, bookie.sgs, 
-        bookie.nrSyms);
-  }
-
-  prefactor *= prefactor_combine_MPOs(idd->irreps[data->posB], idd->irrMPO, bookie.sgs, 
-      bookie.nrSyms);
-
-  return prefactor;
+                        const int * MPO;
+                        for (MPO = MPOs; MPO < &MPOs[nrMPOcombos]; ++MPO) {
+                                diag_old_to_new_sb(*MPO, &idd, data);
+                        }
+                        safe_free(idd.tel[WORK1]);
+                }
+        }
+        return result;
 }

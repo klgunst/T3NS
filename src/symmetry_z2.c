@@ -62,8 +62,8 @@ double Z2_prefactor_pAppend(const int * symv, int is_left)
          * bra(alpha) bra(i) bra(beta*), bra(alpha*) MPO(alpha) ket(alpha), ket(beta) ket(i*) ket(alpha*)
          *
          *        This is for Z2 a factor
-         *           |bra(beta)||MPO(i)|
-         *           = |symv[2]||symv[7]|
+         *           |ket(beta)||MPO(i)| + |MPO(1)|
+         *           = |symv[5]||symv[7]| + |symv[7]|
          *
          *           symv = 1 for odd, 0 for even
          */

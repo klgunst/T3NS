@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.9.0)
 project(T3NS 
     LANGUAGES C 
-    DESCRIPTION "An implementation of the Three-legged Tree Tensor Network algorithm."
+    DESCRIPTION "An implementation of the Three-Legged Tree Tensor Network algorithm."
     VERSION 0.1.0)
 set(T3NS_MAIL "Klaas.Gunst@UGent.be")
 string(TIMESTAMP THISTIME "Compiled %b %d %Y %H:%M:%S")

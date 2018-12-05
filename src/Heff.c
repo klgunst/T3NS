@@ -325,11 +325,9 @@ void init_T3NSdata(struct T3NSdata * const data, const struct rOperators Operato
   assert(Operators[0].bond_of_operator < Operators[1].bond_of_operator &&
       Operators[1].bond_of_operator < Operators[2].bond_of_operator);
 
-  data->symarr = safe_malloc(siteObject->nrsites, struct symsecs *);
   for (i = 0; i < siteObject->nrsites; ++i) {
     int bonds[3];
     get_bonds_of_site(siteObject->sites[i], bonds);
-    data->symarr[i] = safe_malloc(3, struct symsecs);
     get_symsecs_arr(3, data->symarr[i], bonds);
   }
   get_symsecs(&data->MPOsymsec, -1);
@@ -396,10 +394,8 @@ void destroy_T3NSdata(struct T3NSdata * const data)
     int bonds[3];
     get_bonds_of_site(data->siteObject.sites[i], bonds);
     clean_symsecs_arr(3, data->symarr[i], bonds);
-    safe_free(data->symarr[i]);
   }
   clean_symsecs(&data->MPOsymsec, -1);
-  safe_free(data->symarr);
 
   for (i = 0; i < data->nr_qnB; ++i) {
     int j;
@@ -1058,8 +1054,7 @@ static void check_diagonal(void * const data, double * diagonal, const int isdmr
       matvecT3NS(vec, res, data);
 
     vec[ind] = 0;
-    if (fabs(diagonal[ind] - res[ind]) > 1e-7)
-    {
+    if (fabs(diagonal[ind] - res[ind]) > 1e-9) {
       fprintf(stderr, "calculated diag :%f brute force diag: %f\n", diagonal[ind], res[ind]);
       fprintf(stderr, "Something is wrong in the construction of the diagonal!\n");
       exit(EXIT_FAILURE);

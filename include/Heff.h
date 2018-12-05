@@ -30,7 +30,7 @@ struct matvec_data {
 struct T3NSdata {
   struct siteTensor siteObject;
   struct rOperators Operators[3];
-  struct symsecs ** symarr; /* nrsites * 3 */
+  struct symsecs symarr[4][3]; /* nrsites * 3 */
   struct symsecs MPOsymsec;
 
   int rOperators_on_site[3];
@@ -61,6 +61,6 @@ void matvecDMRG(double * vec, double * result, void * vdata);
 
 double * make_diagonal(void * const data, const int isdmrg);
 
-double * make_diagonal_T3NS(struct T3NSdata * const data);
+EL_TYPE * make_diagonal_T3NS(const struct T3NSdata * const data);
 
 void destroy_T3NSdata(struct T3NSdata * const data);

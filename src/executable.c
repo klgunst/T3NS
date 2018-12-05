@@ -89,7 +89,7 @@ T3NS_DESCRIPTION
 "[NOISE]         = flt, flt, flt \n"
 "                  The amount of noise to add.\n"
 "                  Level of Noise : 0.5 * NOISE * W_disc(last_sweep)\n"
-"                  Default : %.3f\n"
+"                  Default : %.0e\n"
 "\n"
 "##############################################################################\n";
 
