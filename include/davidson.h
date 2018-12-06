@@ -25,5 +25,6 @@
  */
 int davidson(double * result, double * energy, int size, int max_vecs, 
              int keep_deflate, double davidson_tol, int max_its, 
-             const double * diagonal, void (*matvec)(double*, double*, void*), 
+             const double * diagonal, 
+             void (*matvec)(const double *, double *, const void *), 
              void * vdat);

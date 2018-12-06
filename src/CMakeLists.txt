@@ -1,6 +1,5 @@
 set(T3NSLIB_SOURCE_FILES
     "Heff.c"
-    "Heffbranching.c"
     "bookkeeper.c"
     "davidson.c"
     "hamiltonian.c"

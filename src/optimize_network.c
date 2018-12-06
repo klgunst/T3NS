@@ -138,52 +138,32 @@ static struct optimize_info optimize_siteTensor(struct siteTensor * T3NS,
                                                 double trunc_err, 
                                                 double * timings)
 { 
+        assert(o_dat.specs.nr_bonds_opt == 2 || o_dat.specs.nr_bonds_opt == 2);
+        const int isdmrg = o_dat.specs.nr_bonds_opt == 2;
+        const enum timers prep_heff = isdmrg ? PREP_HEFF_DMRG : PREP_HEFF_T3NS;
+        const enum timers diag      = isdmrg ? DIAG_DMRG      : DIAG_T3NS;
+        const enum timers heff      = isdmrg ? HEFF_DMRG      : HEFF_T3NS;
+
         struct optimize_info info = {0};
-        if (o_dat.specs.nr_bonds_opt == 3) {/* T3NS */
-                struct T3NSdata mv_dat;
-                const int size = siteTensor_get_size(&o_dat.msiteObj);
+        struct Heffdata mv_dat;
+        const int size = siteTensor_get_size(&o_dat.msiteObj);
 
-                start_timing(0);
-                init_T3NSdata(&mv_dat, o_dat.operators, &o_dat.msiteObj);
-                timings[PREP_HEFF_T3NS] += stop_timing(0);
+        start_timing(0);
+        init_Heffdata(&mv_dat, o_dat.operators, &o_dat.msiteObj, isdmrg);
+        timings[prep_heff] += stop_timing(0);
 
-                start_timing(0);
-                EL_TYPE * diagonal = make_diagonal(&mv_dat, 0);
-                timings[DIAG_T3NS] += stop_timing(0);
+        start_timing(0);
+        EL_TYPE * diagonal = make_diagonal(&mv_dat);
+        timings[diag] += stop_timing(0);
 
-                start_timing(0);
-                sparse_eigensolve(o_dat.msiteObj.blocks.tel, &info.energy, size, 
-                                  DAVIDSON_MAX_VECS, DAVIDSON_KEEP_DEFLATE, 
-                                  reg->davidson_rtl, reg->davidson_max_its, 
-                                  diagonal, matvecT3NS, &mv_dat, "D");
-                timings[HEFF_T3NS] += stop_timing(0);
-                destroy_T3NSdata(&mv_dat);
-                safe_free(diagonal);
-        } else if (o_dat.specs.nr_bonds_opt == 2){ /* DMRG */
-                struct matvec_data mv_dat;
-                const int size = siteTensor_get_size(&o_dat.msiteObj);
-
-                start_timing(0);
-                init_matvec_data(&mv_dat, o_dat.operators, &o_dat.msiteObj);
-                timings[PREP_HEFF_DMRG] += stop_timing(0);
-
-                start_timing(0);
-                EL_TYPE * diagonal = make_diagonal(&mv_dat, 1);
-                timings[DIAG_DMRG] += stop_timing(0);
-
-                start_timing(0);
-                sparse_eigensolve(o_dat.msiteObj.blocks.tel, &info.energy, size, 
-                                  DAVIDSON_MAX_VECS, DAVIDSON_KEEP_DEFLATE, 
-                                  reg->davidson_rtl, reg->davidson_max_its, 
-                                  diagonal, matvecDMRG, &mv_dat, "D");
-                timings[HEFF_DMRG] += stop_timing(0);
-                destroy_matvec_data(&mv_dat);
-                safe_free(diagonal);
-        } else {
-                fprintf(stderr, "Error @%s: Wrong o_dat.nr_bonds_opt = %d.\n",
-                        __func__, o_dat.specs.nr_bonds_opt);
-                exit(EXIT_FAILURE);
-        }
+        start_timing(0);
+        sparse_eigensolve(o_dat.msiteObj.blocks.tel, &info.energy, size, 
+                          DAVIDSON_MAX_VECS, DAVIDSON_KEEP_DEFLATE, 
+                          reg->davidson_rtl, reg->davidson_max_its, 
+                          diagonal, matvecT3NS, &mv_dat, "D");
+        timings[heff] += stop_timing(0);
+        destroy_Heffdata(&mv_dat);
+        safe_free(diagonal);
 
         start_timing(0);
         /* same noise as CheMPS2 */

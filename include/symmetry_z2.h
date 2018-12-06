@@ -53,8 +53,6 @@ double Z2_prefactor_bUpdate(int (*symv)[3], int uCase);
 
 double Z2_prefactor_mirror_coupling(const int * symv);
 
-double Z2_prefactor_DMRGmatvec(const int * symv);
-
 double Z2_prefactor_add_P_operator(int (*symv)[3], int isleft);
 
-double Z2_prefactor_combine_MPOs(int (*symv)[3], int * symvMPO);
+double Z2_prefactor_combine_MPOs(int (*symv)[3], int * symvMPO, int isdmrg);

@@ -172,25 +172,6 @@ double Z2_prefactor_mirror_coupling(const int * symv)
         return (symv[0] + symv[1] * symv[2]) % 2 ? -1 : 1;
 }
 
-double Z2_prefactor_DMRGmatvec(const int * symv)
-{
-        /*
-         * indexes of tens are 
-         *     ket(alpha) ket(i) ket(j) ket(gamma)*
-         * indexes of left operator:
-         *     bra(alpha) bra(i) MPO1* ket(i)* ket(alpha)*
-         * indexes of right operator:
-         *     bra(j) bra(gamma)* MPO2 ket(gamma) ket(j)*
-         * fusion of two operators:
-         *     MPO1 MPO2*
-         * 
-         * So: bra(alpha) bra(i) MPO1* bra(j) bra(gamma)* MPO2 MPO1 MPO2*   *    (-1)^|ket(gamma)|
-         *  =  bra(alpha) bra(i) bra(j) bra(gamma)* * (-1)^(|ket(gamma)|+|MPO1||bra(beta)|)
-         *  =  bra(alpha) bra(i) bra(j) bra(gamma)* * (-1)^(|ket(gamma)|+|bra(beta)|+|ket(bet)||bra(bet)|)
-         */
-        return (symv[2] * symv[8] + symv[11] + symv[2]) % 2 ? -1 : 1;
-}
-
 double Z2_prefactor_add_P_operator(int (*symv)[3], int isleft)
 {
         /* For left:
@@ -239,10 +220,9 @@ double Z2_prefactor_add_P_operator(int (*symv)[3], int isleft)
                 return (symv[1][2] + symv[1][0]) % 2 ? -1 : 1;
 }
 
-double Z2_prefactor_combine_MPOs(int (*symv)[3], int * symvMPO)
+double Z2_prefactor_combine_MPOs(int (*symv)[3], int * symvMPO, int isdmrg)
 {
-        /*
-         * We have as coupling:
+        /* We have as coupling:
          * bra(alpha) MPO(alpha)* ket(alpha)* | bra(beta) MPO(beta)* ket(beta)* | 
          * ket(alpha) ket(beta) ket(gamma)* | bra(gamma)* MPO(gamma) ket(gamma) | 
          * MPO(alpha) MPO(beta) MPO(gamma)*
@@ -251,6 +231,10 @@ double Z2_prefactor_combine_MPOs(int (*symv)[3], int * symvMPO)
          * bra(alpha) bra(beta) bra(gamma)
          * with sign: ket(beta)MPO(alpha) + ket(gamma) + MPO(gamma) * bra(gamma)
          */
-        return (symv[1][1] * symvMPO[0] + symv[1][2] + symv[0][2] * symvMPO[2]) 
-                % 2 ? -1 : 1;
+        if (isdmrg) {
+                return (symv[1][0] + symv[0][0] * symvMPO[1]) % 2 ? -1 : 1;
+        } else {
+                return (symv[1][1] * symvMPO[0] + symv[1][2] + symv[0][2] * symvMPO[2]) 
+                        % 2 ? -1 : 1;
+        }
 }

@@ -154,9 +154,6 @@ double prefactor_pUpdate(int ** irrep_arr, int is_left,
 double prefactor_mirror_coupling(int ** irrep_arr, 
                                  const enum symmetrygroup * sgs, int nrsy);
 
-double prefactor_DMRGmatvec(int ** irrep_arr, int * MPO, 
-                            const enum symmetrygroup * sgs, int nrsy);
-
 double prefactor_bUpdate(int * const (*irrep_arr)[3], int updateCase,
                          const enum symmetrygroup * sgs, int nrsy);
 
@@ -164,7 +161,7 @@ double prefactor_add_P_operator(int * const (*irreps)[3], int isleft,
                                 const enum symmetrygroup * sgs, int nrsy);
 
 double prefactor_combine_MPOs(int * const (*irreps)[3], int * const *irrMPO, 
-                              const enum symmetrygroup * sgs, int nrsy);
+                              const enum symmetrygroup * sgs, int nrsy, int isdmrg);
 
 int need_multiplicity(int nrSyms, const enum symmetrygroup * sgs);
 

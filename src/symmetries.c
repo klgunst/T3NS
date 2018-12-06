@@ -408,30 +408,6 @@ double prefactor_mirror_coupling(int ** irrep_arr,
         return prefactor;
 }
 
-double prefactor_DMRGmatvec(int ** irrep_arr, int * MPO, 
-                            const enum symmetrygroup * sgs, int nrsy)
-{
-        int symvalues[12];
-        double prefactor = 1;
-        for (int i = 0; i < nrsy; ++i) {
-                switch(sgs[i]) {
-                case Z2 :
-                        for (int j = 0; j < 12; ++j)
-                                symvalues[j] = irrep_arr[j][i];
-                        prefactor *= Z2_prefactor_DMRGmatvec(symvalues);
-                        break;
-                case SU2 :
-                        for (int j = 0; j < 12; ++j)
-                                symvalues[j] = irrep_arr[j][i];
-                        prefactor *= SU2_prefactor_DMRGmatvec(symvalues, MPO[i]);
-                        break;
-                default :
-                        break;
-                }
-        }
-        return prefactor;
-}
-
 double prefactor_bUpdate(int * const (*irrep_arr)[3], int updateCase,
                          const enum symmetrygroup * sgs, int nrsy)
 {
@@ -484,7 +460,7 @@ double prefactor_add_P_operator(int * const (*irreps)[3], int isleft,
 }
 
 double prefactor_combine_MPOs(int * const (*irreps)[3], int * const *irrMPO, 
-                              const enum symmetrygroup * sgs, int nrsy)
+                              const enum symmetrygroup * sgs, int nrsy, int isdmrg)
 {
         int symvalues[2][3];
         int symvaluesMPO[3];
@@ -495,19 +471,19 @@ double prefactor_combine_MPOs(int * const (*irreps)[3], int * const *irrMPO,
                         for (int j = 0; j < 2; ++j)
                                 for (int k = 0; k < 3; ++k)
                                         symvalues[j][k] = (irreps[j][k])[i];
-                        for (int k = 0; k < 3; ++k)
+                        for (int k = 0; k < (isdmrg ? 2 : 3); ++k)
                                 symvaluesMPO[k] = (irrMPO[k])[i];
 
-                        prefactor *= Z2_prefactor_combine_MPOs(symvalues, symvaluesMPO);
+                        prefactor *= Z2_prefactor_combine_MPOs(symvalues, symvaluesMPO, isdmrg);
                         break;
                 case SU2 :
                         for (int j = 0; j < 2; ++j)
                                 for (int k = 0; k < 3; ++k)
                                         symvalues[j][k] = (irreps[j][k])[i];
-                        for (int k = 0; k < 3; ++k)
+                        for (int k = 0; k < (isdmrg ? 2 : 3); ++k)
                                 symvaluesMPO[k] = (irrMPO[k])[i];
 
-                        prefactor *= SU2_prefactor_combine_MPOs(symvalues, symvaluesMPO);
+                        prefactor *= SU2_prefactor_combine_MPOs(symvalues, symvaluesMPO, isdmrg);
                         break;
                 case U1 :
                 default :

@@ -22,9 +22,14 @@ static void initialize_program(struct siteTensor **T3NS,
                 {Z2,U1,SU2},
                 {Z2,U1,SU2, D2h}
         };
-        bookie.target_state = tstate[testnr];
         bookie.nrSyms = nrsyms[testnr];
-        bookie.sgs = sgs[testnr];
+        bookie.target_state = safe_malloc(bookie.nrSyms, int);
+        bookie.sgs = safe_malloc(bookie.nrSyms, enum symmetrygroup);
+        for (int i = 0; i < bookie.nrSyms; ++i) { 
+                bookie.target_state[i] = tstate[testnr][i];
+                bookie.sgs[i] = sgs[testnr][i];
+        }
+
         make_network("${CMAKE_SOURCE_DIR}/tests/networks/10_T3NS.netw");
         readinteraction("${CMAKE_SOURCE_DIR}/tests/fcidumps/N2.STO3G.FCIDUMP");
         create_list_of_symsecs(scheme->regimes[0].minD, 1);
@@ -50,6 +55,7 @@ static void destroy_all_rops(struct rOperators **rops)
 static void cleanup_before_exit(struct siteTensor **T3NS, 
                                 struct rOperators **rops)
 {
+        destroy_bookkeeper();
         destroy_network();
         destroy_T3NS(T3NS);
         destroy_all_rops(rops);

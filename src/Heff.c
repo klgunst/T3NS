@@ -2,10 +2,10 @@
 #include <stdio.h>
 #include <omp.h>
 
-#ifdef DEBUG
-#include <sys/time.h>
-#include <math.h>
-#include <time.h>
+#ifdef T3NS_MKL
+#include "mkl.h"
+#else
+#include <cblas.h>
 #endif
 
 #include "Heff.h"
@@ -14,1053 +14,1104 @@
 #include "debug.h"
 #include "bookkeeper.h"
 #include "sort.h"
-#include "lapack.h"
 #include "network.h"
 #include "hamiltonian.h"
 #include "instructions.h"
-/* ========================================================================== */
-/* ==================== DECLARATION STATIC FUNCTIONS ======================== */
-/* ========================================================================== */
-
-static inline void find_indexes(QN_TYPE qn, const int * const maxdims, int * indexes);
-
-static void makeoldsbmappingDMRG(int *** const qnumbersarray, const struct siteTensor * const tens, 
-    int ** const nr_oldsb, int *** const oldsb_ar, const int internaldim);
-
-static void makeMPOcombosDMRG(int ***nrMPOcombos, int ****MPOs, int ***qnumbersarray, 
-    const int internaldim, const int MPOdim);
-
-static void adaptMPOcombos(int ** nrMPOcombos, int *** MPOs, const int * const MPOinstr, 
-    const int nrMPOinstr, const int dimint, const int * const dimintarr);
-
-static void makeqnumbersarr_from_operator(int **** const qnumbersarray, const struct rOperators * 
-    const Operator, const int internaldim);
-
-static void destroyqnumbersarr(int **** const qnumbersarray, const int internaldim);
-
-static double * make_diagonal_DMRG(struct matvec_data * const data);
-
-static void make_qnBdatas(struct T3NSdata * const data);
-
-static void order_qnB_arr(QN_TYPE ** const array, const int el);
-
-static void make_qnB_arr(struct T3NSdata * const data, const int internaldims[3], 
-    int *** qnumberarray[3]);
-
-static QN_TYPE * make_helperarray(const int nr, const QN_TYPE * const array, const QN_TYPE mod, 
-    int ** const lastid);
-
-static int find_next_old(const int n, int indices_old[n], const int internaldims[n], 
-    int ** qnumberarray[n], const QN_TYPE * const helperarr, const int * const lastid, int * const 
-    loc, const int helperels, int * const nrMPO, int ** const MPO, const int hssdim);
-
-static int find_in_helperarray(const QN_TYPE value, const QN_TYPE * const arr, int * const loc, 
-    const int n);
-
-static int find_next_index(int * const id, const int dim, int ** qnumberarray);
-
-static void count_or_make_MPOcombos(int * const nrMPOs, int ** const MPO, const int n, 
-    int * MPOarr[n], const int hssdim);
 
 #ifdef DEBUG
-static void printMPO(const struct T3NSdata * const data);
-
-static void print_blocktoblock(const struct siteTensor * const tens, 
-                               int * const nr_oldsb, int ** const oldsb_ar, 
-                               int ** const nrMPOcombos, int *** const MPOs, 
-                               int * const MPOinstr, const int nrMPOinstr, 
-                               const int internaldim, struct symsecs * 
-                               const internalss);
-
-static void check_diagonal(void * const data, double * diagonal, const int isdmrg);
+#include <sys/time.h>
+#include <math.h>
+#include <time.h>
 #endif
-
-/* ========================================================================== */
-
-void matvecDMRG(double * vec, double * result, void * vdata)
-{
-  /* original tens is a siteTensor with
-   *   The indices array is given by :
-   *    ---[ket(alpha), ket(i), ket(j), ket(gamma)]
-   *   The coupling array is given by :
-   *    ---[ket(alpha), ket(i), ket(beta)*,
-   *         ket(beta), ket(j), ket(gamma)*]
-   *   The qnumberbonds array is given by :
-   *    ---[ket(alpha), ket(i), ket(beta),    == oldqn[0]
-   *         ket(beta), ket(j), ket(gamma)]   == oldqn[1]
-   * 
-   * resulting tens is a siteTensor with
-   *   The indices array is given by :
-   *    ---[bra(alpha), bra(i), bra(j), bra(gamma)]
-   *   The coupling array is given by :
-   *    ---[bra(alpha), bra(i), bra(beta)*,
-   *         bra(beta), bra(j), bra(gamma)*]
-   *   The qnumberbonds array is given by :
-   *    ---[bra(alpha), bra(i), bra(beta),    == newqn[0]
-   *         bra(beta), bra(j), bra(gamma)]   == newqn[1]
-   * 
-   * Operator 1 is a left rOperators with
-   *   The indices array is given by : 
-   *    ---[bra(alpha), bra(i), bra(beta), ket(alpha), ket(i), ket(beta), MPO]
-   *   The coupling array is given by :
-   *    ---[bra(alpha), bra(i) , bra(beta)*,
-   *         bra(beta) , MPO*   , ket(beta)*,
-   *         ket(beta) , ket(i)*, ket(alpha)*]
-   *   The qnumberbonds array is given by :
-   *    ---[bra(alpha), bra(i)   , bra(beta),  == newqn[0]
-   *         ket(alpha), ket(i)   , ket(beta),  == oldqn[0]
-   *         bra(beta) , ket(beta), MPO     ]
-   *
-   *   The indices array is given by : 
-   *    ---[bra(alpha), bra(i), bra(beta), ket(alpha), ket(i), ket(beta), MPO]
-   *   The coupling array is given by :
-   *    ---[bra(beta) , bra(j) , bra(gamma)*,
-   *         bra(beta)*, MPO*   , ket(beta),
-   *         ket(gamma), ket(j)*, ket(beta)*]
-   *   The qnumberbonds array is given by :
-   *    ---[bra(beta), bra(j)    , bra(gamma),  == newqn[1]
-   *         ket(beta), ket(j)    , ket(gamma),  == oldqn[1]
-   *         bra(beta), ket(beta), MPO     ]
-   */
-
-  /* NOTE actually i could just store N and M for every block in the siteObject instead of 
-   * calculating Nnew, Nold, Mnew and Mold every time */
-  const struct matvec_data * const data = vdata;
-  const struct siteTensor tens = data->siteObject;
-  const struct rOperators * const Operators = data->Operators;
-  const QN_TYPE innerdimsq = data->maxdims[2] * data->maxdims[2];
-  int indexes[12];
-  int * irreparr[12];
-  struct symsecs MPOss;
-  get_hamiltoniansymsecs(&MPOss, 0);
-
-  /* for dgemm */
-  const double ONE   = 1;
-  const double ZERO  = 0;
-  const char TRANS   = 'T';
-  const char NOTRANS = 'N';
-
-  int new_sb;
-  int i;
-  for (i = 0; i < tens.blocks.beginblock[tens.nrblocks]; ++i) result[i] = 0;
-
-  /* looping over all new symmetry blocks */
-#pragma omp parallel for schedule(dynamic) default(none) shared(vec, result, bookie, MPOss) \
-  private(indexes, irreparr, new_sb, i)
-  for (new_sb = 0; new_sb < tens.nrblocks; ++new_sb)
-  {
-    const QN_TYPE * const newqn  = &tens.qnumbers[new_sb * tens.nrsites];
-    EL_TYPE * const newBlock     = &result[tens.blocks.beginblock[new_sb]];
-    int Nnew, Mnew;
-
-    const int * const oldsb_ar = data->oldsb_ar[new_sb];
-    const int nr_oldsb         = data->nr_oldsb[new_sb];
-    int oldsb_in_ar;
-
-    find_indexes(newqn[0], &data->maxdims[0], &indexes[0]);
-    find_indexes(newqn[1], &data->maxdims[3], &indexes[3]);
-    assert(indexes[2] == indexes[3]); /* inner bond is equal */
-    for (i = 0; i < 6; ++i) 
-      irreparr[i] = data->symarr[i].irreps[indexes[i]];
-
-    Nnew = 1;
-    for (i = 0; i < 2; ++i) Nnew *= data->symarr[i].dims[indexes[i]];
-    Mnew = 1;
-    for (i = 4; i < 6; ++i) Mnew *= data->symarr[i].dims[indexes[i]];
-    assert(Nnew * Mnew == get_size_block(&tens.blocks, new_sb));
-
-    /* looping over all old symmetry blocks that are possible to make the transform */
-    for (oldsb_in_ar = 0; oldsb_in_ar < nr_oldsb; ++oldsb_in_ar)
-    {
-      const int old_sb = oldsb_ar[oldsb_in_ar];
-      const QN_TYPE * const oldqn    = &tens.qnumbers[old_sb * tens.nrsites];
-      EL_TYPE * const oldBlock = &vec[tens.blocks.beginblock[old_sb]];
-      int Nold, Mold;
-
-      int nrMPOcombos;
-      int *MPOs;
-      int *MPO;
-      double prefsym;
-      find_indexes(oldqn[0], &data->maxdims[0], &indexes[6]);
-      find_indexes(oldqn[1], &data->maxdims[3], &indexes[9]);
-      assert(indexes[8] == indexes[9]); /* inner bond is equal */
-      for (i = 6; i < 12; ++i) 
-        irreparr[i] = data->symarr[i - 6].irreps[indexes[i]];
-
-      Nold = 1;
-      for (i = 6; i < 8; ++i) Nold *= data->symarr[i - 6].dims[indexes[i]];
-      Mold = 1;
-      for (i = 10; i < 12; ++i) Mold *= data->symarr[i - 6].dims[indexes[i]];
-      assert(Nold * Mold == get_size_block(&tens.blocks, old_sb));
-
-      /* for each tranform of one inner bond to an other inner bond, only a fixed set of
-       * rOperators with certain MPO-bonds can be used for this! */
-      nrMPOcombos = data->nrMPOcombos[indexes[2]][indexes[8]];
-      MPOs        = data->MPOs[indexes[2]][indexes[8]]; /* in this array, the possible 
-                                                                   MPO combinations are stored */
-      for (MPO = MPOs; MPO < &MPOs[nrMPOcombos]; ++MPO)
-      {
-        /* The instructions are sorted according to MPO */
-        int * instr    = &data->instructions[2 * data->instrbegin[*MPO]];
-        int * endinstr = &data->instructions[2 * data->instrbegin[*MPO + 1]];
-        double * pref  = &data->prefactors[data->instrbegin[*MPO]];
-
-        const int dgemmorder  = Nnew * Mold * (Nold + Mnew) > Mnew * Nold *(Mold + Nnew);
-        const int workmemsize = dgemmorder ? Nnew * Mold : Nold * Mnew;
-        double * workmem;
-
-        const int hss[2] = { Operators[0].hss_of_ops[instr[0]], Operators[1].hss_of_ops[instr[1]] };
-        const QN_TYPE innerdims = indexes[2] + indexes[8] * data->maxdims[2];
-        const QN_TYPE qnofOperators[2][3] = 
-        { { newqn[0], oldqn[0], innerdims + hss[0] * innerdimsq }, 
-          { newqn[1], oldqn[1], innerdims + hss[1] * innerdimsq } };
-        int Opsb[2];
-        int * irrepMPO = MPOss.irreps[hss[1]];
-
-        if (instr == endinstr)
-          continue;
-
-        /* possible I need way less than al these irreps */
-        prefsym = prefactor_DMRGmatvec(irreparr, irrepMPO, bookie.sgs, 
-            bookie.nrSyms);
-
-        /* find the blocks */
-        Opsb[0] = qnumbersSearch(qnofOperators[0], 3, 
-            rOperators_give_qnumbers_for_hss(&Operators[0], hss[0]), 3, 
-            rOperators_give_nr_blocks_for_hss(&Operators[0], hss[0]));
-        Opsb[1] = qnumbersSearch(qnofOperators[1], 3, 
-            rOperators_give_qnumbers_for_hss(&Operators[1], hss[1]), 3, 
-            rOperators_give_nr_blocks_for_hss(&Operators[1], hss[1]));
-        assert(Opsb[0] != -1 && Opsb[1] != -1);
-
-        workmem = safe_malloc(workmemsize, double);
-        for (; instr < endinstr; instr += 2, ++pref)
-        {
-          EL_TYPE * const OpBlock[2] = 
-          { get_tel_block(&Operators[0].operators[instr[0]], Opsb[0]),
-              get_tel_block(&Operators[1].operators[instr[1]], Opsb[1]) };
-          const double totpref = *pref * prefsym;
-
-          if (OpBlock[0] == NULL || OpBlock[1] == NULL)
-            continue;
-
-          assert(get_size_block(&Operators[0].operators[instr[0]], Opsb[0]) == Nold * Nnew);
-          assert(get_size_block(&Operators[1].operators[instr[1]], Opsb[1]) == Mold * Mnew);
-          assert(Operators[0].hss_of_ops[instr[0]] == hss[0]);
-          assert(Operators[1].hss_of_ops[instr[1]] == hss[1]);
-
-          if (dgemmorder)
-          {
-            /* first way is op1 x tens --> workmem x op2.T */
-            dgemm_(&NOTRANS, &NOTRANS, &Nnew, &Mold, &Nold, &ONE, OpBlock[0], &Nnew, oldBlock, 
-                &Nold, &ZERO, workmem, &Nnew);
-            dgemm_(&NOTRANS, &TRANS, &Nnew, &Mnew, &Mold, &totpref, workmem, &Nnew, OpBlock[1], 
-                &Mnew, &ONE, newBlock, &Nnew);
-          }
-          else
-          {
-            /* second way is tens x op2.T --> op1 x workmem */
-            dgemm_(&NOTRANS, &TRANS, &Nold, &Mnew, &Mold, &ONE, oldBlock, &Nold, OpBlock[1], 
-                &Mnew, &ZERO, workmem, &Nold);
-            dgemm_(&NOTRANS, &NOTRANS, &Nnew, &Mnew, &Nold, &totpref, OpBlock[0], &Nnew, workmem, 
-                &Nold, &ONE, newBlock, &Nnew);
-          }
-        }
-        safe_free(workmem);
-      }
-    }
-  }
-}
-
-void init_matvec_data(struct matvec_data * const data, const struct rOperators Operators[], 
-    const struct siteTensor * const siteObject)
-{
-  /* ONLY FOR DMRG ATM */
-  assert(siteObject->nrsites == 2);
-  int bonds[siteObject->nrsites * 3];
-  int ***qnumbersarray;
-  int *MPOinstr;
-  int nrMPOinstr;
-  int nr_instructions;
-  int * hss_of_Ops[2] = { Operators[0].hss_of_ops, Operators[1].hss_of_ops };
-  int i;
-  const int hssdim = get_nr_hamsymsec();
-
-  data->siteObject     = *siteObject;
-  data->Operators[0] = Operators[0];
-  data->Operators[1] = Operators[1];
-
-  for (i = 0; i < siteObject->nrsites; ++i)
-    get_bonds_of_site(siteObject->sites[i], &bonds[3 * i]);
-  get_symsecs_arr(siteObject->nrsites * 3, data->symarr, bonds);
-  get_maxdims_of_bonds(data->maxdims, bonds, siteObject->nrsites * 3);
-
-  makeqnumbersarr_from_operator(&qnumbersarray, &Operators[0], data->maxdims[2]);
-  makeoldsbmappingDMRG(qnumbersarray, siteObject, &data->nr_oldsb, &data->oldsb_ar, 
-      data->maxdims[2]);
-  makeMPOcombosDMRG(&data->nrMPOcombos, &data->MPOs, qnumbersarray, data->maxdims[2], hssdim);
-  destroyqnumbersarr(&qnumbersarray, data->maxdims[2]);
-
-  fetch_merge(&data->instructions, &nr_instructions, &data->prefactors, bonds[2]);
-
-  sortinstructions_toMPOcombos(&data->instructions, &data->instrbegin, &data->prefactors, 
-      nr_instructions, 2, hss_of_Ops, &MPOinstr, &nrMPOinstr);
-
-  adaptMPOcombos(data->nrMPOcombos, data->MPOs, MPOinstr, nrMPOinstr, data->maxdims[2], NULL);
-
-  safe_free(MPOinstr);
-}
-
-void init_T3NSdata(struct T3NSdata * const data, const struct rOperators Operators[3], const struct 
-    siteTensor * const siteObject)
-{
-  int i;
-  int nrinstr, *MPOinstr, nrMPOinstr;
-  int * hss_of_Ops[3] = {Operators[0].hss_of_ops, Operators[1].hss_of_ops, Operators[2].hss_of_ops};
-
-  data->siteObject = *siteObject;
-  data->Operators[0] = Operators[0];
-  data->Operators[1] = Operators[1];
-  data->Operators[2] = Operators[2];
-  assert(Operators[0].bond_of_operator < Operators[1].bond_of_operator &&
-      Operators[1].bond_of_operator < Operators[2].bond_of_operator);
-
-  for (i = 0; i < siteObject->nrsites; ++i) {
-    int bonds[3];
-    get_bonds_of_site(siteObject->sites[i], bonds);
-    get_symsecs_arr(3, data->symarr[i], bonds);
-  }
-  get_symsecs(&data->MPOsymsec, -1);
-
-  for (i = 0; i < 3; ++i) {
-    int j;
-    const int site = rOperators_site_to_attach(&Operators[i]);
-
-    for (j = 0; j < siteObject->nrsites; ++j) {
-      if (siteObject->sites[j] == site)
-        break;
-    }
-    assert(j != siteObject->nrsites);
-    data->rOperators_on_site[i] = j;
-
-    assert(Operators[i].P_operator == is_psite(site));
-    if (!is_psite(site))
-      data->posB = j;
-  }
-
-  make_qnBdatas(data);
-  fetch_merge(&data->instructions, &nrinstr, &data->prefactors, Operators[0].bond_of_operator);
-  sortinstructions_toMPOcombos(&data->instructions, &data->instrbegin, &data->prefactors, nrinstr, 
-      3, hss_of_Ops, &MPOinstr, &nrMPOinstr);
-  adaptMPOcombos(data->nrMPOcombos, data->MPOs, MPOinstr, nrMPOinstr, data->nr_qnB, 
-      data->nr_qnBtoqnB);
-  safe_free(MPOinstr);
-}
-
-void destroy_matvec_data(struct matvec_data * const data)
-{
-  /* only for DMRG */
-  int bonds[data->siteObject.nrsites * 3];
-  int i;
-
-  for (i = 0; i < data->siteObject.nrblocks; ++i) safe_free(data->oldsb_ar[i]);
-  safe_free(data->oldsb_ar);
-  safe_free(data->nr_oldsb);
-
-  for (i = 0; i < data->symarr[2].nrSecs; ++i)
-  {
-    int j;
-    for (j = 0; j < data->symarr[2].nrSecs; ++j)
-      safe_free(data->MPOs[i][j]);
-    safe_free(data->nrMPOcombos[i]);
-    safe_free(data->MPOs[i]);
-  }
-  safe_free(data->nrMPOcombos);
-  safe_free(data->MPOs);
-
-  for (i = 0; i < data->siteObject.nrsites; ++i)
-    get_bonds_of_site(data->siteObject.sites[i], &bonds[3 * i]);
-  clean_symsecs_arr(data->siteObject.nrsites * 3, data->symarr, bonds);
-
-  safe_free(data->instructions);
-  safe_free(data->instrbegin);
-  safe_free(data->prefactors);
-}
-
-void destroy_T3NSdata(struct T3NSdata * const data)
-{
-  int i;
-  for (i = 0; i < data->siteObject.nrsites; ++i) {
-    int bonds[3];
-    get_bonds_of_site(data->siteObject.sites[i], bonds);
-    clean_symsecs_arr(3, data->symarr[i], bonds);
-  }
-  clean_symsecs(&data->MPOsymsec, -1);
-
-  for (i = 0; i < data->nr_qnB; ++i) {
-    int j;
-    for (j = 0; j < data->nr_qnBtoqnB[i]; ++j) {
-      safe_free(data->MPOs[i][j]);
-    }
-    safe_free(data->qnBtoqnB_arr[i]);
-    safe_free(data->nrMPOcombos[i]);
-    safe_free(data->MPOs[i]);
-  }
-  safe_free(data->qnB_arr);
-  safe_free(data->nr_qnBtoqnB);
-  safe_free(data->qnBtoqnB_arr);
-  safe_free(data->nrMPOcombos);
-  safe_free(data->MPOs);
-
-  safe_free(data->instructions);
-  safe_free(data->instrbegin);
-  safe_free(data->prefactors);
-}
-
-double * make_diagonal(void * const data, const int isdmrg)
-{
-  double * res;
-  if (isdmrg)
-    res = make_diagonal_DMRG(data);
-  else 
-    res = make_diagonal_T3NS(data);
 
 #ifdef DEBUG
-  check_diagonal(data, res, isdmrg);
-#endif
-  return res;
-}
-
-/* ========================================================================== */
-/* ===================== DEFINITION STATIC FUNCTIONS ======================== */
-/* ========================================================================== */
-
-static inline void find_indexes(QN_TYPE qn, const int * const maxdims, int * indexes)
+static void printMPO(const struct Heffdata * const data)
 {
-  int i;
-  for (i = 0; i < 2; ++i)
-  {
-    indexes[i] = qn % maxdims[i];
-    qn           = qn / maxdims[i];
-  }
-  indexes[2] = qn;
-  assert(qn < maxdims[2]);
-}
+        print_siteTensor(&data->siteObject);
 
-static void makeoldsbmappingDMRG(int *** const qnumbersarray, const struct siteTensor * const tens, 
-    int ** const nr_oldsb, int *** const oldsb_ar, const int internaldim)
-{
-  int block;
-  int * interindex = safe_malloc(tens->nrblocks, int);
-  (*nr_oldsb) = safe_malloc(tens->nrblocks, int);
-  (*oldsb_ar) = safe_malloc(tens->nrblocks, int*);
+        const int dimhss = data->MPOsymsec.nrSecs;
+        for (int newqnB_id = 0; newqnB_id < data->nr_qnB; ++newqnB_id) {
 
-  for (block = 0; block < tens->nrblocks; ++block) 
-    interindex[block] = tens->qnumbers[2 * block + 1] % internaldim;
-  for (block = 0; block < tens->nrblocks; ++block)
-  {
-    int block2;
-    (*nr_oldsb)[block] = 0;
-    (*oldsb_ar)[block] = safe_malloc(tens->nrblocks, int);
-    for (block2 = 0; block2 < tens->nrblocks; ++block2)
-      if (qnumbersarray[interindex[block]][interindex[block2]][0] != 0)
-        (*oldsb_ar)[block][(*nr_oldsb)[block]++] = block2;
-    (*oldsb_ar)[block] = realloc((*oldsb_ar)[block], (*nr_oldsb)[block] * sizeof(int));
-  }
-  safe_free(interindex);
-}
+                const QN_TYPE newqnB = data->qnB_arr[newqnB_id];
+                const int nr_qnBtoqnB = data->nr_qnBtoqnB[newqnB_id];
+                const QN_TYPE * const qnBtoqnB_arr = data->qnBtoqnB_arr[newqnB_id];
 
-static void makeMPOcombosDMRG(int ***nrMPOcombos, int ****MPOs, int ***qnumbersarray, 
-    const int internaldim, const int MPOdim)
-{
-  int i;
-  (*nrMPOcombos) = safe_malloc(internaldim, int*);
-  (*MPOs)        = safe_malloc(internaldim, int**);
-  for (i = 0; i < internaldim; ++i) {
-    int j;
-    if (qnumbersarray[i] == NULL) {
-      (*nrMPOcombos)[i] = NULL;
-      (*MPOs)[i]        = NULL;
-      continue;
-    }
-    (*nrMPOcombos)[i] = safe_malloc(internaldim, int);
-    (*MPOs)[i]        = safe_malloc(internaldim, int*);
-    for (j = 0; j < internaldim; ++j) {
-      int k;
-      if (qnumbersarray[i][j] == NULL) {
-        (*nrMPOcombos)[i][j] = 0;
-        (*MPOs)[i][j]        = NULL;
-        continue;
-      }
-      (*nrMPOcombos)[i][j] = qnumbersarray[i][j][0];
-      (*MPOs)[i][j]        = safe_malloc((*nrMPOcombos)[i][j], int);
-      for (k = 0; k < (*nrMPOcombos)[i][j]; ++k) {
-        /* MPOindex of left bond + MPOdim * MPOindex of right bond
-         * We did innerbond X innerbond_inverse ==> MPObond for the qnumbersarray.
-         *
-         * With the way we choose the direction of the different bonds,
-         * for left renormalized ops this will be:
-         * new innerbond X old innerbond inverse = MPObondleft
-         * and for right renormalized ops this will be
-         * old innerbond X new innerbond invers = MPObondright
-         *
-         * Furthermore, MPObondleft X MPObondright should give the trivial irrep
-         * Thus MPObondleft and MPObondright are each others inverse.
-         *
-         * in MPOs and nrMPOcombos they are ordered like 
-         * MPOs[new inner][old inner].
-         * Thus  qnumbersarray[i][j] corresponds with the MPObondlefts.
-         */
-        int MPOindex = qnumbersarray[i][j][k + 1];
-        (*MPOs)[i][j][k] = MPOindex + hermitian_symsec(MPOindex) * MPOdim;
-      }
-    }
-  }
-}
+                for (int oldqnB_id = 0; oldqnB_id < nr_qnBtoqnB; ++oldqnB_id) {
+                        const QN_TYPE oldqnB = qnBtoqnB_arr[oldqnB_id];
+                        const int nrMPOcombos = data->nrMPOcombos[newqnB_id][oldqnB_id];
+                        const int * const MPOs = data->MPOs[newqnB_id][oldqnB_id];
+                        printf("%ld ---> %ld\n", oldqnB, newqnB);
+                        for (int i = 0; i < nrMPOcombos; ++i) {
+                                int MPOind = MPOs[i];
+                                int MPOinds[3];
+                                char buffer[255];
+                                MPOinds[0] = MPOind % dimhss;
+                                MPOind = MPOind / dimhss;
+                                MPOinds[1] = MPOind % dimhss;
+                                MPOind = MPOind / dimhss;
+                                MPOinds[2] = MPOind % dimhss;
 
-static void adaptMPOcombos(int ** nrMPOcombos, int *** MPOs, const int * const MPOinstr, 
-    const int nrMPOinstr, const int dimint, const int * const dimintarr)
-{
-  int i;
-  for (i = 0; i < dimint; ++i)
-  {
-    int j;
-    const int dimint2 = dimintarr == NULL ? dimint : dimintarr[i];
-    for (j = 0; j < dimint2; ++j)
-    {
-      int k;
-      int cnt = 0;
-      for (k = 0; k < nrMPOcombos[i][j]; ++k)
-      {
-        const int position = search(MPOs[i][j][k], MPOinstr, nrMPOinstr);
-        if (position == -1) /* the MPO combo not found in the instructions, so will not occur */
-          continue;
-        MPOs[i][j][cnt] = position;
-        ++cnt;
-      }
-      nrMPOcombos[i][j] = cnt;
-      MPOs[i][j] = realloc(MPOs[i][j], cnt * sizeof(int));
-    }
-  }
-}
-
-static void makeqnumbersarr_from_operator(int **** const qnumbersarray, const struct rOperators * 
-    const Operator, const int internaldim)
-{
-  int i, j;
-  const int couplnr = rOperators_give_nr_of_couplings(Operator);
-  QN_TYPE prevqn = -1;
-  int currhss = 0;
-
-  *qnumbersarray = safe_malloc(internaldim ,int **);
-  for (i = 0; i < internaldim; ++i)
-  {
-    (*qnumbersarray)[i] = safe_malloc(internaldim ,int *);
-    for (j = 0; j < internaldim; ++j)
-      (*qnumbersarray)[i][j] = safe_calloc(1, int);
-  }
-
-  for (i = 0; i < Operator->begin_blocks_of_hss[Operator->nrhss]; ++i)
-  {
-    const QN_TYPE currqn = Operator->qnumbers[couplnr * i + couplnr - 1];
-    QN_TYPE temp;
-    int braindex, ketindex;
-    while (i >= Operator->begin_blocks_of_hss[currhss + 1]) ++currhss;
-
-    if (prevqn == currqn)
-      continue;
-    braindex = currqn % internaldim;
-    temp = currqn / internaldim;
-    ketindex = temp % internaldim;
-    assert(temp / internaldim == currhss);
-    ++(*qnumbersarray)[braindex][ketindex][0];
-
-    prevqn = currqn;
-  }
-
-  for (i = 0; i < internaldim; ++i)
-  {
-    for (j = 0; j < internaldim; ++j)
-    {
-      (*qnumbersarray)[i][j] = realloc((*qnumbersarray)[i][j], 
-          ((*qnumbersarray)[i][j][0] + 1) * sizeof(int));
-      (*qnumbersarray)[i][j][0] = 0;
-    }
-  }
-
-  prevqn = -1;
-  currhss = 0;
-  for (i = 0; i < Operator->begin_blocks_of_hss[Operator->nrhss]; ++i)
-  {
-    const QN_TYPE currqn = Operator->qnumbers[couplnr * i + couplnr - 1];
-    QN_TYPE temp;
-    int braindex, ketindex;
-    while (i >= Operator->begin_blocks_of_hss[currhss + 1]) ++currhss;
-
-    if (prevqn == currqn)
-      continue;
-
-    braindex = currqn % internaldim;
-    temp = currqn / internaldim;
-    ketindex = temp % internaldim;
-    assert(temp / internaldim == currhss);
-    /* This order is correct */
-    ++(*qnumbersarray)[braindex][ketindex][0];
-    (*qnumbersarray)[braindex][ketindex][(*qnumbersarray)[braindex][ketindex][0]] = currhss;
-
-    prevqn = currqn;
-  }
-}
-
-static void destroyqnumbersarr(int **** const qnumbersarray, const int internaldim)
-{
-  int i, j;
-  for (i = 0; i < internaldim; ++i)
-  {
-    for (j = 0; j < internaldim; ++j)
-      safe_free((*qnumbersarray)[i][j]);
-    safe_free((*qnumbersarray)[i]);
-  }
-  safe_free(*qnumbersarray);
-}
-
-static double * make_diagonal_DMRG(struct matvec_data * const data)
-{
-  struct siteTensor tens = data->siteObject;
-  double * result = safe_calloc(tens.blocks.beginblock[tens.nrblocks], double);
-  int block;
-  const char TRANS = 'T';
-  const char NOTRANS = 'N';
-  const int ONE = 1;
-  const double D_ONE = 1;
-
-  struct symsecs MPOss;
-  get_hamiltoniansymsecs(&MPOss, 0);
-
-  const QN_TYPE innerdimsq = data->maxdims[2] * data->maxdims[2];
-  assert(tens.nrsites == 2);
-
-  for (block = 0; block < tens.nrblocks; ++block)
-  {
-    double * const resblock = &result[tens.blocks.beginblock[block]];
-    int indexes[6];
-    int * irreparr[12];
-    int i;
-    int M, N;
-    int nrMPOcombos;
-    int *MPOs;
-    int *MPO;
-    double prefsym;
-
-    const QN_TYPE * const qn = &tens.qnumbers[block * 2];
-    find_indexes(qn[0], &data->maxdims[0], &indexes[0]);
-    find_indexes(qn[1], &data->maxdims[3], &indexes[3]);
-
-    M = data->symarr[0].dims[indexes[0]] * data->symarr[1].dims[indexes[1]];
-    N = data->symarr[4].dims[indexes[4]] * data->symarr[5].dims[indexes[5]];
-
-    assert(M * N == get_size_block(&tens.blocks, block));
-
-    for (i = 0; i < data->nr_oldsb[block]; ++i) 
-      if (data->oldsb_ar[block][i] == block) break;
-    assert(i != data->nr_oldsb[block]);
-    if (i == data->nr_oldsb[block]) continue; 
-    /* No possibility for diagonal elements in this block. Should probably not occur */
-
-    for (i = 0; i < 6; ++i) 
-    {
-      irreparr[i] = data->symarr[i].irreps[indexes[i]];
-      irreparr[i + 6] = irreparr[i];
-    }
-
-
-    /* Loop over all MPO combos that can give diagonal elements. */
-    nrMPOcombos = data->nrMPOcombos[indexes[2]][indexes[2]];
-    MPOs        = data->MPOs[indexes[2]][indexes[2]];
-    for (MPO = MPOs; MPO < &MPOs[nrMPOcombos]; ++MPO)
-    {
-      /* The instructions are sorted according to MPO */
-      int * instr    = &data->instructions[2 * data->instrbegin[*MPO]];
-      int * endinstr = &data->instructions[2 * data->instrbegin[*MPO + 1]];
-      double * pref  = &data->prefactors[data->instrbegin[*MPO]];
-      const int Mp1 = M + 1;
-      const int Np1 = N + 1;
-
-      const int hss[2] = { data->Operators[0].hss_of_ops[instr[0]], 
-        data->Operators[1].hss_of_ops[instr[1]] };
-      const QN_TYPE innerdims = indexes[2]  * (1 + data->maxdims[2]);
-      const QN_TYPE qnofOperators[2][3] = 
-      { { qn[0], qn[0], innerdims + hss[0] * innerdimsq }, 
-        { qn[1], qn[1], innerdims + hss[1] * innerdimsq } };
-
-      int * irrepMPO = MPOss.irreps[hss[1]];
-      int Opsb[2];
-
-      if (instr == endinstr)
-        continue;
-
-      /* possible I need way less than al these irreps */
-      prefsym = prefactor_DMRGmatvec(irreparr, irrepMPO,bookie.sgs, bookie.nrSyms);
-
-      /* find the blocks */
-      Opsb[0] = qnumbersSearch(qnofOperators[0], 3, 
-          rOperators_give_qnumbers_for_hss(&data->Operators[0], hss[0]), 3, 
-          rOperators_give_nr_blocks_for_hss(&data->Operators[0], hss[0]));
-      Opsb[1] = qnumbersSearch(qnofOperators[1], 3, 
-          rOperators_give_qnumbers_for_hss(&data->Operators[1], hss[1]), 3, 
-          rOperators_give_nr_blocks_for_hss(&data->Operators[1], hss[1]));
-      assert(Opsb[0] != -1 && Opsb[1] != -1);
-
-      for (; instr < endinstr; instr += 2, ++pref)
-      {
-        EL_TYPE * const OpBlock[2] = 
-        { get_tel_block(&data->Operators[0].operators[instr[0]], Opsb[0]),
-          get_tel_block(&data->Operators[1].operators[instr[1]], Opsb[1]) };
-        const double totpref = *pref * prefsym;
-
-        if (OpBlock[0] == NULL || OpBlock[1] == NULL)
-          continue;
-
-        assert(get_size_block(&data->Operators[0].operators[instr[0]], Opsb[0]) == M*M);
-        assert(get_size_block(&data->Operators[1].operators[instr[1]], Opsb[1]) == N*N);
-        assert(data->Operators[0].hss_of_ops[instr[0]] == hss[0]);
-        assert(data->Operators[1].hss_of_ops[instr[1]] == hss[1]);
-
-        dgemm_(&TRANS, &NOTRANS, &M, &N, &ONE, &totpref, OpBlock[0], &Mp1, OpBlock[1], 
-            &Np1, &D_ONE, resblock, &M);
-      }
-    }
-  }
-  return result;
-}
-
-static void make_qnBdatas(struct T3NSdata * const data)
-{
-  int i;
-  int ***qnumbersarray[3];
-  const int internaldims[3] = {data->symarr[data->posB][0].nrSecs, 
-    data->symarr[data->posB][1].nrSecs, data->symarr[data->posB][2].nrSecs};
-
-  data->qnB_arr = safe_malloc(data->siteObject.nrblocks, QN_TYPE);
-  for (i = 0; i < data->siteObject.nrblocks; ++i) 
-    data->qnB_arr[i] = data->siteObject.qnumbers[i * data->siteObject.nrsites + data->posB];
-
-  order_qnB_arr(&data->qnB_arr, data->siteObject.nrblocks);
-
-  data->nr_qnB = 1;
-  for (i = 1; i < data->siteObject.nrblocks; ++i) {
-    if (data->qnB_arr[i] != data->qnB_arr[data->nr_qnB - 1]) {
-      data->qnB_arr[data->nr_qnB] = data->qnB_arr[i];
-      ++data->nr_qnB;
-    }
-  }
-  data->qnB_arr = realloc(data->qnB_arr, data->nr_qnB * sizeof(QN_TYPE));
-  makeqnumbersarr_from_operator(&qnumbersarray[0], &data->Operators[0], internaldims[0]);
-  makeqnumbersarr_from_operator(&qnumbersarray[1], &data->Operators[1], internaldims[1]);
-  makeqnumbersarr_from_operator(&qnumbersarray[2], &data->Operators[2], internaldims[2]);
-
-  make_qnB_arr(data, internaldims, qnumbersarray);
-
-  destroyqnumbersarr(&qnumbersarray[0], internaldims[0]);
-  destroyqnumbersarr(&qnumbersarray[1], internaldims[1]);
-  destroyqnumbersarr(&qnumbersarray[2], internaldims[2]);
-}
-
-static void order_qnB_arr(QN_TYPE ** const array, const int el)
-{
-  int * idx = qnumbersSort(*array, 1, el);
-  int i;
-  QN_TYPE * temp = safe_malloc(el, QN_TYPE);
-  for (i = 0; i < el; ++i) temp[i] = (*array)[idx[i]];
-  safe_free(*array);
-  safe_free(idx);
-  *array = temp;
-}
-
-static void make_qnB_arr(struct T3NSdata * const data, const int internaldims[3], 
-    int *** qnumberarray[3])
-{
-  int i;
-  const int hssdim = data->MPOsymsec.nrSecs;
-  const QN_TYPE bigdim = internaldims[0] * internaldims[1];
-  int * lastind;
-  QN_TYPE * helperarray = make_helperarray(data->nr_qnB,data->qnB_arr,bigdim,&lastind);
-
-  data->nr_qnBtoqnB = safe_calloc(data->nr_qnB, int);
-  data->qnBtoqnB_arr = safe_malloc(data->nr_qnB, QN_TYPE*);
-  data->nrMPOcombos  = safe_malloc(data->nr_qnB, int*);
-  data->MPOs         = safe_malloc(data->nr_qnB, int**);
-
-  for (i = 0; i < data->nr_qnB; ++i) {
-    int indices[3];
-    int indicesold[3] = {-1, -1, -1};
-    int loc = -1;
-    int * cnt = &data->nr_qnBtoqnB[i];
-    int ** qnumbersar[3];
-    find_indexes(data->qnB_arr[i], internaldims, indices);
-    qnumbersar[0] = qnumberarray[0][indices[0]];
-    qnumbersar[1] = qnumberarray[1][indices[1]];
-    qnumbersar[2] = qnumberarray[2][indices[2]];
-    /* initialize indices_old */
-    find_next_index(&indicesold[0], internaldims[0], qnumbersar[0]);
-    find_next_index(&indicesold[1], internaldims[1], qnumbersar[1]);
-
-    if (qnumbersar[0] == NULL || qnumbersar[1] == NULL || qnumbersar[2] == NULL) {
-      data->qnBtoqnB_arr[i] = NULL;
-      data->nrMPOcombos[i]  = NULL;
-      data->MPOs[i]         = NULL;
-      continue;
-    }
-
-    data->qnBtoqnB_arr[i] = safe_malloc(data->nr_qnB, QN_TYPE);
-    data->nrMPOcombos[i]  = safe_malloc(data->nr_qnB, int);
-    data->MPOs[i]         = safe_malloc(data->nr_qnB, int*);
-
-    *cnt = 0;
-    while (find_next_old(3, indicesold, internaldims, qnumbersar, helperarray, lastind, &loc, 
-          data->nr_qnB, &data->nrMPOcombos[i][*cnt], &data->MPOs[i][*cnt], hssdim)) {
-      if (data->nrMPOcombos[i][*cnt] != 0) {
-        data->qnBtoqnB_arr[i][*cnt] = indicesold[0] + indicesold[1] * internaldims[0] + 
-          indicesold[2] * bigdim;
-        ++(*cnt);
-        assert(*cnt <= data->nr_qnB);
-      }
-    }
-    data->qnBtoqnB_arr[i] = realloc(data->qnBtoqnB_arr[i], *cnt * sizeof(QN_TYPE));
-    data->nrMPOcombos[i]  = realloc(data->nrMPOcombos[i],  *cnt * sizeof(int));
-    data->MPOs[i]         = realloc(data->MPOs[i],         *cnt * sizeof(int*));
-  }
-  safe_free(lastind);
-  safe_free(helperarray);
-}
-
-static QN_TYPE * make_helperarray(const int nr, const QN_TYPE * const array, const QN_TYPE mod, 
-    int ** const lastid)
-{
-  QN_TYPE * const result = safe_malloc(nr, QN_TYPE);
-  int i;
-  *lastid = safe_malloc(nr, int);
-  for (i = 0; i < nr; ++i) {
-    (*lastid)[i] = array[i] / mod;
-    result[i] = array[i] % mod;
-  }
-  return result;
-}
-
-static int find_next_old(const int n, int indices_old[n], const int internaldims[n], 
-    int ** qnumberarray[n], const QN_TYPE * const helperarr, const int * const lastid, int * const 
-    loc, const int helperels, int * const nrMPO, int ** const MPO, const int hssdim)
-{
-  assert(n == 3);
-  QN_TYPE findid = indices_old[0] + indices_old[1] * internaldims[0];
-  int * MPOarr[n];
-
-  /* a next last index can be found with the current first two indices? */
-  while (!find_in_helperarray(findid, helperarr, loc, helperels)) {
-    /* no suitable last index is (anymore) found. Increment the first and second index */
-    while (1) {
-      if (!find_next_index(&indices_old[0], internaldims[0], qnumberarray[0])) { 
-        /* no suitable increment of first index is found
-         * search for an increment of the second index
-         * indices_old[0] is set on an invalid value, so search can restart */
-        if (!find_next_index(&indices_old[1], internaldims[1], qnumberarray[1]))
-          return 0; /* if no increments found for the second index, exit this function with a 0 */
-        else
-          continue; /* if a suitable increment is found for second index, do a new search for 
-                     * a suitable indices_old[0] */
-      } else { /* a suitable incrment of the first index is found */
-        break;
-      }
-    }
-    findid = indices_old[0] + indices_old[1] * internaldims[0];
-  }
-
-  /* So a valid new third index is found */
-  indices_old[2] = lastid[*loc];
-  MPOarr[0] = qnumberarray[0][indices_old[0]];
-  MPOarr[1] = qnumberarray[1][indices_old[1]];
-  MPOarr[2] = qnumberarray[2][indices_old[2]];
-  *nrMPO = 0;
-  count_or_make_MPOcombos(nrMPO, NULL, n, MPOarr, hssdim);
-  count_or_make_MPOcombos(nrMPO, MPO, n, MPOarr, hssdim);
-  return 1;
-}
-
-static int find_in_helperarray(const QN_TYPE value, const QN_TYPE * const arr, int * const loc, 
-    const int n)
-{
-  for (++*loc; *loc < n; ++*loc)
-    if (arr[*loc] == value)
-      return 1;
-  *loc = -1;
-  return 0;
-}
-
-static int find_next_index(int * const id, const int dim, int ** qnumberarray)
-{
-  for (++*id; *id < dim; ++*id) {
-    if (qnumberarray[*id] != NULL && qnumberarray[*id][0] != 0)
-      return 1;
-  }
-  *id = -1;
-  return 0;
-}
-
-static void count_or_make_MPOcombos(int * const nrMPOs, int ** const MPO, const int n, 
-    int * MPOarr[n], const int hssdim)
-{
-  int MPOs[n];
-  int i, j, k;
-  const int hssdimsq = hssdim * hssdim;
-  assert(n == 3);
-  if (MPO != NULL && *nrMPOs != 0) *MPO = safe_malloc(*nrMPOs, int);
-
-  *nrMPOs = 0;
-  if (MPOarr[2] == NULL || MPOarr[2][0] == 0) return;
-    
-  /* loop over last MPOarr */
-  for (i = 0; i < MPOarr[0][0]; ++i) {
-    MPOs[0] = MPOarr[0][1 + i];
-
-    for (j = 0; j < MPOarr[1][0]; ++j) {
-      int temp;
-      MPOs[1] = MPOarr[1][1 + j];
-      temp = MPOs[0] + MPOs[1] * hssdim;
-
-      for (k = 0; k < MPOarr[2][0]; ++k) {
-        const int MPO2 = MPOarr[2][1 + k];
-
-        MPOs[2] = hermitian_symsec(MPO2);
-        if (MPO_couples_to_singlet(3, MPOs)) {
-
-          if (MPO != NULL) {
-                  (*MPO)[*nrMPOs] = temp + MPO2 * hssdimsq;
-          }
-          ++(*nrMPOs);
+                                printf("\t");
+                                for (int j = 0; j < (data->isdmrg ? 2 : 3); ++j) {
+                                        get_sectorstring(&data->MPOsymsec, MPOinds[j], buffer);
+                                        printf("%12s%s", buffer, j != 2 - data->isdmrg ? " X " : "\n");
+                                }
+                        }
+                }
         }
-      }
-    }
-  }
 }
+
+static void check_diagonal(const struct Heffdata * data, 
+                           const double * diagonal)
+{
+        const int size = siteTensor_get_size(&data->siteObject);
+        double * vec = safe_calloc(size, double);
+        double * res = safe_calloc(size, double);
+
+        srand(time(NULL));
+        for (int i = 0; i < 20; ++i) {
+                const int ind = rand() % size;
+                vec[ind] = 1;
+                matvecT3NS(vec, res, data);
+
+                vec[ind] = 0;
+                if (fabs(diagonal[ind] - res[ind]) > 1e-9) {
+                        fprintf(stderr, "calculated diag :%f brute force diag: %f\n", diagonal[ind], res[ind]);
+                        fprintf(stderr, "Something is wrong in the construction of the diagonal!\n");
+                        exit(EXIT_FAILURE);
+                }
+        }
+        printf("OK\n");
+        safe_free(vec);
+        safe_free(res);
+}
+#endif
+
+static void find_indexes(QN_TYPE qn, const int * maxdims, int * indexes)
+{
+        for (int i = 0; i < 2; ++i) {
+                indexes[i] = qn % maxdims[i];
+                qn /= maxdims[i];
+        }
+        indexes[2] = qn;
+        assert(qn < maxdims[2]);
+}
+
+static void adaptMPOcombos(int ** nrMPOcombos, int *** MPOs, const int * MPOinstr, 
+                           int nrMPOinstr, int dimint, const int * dimintarr)
+{
+        for (int i = 0; i < dimint; ++i) {
+                const int dimint2 = dimintarr == NULL ? dimint : dimintarr[i];
+                for (int j = 0; j < dimint2; ++j) {
+                        int cnt = 0;
+                        for (int k = 0; k < nrMPOcombos[i][j]; ++k) {
+                                const int position = search(MPOs[i][j][k], 
+                                                            MPOinstr, 
+                                                            nrMPOinstr);
+                                /* the MPO combo not found in the instructions, 
+                                 * so will not occur */
+                                if (position == -1) { continue; }
+                                MPOs[i][j][cnt] = position;
+                                ++cnt;
+                        }
+                        nrMPOcombos[i][j] = cnt;
+                        MPOs[i][j] = realloc(MPOs[i][j], cnt * sizeof(int));
+                }
+        }
+}
+
+static void makeqnumbersarr_count_or_store(int **** qnumbersarray, 
+                                           const struct rOperators * Operator, 
+                                           int internaldim, int count)
+{
+        const int couplnr = rOperators_give_nr_of_couplings(Operator);
+
+        if (count) {
+                *qnumbersarray = safe_malloc(internaldim ,int **);
+                for (int i = 0; i < internaldim; ++i) {
+                        (*qnumbersarray)[i] = safe_malloc(internaldim ,int *);
+                        for (int j = 0; j < internaldim; ++j)
+                                (*qnumbersarray)[i][j] = safe_calloc(1, int);
+                }
+        } else {
+                for (int i = 0; i < internaldim; ++i) {
+                        for (int j = 0; j < internaldim; ++j) {
+                                (*qnumbersarray)[i][j] = 
+                                        realloc((*qnumbersarray)[i][j], 
+                                                ((*qnumbersarray)[i][j][0] + 1) 
+                                                * sizeof(int));
+                                (*qnumbersarray)[i][j][0] = 0;
+                        }
+                }
+        }
+
+        QN_TYPE prevqn = -1;
+        int currhss = 0;
+        for (int i = 0; i < Operator->begin_blocks_of_hss[Operator->nrhss]; ++i) {
+                const QN_TYPE currqn = Operator->qnumbers[couplnr * i + couplnr - 1];
+
+                while (i >= Operator->begin_blocks_of_hss[currhss + 1]) {
+                        ++currhss;
+                }
+                if (prevqn == currqn) { continue; }
+
+                const int braindex = currqn % internaldim;
+                const QN_TYPE temp = currqn / internaldim;
+                const int ketindex = temp % internaldim;
+
+                assert(temp / internaldim == currhss);
+                ++(*qnumbersarray)[braindex][ketindex][0];
+                if (!count) {
+                        (*qnumbersarray)[braindex][ketindex]
+                                [(*qnumbersarray)[braindex][ketindex][0]] 
+                                = currhss;
+                }
+                prevqn = currqn;
+        }
+}
+
+static void makeqnumbersarr_from_operator(int **** qnumbersarray, 
+                                          const struct rOperators * Operator, 
+                                          int internaldim)
+{
+        makeqnumbersarr_count_or_store(qnumbersarray, Operator, internaldim, 1);
+        makeqnumbersarr_count_or_store(qnumbersarray, Operator, internaldim, 0);
+}
+
+static void destroyqnumbersarr(int **** qnumbersarray, int internaldim)
+{
+        for (int i = 0; i < internaldim; ++i) {
+                for (int j = 0; j < internaldim; ++j) {
+                        safe_free((*qnumbersarray)[i][j]);
+                }
+                safe_free((*qnumbersarray)[i]);
+        }
+        safe_free(*qnumbersarray);
+}
+
+static void order_qnB_arr(QN_TYPE ** array, int el)
+{
+        int * idx = qnumbersSort(*array, 1, el);
+        QN_TYPE * temp = safe_malloc(el, QN_TYPE);
+        for (int i = 0; i < el; ++i) { temp[i] = (*array)[idx[i]]; }
+        safe_free(*array);
+        safe_free(idx);
+        *array = temp;
+}
+
+static void make_qnB_arrDMRG(struct Heffdata * const data)
+{
+        data->nr_qnBtoqnB  = safe_calloc(data->nr_qnB, int);
+        data->qnBtoqnB_arr = safe_malloc(data->nr_qnB, QN_TYPE*);
+        data->nrMPOcombos  = safe_malloc(data->nr_qnB, int*);
+        data->MPOs         = safe_malloc(data->nr_qnB, int**);
+
+        const QN_TYPE * qnumbersarr = data->Operators[1].qnumbers;
+        assert(!data->Operators[1].is_left);
+        const int N  = 
+                data->Operators[1].begin_blocks_of_hss[data->Operators[1].nrhss];
+
+        for (int i = 0; i < data->nr_qnB; ++i) {
+                data->qnBtoqnB_arr[i] = safe_malloc(data->nr_qnB, QN_TYPE);
+                data->nrMPOcombos[i]  = safe_calloc(data->nr_qnB, int);
+                data->MPOs[i]         = safe_malloc(data->nr_qnB, int*);
+
+                const QN_TYPE qn = data->qnB_arr[i];
+                int currhss = 0;
+                for (int j = 0; j < N; ++j) {
+                        while (data->Operators[1].begin_blocks_of_hss[currhss + 1] <= j) {
+                                ++currhss;
+                        }
+                        if (qnumbersarr[3 * j] == qn) {
+                                int k;
+                                for (k = 0; k < data->nr_qnBtoqnB[i]; ++k) {
+                                        if (qnumbersarr[3 * j + 1] ==
+                                            data->qnBtoqnB_arr[i][k]) { break; }
+                                }
+                                if (k == data->nr_qnBtoqnB[i]) {
+                                        data->qnBtoqnB_arr[i][k] = 
+                                                qnumbersarr[3 * j + 1];
+                                        ++data->nr_qnBtoqnB[i];
+
+                                        data->MPOs[i][k] = safe_calloc(data->Operators[1].nrhss, int);
+                                }
+                                data->MPOs[i][k][data->nrMPOcombos[i][k]] = 
+                                        hermitian_symsec(currhss) + 
+                                        currhss * data->MPOsymsec.nrSecs;
+                                ++data->nrMPOcombos[i][k];
+                                assert(currhss == qnumbersarr[3 * j + 2] / 
+                                       data->symarr[1][0].nrSecs / 
+                                       data->symarr[1][0].nrSecs);
+                       
+                        }
+                }
+                for (int j = 0; j < data->nr_qnBtoqnB[i]; ++j) {
+                        data->MPOs[i][j] = realloc(data->MPOs[i][j], 
+                                                   data->nrMPOcombos[i][j] * 
+                                                   sizeof *data->MPOs[i][j]);
+                        if (data->MPOs[i][j] == NULL) {
+                                fprintf(stderr, "%s:%d; Realloc failed.\n",
+                                        __FILE__, __LINE__);
+                                exit(EXIT_FAILURE);
+                        }
+                }
+                data->qnBtoqnB_arr[i] = realloc(data->qnBtoqnB_arr[i], 
+                                                data->nr_qnBtoqnB[i] * 
+                                                sizeof *data->qnBtoqnB_arr[i]);
+                if (data->qnBtoqnB_arr[i] == NULL) {
+                        fprintf(stderr, "%s:%d; Realloc failed.\n",
+                                __FILE__, __LINE__);
+                        exit(EXIT_FAILURE);
+                }
+                data->nrMPOcombos[i] = realloc(data->nrMPOcombos[i], 
+                                               data->nr_qnBtoqnB[i] * 
+                                               sizeof *data->nrMPOcombos[i]);
+                if (data->nrMPOcombos[i] == NULL) {
+                        fprintf(stderr, "%s:%d; Realloc failed.\n",
+                                __FILE__, __LINE__);
+                        exit(EXIT_FAILURE);
+                }
+                data->MPOs[i] = realloc(data->MPOs[i], data->nr_qnBtoqnB[i] * 
+                                        sizeof *data->MPOs[i]);
+                if (data->MPOs[i] == NULL) {
+                        fprintf(stderr, "%s:%d; Realloc failed.\n",
+                                __FILE__, __LINE__);
+                        exit(EXIT_FAILURE);
+                }
+        }
+}
+
+static int find_next_index(int * id, int dim, int ** qnumberarray)
+{
+        for (++*id; *id < dim; ++*id) {
+                if (qnumberarray[*id] != NULL && qnumberarray[*id][0] != 0) {
+                        return 1;
+                }
+        }
+        *id = -1;
+        return 0;
+}
+
+static int find_in_helperarray(QN_TYPE value, const QN_TYPE * arr,
+                               int * loc, int n)
+{
+        for (++*loc; *loc < n; ++*loc) {
+                if (arr[*loc] == value) { return 1; }
+        }
+        *loc = -1;
+        return 0;
+}
+
+static void count_or_make_MPOcombos(int * nrMPOs, int ** MPO, int n, 
+                                    int * MPOarr[n], int hssdim)
+{
+        int MPOs[n];
+        const int hssdimsq = hssdim * hssdim;
+        assert(n == 3);
+        if (MPO != NULL && *nrMPOs != 0) *MPO = safe_malloc(*nrMPOs, int);
+
+        *nrMPOs = 0;
+        if (MPOarr[2] == NULL || MPOarr[2][0] == 0) return;
+
+        /* loop over last MPOarr */
+        for (int i = 0; i < MPOarr[0][0]; ++i) {
+                MPOs[0] = MPOarr[0][1 + i];
+
+                for (int j = 0; j < MPOarr[1][0]; ++j) {
+                        MPOs[1] = MPOarr[1][1 + j];
+                        const int temp = MPOs[0] + MPOs[1] * hssdim;
+
+                        for (int k = 0; k < MPOarr[2][0]; ++k) {
+                                const int MPO2 = MPOarr[2][1 + k];
+                                MPOs[2] = hermitian_symsec(MPO2);
+
+                                if (MPO_couples_to_singlet(3, MPOs)) {
+                                        if (MPO != NULL) {
+                                                (*MPO)[*nrMPOs] = temp + MPO2 * hssdimsq;
+                                        }
+                                        ++(*nrMPOs);
+                                }
+                        }
+                }
+        }
+}
+
+static int find_next_old(int n, int * indices_old, const int * internaldims, 
+                         int ** qnumberarray[n], const QN_TYPE * helperarr, 
+                         const int * lastid, int * loc, int helperels, 
+                         int * nrMPO, int ** MPO, int hssdim)
+{
+        assert(n == 3);
+        QN_TYPE findid = indices_old[0] + indices_old[1] * internaldims[0];
+        int * MPOarr[n];
+
+        /* a next last index can be found with the current first two indices? */
+        while (!find_in_helperarray(findid, helperarr, loc, helperels)) {
+                /* no suitable last index is (anymore) found. Increment the first and second index */
+                while (1) {
+                        if (!find_next_index(&indices_old[0], internaldims[0], qnumberarray[0])) { 
+                                /* no suitable increment of first index is found
+                                 * search for an increment of the second index
+                                 * indices_old[0] is set on an invalid value, so search can restart */
+                                if (!find_next_index(&indices_old[1], internaldims[1], qnumberarray[1]))
+                                        return 0; /* if no increments found for the second index, exit this function with a 0 */
+                                else
+                                        continue; /* if a suitable increment is found for second index, do a new search for 
+                                                   * a suitable indices_old[0] */
+                        } else { /* a suitable incrment of the first index is found */
+                                break;
+                        }
+                }
+                findid = indices_old[0] + indices_old[1] * internaldims[0];
+        }
+
+        /* So a valid new third index is found */
+        indices_old[2] = lastid[*loc];
+        MPOarr[0] = qnumberarray[0][indices_old[0]];
+        MPOarr[1] = qnumberarray[1][indices_old[1]];
+        MPOarr[2] = qnumberarray[2][indices_old[2]];
+        *nrMPO = 0;
+        count_or_make_MPOcombos(nrMPO, NULL, n, MPOarr, hssdim);
+        count_or_make_MPOcombos(nrMPO, MPO, n, MPOarr, hssdim);
+        return 1;
+}
+
+static QN_TYPE * make_helperarray(const int nr, const QN_TYPE * const array, 
+                                  const QN_TYPE mod, int ** const lastid)
+{
+        QN_TYPE * const result = safe_malloc(nr, QN_TYPE);
+        *lastid = safe_malloc(nr, int);
+        for (int i = 0; i < nr; ++i) {
+                (*lastid)[i] = array[i] / mod;
+                result[i] = array[i] % mod;
+        }
+        return result;
+}
+
+static void make_qnB_arrT3NS(struct Heffdata * const data, const int * internaldims, 
+                             int **** qnumberarray)
+{
+        const int hssdim = data->MPOsymsec.nrSecs;
+        const QN_TYPE bigdim = internaldims[0] * internaldims[1];
+        int * lastind;
+        QN_TYPE * helperarray = make_helperarray(data->nr_qnB, data->qnB_arr,
+                                                 bigdim, &lastind);
+
+        data->nr_qnBtoqnB  = safe_calloc(data->nr_qnB, int);
+        data->qnBtoqnB_arr = safe_malloc(data->nr_qnB, QN_TYPE*);
+        data->nrMPOcombos  = safe_malloc(data->nr_qnB, int*);
+        data->MPOs         = safe_malloc(data->nr_qnB, int**);
+
+        for (int i = 0; i < data->nr_qnB; ++i) {
+                int indices[3];
+                int indicesold[3] = {-1, -1, -1};
+                int loc = -1;
+                int * cnt = &data->nr_qnBtoqnB[i];
+                find_indexes(data->qnB_arr[i], internaldims, indices);
+                int ** qnumbersar[3] =  {
+                        qnumberarray[0][indices[0]],
+                        qnumberarray[1][indices[1]],
+                        qnumberarray[2][indices[2]]
+                };
+
+                /* initialize indices_old */
+                find_next_index(&indicesold[0], internaldims[0], qnumbersar[0]);
+                find_next_index(&indicesold[1], internaldims[1], qnumbersar[1]);
+
+                if (qnumbersar[0] == NULL || 
+                    qnumbersar[1] == NULL || 
+                    qnumbersar[2] == NULL) {
+                        data->qnBtoqnB_arr[i] = NULL;
+                        data->nrMPOcombos[i]  = NULL;
+                        data->MPOs[i]         = NULL;
+                        continue;
+                }
+
+                data->qnBtoqnB_arr[i] = safe_malloc(data->nr_qnB, QN_TYPE);
+                data->nrMPOcombos[i]  = safe_malloc(data->nr_qnB, int);
+                data->MPOs[i]         = safe_malloc(data->nr_qnB, int*);
+
+                *cnt = 0;
+                while (find_next_old(3, indicesold, internaldims, qnumbersar, 
+                                     helperarray, lastind, &loc, data->nr_qnB, 
+                                     &data->nrMPOcombos[i][*cnt], 
+                                     &data->MPOs[i][*cnt], hssdim)) {
+
+                        if (data->nrMPOcombos[i][*cnt] != 0) {
+                                data->qnBtoqnB_arr[i][*cnt] = 
+                                        indicesold[0] + 
+                                        indicesold[1] * internaldims[0] + 
+                                        indicesold[2] * bigdim;
+                                ++(*cnt);
+                                assert(*cnt <= data->nr_qnB);
+                        }
+                }
+                data->qnBtoqnB_arr[i] = realloc(data->qnBtoqnB_arr[i], *cnt * sizeof(QN_TYPE));
+                data->nrMPOcombos[i]  = realloc(data->nrMPOcombos[i],  *cnt * sizeof(int));
+                data->MPOs[i]         = realloc(data->MPOs[i],         *cnt * sizeof(int*));
+        }
+        safe_free(lastind);
+        safe_free(helperarray);
+}
+
+static void make_qnBdatas(struct Heffdata * const data)
+{
+        int ***qnumbersarray[3];
+        const int internaldims[3] = {
+                data->symarr[data->posB][0].nrSecs, 
+                data->symarr[data->posB][1].nrSecs, 
+                data->symarr[data->posB][2].nrSecs
+        };
+
+        data->qnB_arr = safe_malloc(data->siteObject.nrblocks, QN_TYPE);
+        for (int i = 0; i < data->siteObject.nrblocks; ++i) {
+                data->qnB_arr[i] = 
+                        data->siteObject.qnumbers[i * data->siteObject.nrsites + 
+                        data->posB];
+        }
+        order_qnB_arr(&data->qnB_arr, data->siteObject.nrblocks);
+
+        data->nr_qnB = 1;
+        for (int i = 1; i < data->siteObject.nrblocks; ++i) {
+                if (data->qnB_arr[i] != data->qnB_arr[data->nr_qnB - 1]) {
+                        data->qnB_arr[data->nr_qnB] = data->qnB_arr[i];
+                        ++data->nr_qnB;
+                }
+        }
+        data->qnB_arr = realloc(data->qnB_arr, data->nr_qnB * sizeof(QN_TYPE));
+
+        if (data->isdmrg) {
+                make_qnB_arrDMRG(data);
+        } else {
+                makeqnumbersarr_from_operator(&qnumbersarray[0], &data->Operators[0], internaldims[0]);
+                makeqnumbersarr_from_operator(&qnumbersarray[1], &data->Operators[1], internaldims[1]);
+                makeqnumbersarr_from_operator(&qnumbersarray[2], &data->Operators[2], internaldims[2]);
+
+                make_qnB_arrT3NS(data, internaldims, qnumbersarray);
+
+                destroyqnumbersarr(&qnumbersarray[0], internaldims[0]);
+                destroyqnumbersarr(&qnumbersarray[1], internaldims[1]);
+                destroyqnumbersarr(&qnumbersarray[2], internaldims[2]);
+        }
+}
+
+// enum for the different types of tensors we come accross during a T3NS Heff.
+enum tensor_type {NEW, OLD, OPS1, OPS2, OPS3, WORK1, WORK2};
+
+struct indexdata {
+        int id[4][2][3];       // index of the bonds: id[SITE][NEW/OLD][BOND]
+        QN_TYPE qn[4][2];      /* the quantum numbers: qn[SITE][NEW/OLD]
+                                * qn[SITE][NEW/OLD] = id[SITE][NEW/OLD][0] + 
+                                *     id[SITE][NEW/OLD][1] * dim0 + 
+                                *     id[SITE][NEW/OLD][2] * dim0 * dim1 
+                                */
+        int idMPO[3];          // id of the MPOs.
+        int * irreps[4][2][3]; // pointers to the irreps for the @p id 's.
+        int * irrMPO[3];       // pointers to the irreps for the @p idMPO 's.
+        int dim[2][3];         // dimensions for the outer bonds for NEW/OLD.
+        int map[3];            // mapping
+
+        int qnB_id[2];         // The id of the current qnB 
+                               // (as in the data struct)
+        int sb_op[3];          // The symmetry block for the different 
+                               // rOperators.
+        EL_TYPE * tel[7];      // Pointers to the elements of the 
+                               // symmetry blocks (for each tensor_type).
+};
+
+struct contractinfo {
+        enum tensor_type tels[3];
+        CBLAS_TRANSPOSE trans[2];
+        int M;
+        int N;
+        int K;
+        int L;
+};
+
+static double calc_prefactor(const struct indexdata * idd, 
+                             const struct Heffdata * data)
+{
+        double prefactor = 1;
+        for (int i = 0; i < (data->isdmrg ? 2 : 3); ++i) {
+                if (!data->Operators[i].P_operator) { continue; }
+
+                prefactor *= 
+                        prefactor_add_P_operator(idd->irreps[data->rOperators_on_site[i]], 
+                                                 data->Operators[i].is_left, 
+                                                 bookie.sgs, bookie.nrSyms);
+        }
+
+        prefactor *= prefactor_combine_MPOs(idd->irreps[data->posB], idd->irrMPO, 
+                                            bookie.sgs, bookie.nrSyms, data->isdmrg);
+        return prefactor;
+}
+
+static void prepare_cinfo_T3NS(struct indexdata * const idd, 
+                               struct contractinfo * cinfo, 
+                               const int * order)
+{
+        int workdim[3] = {idd->dim[OLD][0], idd->dim[OLD][1], idd->dim[OLD][2]};
+        const enum tensor_type optype[3] = {OPS1, OPS2, OPS3};
+        enum tensor_type resulttel = OLD;
+
+        for (int i = 0; i < 3; ++i) {
+                cinfo[i].tels[0] = order[i] == idd->map[0] ? 
+                        optype[order[i]] : resulttel;
+                cinfo[i].tels[1] = order[i] != idd->map[0] ? 
+                        optype[order[i]] : resulttel;
+
+                cinfo[i].trans[0] = CblasNoTrans;
+                cinfo[i].trans[1] = 
+                        order[i] == idd->map[0] ? CblasNoTrans : CblasTrans;
+
+                assert(workdim[order[i]] == idd->dim[OLD][order[i]]);
+                workdim[order[i]] = idd->dim[NEW][order[i]];
+
+                cinfo[i].M = order[i] == idd->map[2] ? 
+                        workdim[idd->map[0]] * workdim[idd->map[1]] :
+                        workdim[idd->map[0]];
+
+                cinfo[i].N = order[i] == idd->map[0] ? 
+                        workdim[idd->map[1]] * workdim[idd->map[2]] :
+                        workdim[order[i]];
+
+                cinfo[i].K = idd->dim[OLD][order[i]];
+
+                cinfo[i].L = order[i] == idd->map[1] ? workdim[idd->map[2]] : 1;
+
+                assert(cinfo[i].M * cinfo[i].N * cinfo[i].L == 
+                       workdim[0] * workdim[1] * workdim[2]);
+
+                if (i != 2) {
+                        const enum tensor_type wmem = i == 0 ? WORK1 : WORK2;
+                        idd->tel[wmem] = safe_malloc(workdim[0] * workdim[1] * 
+                                                     workdim[2], EL_TYPE);
+                        cinfo[i].tels[2] = wmem;
+                        resulttel = cinfo[i].tels[2];
+                } else {
+                        cinfo[i].tels[2] = NEW;
+                }
+        }
+}
+
+static void prepare_cinfo_DMRG(struct indexdata * const idd, 
+                               struct contractinfo * cinfo, 
+                               const int * order)
+{
+        int workdim[2] = {idd->dim[OLD][0], idd->dim[OLD][1]};
+        enum tensor_type resulttel = OLD;
+
+        assert(order[0] == 0 || order[0] == 1);
+        assert(order[1] == 0 || order[1] == 1);
+
+        for (int i = 0; i < 2; ++i) {
+                cinfo[i].tels[0] = order[i] == 0 ?  OPS1 : resulttel;
+                cinfo[i].tels[1] = order[i] == 0 ?  resulttel : OPS2;
+
+                cinfo[i].trans[0] = CblasNoTrans;
+                cinfo[i].trans[1] = order[i] == 0 ? CblasNoTrans : CblasTrans;
+
+                workdim[order[i]] = idd->dim[NEW][order[i]];
+
+                cinfo[i].M = workdim[0];
+                cinfo[i].N = workdim[1];
+                cinfo[i].K = idd->dim[OLD][order[i]];
+                cinfo[i].L = 1;
+
+                if (i != 1) {
+                        idd->tel[WORK1] = safe_malloc(workdim[0] * workdim[1],
+                                                      EL_TYPE);
+                        cinfo[i].tels[2] = WORK1;
+                        resulttel = cinfo[i].tels[2];
+                } else {
+                        cinfo[i].tels[2] = NEW;
+                }
+        }
+        idd->tel[WORK2] = NULL;
+}
+
+static void make_cinfo(struct indexdata * idd, struct contractinfo * cinfo,
+                       int isdmrg)
+{
+        const int order[6][3] = {
+                {0,1,2}, {1,0,2}, {0,2,1}, {1,2,0}, {2,0,1}, {2,1,0}
+        };
+
+        int best = 0;
+        int nr_operations = 0;
+
+        for (int i = 0; i < (isdmrg ? 2 : 6); ++i) {
+                int curr_operations = 0;
+                int workdim[3] = {
+                        idd->dim[OLD][0], 
+                        idd->dim[OLD][1], 
+                        idd->dim[OLD][2]
+                };
+
+                for (int j = 0; j < (isdmrg ? 2 : 3); ++j) {
+                        curr_operations += workdim[0] * workdim[1] * 
+                                workdim[2] * idd->dim[NEW][order[i][j]];
+
+                        workdim[order[i][j]] = idd->dim[NEW][order[i][j]];
+                }
+                if (i == 0 || nr_operations > curr_operations) {
+                        best = i;
+                        nr_operations = curr_operations;
+                }
+        }
+
+        /* best way is found, now prepare it */
+        if (isdmrg) {
+                prepare_cinfo_DMRG(idd, cinfo, order[1]);
+        } else {
+                prepare_cinfo_T3NS(idd, cinfo, order[best]);
+        }
+}
+
+static void do_contract(const struct contractinfo * cinfo, EL_TYPE ** tel,
+                        double alpha, double beta)
+{
+        const int lda = cinfo->trans[0] == CblasNoTrans ? cinfo->M : cinfo->K;
+        const int ldb = cinfo->trans[1] == CblasNoTrans ? cinfo->K : cinfo->N;
+        const int ldc = cinfo->M;
+        const int strideA = cinfo->M * cinfo->K;
+        const int strideC = cinfo->M * cinfo->N;
+
+        assert(cinfo->tels[2] == NEW || 
+               cinfo->tels[2] == WORK1 || 
+               cinfo->tels[2] == WORK2);
+
+        EL_TYPE * A = tel[cinfo->tels[0]];
+        EL_TYPE * B = tel[cinfo->tels[1]];
+        EL_TYPE * C = tel[cinfo->tels[2]];
+
+        /* Maybe look at batch dgemm from mkl for this.
+         * Although I am not sure this will make a difference 
+         * since this is probably more for parallel dgemm */
+        for (int l = 0; l < cinfo->L; ++l, A += strideA, C += strideC) {
+                cblas_dgemm(CblasColMajor, cinfo->trans[0], cinfo->trans[1], 
+                            cinfo->M, cinfo->N, cinfo->K, 
+                            alpha, A, lda, B, ldb, beta, C, ldc);
+        }
+}
+
+static void make_map(struct indexdata * idd, const struct Heffdata * data)
+{
+        int cnt = 0;
+        /* only for twosite! */
+        for (int i = 0; i < 3; ++i) {
+                cnt += data->rOperators_on_site[i] == data->posB;
+        }
+        assert(data->isdmrg + cnt == 2);
+        idd->map[0] = data->rOperators_on_site[1] != data->posB ? 1 : 0;
+        idd->map[1] = data->rOperators_on_site[1] != data->posB ? 0 : 1;
+        idd->map[2] = 2;
+}
+
+static int search_block_with_qn(int * sb, QN_TYPE qn, 
+                                const struct Heffdata * data)
+{
+        const int Nb = data->siteObject.nrblocks;
+        const int Ns = data->siteObject.nrsites;
+        const QN_TYPE * currqn = 
+                &data->siteObject.qnumbers[++*sb * Ns + data->posB];
+
+        for (; *sb < Nb; ++*sb, currqn += Ns) {
+                if (*currqn == qn) { return 1; }
+        }
+        return 0;
+}
+
+static void fill_indexes(int sb, struct indexdata * idd, 
+                         const struct Heffdata * data, enum tensor_type tp, 
+                         double * vector)
+{
+        const int nrsites = data->siteObject.nrsites;
+        const QN_TYPE * const qn_arr = &data->siteObject.qnumbers[nrsites * sb];
+
+        for (int i = 0; i < nrsites; ++i) {
+                QN_TYPE qn = qn_arr[i];
+                idd->qn[i][tp] = qn;
+                idd->id[i][tp][0] = qn % data->symarr[i][0].nrSecs;
+                qn                = qn / data->symarr[i][0].nrSecs;
+                idd->irreps[i][tp][0] = 
+                        data->symarr[i][0].irreps[idd->id[i][tp][0]];
+
+                idd->id[i][tp][1] = qn % data->symarr[i][1].nrSecs;
+                qn                = qn / data->symarr[i][1].nrSecs;
+                idd->irreps[i][tp][1] = 
+                        data->symarr[i][1].irreps[idd->id[i][tp][1]];
+
+                idd->id[i][tp][2] = qn;
+                assert(qn < data->symarr[i][2].nrSecs);
+                idd->irreps[i][tp][2] = 
+                        data->symarr[i][2].irreps[idd->id[i][tp][2]];
+        }
+
+        for (int i = 0; i < (data->isdmrg ? 2 : 3); ++i) {
+                const int site = data->rOperators_on_site[i];
+
+                if (!data->Operators[i].P_operator) { 
+                        /* This rOperator will be contracted 
+                         * with the branching tensor
+                         * only dimension of the i'th leg is needed */
+                        idd->dim[tp][i] = 
+                                data->symarr[site][i].dims[idd->id[site][tp][i]]; 
+                } else { 
+                        /* This rOperator will be contracted 
+                         * with a physical tensor */
+                        idd->dim[tp][i] = 
+                                data->symarr[site][0].dims[idd->id[site][tp][0]] * 
+                                data->symarr[site][1].dims[idd->id[site][tp][1]] * 
+                                data->symarr[site][2].dims[idd->id[site][tp][2]];
+                }
+        }
+        if (data->isdmrg) { idd->dim[tp][2] = 1; }
+
+        idd->tel[tp] = vector + data->siteObject.blocks.beginblock[sb];
+        assert(get_size_block(&data->siteObject.blocks, sb) == 
+               idd->dim[tp][0] * idd->dim[tp][1] * idd->dim[tp][2]);
+}
+
+static void fill_MPO_indexes(struct indexdata * idd, const int * instr, 
+                             const struct Heffdata * data)
+{
+        idd->idMPO[0] = data->Operators[0].hss_of_ops[instr[0]];
+        idd->irrMPO[0] = data->MPOsymsec.irreps[idd->idMPO[0]];
+
+        idd->idMPO[1] = data->Operators[1].hss_of_ops[instr[1]];
+        idd->irrMPO[1] = data->MPOsymsec.irreps[idd->idMPO[1]];
+
+        if (!data->isdmrg) {
+                idd->idMPO[2] = data->Operators[2].hss_of_ops[instr[2]];
+                idd->irrMPO[2] = data->MPOsymsec.irreps[idd->idMPO[2]];
+        } else if (idd->idMPO[0] != hermitian_symsec(idd->idMPO[1])) {
+                fprintf(stderr, "Error in dmrg case for %s:%d.\n", 
+                        __FILE__, __LINE__);
+                exit(EXIT_FAILURE);
+        }
+}
+
+static void find_operator_sb(struct indexdata * idd, 
+                             const struct Heffdata * data)
+{
+        const struct rOperators * const Operators = data->Operators;
+
+        for (int i = 0; i < (data->isdmrg ? 2 : 3); ++i) {
+                const int site = data->rOperators_on_site[i];
+                const int diminner = data->symarr[data->posB][!data->isdmrg * i].nrSecs;
+                const QN_TYPE qninner = idd->id[data->posB][NEW][!data->isdmrg * i] +
+                        idd->id[data->posB][OLD][!data->isdmrg * i] * diminner +
+                        idd->idMPO[i] * diminner * diminner;
+
+                const QN_TYPE * const qnarray = 
+                        rOperators_give_qnumbers_for_hss(&Operators[i],
+                                                         idd->idMPO[i]);
+                const int nr_blocks = 
+                        rOperators_give_nr_blocks_for_hss(&Operators[i],
+                                                          idd->idMPO[i]);
+
+                if (!data->Operators[i].P_operator) {
+                        idd->sb_op[i] = qnumbersSearch(&qninner, 1, qnarray,
+                                                       1, nr_blocks);
+                        assert(idd->sb_op[i] != - 1);
+                } else {
+                        const QN_TYPE qn[3] = {
+                                idd->qn[site][NEW], 
+                                idd->qn[site][OLD], 
+                                qninner
+                        };
+
+                        idd->sb_op[i] = qnumbersSearch(qn, 3, qnarray,
+                                                       3, nr_blocks);
+                        assert(idd->sb_op[i] != -1);
+                }
+        }
+}
+
+static int find_operator_tel(struct indexdata * idd, 
+                             const struct rOperators * Operators, 
+                             const int * instr, int isdmrg)
+{
+        const enum tensor_type optype[3] = {OPS1, OPS2, OPS3};
+        for (int i = 0; i < (isdmrg ? 2 : 3); ++i) {
+                assert(Operators[i].nrops > instr[i]);
+                idd->tel[optype[i]] = 
+                        get_tel_block(&(Operators[i].operators[instr[i]]), 
+                                      idd->sb_op[i]);
+
+                if (idd->tel[optype[i]] == NULL) { return 0; }
+
+                assert(get_size_block(&Operators[i].operators[instr[i]], idd->sb_op[i]) == 
+                       idd->dim[NEW][i] * idd->dim[OLD][i]);
+
+                assert(Operators[i].hss_of_ops[instr[i]] == idd->idMPO[i]);
+        }
+        return 1;
+}
+
+static void transform_old_to_new_sb(int MPO, struct indexdata * idd, 
+                                    const struct Heffdata * data, 
+                                    const struct contractinfo * cinfo)
+{
+        const int step = data->isdmrg ? 2 : 3;
+        const int * instr = &data->instructions[step * data->instrbegin[MPO]];
+        const int * const endinstr = &data->instructions[step * data->instrbegin[MPO + 1]];
+        const double * pref = &data->prefactors[data->instrbegin[MPO]];
+
+        if (instr == endinstr) { return; }
+
+        fill_MPO_indexes(idd, instr, data);
+        const double prefsym = calc_prefactor(idd, data);
+
+        find_operator_sb(idd, data);
+
+        for (; instr < endinstr; instr += step, ++pref) {
+                const double totpref = *pref * prefsym;
+                if (!find_operator_tel(idd, data->Operators, instr, data->isdmrg)) {
+                        continue;
+                }
+
+                if (data->isdmrg) {
+                        do_contract(&cinfo[0], idd->tel, 1, 0);
+                        do_contract(&cinfo[1], idd->tel, totpref, 1);
+                } else {
+                        do_contract(&cinfo[0], idd->tel, 1, 0);
+                        do_contract(&cinfo[1], idd->tel, 1, 0);
+                        do_contract(&cinfo[2], idd->tel, totpref, 1);
+                }
+        }
+}
+
+static void loop_oldqnBs(struct indexdata * idd, const struct Heffdata * data,
+                         int newqnB_id, const double * vec)
+{
+        const int oldnr_qnB = data->nr_qnBtoqnB[newqnB_id];
+        QN_TYPE * oldqnB_arr = data->qnBtoqnB_arr[newqnB_id];
+
+        for (int oldqnB_id = 0; oldqnB_id < oldnr_qnB; ++oldqnB_id) {
+                const QN_TYPE oldqnB = oldqnB_arr[oldqnB_id];
+                const int nrMPOcombos = data->nrMPOcombos[newqnB_id][oldqnB_id];
+                const int * const MPOs = data->MPOs[newqnB_id][oldqnB_id];
+
+                int oldsb = -1;
+                while (search_block_with_qn(&oldsb, oldqnB, data)) {
+                        struct contractinfo cinfo[3];
+                        fill_indexes(oldsb, idd, data, OLD, (double *) vec);
+                        make_cinfo(idd, cinfo, data->isdmrg);
+
+                        for (const int * MPO = MPOs; 
+                             MPO < &MPOs[nrMPOcombos]; ++MPO) {
+                                transform_old_to_new_sb(*MPO, idd, data, cinfo);
+                        }
+                        safe_free(idd->tel[WORK1]);
+                        safe_free(idd->tel[WORK2]);
+                }
+        }
+}
+
+void matvecT3NS(const double * vec, double * result, const void * vdata)
+{
+        const struct Heffdata * const data = vdata;
+        for (int i = 0; i < siteTensor_get_size(&data->siteObject); ++i) {
+                result[i] = 0;
+        }
+
+#pragma omp parallel for schedule(dynamic) default(none) shared(vec, result)
+        for (int newqnB_id = 0; newqnB_id < data->nr_qnB; ++newqnB_id) {
+                struct indexdata idd;
+                const QN_TYPE newqnB = data->qnB_arr[newqnB_id];
+                make_map(&idd, data);
+
+                int newsb = -1;
+                while (search_block_with_qn(&newsb, newqnB, data)) {
+                        fill_indexes(newsb, &idd, data, NEW, result);
+                        loop_oldqnBs(&idd, data, newqnB_id, vec);
+                }
+        }
+}
+
+static void diag_old_to_new_sb(int MPO, struct indexdata * idd,
+                               const struct Heffdata * data)
+{
+        const int step = data->isdmrg ? 2 : 3;
+        int * instr    = &data->instructions[step * data->instrbegin[MPO]];
+        int * endinstr = &data->instructions[step * data->instrbegin[MPO + 1]];
+        double * pref  = &data->prefactors[data->instrbegin[MPO]];
+        if (instr == endinstr) { return; }
+
+        fill_MPO_indexes(idd, instr, data);
+        find_operator_sb(idd, data);
+        const double prefsym = calc_prefactor(idd, data);
+
+        const int M = idd->dim[OLD][idd->map[0]];
+        const int N = idd->dim[OLD][idd->map[1]];
+        const int K = data->isdmrg ? 1 : idd->dim[OLD][idd->map[2]];
+        const int Mp1 = M + 1;
+        const int Np1 = N + 1;
+        const int Kp1 = K + 1;
+
+        for (; instr < endinstr; instr += step, ++pref) {
+                if (!find_operator_tel(idd, data->Operators, instr, data->isdmrg)) {
+                        continue;
+                }
+                const double one = 1.0;
+
+                const double totpref = *pref * prefsym;
+                const double * tel3 = data->isdmrg ? 
+                        &one : idd->tel[OPS1 + idd->map[2]];
+                double * telres = idd->tel[NEW];
+
+                for (int k = 0; k < K; ++k, tel3 += Kp1) {
+                        const double elK = totpref * *tel3;
+                        const double * tel2 = idd->tel[OPS1 + idd->map[1]];
+
+                        for (int n = 0; n < N; ++n, tel2 += Np1) {
+                                const double elNK = elK * *tel2;
+                                const double *tel1 = idd->tel[OPS1+idd->map[0]];
+
+                                for (int m = 0; m < M; ++m, tel1 += Mp1, ++telres) {
+                                        *telres += elNK * *tel1;
+                                }
+                        }
+                }
+        }
+}
+
+void init_Heffdata(struct Heffdata * data, const struct rOperators * Operators, 
+                   const struct siteTensor * siteObject, int isdmrg)
+{
+        int nrinstr, *MPOinstr, nrMPOinstr;
+
+        data->isdmrg = isdmrg;
+        data->siteObject = *siteObject;
+        data->Operators[0] = Operators[0];
+        data->Operators[1] = Operators[1];
+
+        if (isdmrg) {
+                init_null_rOperators(&data->Operators[2]);
+                data->Operators[2].P_operator = 0;
+        } else {
+                data->Operators[2] = Operators[2];
+        }
+
+        int * hss_of_Ops[3] = {
+                Operators[0].hss_of_ops,
+                Operators[1].hss_of_ops,
+                Operators[2].hss_of_ops
+        };
+
+        assert(Operators[0].bond_of_operator < Operators[1].bond_of_operator || 
+               (isdmrg && Operators[0].bond_of_operator == Operators[1].bond_of_operator));
+        assert(Operators[1].bond_of_operator < Operators[2].bond_of_operator || isdmrg);
+
+        for (int i = 0; i < siteObject->nrsites; ++i) {
+                int bonds[3];
+                get_bonds_of_site(siteObject->sites[i], bonds);
+                get_symsecs_arr(3, data->symarr[i], bonds);
+        }
+        get_symsecs(&data->MPOsymsec, -1);
+
+        for (int i = 0; i < (isdmrg ? 2 : 3); ++i) {
+                const int site = rOperators_site_to_attach(&Operators[i]);
+
+                int j;
+                for (j = 0; j < siteObject->nrsites; ++j) {
+                        if (siteObject->sites[j] == site) { break; }
+                }
+                assert(j != siteObject->nrsites);
+                data->rOperators_on_site[i] = j;
+
+                assert(Operators[i].P_operator == is_psite(site));
+                if (!is_psite(site)) { data->posB = j; }
+        }
+        if (isdmrg) { data->posB = 1; }
+
+        make_qnBdatas(data);
+        fetch_merge(&data->instructions, &nrinstr, &data->prefactors, 
+                    Operators[0].bond_of_operator);
+
+        sortinstructions_toMPOcombos(&data->instructions, &data->instrbegin, 
+                                     &data->prefactors, nrinstr, 
+                                     data->isdmrg ? 2 : 3, hss_of_Ops, 
+                                     &MPOinstr, &nrMPOinstr);
+
+        adaptMPOcombos(data->nrMPOcombos, data->MPOs, MPOinstr, nrMPOinstr, 
+                       data->nr_qnB, data->nr_qnBtoqnB);
+        safe_free(MPOinstr);
+}
+
+void destroy_Heffdata(struct Heffdata * const data)
+{
+        for (int i = 0; i < data->siteObject.nrsites; ++i) {
+                int bonds[3];
+                get_bonds_of_site(data->siteObject.sites[i], bonds);
+                clean_symsecs_arr(3, data->symarr[i], bonds);
+        }
+        clean_symsecs(&data->MPOsymsec, -1);
+
+        for (int i = 0; i < data->nr_qnB; ++i) {
+                for (int j = 0; j < data->nr_qnBtoqnB[i]; ++j) {
+                        safe_free(data->MPOs[i][j]);
+                }
+                safe_free(data->qnBtoqnB_arr[i]);
+                safe_free(data->nrMPOcombos[i]);
+                safe_free(data->MPOs[i]);
+        }
+        safe_free(data->qnB_arr);
+        safe_free(data->nr_qnBtoqnB);
+        safe_free(data->qnBtoqnB_arr);
+        safe_free(data->nrMPOcombos);
+        safe_free(data->MPOs);
+
+        safe_free(data->instructions);
+        safe_free(data->instrbegin);
+        safe_free(data->prefactors);
+}
+
+EL_TYPE * make_diagonal(const struct Heffdata * const data)
+{
+
+        EL_TYPE * result = 
+                safe_calloc(siteTensor_get_size(&data->siteObject), EL_TYPE);
+
+#pragma omp parallel for schedule(dynamic) default(none) shared(result)
+        for (int newqnB_id = 0; newqnB_id < data->nr_qnB; ++newqnB_id) {
+                struct indexdata idd;
+                make_map(&idd, data);
+
+                const QN_TYPE qnB = data->qnB_arr[newqnB_id];
+                const int N = data->nr_qnBtoqnB[newqnB_id];
+                int oldqnB_id;
+                for (oldqnB_id = 0; oldqnB_id < N; ++oldqnB_id) {
+                        if (data->qnBtoqnB_arr[newqnB_id][oldqnB_id] == qnB) {
+                                break;
+                        }
+                }
+                assert(oldqnB_id != N);
+
+                const int nrMPOcombos = data->nrMPOcombos[newqnB_id][oldqnB_id];
+                const int * const MPOs = data->MPOs[newqnB_id][oldqnB_id];
+
+                int sb = -1;
+                while (search_block_with_qn(&sb, qnB, data)) {
+                        fill_indexes(sb, &idd, data, NEW, result);
+                        fill_indexes(sb, &idd, data, OLD, result);
+
+                        idd.tel[WORK1] = safe_malloc(idd.dim[OLD][0] * 
+                                                     idd.dim[OLD][1], EL_TYPE);
+                        idd.tel[WORK2] = NULL;
+
+                        const int * MPO;
+                        for (MPO = MPOs; MPO < &MPOs[nrMPOcombos]; ++MPO) {
+                                diag_old_to_new_sb(*MPO, &idd, data);
+                        }
+                        safe_free(idd.tel[WORK1]);
+                }
+        }
 
 #ifdef DEBUG
-static void print_blocktoblock(const struct siteTensor * const tens, 
-                               int * const nr_oldsb, int ** const oldsb_ar, 
-                               int ** const nrMPOcombos, int *** const MPOs, 
-                               int * const MPOinstr, const int nrMPOinstr, 
-                               const int internaldim, 
-                               struct symsecs * const internalss)
-{
-  char buffernew[255];
-  char bufferold[255];
-  char bufferMPO1[255];
-  char bufferMPO2[255];
-  struct symsecs MPOss;
-  int newsb;
-  int dimhss;
-  get_symsecs(&MPOss, -1);
-  dimhss = MPOss.nrSecs;
-  print_siteTensor(tens);
-
-  for (newsb = 0; newsb < tens->nrblocks; ++newsb)
-  {
-    int * oldsb;
-    int newinternal = tens->qnumbers[2 * newsb + 1] % internaldim;
-    get_sectorstring(internalss, newinternal, buffernew);
-    for (oldsb = oldsb_ar[newsb]; oldsb < &oldsb_ar[newsb][nr_oldsb[newsb]]; ++oldsb)
-    {
-      int * currMPO;
-      int oldinternal = tens->qnumbers[2 * *oldsb + 1] % internaldim;
-      get_sectorstring(internalss, oldinternal, bufferold);
-      for (currMPO = MPOs[newinternal][oldinternal]; 
-          currMPO < &MPOs[newinternal][oldinternal][nrMPOcombos[newinternal][oldinternal]];
-          ++currMPO)
-      {
-        int MPOind = MPOinstr[*currMPO];
-        int MPO1 = MPOind % dimhss;
-        int MPO2 = MPOind / dimhss;
-        get_sectorstring(&MPOss, MPO1, bufferMPO1);
-        get_sectorstring(&MPOss, MPO2, bufferMPO2);
-        printf("Block %d to Block %d:\t %14s X %14s X %14s ==> %14s (MPO : %d)\n", *oldsb, newsb,
-            bufferMPO1, bufferold, bufferMPO2, buffernew, *currMPO);
-      }
-    }
-  }
-}
-
-static void printMPO(const struct T3NSdata * const data)
-{
-  print_siteTensor(&data->siteObject);
-
-  const int dimhss = data->MPOsymsec.nrSecs;
-  int newqnB_id;
-  for (newqnB_id = 0; newqnB_id < data->nr_qnB; ++newqnB_id) {
-
-    const QN_TYPE newqnB = data->qnB_arr[newqnB_id];
-    const int nr_qnBtoqnB = data->nr_qnBtoqnB[newqnB_id];
-    const QN_TYPE * const qnBtoqnB_arr = data->qnBtoqnB_arr[newqnB_id];
-    int oldqnB_id;
-        
-    for (oldqnB_id = 0; oldqnB_id < nr_qnBtoqnB; ++oldqnB_id) {
-      const QN_TYPE oldqnB = qnBtoqnB_arr[oldqnB_id];
-      const int nrMPOcombos = data->nrMPOcombos[newqnB_id][oldqnB_id];
-      const int * const MPOs = data->MPOs[newqnB_id][oldqnB_id];
-      int i;
-      printf("%ld ---> %ld\n", oldqnB, newqnB);
-      for (i = 0; i < nrMPOcombos; ++i) {
-              int j;
-        int MPOind = MPOs[i];
-        int MPOinds[3];
-        char buffer[255];
-        MPOinds[0] = MPOind % dimhss;
-        MPOind = MPOind / dimhss;
-        MPOinds[1] = MPOind % dimhss;
-        MPOind = MPOind / dimhss;
-        MPOinds[2] = MPOind % dimhss;
-
-        printf("\t");
-        for (j = 0; j < 3; ++j) {
-          get_sectorstring(&data->MPOsymsec, MPOinds[j], buffer);
-          printf("%12s%s", buffer, j != 2 ? " X " : "\n");
-        }
-      }
-    }
-  }
-}
-
-static void check_diagonal(void * const data, double * diagonal, const int isdmrg)
-{
-  int i;
-  int size;
-  if (isdmrg) {
-    const struct matvec_data * const mvdata = data;
-    size = mvdata->siteObject.blocks.beginblock[mvdata->siteObject.nrblocks];
-  } else {
-    const struct T3NSdata * const mvdata = data;
-    size = mvdata->siteObject.blocks.beginblock[mvdata->siteObject.nrblocks];
-  }
-  double * vec = safe_calloc(size, double);
-  double * res = safe_calloc(size, double);
-
-  srand(time(NULL));
-
-  for (i = 0; i < 20; ++i)
-  {
-    const int ind = rand() % size;
-    vec[ind] = 1;
-    if (isdmrg)
-      matvecDMRG(vec, res, data);
-    else 
-      matvecT3NS(vec, res, data);
-
-    vec[ind] = 0;
-    if (fabs(diagonal[ind] - res[ind]) > 1e-9) {
-      fprintf(stderr, "calculated diag :%f brute force diag: %f\n", diagonal[ind], res[ind]);
-      fprintf(stderr, "Something is wrong in the construction of the diagonal!\n");
-      exit(EXIT_FAILURE);
-    }
-  }
-  safe_free(vec);
-  safe_free(res);
-}
+        check_diagonal(data, result);
 #endif
+        return result;
+}

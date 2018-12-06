@@ -76,20 +76,19 @@ double SU2_prefactor_pAppend(const int * symv, int is_left)
         }
 }
 
-double SU2_prefactor_DMRGmatvec(const int * symv, int MPO)
+double SU2_prefactor_combine_MPOs(int (*symv)[3], int * symvMPO, int isdmrg)
 {
-        double result = divbracket(symv[2]);
-        return result * divbracket(symv[8]) * 
-                ((symv[2] + symv[8] + MPO) % 4 ? -1 : 1);
-}
-
-double SU2_prefactor_combine_MPOs(int (*symv)[3], int * symvMPO)
-{
-        double result = ((symv[0][2] + symv[1][2] + symvMPO[2]) % 4 ? -1 : 1) * 
-                bracket(symvMPO[2]);
-        return result * gsl_sf_coupling_9j(symv[0][0], symv[1][0], symvMPO[0],
-                                           symv[0][1], symv[1][1], symvMPO[1],
-                                           symv[0][2], symv[1][2], symvMPO[2]);
+        if (isdmrg) {
+                double result = divbracket(symv[0][0]);
+                return result * divbracket(symv[1][0]) * 
+                        ((symv[0][0] + symv[1][0] + symvMPO[1]) % 4 ? -1 : 1);
+        } else {
+                double result = ((symv[0][2] + symv[1][2] + symvMPO[2]) % 4 ? -1 : 1) * 
+                        bracket(symvMPO[2]);
+                return result * gsl_sf_coupling_9j(symv[0][0], symv[1][0], symvMPO[0],
+                                                   symv[0][1], symv[1][1], symvMPO[1],
+                                                   symv[0][2], symv[1][2], symvMPO[2]);
+        }
 }
 
 double SU2_prefactor_bUpdate(int (*symv)[3], int uCase)
