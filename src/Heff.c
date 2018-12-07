@@ -22,9 +22,7 @@
 #include <sys/time.h>
 #include <math.h>
 #include <time.h>
-#endif
 
-#ifdef DEBUG
 static void printMPO(const struct Heffdata * const data)
 {
         print_siteTensor(&data->siteObject);

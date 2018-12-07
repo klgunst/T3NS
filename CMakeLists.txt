@@ -15,6 +15,7 @@ option(ENABLE_XHOST     "Enable processor-specific optimizations" ON)
 option(DAVID_INFO     	"Print intermediate results for the Davidson algorithm" ON)
 option(BUILD_TESTING 	"Compile the tests" 			  ON)
 option(PERFORMANCETEST  "Compile the performance tests" 	  OFF)
+option(BUILD_DOXYGEN    "Use Doxygen to create a HTML/PDF manual" OFF)
 set(MAX_SYMMETRIES "4" CACHE STRING "")
 
 # Find Lapack or MKL
@@ -95,6 +96,15 @@ configure_file(
     "${PROJECT_BINARY_DIR}/T3NSConfig.h")
 include_directories(include ${CMAKE_BINARY_DIR})
 add_subdirectory(src)
+
+if(BUILD_DOXYGEN)
+    find_package(Doxygen)
+    if (NOT DOXYGEN_FOUND)
+	message (FATAL_ERROR "Doxygen is needed to build the documentation. Please install it correctly.")
+    endif(NOT DOXYGEN_FOUND)
+    configure_file (${PROJECT_SOURCE_DIR}/src/Doxyfile.in ${PROJECT_BINARY_DIR}/Doxyfile @ONLY IMMEDIATE)
+    add_custom_target (doc COMMAND ${DOXYGEN_EXECUTABLE} ${PROJECT_BINARY_DIR}/Doxyfile SOURCES ${PROJECT_BINARY_DIR}/Doxyfile)
+endif(BUILD_DOXYGEN)
 
 include(CTest)
 if(BUILD_TESTING)
