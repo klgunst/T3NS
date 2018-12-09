@@ -245,11 +245,13 @@ int davidson(double * result, double * energy, int size, int max_vecs,
 
 #ifdef DAVID_INFO
         struct timeval t_start, t_end;
+        struct timeval t_start2, t_end2;
         long long t_elapsed;
         double d_elapsed;
 
         int cnt_matvecs = 0;
         gettimeofday(&t_start, NULL);
+        gettimeofday(&t_start2, NULL);
         printf("Dimension of davidson : %d\n", size);
         printf("IT    RESIDUE         ENERGY\n");
         printf("---------------------------------\n");
@@ -276,8 +278,14 @@ int davidson(double * result, double * energy, int size, int max_vecs,
                 *energy  = david_dat.eigvalues[0];
                 ++its;
 #ifdef DAVID_INFO
+                gettimeofday(&t_end2, NULL);
+                t_elapsed = (t_end2.tv_sec - t_start2.tv_sec) * 1000000LL + 
+                        t_end2.tv_usec - t_start2.tv_usec;
+                gettimeofday(&t_start2, NULL);
+                d_elapsed = t_elapsed * 1e-6;
                 ++cnt_matvecs;
-                printf("%-4d  %e    %lf\n", its, residue_norm, david_dat.eigvalues[0]);
+                printf("%-4d  %e    %lf\t(%lf s)\n", its, residue_norm, 
+                       david_dat.eigvalues[0], d_elapsed);
 #endif
                 create_new_vec_t(result);
         }

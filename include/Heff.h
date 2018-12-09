@@ -41,10 +41,12 @@ struct heffcinfo {
 };
 
 struct heffcontr {
-        int begin_oldbl;
+        int sbold;
         struct heffcinfo cinfo[3];
-        EL_TYPE * (*ropsp)[3];
+        int nmbr;
+        int (*sbops)[3];
         EL_TYPE * prefactor;
+        int * MPO;
 };
 
 /**

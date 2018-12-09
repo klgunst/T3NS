@@ -827,64 +827,52 @@ static void find_operator_sb(struct indexdata * idd,
         }
 }
 
-static int find_operator_tel(struct indexdata * idd, 
+static int find_operator_tel(const int * sb, EL_TYPE ** tel,
                              const struct rOperators * Operators, 
                              const int * instr, int isdmrg)
 {
-        const enum hefftensor_type optype[3] = {OPS1, OPS2, OPS3};
         for (int i = 0; i < (isdmrg ? 2 : 3); ++i) {
                 assert(Operators[i].nrops > instr[i]);
-                idd->tel[optype[i]] = 
-                        get_tel_block(&(Operators[i].operators[instr[i]]), 
-                                      idd->sb_op[i]);
+                int * start = &Operators[i].operators[instr[i]].beginblock[sb[i]];
+                if (start[0] == start[1]) {
+                        tel[i] = NULL;
+                        return 0; 
+                }
 
-                if (idd->tel[optype[i]] == NULL) { return 0; }
-
-                assert(get_size_block(&Operators[i].operators[instr[i]], idd->sb_op[i]) == 
-                       idd->dim[NEW][i] * idd->dim[OLD][i]);
-
-                assert(Operators[i].hss_of_ops[instr[i]] == idd->idMPO[i]);
+                tel[i] = Operators[i].operators[instr[i]].tel + start[0];
         }
         return 1;
 }
 
-static void transform_old_to_new_sb(int MPO, struct indexdata * idd, 
+static void transform_old_to_new_sb(int *i, struct indexdata * idd, 
                                     const struct Heffdata * data, 
-                                    struct heffcontr * secrun, int * nri)
+                                    struct heffcontr * secrun)
 {
+        const int MPO = secrun->MPO[*i];
         const int step = data->isdmrg ? 2 : 3;
         const int * instr = &data->instructions[step * data->instrbegin[MPO]];
         const int * const endinstr = &data->instructions[step * data->instrbegin[MPO + 1]];
         const double * pref = &data->prefactors[data->instrbegin[MPO]];
 
-        const int nrinst = data->instrbegin[MPO + 1] - data->instrbegin[MPO] + *nri;
-        secrun->ropsp = realloc(secrun->ropsp, (nrinst + 1) * sizeof *secrun->ropsp);
-        secrun->prefactor = realloc(secrun->prefactor, 
-                                    (nrinst + 1) * sizeof *secrun->prefactor);
-        secrun->ropsp[*nri][0] = NULL;
-        secrun->ropsp[*nri][1] = NULL;
-        secrun->ropsp[*nri][2] = NULL;
+        const int nrinst = data->instrbegin[MPO + 1] - data->instrbegin[MPO];
 
-        if (nrinst == *nri) { return; }
+        if (nrinst == 0) { return; }
 
         fill_MPO_indexes(idd, instr, data);
-        const double prefsym = calc_prefactor(idd, data);
-        if (COMPARE_ELEMENT_TO_ZERO(prefsym)) { return; }
+        secrun->prefactor[*i] = calc_prefactor(idd, data);
+        if (COMPARE_ELEMENT_TO_ZERO(secrun->prefactor[*i])) { return; }
 
         find_operator_sb(idd, data);
+        secrun->sbops[*i][0] = idd->sb_op[0];
+        secrun->sbops[*i][1] = idd->sb_op[1];
+        secrun->sbops[*i][2] = idd->sb_op[2];
 
         for (; instr < endinstr; instr += step, ++pref) {
-                const double totpref = *pref * prefsym;
-                if (!find_operator_tel(idd, data->Operators, instr, data->isdmrg)) {
+                const double totpref = *pref * secrun->prefactor[*i];
+                if (!find_operator_tel(secrun->sbops[*i], &idd->tel[OPS1], 
+                                       data->Operators, instr, data->isdmrg)) {
                         continue;
                 }
-
-                secrun->ropsp[*nri][0] = idd->tel[OPS1];
-                secrun->ropsp[*nri][1] = idd->tel[OPS2];
-                secrun->ropsp[*nri][2] = idd->tel[OPS3];
-
-                secrun->prefactor[*nri] = totpref;
-                ++*nri;
 
                 if (data->isdmrg) {
                         do_contract(&secrun->cinfo[0], idd->tel, 1, 0);
@@ -896,20 +884,7 @@ static void transform_old_to_new_sb(int MPO, struct indexdata * idd,
                 }
         }
 
-        secrun->ropsp[*nri][0] = NULL;
-        secrun->ropsp[*nri][1] = NULL;
-        secrun->ropsp[*nri][2] = NULL;
-        secrun->ropsp = realloc(secrun->ropsp, (*nri + 1) * sizeof *secrun->ropsp);
-        if (secrun->ropsp == NULL) {
-                fprintf(stderr, "Error %s:%d: failed reallocating.\n", __FILE__, __LINE__);
-                exit(EXIT_FAILURE);
-        }
-        secrun->prefactor = realloc(secrun->prefactor, (*nri + 1) * 
-                                    sizeof *secrun->prefactor);
-        if (secrun->prefactor == NULL) {
-                fprintf(stderr, "Error %s:%d: failed reallocating.\n", __FILE__, __LINE__);
-                exit(EXIT_FAILURE);
-        }
+        ++*i;
 }
 
 static void loop_oldqnBs(struct indexdata * idd, struct Heffdata * data,
@@ -924,21 +899,22 @@ static void loop_oldqnBs(struct indexdata * idd, struct Heffdata * data,
                                                data->qnB_arr, 1, data->nr_qnB);
 
                 const int nrMPOcombos = data->nrMPOcombos[newqnB_id][oldqnB_id];
-                const int * const MPOs = data->MPOs[newqnB_id][oldqnB_id];
+                int * MPOs = data->MPOs[newqnB_id][oldqnB_id];
 
                 int * oldsb = NULL;
                 while (search_block_with_qn(&oldsb, qnBtoSid, data)) {
-                        secrun->begin_oldbl = data->siteObject.blocks.beginblock[*oldsb];
+                        secrun->sbold = *oldsb;
                         fill_indexes(*oldsb, idd, data, OLD, (double *) vec);
                         make_cinfo(idd, secrun->cinfo, data->isdmrg);
 
-                        int nri = 0;
-                        secrun->ropsp = NULL;
-                        secrun->prefactor = NULL;
-                        for (const int * MPO = MPOs; 
-                             MPO < &MPOs[nrMPOcombos]; ++MPO) {
-                                transform_old_to_new_sb(*MPO, idd, data, secrun,
-                                                        &nri);
+                        secrun->prefactor = safe_malloc(nrMPOcombos, *secrun->prefactor);
+                        secrun->sbops = safe_malloc(nrMPOcombos, *secrun->sbops);
+                        secrun->MPO = safe_malloc(nrMPOcombos, *secrun->MPO);
+                        secrun->nmbr = 0;
+                        for (int i = 0; i < nrMPOcombos; ++i) {
+                                secrun->MPO[secrun->nmbr] = MPOs[i];
+                                transform_old_to_new_sb(&secrun->nmbr, idd, 
+                                                        data, secrun);
                         }
 
                         int cwsize = secrun->cinfo[0].M * secrun->cinfo[0].N * 
@@ -948,49 +924,56 @@ static void loop_oldqnBs(struct indexdata * idd, struct Heffdata * data,
                                 secrun->cinfo[1].L * !data->isdmrg;
                         if (wsize[1] < cwsize) { wsize[1] = cwsize; }
 
+                        secrun->sbops = realloc(secrun->sbops, secrun->nmbr *
+                                                sizeof *secrun->sbops);
+                        secrun->prefactor = realloc(secrun->prefactor, secrun->nmbr *
+                                                    sizeof *secrun->prefactor);
+                        secrun->MPO = realloc(secrun->MPO, secrun->nmbr *
+                                              sizeof *secrun->MPO);
+
+                        if (secrun->nmbr != 0 && 
+                            (secrun->MPO == NULL || secrun->prefactor == NULL || 
+                             secrun->sbops == NULL)) {
+                                fprintf(stderr, "Error %s:%d: failed realloc.\n",
+                                        __FILE__, __LINE__);
+                                exit(EXIT_FAILURE);
+                        }
+
                         safe_free(idd->tel[WORK1]);
                         safe_free(idd->tel[WORK2]);
-                        if (nri == 0) {
-                                safe_free(secrun->ropsp);
-                                safe_free(secrun->prefactor);
-                        } else {
-                                ++secrun;
-                        }
+                        ++secrun;
                 }
         }
-        secrun->begin_oldbl = -1;
+        secrun->sbold = -1;
 }
 
-static void execute_heffcontrDMRG(const struct heffcontr * hc, EL_TYPE ** tels)
+static void execute_heffcontr(int i, const struct Heffdata * data, 
+                              const struct heffcontr * hc, EL_TYPE ** tels)
 {
-        int nri = 0;
-        while (hc->ropsp[nri][0] != NULL) {
-                tels[OPS1] = hc->ropsp[nri][0];
-                tels[OPS2] = hc->ropsp[nri][1];
-                tels[OPS3] = NULL;
+        const int MPO = hc->MPO[i];
+        const int step = data->isdmrg ? 2 : 3;
+        const int * instr = &data->instructions[step * data->instrbegin[MPO]];
+        const int * const endinstr = &data->instructions[step * data->instrbegin[MPO + 1]];
+        const double * pref = &data->prefactors[data->instrbegin[MPO]];
 
-                const double pref = hc->prefactor[nri];
+        const int nrinst = data->instrbegin[MPO + 1] - data->instrbegin[MPO];
+        if (nrinst == 0) { return; }
 
-                do_contract(&hc->cinfo[0], tels, 1, 0);
-                do_contract(&hc->cinfo[1], tels, pref, 1);
-                ++nri;
-        }
-}
+        for (; instr < endinstr; instr += step, ++pref) {
+                const double totpref = *pref * hc->prefactor[i];
+                if (!find_operator_tel(hc->sbops[i], &tels[OPS1],
+                                       data->Operators, instr, data->isdmrg)) {
+                        continue;
+                }
 
-static void execute_heffcontrT3NS(const struct heffcontr * hc, EL_TYPE ** tels)
-{
-        int nri = 0;
-        while (hc->ropsp[nri][0] != NULL) {
-                tels[OPS1] = hc->ropsp[nri][0];
-                tels[OPS2] = hc->ropsp[nri][1];
-                tels[OPS3] = hc->ropsp[nri][2];
-
-                const double pref = hc->prefactor[nri];
-
-                do_contract(&hc->cinfo[0], tels, 1, 0);
-                do_contract(&hc->cinfo[1], tels, 1, 0);
-                do_contract(&hc->cinfo[2], tels, pref, 1);
-                ++nri;
+                if (data->isdmrg) {
+                        do_contract(&hc->cinfo[0], tels, 1, 0);
+                        do_contract(&hc->cinfo[1], tels, totpref, 1);
+                } else {
+                        do_contract(&hc->cinfo[0], tels, 1, 0);
+                        do_contract(&hc->cinfo[1], tels, 1, 0);
+                        do_contract(&hc->cinfo[2], tels, totpref, 1);
+                }
         }
 }
 
@@ -1003,20 +986,18 @@ static void exec_secondrun(const double * const vec, double * const result,
                 EL_TYPE * tels[7];
                 tels[WORK1] = safe_malloc(data->worksize[0], tels);
                 tels[WORK2] = safe_malloc(data->worksize[1], tels);
+                int * bb = data->siteObject.blocks.beginblock;
 
-                void (*exec_heffctr)(const struct heffcontr *, EL_TYPE **) = 
-                        data->isdmrg ? execute_heffcontrDMRG : 
-                        execute_heffcontrT3NS;
-
-#pragma omp for schedule(dynamic) nowait
+#pragma omp for schedule(static) nowait
                 for (int i = 0; i < n; ++i) {
-                        tels[NEW] = result + data->siteObject.blocks.beginblock[i];
+                        tels[NEW] = result + bb[i];
                         const struct heffcontr * hc = data->secondrun[i];
 
-                        while (hc->begin_oldbl != -1) {
+                        while (hc->sbold != -1) {
                                 tels[OLD] = (double *) vec;
-                                tels[OLD] += hc->begin_oldbl;
-                                exec_heffctr(hc, tels);
+                                tels[OLD] += bb[hc->sbold];
+                                for (int j = 0; j < hc->nmbr; ++j)
+                                        execute_heffcontr(j, data, hc, tels);
                                 ++hc;
                         }
                 }
@@ -1050,14 +1031,14 @@ void matvecT3NS(const double * vec, double * result, void * vdata)
                         data->secondrun[*newsb] = safe_malloc(data->siteObject.nrblocks + 1, 
                                                               *data->secondrun[*newsb]);
                         // sentinel
-                        data->secondrun[*newsb][0].begin_oldbl = -1;
+                        data->secondrun[*newsb][0].sbold = -1;
 
                         fill_indexes(*newsb, &idd, data, NEW, result);
                         loop_oldqnBs(&idd, data, newqnB_id, vec, 
                                      data->secondrun[*newsb], wsize);
 
                         int cnt = 0;
-                        while (data->secondrun[*newsb][cnt++].begin_oldbl != -1) ;
+                        while (data->secondrun[*newsb][cnt++].sbold != -1) ;
                         data->secondrun[*newsb] = realloc(data->secondrun[*newsb], cnt * 
                                                           sizeof *data->secondrun[*newsb]);
                         if (data->secondrun[*newsb] == NULL) {
@@ -1093,7 +1074,8 @@ static void diag_old_to_new_sb(int MPO, struct indexdata * idd,
         const int Kp1 = K + 1;
 
         for (; instr < endinstr; instr += step, ++pref) {
-                if (!find_operator_tel(idd, data->Operators, instr, data->isdmrg)) {
+                if (!find_operator_tel(idd->sb_op, &idd->tel[OPS1], 
+                                       data->Operators, instr, data->isdmrg)) {
                         continue;
                 }
                 const double one = 1.0;
@@ -1221,11 +1203,12 @@ void init_Heffdata(struct Heffdata * data, const struct rOperators * Operators,
 static void destroy_secondrun(struct Heffdata * const data)
 {
         for (int i = 0; i < data->siteObject.nrblocks; ++i) {
-                int nr = 0;
-                while (data->secondrun[i][nr].begin_oldbl != -1) {
-                        safe_free(data->secondrun[i][nr].ropsp);
-                        safe_free(data->secondrun[i][nr].prefactor);
-                        ++nr;
+                int j = 0;
+                while (data->secondrun[i][j].sbold != -1) {
+                        safe_free(data->secondrun[i][j].sbops);
+                        safe_free(data->secondrun[i][j].prefactor);
+                        safe_free(data->secondrun[i][j].MPO);
+                        ++j;
                 }
                 safe_free(data->secondrun[i]);
         }
