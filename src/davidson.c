@@ -233,7 +233,7 @@ static void clean_david_dat(void)
 int davidson(double * result, double * energy, int size, int max_vecs, 
              int keep_deflate, double davidson_tol, int max_its, 
              const double * diagonal, 
-             void (*matvec)(const double*, double*, const void*), 
+             void (*matvec)(const double*, double*, void*), 
              void * vdat)
 {
         int its = 0;

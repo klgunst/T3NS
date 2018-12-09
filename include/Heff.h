@@ -12,10 +12,40 @@
  * a matvec routine.
  */
 
+#ifdef T3NS_MKL
+#include "mkl.h"
+#else
+#include <cblas.h>
+#endif
+
 #include "siteTensor.h"
 #include "rOperators.h"
 #include "symsecs.h"
 #include "network.h"
+
+// enum for the different types of tensors we come accross during a T3NS Heff.
+enum hefftensor_type {NEW, OLD, OPS1, OPS2, OPS3, WORK1, WORK2};
+
+struct heffcinfo {
+        enum hefftensor_type tels[3];
+        CBLAS_TRANSPOSE trans[2];
+        int M;
+        int N;
+        int K;
+        int L;
+        int strideA;
+        int strideC;
+        int lda;
+        int ldb;
+        int ldc;
+};
+
+struct heffcontr {
+        int begin_oldbl;
+        struct heffcinfo cinfo[3];
+        EL_TYPE * (*ropsp)[3];
+        EL_TYPE * prefactor;
+};
 
 /**
  * A structure for all the data needed for the matvec routine.
@@ -129,6 +159,9 @@ struct Heffdata {
         int * instrbegin;
         /// The prefactors for the instructions.
         double * prefactors;
+
+        struct heffcontr ** secondrun;
+        int worksize[2];
 };
 
 /**
@@ -152,7 +185,7 @@ void init_Heffdata(struct Heffdata * data, const struct rOperators * Operators,
  * @param vdata [in] Pointer to a struct @ref Heffdata which will be cast to a
  * const void pointer. This contains all the needed data to perform the matvec.
  */
-void matvecT3NS(const double * vec, double * result, const void * vdata);
+void matvecT3NS(const double * vec, double * result, void * vdata);
 
 /**
  * Makes the diagonal elements of the effective Hamiltonian.
