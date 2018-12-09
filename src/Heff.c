@@ -810,8 +810,7 @@ static void find_operator_sb(struct indexdata * idd,
                                                           idd->idMPO[i]);
 
                 if (!data->Operators[i].P_operator) {
-                        idd->sb_op[i] = qnumbersSearch(&qninner, 1, qnarray,
-                                                       1, nr_blocks);
+                        idd->sb_op[i] = qnbsearch(&qninner, 1, qnarray, 1, nr_blocks);
                         assert(idd->sb_op[i] != - 1);
                 } else {
                         const QN_TYPE qn[3] = {
@@ -820,8 +819,7 @@ static void find_operator_sb(struct indexdata * idd,
                                 qninner
                         };
 
-                        idd->sb_op[i] = qnumbersSearch(qn, 3, qnarray,
-                                                       3, nr_blocks);
+                        idd->sb_op[i] = qnbsearch(qn, 3, qnarray, 3, nr_blocks);
                         assert(idd->sb_op[i] != -1);
                 }
         }

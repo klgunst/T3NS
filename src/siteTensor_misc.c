@@ -36,7 +36,7 @@ void print_siteTensor(const struct siteTensor * const tens)
 int siteTensor_search_qnumber(QN_TYPE qnumber, const struct siteTensor * const tens)
 {
   assert(tens->nrsites == 1 && "Only defined for 1 site sitetensors");
-  return qnumbersSearch(&qnumber, 1, tens->qnumbers, 1, tens->nrblocks);
+  return qnbsearch(&qnumber, 1, tens->qnumbers, 1, tens->nrblocks);
 }
 
 /* HELPERS */

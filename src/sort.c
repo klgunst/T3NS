@@ -21,8 +21,7 @@ static int compar(const void *a, const void *b, void *base_arr)
 
 static int compare_el(const QN_TYPE * a, const QN_TYPE * b, const int size_el)
 {
-  int i;
-  for (i = size_el - 1; i >= 0; --i)
+  for (int i = size_el - 1; i >= 0; --i)
     if (a[i] != b[i])
       return a[i] - b[i];
   return 0;
@@ -68,43 +67,48 @@ int search(const int value, const int * const array, const int n)
   return result < n ? result : -1;
 }
   
-int qnumbersSearch(const QN_TYPE  * values, const int nr_values, const QN_TYPE * const array, 
-    const int step, const int n)
+static int comparqn1sort(const void * a, const void * b)
 {
-  int result = 0;
-  QN_TYPE value1, value2, value3;
-  assert(nr_values <= step && nr_values > 0 && step > 0);
+        QN_TYPE aa = *((QN_TYPE *) a), bb = *((QN_TYPE *) b);
+        return (aa - bb);
+}
 
-  switch(nr_values)
-  {
-    case 1:
-      value1 = values[0];
-      while (result < n && array[result * step] != value1) ++result;
-      assert(result == n || array[result * step] == values[0]);
-      break;
-    case 2:
-      value1 = values[0];
-      value2 = values[1];
-      while (result < n && (array[result * step] != value1 || array[result * step+1] != value2)) 
-        ++result;
-      assert(result == n || (array[result * step] == values[0] && 
-            array[result * step + 1] == values[1]));
-      break;
-    case 3:
-      value1 = values[0];
-      value2 = values[1];
-      value3 = values[2];
-      while (result < n && (array[result * step] != value1 || array[result * step + 1] != value2
-          || array[result * step + 2]  != value3)) 
-        ++result;
-      assert(result == n || (array[result * step] == values[0] && 
-            array[result * step + 1] == values[1] && array[result * step + 2] == values[2]));
-      break;
-    default:
-      fprintf(stderr, "%s@%s: Not defined for nr_values = %d\n", __FILE__, __func__, nr_values);
-      exit(EXIT_FAILURE);
-  }
-  return result == n ? -1 : result;
+static int comparqn2sort(const void * a, const void * b)
+{
+        QN_TYPE *aa = ((QN_TYPE *) a), *bb = ((QN_TYPE *) b);
+        if (aa[1] != bb[1]) { return (aa[1] - bb[1]); }
+        return (aa[0] - bb[0]);
+}
+
+static int comparqn3sort(const void * a, const void * b)
+{
+        QN_TYPE *aa = ((QN_TYPE *) a), *bb = ((QN_TYPE *) b);
+        if (aa[2] != bb[2]) { return (aa[2] - bb[2]); }
+        if (aa[1] != bb[1]) { return (aa[1] - bb[1]); }
+        return (aa[0] - bb[0]);
+}
+
+int qnbsearch(const QN_TYPE  * values, const int nr_values, 
+              const QN_TYPE * const array, const int step, const int n)
+{
+        assert(nr_values <= step && nr_values > 0 && step > 0);
+        int (*compf[3])(const void *, const void *) = {
+                comparqn1sort, comparqn2sort, comparqn3sort 
+        };
+
+        if (nr_values < 1 || nr_values > 3) {
+                fprintf(stderr, "%s@%s: Not defined for nr_values = %d\n", 
+                        __FILE__, __func__, nr_values);
+                exit(EXIT_FAILURE);
+        }
+
+        QN_TYPE * p = bsearch(values, array, n, step * sizeof *values, 
+                              compf[nr_values - 1]);
+        if (p == NULL) {
+                return -1;
+        } else {
+                return (p - array) / step;
+        }
 }
 
 int * inverse_permutation(int * perm, const int nrel)

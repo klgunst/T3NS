@@ -436,7 +436,7 @@ static void unique_rOperators_append_phys(struct rOperators * const uniquerops,
       /* This function calculates the prefactor for this symsec manipulation, for all symmetries */
       prefactor = calculate_prefactor_append_physical(indexes, symarr, uniquerops->is_left);
 
-      oldblock = qnumbersSearch(&oldqnumber, 1,
+      oldblock = qnbsearch(&oldqnumber, 1,
           rOperators_give_qnumbers_for_hss(prevrops, hamsymsec_old), 
           rOperators_give_nr_of_couplings(prevrops),
           rOperators_give_nr_blocks_for_hss(prevrops, hamsymsec_old));

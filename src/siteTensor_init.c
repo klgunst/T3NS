@@ -655,8 +655,8 @@ static void contractsiteTensors(struct siteTensor * const tens, struct siteTenso
     if (oldqnumeros[0] < 0 || oldqnumeros[1] < 0)
       continue;
 
-    block1 = qnumbersSearch(&oldqnumeros[0], 1, tens1.qnumbers, 1, tens1.nrblocks);
-    block2 = qnumbersSearch(&oldqnumeros[1], 1, tens2.qnumbers, 1, tens2.nrblocks);
+    block1 = qnbsearch(&oldqnumeros[0], 1, tens1.qnumbers, 1, tens1.nrblocks);
+    block2 = qnbsearch(&oldqnumeros[1], 1, tens2.qnumbers, 1, tens2.nrblocks);
 
     if (block1 < 0 || block2 < 0)
       continue;

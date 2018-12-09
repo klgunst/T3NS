@@ -138,7 +138,7 @@ static struct optimize_info optimize_siteTensor(struct siteTensor * T3NS,
                                                 double trunc_err, 
                                                 double * timings)
 { 
-        assert(o_dat.specs.nr_bonds_opt == 2 || o_dat.specs.nr_bonds_opt == 2);
+        assert(o_dat.specs.nr_bonds_opt == 2 || o_dat.specs.nr_bonds_opt == 3);
         const int isdmrg = o_dat.specs.nr_bonds_opt == 2;
         const enum timers prep_heff = isdmrg ? PREP_HEFF_DMRG : PREP_HEFF_T3NS;
         const enum timers diag      = isdmrg ? DIAG_DMRG      : DIAG_T3NS;
