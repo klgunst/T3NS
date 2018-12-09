@@ -75,6 +75,8 @@ struct Heffdata {
          * <tt>@ref siteObject.{@link siteTensor.qnumbers qnumbers}[@ref siteObject.{@link siteTensor.nrsites nrsites} * i + @ref posB]</tt> 
          * for all @p i */
         int nr_qnB;
+        /// The symmetry blocks with a certain qnBid.
+        int ** sb_with_qnid;
         /** The different unique qnumbers for the @ref posB site. 
          * 
          * Said in another way, the unique elements in

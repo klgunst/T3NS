@@ -524,6 +524,11 @@ struct contractinfo {
         int N;
         int K;
         int L;
+        int strideA;
+        int strideC;
+        int lda;
+        int ldb;
+        int ldc;
 };
 
 static double calc_prefactor(const struct indexdata * idd, 
@@ -589,6 +594,14 @@ static void prepare_cinfo_T3NS(struct indexdata * const idd,
                 } else {
                         cinfo[i].tels[2] = NEW;
                 }
+
+                cinfo[i].lda = cinfo[i].trans[0] == CblasNoTrans ? 
+                        cinfo[i].M : cinfo[i].K;
+                cinfo[i].ldb = cinfo[i].trans[1] == CblasNoTrans ? 
+                        cinfo[i].K : cinfo[i].N;
+                cinfo[i].ldc = cinfo[i].M;
+                cinfo[i].strideA = cinfo[i].M * cinfo[i].K;
+                cinfo[i].strideC = cinfo[i].M * cinfo[i].N;
         }
 }
 
@@ -624,6 +637,14 @@ static void prepare_cinfo_DMRG(struct indexdata * const idd,
                 } else {
                         cinfo[i].tels[2] = NEW;
                 }
+
+                cinfo[i].lda = cinfo[i].trans[0] == CblasNoTrans ? 
+                        cinfo[i].M : cinfo[i].K;
+                cinfo[i].ldb = cinfo[i].trans[1] == CblasNoTrans ? 
+                        cinfo[i].K : cinfo[i].N;
+                cinfo[i].ldc = cinfo[i].M;
+                cinfo[i].strideA = cinfo[i].M * cinfo[i].K;
+                cinfo[i].strideC = cinfo[i].M * cinfo[i].N;
         }
         idd->tel[WORK2] = NULL;
 }
@@ -669,12 +690,6 @@ static void make_cinfo(struct indexdata * idd, struct contractinfo * cinfo,
 static void do_contract(const struct contractinfo * cinfo, EL_TYPE ** tel,
                         double alpha, double beta)
 {
-        const int lda = cinfo->trans[0] == CblasNoTrans ? cinfo->M : cinfo->K;
-        const int ldb = cinfo->trans[1] == CblasNoTrans ? cinfo->K : cinfo->N;
-        const int ldc = cinfo->M;
-        const int strideA = cinfo->M * cinfo->K;
-        const int strideC = cinfo->M * cinfo->N;
-
         assert(cinfo->tels[2] == NEW || 
                cinfo->tels[2] == WORK1 || 
                cinfo->tels[2] == WORK2);
@@ -686,10 +701,13 @@ static void do_contract(const struct contractinfo * cinfo, EL_TYPE ** tel,
         /* Maybe look at batch dgemm from mkl for this.
          * Although I am not sure this will make a difference 
          * since this is probably more for parallel dgemm */
-        for (int l = 0; l < cinfo->L; ++l, A += strideA, C += strideC) {
+        for (int l = 0; l < cinfo->L; ++l) {
                 cblas_dgemm(CblasColMajor, cinfo->trans[0], cinfo->trans[1], 
                             cinfo->M, cinfo->N, cinfo->K, 
-                            alpha, A, lda, B, ldb, beta, C, ldc);
+                            alpha, A, cinfo->lda, B, cinfo->ldb, 
+                            beta, C, cinfo->ldc);
+                A += cinfo->strideA;
+                C += cinfo->strideC;
         }
 }
 
@@ -706,18 +724,15 @@ static void make_map(struct indexdata * idd, const struct Heffdata * data)
         idd->map[2] = 2;
 }
 
-static int search_block_with_qn(int * sb, QN_TYPE qn, 
+static int search_block_with_qn(int ** sb, int qnid, 
                                 const struct Heffdata * data)
 {
-        const int Nb = data->siteObject.nrblocks;
-        const int Ns = data->siteObject.nrsites;
-        const QN_TYPE * currqn = 
-                &data->siteObject.qnumbers[++*sb * Ns + data->posB];
-
-        for (; *sb < Nb; ++*sb, currqn += Ns) {
-                if (*currqn == qn) { return 1; }
+        if (*sb == NULL) {
+                *sb = data->sb_with_qnid[qnid];
+        } else {
+                ++*sb;
         }
-        return 0;
+        return **sb != -1;
 }
 
 static void fill_indexes(int sb, struct indexdata * idd, 
@@ -886,14 +901,16 @@ static void loop_oldqnBs(struct indexdata * idd, const struct Heffdata * data,
         QN_TYPE * oldqnB_arr = data->qnBtoqnB_arr[newqnB_id];
 
         for (int oldqnB_id = 0; oldqnB_id < oldnr_qnB; ++oldqnB_id) {
-                const QN_TYPE oldqnB = oldqnB_arr[oldqnB_id];
+                const int qnBtoSid = qnbsearch(&oldqnB_arr[oldqnB_id], 1,
+                                               data->qnB_arr, 1, data->nr_qnB);
+
                 const int nrMPOcombos = data->nrMPOcombos[newqnB_id][oldqnB_id];
                 const int * const MPOs = data->MPOs[newqnB_id][oldqnB_id];
 
-                int oldsb = -1;
-                while (search_block_with_qn(&oldsb, oldqnB, data)) {
+                int * oldsb = NULL;
+                while (search_block_with_qn(&oldsb, qnBtoSid, data)) {
                         struct contractinfo cinfo[3];
-                        fill_indexes(oldsb, idd, data, OLD, (double *) vec);
+                        fill_indexes(*oldsb, idd, data, OLD, (double *) vec);
                         make_cinfo(idd, cinfo, data->isdmrg);
 
                         for (const int * MPO = MPOs; 
@@ -916,12 +933,11 @@ void matvecT3NS(const double * vec, double * result, const void * vdata)
 #pragma omp parallel for schedule(dynamic) default(none) shared(vec, result)
         for (int newqnB_id = 0; newqnB_id < data->nr_qnB; ++newqnB_id) {
                 struct indexdata idd;
-                const QN_TYPE newqnB = data->qnB_arr[newqnB_id];
                 make_map(&idd, data);
 
-                int newsb = -1;
-                while (search_block_with_qn(&newsb, newqnB, data)) {
-                        fill_indexes(newsb, &idd, data, NEW, result);
+                int * newsb = NULL;
+                while (search_block_with_qn(&newsb, newqnB_id, data)) {
+                        fill_indexes(*newsb, &idd, data, NEW, result);
                         loop_oldqnBs(&idd, data, newqnB_id, vec);
                 }
         }
@@ -970,6 +986,38 @@ static void diag_old_to_new_sb(int MPO, struct indexdata * idd,
                                         *telres += elNK * *tel1;
                                 }
                         }
+                }
+        }
+}
+
+static void make_sb_with_qnBid(struct Heffdata * data)
+{
+        data->sb_with_qnid = safe_malloc(data->nr_qnB, *data->sb_with_qnid);
+        const int n = data->siteObject.nrblocks;
+        const int ns = data->siteObject.nrsites;
+
+        for (int i = 0; i < data->nr_qnB; ++i) {
+                int cnt = 0;
+                data->sb_with_qnid[i] = safe_malloc(n, *data->sb_with_qnid[i]);
+                QN_TYPE qn = data->qnB_arr[i];
+
+                const QN_TYPE * qntosearch = 
+                        data->siteObject.qnumbers + data->posB;
+
+                for (int j = 0; j < n; ++j, qntosearch += ns) {
+                        if (*qntosearch == qn) {
+                                data->sb_with_qnid[i][cnt++] = j;
+                        }
+                }
+
+                // sentinel
+                data->sb_with_qnid[i][cnt++] = -1;
+                data->sb_with_qnid[i] = realloc(data->sb_with_qnid[i],
+                                                cnt * sizeof *data->sb_with_qnid[i]);
+                if (data->sb_with_qnid[i] == NULL) {
+                        fprintf(stderr, "Error %s:%d: realloc failed.\n", 
+                                __FILE__, __LINE__);
+                        exit(EXIT_FAILURE);
                 }
         }
 }
@@ -1035,6 +1083,8 @@ void init_Heffdata(struct Heffdata * data, const struct rOperators * Operators,
         adaptMPOcombos(data->nrMPOcombos, data->MPOs, MPOinstr, nrMPOinstr, 
                        data->nr_qnB, data->nr_qnBtoqnB);
         safe_free(MPOinstr);
+
+        make_sb_with_qnBid(data);
 }
 
 void destroy_Heffdata(struct Heffdata * const data)
@@ -1053,11 +1103,13 @@ void destroy_Heffdata(struct Heffdata * const data)
                 safe_free(data->qnBtoqnB_arr[i]);
                 safe_free(data->nrMPOcombos[i]);
                 safe_free(data->MPOs[i]);
+                safe_free(data->sb_with_qnid[i]);
         }
         safe_free(data->qnB_arr);
         safe_free(data->nr_qnBtoqnB);
         safe_free(data->qnBtoqnB_arr);
         safe_free(data->nrMPOcombos);
+        safe_free(data->sb_with_qnid);
         safe_free(data->MPOs);
 
         safe_free(data->instructions);
@@ -1089,10 +1141,10 @@ EL_TYPE * make_diagonal(const struct Heffdata * const data)
                 const int nrMPOcombos = data->nrMPOcombos[newqnB_id][oldqnB_id];
                 const int * const MPOs = data->MPOs[newqnB_id][oldqnB_id];
 
-                int sb = -1;
-                while (search_block_with_qn(&sb, qnB, data)) {
-                        fill_indexes(sb, &idd, data, NEW, result);
-                        fill_indexes(sb, &idd, data, OLD, result);
+                int * sb = NULL;
+                while (search_block_with_qn(&sb, newqnB_id, data)) {
+                        fill_indexes(*sb, &idd, data, NEW, result);
+                        fill_indexes(*sb, &idd, data, OLD, result);
 
                         idd.tel[WORK1] = safe_malloc(idd.dim[OLD][0] * 
                                                      idd.dim[OLD][1], EL_TYPE);
