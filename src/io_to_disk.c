@@ -41,15 +41,15 @@ static void read_symsec_from_disk(const hid_t id, struct symsecs * const ssec,
         sprintf(buffer, "./symsec_%d", nmbr);
         const hid_t group_id = H5Gopen(id, buffer, H5P_DEFAULT);
 
-        read_attribute(group_id, "nrSecs", &ssec->nrSecs, THDF5_INT);
-        read_attribute(group_id, "totaldims", &ssec->totaldims, THDF5_INT);
+        read_attribute(group_id, "nrSecs", &ssec->nrSecs);
+        read_attribute(group_id, "totaldims", &ssec->totaldims);
 
         ssec->dims = safe_malloc(ssec->nrSecs, int);
-        read_dataset(group_id, "./dims", ssec->dims, THDF5_INT);
+        read_dataset(group_id, "./dims", ssec->dims);
 
         int * dummyirreps = safe_malloc(ssec->nrSecs * offset, *dummyirreps);
         ssec->irreps = safe_malloc(ssec->nrSecs, *ssec->irreps);
-        read_dataset(group_id, "./irreps", dummyirreps, THDF5_INT);
+        read_dataset(group_id, "./irreps", dummyirreps);
 
         for (int i = 0; i < ssec->nrSecs; ++i) {
                 for (int j = 0; j < bookie.nrSyms; ++j) {
@@ -59,7 +59,7 @@ static void read_symsec_from_disk(const hid_t id, struct symsecs * const ssec,
         safe_free(dummyirreps);
         
         ssec->fcidims = safe_malloc(ssec->nrSecs, double);
-        read_dataset(group_id, "./fcidims", ssec->fcidims, THDF5_DOUBLE);
+        read_dataset(group_id, "./fcidims", ssec->fcidims);
         H5Gclose(group_id);
 }
 
@@ -87,7 +87,7 @@ static void read_bookkeeper_from_disk(const hid_t file_id)
 {
         const hid_t group_id = H5Gopen(file_id, "/bookkeeper", H5P_DEFAULT);
 
-        read_attribute(group_id, "nrSyms", &bookie.nrSyms, THDF5_INT);
+        read_attribute(group_id, "nrSyms", &bookie.nrSyms);
         if (bookie.nrSyms > MAX_SYMMETRIES) {
                 fprintf(stderr, "Error: This wave function can not be read.\n"
                         "The currently compiled program can not run with the specified number of symmetries.\n"
@@ -96,15 +96,15 @@ static void read_bookkeeper_from_disk(const hid_t file_id)
                 exit(EXIT_FAILURE);
         }
         int offset;
-        read_attribute(group_id, "Max_symmetries", &offset, THDF5_INT);
+        read_attribute(group_id, "Max_symmetries", &offset);
 
         bookie.sgs = safe_malloc(bookie.nrSyms, enum symmetrygroup);
-        read_attribute(group_id, "sgs", (int *) bookie.sgs, THDF5_INT);
+        read_attribute(group_id, "sgs", (int *) bookie.sgs);
 
         bookie.target_state = safe_malloc(bookie.nrSyms, int);
-        read_attribute(group_id, "target_state", bookie.target_state, THDF5_INT);
+        read_attribute(group_id, "target_state", bookie.target_state);
 
-        read_attribute(group_id, "nr_bonds", &bookie.nr_bonds, THDF5_INT);
+        read_attribute(group_id, "nr_bonds", &bookie.nr_bonds);
 
         bookie.list_of_symsecs = safe_malloc(bookie.nr_bonds, struct symsecs);
 
@@ -143,14 +143,18 @@ static void read_sparseblocks_from_disk(const hid_t id,
 
         const hid_t group_id = H5Gopen(id, buffer, H5P_DEFAULT);
 
-        read_attribute(group_id, "nrBlocks", &bloccount, THDF5_INT);
+        read_attribute(group_id, "nrBlocks", &bloccount);
         assert(bloccount == nrblocks);
 
         block->beginblock = safe_malloc(nrblocks + 1, int);
-        read_dataset(group_id, "./beginblock", block->beginblock, THDF5_INT);
+        read_dataset(group_id, "./beginblock", block->beginblock);
 
-        block->tel = safe_malloc(block->beginblock[nrblocks], EL_TYPE);
-        read_dataset(group_id, "./tel", block->tel, THDF5_EL_TYPE);
+        if (block->beginblock[nrblocks] == 0) {
+                block->tel = NULL;
+        } else {
+                block->tel = safe_malloc(block->beginblock[nrblocks], EL_TYPE);
+                read_dataset(group_id, "./tel", block->tel);
+        }
 
         H5Gclose(group_id);
 }
@@ -179,14 +183,14 @@ static void read_siteTensor_from_disk(const hid_t id, struct siteTensor *
         sprintf(buffer, "./tensor_%d", nmbr);
         const hid_t group_id = H5Gopen(id, buffer, H5P_DEFAULT);
 
-        read_attribute(group_id, "nrsites", &tens->nrsites, THDF5_INT);
+        read_attribute(group_id, "nrsites", &tens->nrsites);
 
         tens->sites = safe_malloc(tens->nrsites, int);
-        read_attribute(group_id, "sites", tens->sites, THDF5_INT);
-        read_attribute(group_id, "nrblocks", &tens->nrblocks, THDF5_INT);
+        read_attribute(group_id, "sites", tens->sites);
+        read_attribute(group_id, "nrblocks", &tens->nrblocks);
 
         tens->qnumbers = safe_malloc(tens->nrblocks * tens->nrsites, QN_TYPE);
-        read_dataset(group_id, "./qnumbers", tens->qnumbers, THDF5_QN_TYPE);
+        read_dataset(group_id, "./qnumbers", tens->qnumbers);
         read_sparseblocks_from_disk(group_id, &tens->blocks, tens->nrblocks, 0);
         H5Gclose(group_id);
 }
@@ -211,7 +215,7 @@ static void read_T3NS_from_disk(const hid_t file_id,
         const hid_t group_id = H5Gopen(file_id, "/T3NS", H5P_DEFAULT);
         int nrsit;
 
-        read_attribute(group_id, "nrSites", &nrsit, THDF5_INT);
+        read_attribute(group_id, "nrSites", &nrsit);
         assert(nrsit == netw.sites);
 
         *T3NS = safe_malloc(nrsit, struct siteTensor);
@@ -266,23 +270,22 @@ static void read_rOperator_from_disk(const hid_t id,
 
         const hid_t group_id = H5Gopen(id, buffer, H5P_DEFAULT);
 
-        read_attribute(group_id, "bond_of_operator", &rOp->bond_of_operator, THDF5_INT);
-        read_attribute(group_id, "is_left", &rOp->is_left, THDF5_INT);
-        read_attribute(group_id, "P_operator", &rOp->P_operator, THDF5_INT);
-        read_attribute(group_id, "nrhss", &rOp->nrhss, THDF5_INT);
+        read_attribute(group_id, "bond_of_operator", &rOp->bond_of_operator);
+        read_attribute(group_id, "is_left", &rOp->is_left);
+        read_attribute(group_id, "P_operator", &rOp->P_operator);
+        read_attribute(group_id, "nrhss", &rOp->nrhss);
 
         rOp->begin_blocks_of_hss = safe_malloc(rOp->nrhss + 1, int);
-        read_dataset(group_id, "./begin_blocks_of_hss",
-                     rOp->begin_blocks_of_hss, THDF5_INT);
+        read_dataset(group_id, "./begin_blocks_of_hss", rOp->begin_blocks_of_hss);
 
         rOp->qnumbers = safe_malloc(rOp->begin_blocks_of_hss[rOp->nrhss] *
                               rOperators_give_nr_of_couplings(rOp), QN_TYPE);
-        read_dataset(group_id, "./qnumbers", rOp->qnumbers, THDF5_QN_TYPE);
+        read_dataset(group_id, "./qnumbers", rOp->qnumbers);
 
-        read_attribute(group_id, "nrops", &rOp->nrops, THDF5_INT);
+        read_attribute(group_id, "nrops", &rOp->nrops);
 
         rOp->hss_of_ops = safe_malloc(rOp->nrops, int);
-        read_dataset(group_id, "./hss_of_ops", rOp->hss_of_ops, THDF5_INT);
+        read_dataset(group_id, "./hss_of_ops", rOp->hss_of_ops);
 
         rOp->operators = safe_malloc(rOp->nrops, struct sparseblocks);
         for (int i = 0; i < rOp->nrops; ++i) {
@@ -319,7 +322,7 @@ static void read_rOps_from_disk(const hid_t id,
         const hid_t group_id = H5Gopen(id, "/rOps", H5P_DEFAULT);
         int nrbonds;
 
-        read_attribute(group_id, "nrOps", &nrbonds, THDF5_INT);
+        read_attribute(group_id, "nrOps", &nrbonds);
         assert(nrbonds == netw.nr_bonds);
 
         *rOps = safe_malloc(nrbonds, struct rOperators);
@@ -354,21 +357,21 @@ static void read_network_from_disk(const hid_t id)
 {
         const hid_t group_id = H5Gopen(id, "/network", H5P_DEFAULT);
 
-        read_attribute(group_id, "nr_bonds", &netw.nr_bonds, THDF5_INT);
+        read_attribute(group_id, "nr_bonds", &netw.nr_bonds);
 
         netw.bonds = malloc(netw.nr_bonds * sizeof netw.bonds[0]);
-        read_dataset(group_id, "./bonds", (int*) netw.bonds, THDF5_INT);
+        read_dataset(group_id, "./bonds", (int*) netw.bonds);
 
-        read_attribute(group_id, "psites", &netw.psites, THDF5_INT);
-        read_attribute(group_id, "sites", &netw.sites, THDF5_INT);
+        read_attribute(group_id, "psites", &netw.psites);
+        read_attribute(group_id, "sites", &netw.sites);
 
         netw.sitetoorb = safe_malloc(netw.sites, int);
-        read_dataset(group_id, "./sitetoorb", netw.sitetoorb, THDF5_INT);
+        read_dataset(group_id, "./sitetoorb", netw.sitetoorb);
 
-        read_attribute(group_id, "sweeplength", &netw.sweeplength, THDF5_INT);
+        read_attribute(group_id, "sweeplength", &netw.sweeplength);
 
         netw.sweep = safe_malloc(netw.sweeplength, int);
-        read_dataset(group_id, "./sweep", netw.sweep, THDF5_INT);
+        read_dataset(group_id, "./sweep", netw.sweep);
 
         H5Gclose(group_id);
         print_network();
@@ -449,8 +452,7 @@ void write_attribute(hid_t group_id, const char atrname[], const void * atr,
                 H5T_STD_I32LE, H5T_IEEE_F64LE, EL_TYPE_H5, QN_TYPE_H5
         };
 
-        if (atr == NULL)
-                return;
+        if (atr == NULL || size == 0) { return; }
         hid_t datatype = datatype_arr[kind];
 
         const hid_t dataspace_id = H5Screate_simple(1, &size, NULL);
@@ -463,15 +465,10 @@ void write_attribute(hid_t group_id, const char atrname[], const void * atr,
         H5Sclose(dataspace_id);
 }
 
-void read_attribute(hid_t id, const char atrname[], void * atr, 
-                    enum hdf5type kind)
+void read_attribute(hid_t id, const char atrname[], void * atr)
 {
-        hid_t datatype_arr[] = {
-                H5T_STD_I32LE, H5T_IEEE_F64LE, EL_TYPE_H5, QN_TYPE_H5
-        };
-        hid_t datatype = datatype_arr[kind];
-
         hid_t attribute_id = H5Aopen(id, atrname, H5P_DEFAULT);
+        hid_t datatype =  H5Aget_type(attribute_id);
         H5Aread(attribute_id, datatype, atr);
         H5Aclose(attribute_id);
 }
@@ -483,7 +480,7 @@ void write_dataset(hid_t id, const char datname[], const void * dat, hsize_t siz
                 H5T_STD_I32LE, H5T_IEEE_F64LE, EL_TYPE_H5, QN_TYPE_H5
         };
 
-        if (dat == NULL) { return; }
+        if (dat == NULL || size == 0) { return; }
         hid_t datatype = datatype_arr[kind];
 
         hid_t dataspace_id = H5Screate_simple(1, &size, NULL);
@@ -495,15 +492,10 @@ void write_dataset(hid_t id, const char datname[], const void * dat, hsize_t siz
         H5Sclose(dataspace_id);
 }
 
-void read_dataset(hid_t id, const char datname[], void * dat,
-                  enum hdf5type kind)
+void read_dataset(hid_t id, const char datname[], void * dat)
 {
-        hid_t datatype_arr[] = {
-                H5T_STD_I32LE, H5T_IEEE_F64LE, EL_TYPE_H5, QN_TYPE_H5
-        };
-
-        hid_t datatype = datatype_arr[kind];
         hid_t dataset_id = H5Dopen(id, datname, H5P_DEFAULT);
+        hid_t datatype =  H5Dget_type(dataset_id);
         H5Dread(dataset_id, datatype, H5S_ALL, H5S_ALL, H5P_DEFAULT, dat);
         H5Dclose(dataset_id);
 }

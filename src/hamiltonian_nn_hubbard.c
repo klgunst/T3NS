@@ -257,9 +257,9 @@ void NN_H_read_hamiltonian_from_disk(const hid_t id)
 {
         const hid_t group_id = H5Gopen(id, "./hamiltonian_data", H5P_DEFAULT);
 
-        read_attribute(group_id, "t", &hdat.t, THDF5_DOUBLE);
-        read_attribute(group_id, "U", &hdat.U, THDF5_DOUBLE);
-        read_attribute(group_id, "su2", &hdat.su2, THDF5_INT);
+        read_attribute(group_id, "t", &hdat.t);
+        read_attribute(group_id, "U", &hdat.U);
+        read_attribute(group_id, "su2", &hdat.su2);
         H5Gclose(group_id);
 }
 

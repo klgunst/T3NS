@@ -268,7 +268,7 @@ void write_hamiltonian_to_disk(const hid_t id)
 void read_hamiltonian_from_disk(const hid_t id)
 {
         const hid_t group_id = H5Gopen(id, "/hamiltonian", H5P_DEFAULT);
-        read_attribute(group_id, "type", &ham, THDF5_INT);
+        read_attribute(group_id, "type", &ham);
 
         switch(ham) {
         case QC :

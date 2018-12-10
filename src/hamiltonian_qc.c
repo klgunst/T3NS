@@ -606,17 +606,17 @@ void QC_read_hamiltonian_from_disk(const hid_t id)
 {
         const hid_t group_id = H5Gopen(id, "./hamiltonian_data", H5P_DEFAULT);
 
-        read_attribute(group_id, "norb", &hdat.norb, THDF5_INT);
+        read_attribute(group_id, "norb", &hdat.norb);
 
         hdat.orbirrep = safe_malloc(hdat.norb, int);
-        read_dataset(group_id, "./orbirrep", hdat.orbirrep, THDF5_INT);
+        read_dataset(group_id, "./orbirrep", hdat.orbirrep);
 
         const int p2 = hdat.norb * hdat.norb;
         const int p4 = p2 * p2;
         hdat.Vijkl = safe_malloc(p4, EL_TYPE);
-        read_dataset(group_id, "./Vijkl", hdat.Vijkl, THDF5_EL_TYPE);
-        read_attribute(group_id, "core_energy", &hdat.core_energy, THDF5_DOUBLE);
-        read_attribute(group_id, "su2", &hdat.su2, THDF5_INT);
+        read_dataset(group_id, "./Vijkl", hdat.Vijkl);
+        read_attribute(group_id, "core_energy", &hdat.core_energy);
+        read_attribute(group_id, "su2", &hdat.su2);
         H5Gclose(group_id);
 
         prepare_MPOsymsecs();
