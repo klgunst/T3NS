@@ -408,7 +408,7 @@ double prefactor_mirror_coupling(int ** irrep_arr,
         return prefactor;
 }
 
-double prefactor_bUpdate(int * const (*irrep_arr)[3], int updateCase,
+double prefactor_bUpdate(int * (*irrep_arr)[3], int updateCase,
                          const enum symmetrygroup * sgs, int nrsy)
 {
         int symvalues[3][3];

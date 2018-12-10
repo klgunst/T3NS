@@ -224,3 +224,30 @@ void print_block(const struct sparseblocks * blocks, int id)
                 printf("%.6f%s", tel[el], el == N - 1 ? "" : ", ");
         printf("\n");
 }
+
+void do_contract(const struct contractinfo * cinfo, EL_TYPE ** tel, 
+                 double alpha, double beta)
+{
+        EL_TYPE * A = tel[cinfo->tensneeded[0]];
+        EL_TYPE * B = tel[cinfo->tensneeded[1]];
+        EL_TYPE * C = tel[cinfo->tensneeded[2]];
+
+        /* Maybe look at batch dgemm from mkl for this.
+         * Although I am not sure this will make a difference 
+         * since this is probably more for parallel dgemm */
+        cblas_dgemm(CblasColMajor, cinfo->trans[0], cinfo->trans[1], 
+                    cinfo->M, cinfo->N, cinfo->K, 
+                    alpha, A, cinfo->lda, B, cinfo->ldb, 
+                    beta, C, cinfo->ldc);
+
+        for (int l = 1; l < cinfo->L; ++l) {
+                A += cinfo->stride[0];
+                B += cinfo->stride[1];
+                C += cinfo->stride[2];
+                cblas_dgemm(CblasColMajor, cinfo->trans[0], cinfo->trans[1], 
+                            cinfo->M, cinfo->N, cinfo->K, 
+                            alpha, A, cinfo->lda, B, cinfo->ldb, 
+                            beta, C, cinfo->ldc);
+        }
+}
+

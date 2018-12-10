@@ -12,41 +12,26 @@
  * a matvec routine.
  */
 
-#ifdef T3NS_MKL
-#include "mkl.h"
-#else
-#include <cblas.h>
-#endif
-
 #include "siteTensor.h"
 #include "rOperators.h"
 #include "symsecs.h"
 #include "network.h"
 
-// enum for the different types of tensors we come accross during a T3NS Heff.
-enum hefftensor_type {NEW, OLD, OPS1, OPS2, OPS3, WORK1, WORK2};
-
-struct heffcinfo {
-        enum hefftensor_type tels[3];
-        CBLAS_TRANSPOSE trans[2];
-        int M;
-        int N;
-        int K;
-        int L;
-        int strideA;
-        int strideC;
-        int lda;
-        int ldb;
-        int ldc;
-};
-
-struct heffcontr {
-        int sbold;
-        struct heffcinfo cinfo[3];
+struct newtooldmatvec {
+        int oldsb;
+        int bestorder;
         int nmbr;
         int (*sbops)[3];
         EL_TYPE * prefactor;
         int * MPO;
+};
+
+struct secondrun {
+        int worksize[2];
+        int * shufid;
+        int (*dimsofsb)[3];
+        int * nr_oldsb;
+        struct newtooldmatvec ** ntom;
 };
 
 /**
@@ -162,8 +147,7 @@ struct Heffdata {
         /// The prefactors for the instructions.
         double * prefactors;
 
-        struct heffcontr ** secondrun;
-        int worksize[2];
+        struct secondrun sr;
 };
 
 /**

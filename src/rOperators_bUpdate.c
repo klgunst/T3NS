@@ -2,12 +2,6 @@
 #include <stdio.h>
 #include <omp.h>
 
-#ifdef T3NS_MKL
-#include "mkl.h"
-#else
-#include <cblas.h>
-#endif
-
 #include "rOperators.h"
 #include "debug.h"
 #include "macros.h"
@@ -143,8 +137,17 @@ struct indexhelper {
         struct nextshelper * sop;
 } idh;
 
-enum tensor_type {OPS1, OPS2, NEWOPS, TENS, ADJ, WORKBRA, WORKKET};
-enum bond_type {BRA, KET, MPO};
+#define OPS1 0
+#define OPS2 1
+#define NEWOPS 2
+#define TENS 3
+#define ADJ 4
+#define WORKBRA 5
+#define WORKKET 6
+
+#define BRA 0
+#define KET 1
+#define MPO 2
 
 struct update_data {
         /* indexes are :
@@ -159,19 +162,6 @@ struct update_data {
         EL_TYPE * tels[7];
 };
 
-struct contractinfo {
-        CBLAS_TRANSPOSE trans[2];
-        int M;
-        int N;
-        int K;
-        int L;
-        int lda;
-        int ldb;
-        int ldc;
-        int stride[3];
-        enum tensor_type tensneeded[3];
-};
-
 /* ========================================================================== */
 /* ==================== DECLARATION STATIC FUNCTIONS ======================== */
 /* ========================================================================== */
@@ -184,14 +174,14 @@ static int prepare_update_branching(struct rOperators * const newops, const stru
 
 static void clean_indexhelper(const int site);
 
-static void fill_indexes(struct update_data * const data, const enum tensor_type operator, 
+static void fill_indexes(struct update_data * const data, const int operator, 
                          QN_TYPE qn);
 
 static inline void fill_index(const int val, struct update_data * const data, 
-                              const enum tensor_type operator, const enum bond_type bondtype);
+                              const int operator, const int bondtype);
 
-static inline int get_id(struct update_data * const data, const enum tensor_type operator, 
-                         const enum bond_type bondtype);
+static inline int get_id(struct update_data * const data, const int operator, 
+                         const int bondtype);
 
 static void update_unique_ops_T3NS(struct rOperators * const newops, const struct rOperators 
                                    Operator[2], const struct siteTensor * const tens, const int updateCase, const struct 
@@ -209,9 +199,6 @@ static void update_selected_blocks(const struct rOperators Operator[2], struct r
 
 static int get_tels_operators(struct update_data * const data, const int * const ops, const int 
                               curr_unique, const struct rOperators Operator[2], const struct rOperators * const newops);
-
-static void update_ops_block(const struct contractinfo * cinfo, 
-                             EL_TYPE * const tels[7], double alpha, double beta);
 
 #ifdef DEBUG
 static int check_correctness(const struct rOperators Operator[2], const struct siteTensor * 
@@ -606,7 +593,7 @@ static void clean_indexhelper(const int site)
 }
 
 static void fill_indexes(struct update_data * const data, 
-                         const enum tensor_type operator, QN_TYPE qn)
+                         const int operator, QN_TYPE qn)
 {
         int i;
         const int opmap = idh.id_ops[operator];
@@ -628,7 +615,7 @@ static void fill_indexes(struct update_data * const data,
 }
 
 static inline void fill_index(const int val, struct update_data * const data, 
-                              const enum tensor_type operator, const enum bond_type bondtype)
+                              const int operator, const int bondtype)
 {
         const int opmap = idh.id_ops[operator];
         data->id[opmap][bondtype] = val;
@@ -637,8 +624,8 @@ static inline void fill_index(const int val, struct update_data * const data,
                 data->teldims[opmap][bondtype] = idh.symarr[opmap][bondtype].dims[val];
 }
 
-static inline int get_id(struct update_data * const data, const enum tensor_type operator, 
-                         const enum bond_type bondtype)
+static inline int get_id(struct update_data * const data, const int operator, 
+                         const int bondtype)
 {
         return data->id[idh.id_ops[operator]][bondtype];
 }
@@ -816,7 +803,7 @@ static int find_block_adj(const struct siteTensor * tens,
  * of newops and its next use needs to be a contraction along a ket bond.
  * WORKBRA means that it has more bra bonds than ket bonds, and it also contains the bra component 
  * of newops and its next use needs to be a contraction along a bra bond. */
-static const enum tensor_type ways_to_update[6][3][3] = {
+static const int ways_to_update[6][3][3] = {
         {{OPS1, TENS, WORKKET}, {OPS2, WORKKET, WORKBRA}, {ADJ, WORKBRA, NEWOPS}},
         {{OPS2, TENS, WORKKET}, {OPS1, WORKKET, WORKBRA}, {ADJ, WORKBRA, NEWOPS}},
         {{OPS1, ADJ, WORKBRA}, {OPS2, WORKBRA, WORKKET}, {WORKKET, TENS, NEWOPS}},
@@ -825,26 +812,26 @@ static const enum tensor_type ways_to_update[6][3][3] = {
         {{OPS2, TENS, WORKKET}, {OPS1, ADJ, WORKBRA}, {WORKBRA, WORKKET, NEWOPS}}
 };
 
-static void get_dims(enum tensor_type t, int * rd, int (*td)[2], int (*wd)[2])
+static void get_dims(int t, int * rd, int (*td)[2], int (*wd)[2])
 {
         if (t < TENS) {
                 rd[BRA] = td[idh.id_ops[t]][BRA];
                 rd[KET] = td[idh.id_ops[t]][KET];
         } else if (t < WORKBRA) {
-                const enum bond_type bondtype = t == TENS ? KET : BRA;
+                const int bondtype = t == TENS ? KET : BRA;
                 rd[0] = td[0][bondtype];
                 rd[1] = td[1][bondtype];
                 rd[2] = td[2][bondtype];
         } else {
-                const enum bond_type bondtype = t == WORKKET ? KET : BRA;
+                const int bondtype = t == WORKKET ? KET : BRA;
                 rd[0] = wd[0][bondtype];
                 rd[1] = wd[1][bondtype];
                 rd[2] = wd[2][bondtype];
         }
 }
 
-static int operationsneeded(enum tensor_type t, int bondtocontract, 
-                            enum bond_type btype, const int * d1, 
+static int operationsneeded(int t, int bondtocontract, 
+                            int btype, const int * d1, 
                             const int * d2, int (*wd)[2])
 {
         assert(t == WORKBRA || t == WORKKET || t == NEWOPS);
@@ -852,7 +839,7 @@ static int operationsneeded(enum tensor_type t, int bondtocontract,
         const int *bs = bondz[bondtocontract];
 
         if (t == WORKBRA || t == WORKKET) {
-                const enum bond_type bondtype = t == WORKKET ? KET : BRA;
+                const int bondtype = t == WORKKET ? KET : BRA;
                 const int result = d1[0] * d1[1] * d2[bs[0]] * d2[bs[1]];
                 assert(d1[btype] == d2[bondtocontract]);
 
@@ -867,7 +854,7 @@ static int operationsneeded(enum tensor_type t, int bondtocontract,
         }
 }
 
-static int calc_contract(const enum tensor_type (*tens)[3], int (*td)[2], 
+static int calc_contract(const int (*tens)[3], int (*td)[2], 
                          int (*wd)[2])
 {
         int result = 0;
@@ -887,14 +874,14 @@ static int calc_contract(const enum tensor_type (*tens)[3], int (*td)[2],
 }
 
 static void fillin_cinfo(struct contractinfo * cinfo, 
-                         const enum tensor_type (*tens)[3], 
+                         const int (*tens)[3], 
                          int (*td)[2], int (*wd)[2])
 {
         for (int i = 0; i < 3; ++i) {
                 const int last_c = i == 2;
                 const int bondtocontract = last_c ? idh.id_ops[tens[i][2]] : 
                         idh.id_ops[tens[i][0]];
-                const enum bond_type btype = (tens[i][1] == TENS || 
+                const int btype = (tens[i][1] == TENS || 
                                               tens[i][1] == WORKKET) ? KET : BRA;
                 const int bondz[3][2] = {{1, 2}, {0, 2}, {0, 1}};
                 const int *bs = bondz[bondtocontract];
@@ -1028,9 +1015,9 @@ static int find_matching_instr(int (**instr_id)[2], struct update_data * data)
         /* First time we are entering this function since the while-loop. */
         if (*instr_id == NULL) {
                 const int dimhss = get_nr_hamsymsec();
-                QN_TYPE MPOtomatch = get_id(data, OPS1, MPO) +
-                        get_id(data, OPS2, MPO) * dimhss +
-                        get_id(data, NEWOPS, MPO) * dimhss * dimhss;
+                QN_TYPE MPOtomatch = get_id(data, OPS1, MPO);
+                MPOtomatch += get_id(data, OPS2, MPO) * dimhss;
+                MPOtomatch += get_id(data, NEWOPS, MPO) * dimhss * dimhss;
 
                 int MPOid = qnbsearch(&MPOtomatch, 1, idh.MPO_combos_arr, 1, 
                                       idh.nrMPO_combos);
@@ -1068,9 +1055,9 @@ static void update_selected_blocks(const struct rOperators * Operator,
                 /* checks if the operators belongs to the right hss 
                  * and if the blocks aren't zero */
                 if (get_tels_operators(data, ops, (*instr_id)[1], Operator, newops)) {
-                        update_ops_block(&cinfo[0], data->tels, 1, 0);
-                        update_ops_block(&cinfo[1], data->tels, 1, 0);
-                        update_ops_block(&cinfo[2], data->tels, prefactor, 1);
+                        do_contract(&cinfo[0], data->tels, 1, 0);
+                        do_contract(&cinfo[1], data->tels, 1, 0);
+                        do_contract(&cinfo[2], data->tels, prefactor, 1);
                 }
         }
         safe_free(data->tels[WORKKET]);
@@ -1101,27 +1088,6 @@ static int get_tels_operators(struct update_data * data, const int * ops,
         assert(data->teldims[idh.id_ops[NEWOPS]][BRA] * data->teldims[idh.id_ops[NEWOPS]][KET] ==
                get_size_block(&newops->operators[curr_unique], data->sb_op[NEWOPS]));
         return 1;
-}
-
-static void update_ops_block(const struct contractinfo * cinfo, 
-                             EL_TYPE * const tels[7], double alpha, double beta)
-{
-        EL_TYPE * els[3] = {
-                tels[cinfo->tensneeded[0]], 
-                tels[cinfo->tensneeded[1]], 
-                tels[cinfo->tensneeded[2]]
-        };
-
-        for (int l = 0; l < cinfo->L; ++l) {
-                cblas_dgemm(CblasColMajor, cinfo->trans[0], cinfo->trans[1], 
-                            cinfo->M, cinfo->N, cinfo->K, alpha, 
-                            els[0], cinfo->lda, els[1], cinfo->ldb,
-                            beta, els[2], cinfo->ldc);
-
-                els[0] += cinfo->stride[0];
-                els[1] += cinfo->stride[1];
-                els[2] += cinfo->stride[2];
-        }
 }
 
 #ifdef DEBUG

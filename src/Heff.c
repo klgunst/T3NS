@@ -2,12 +2,6 @@
 #include <stdio.h>
 #include <omp.h>
 
-#ifdef T3NS_MKL
-#include "mkl.h"
-#else
-#include <cblas.h>
-#endif
-
 #include "Heff.h"
 #include "symmetries.h"
 #include "macros.h"
@@ -17,6 +11,15 @@
 #include "network.h"
 #include "hamiltonian.h"
 #include "instructions.h"
+#include "sort.h"
+
+#define NEW 0
+#define OLD 1
+#define OPS1 2
+#define OPS2 3
+#define OPS3 4
+#define WORK1 5
+#define WORK2 6
 
 #ifdef DEBUG
 #include <sys/time.h>
@@ -510,7 +513,7 @@ struct indexdata {
         int sb_op[3];          // The symmetry block for the different 
                                // rOperators.
         EL_TYPE * tel[7];      // Pointers to the elements of the 
-                               // symmetry blocks (for each hefftensor_type).
+                               // symmetry blocks (for each ttype).
 };
 
 static double calc_prefactor(const struct indexdata * idd, 
@@ -531,50 +534,52 @@ static double calc_prefactor(const struct indexdata * idd,
         return prefactor;
 }
 
-static void prepare_cinfo_T3NS(struct indexdata * const idd, 
-                               struct heffcinfo * cinfo, 
-                               const int * order)
+static void prepare_cinfo_T3NS(int (*dim)[3], int * map,
+                               struct contractinfo * cinfo, int ordernr)
 {
-        int workdim[3] = {idd->dim[OLD][0], idd->dim[OLD][1], idd->dim[OLD][2]};
-        const enum hefftensor_type optype[3] = {OPS1, OPS2, OPS3};
-        enum hefftensor_type resulttel = OLD;
+        const int orderarray[6][3] = {
+                {0,1,2}, {1,0,2}, {0,2,1}, {1,2,0}, {2,0,1}, {2,1,0}
+        };
+        const int * order = orderarray[ordernr];
+
+        int workdim[3] = {dim[OLD][0], dim[OLD][1], dim[OLD][2]};
+        const int optype[3] = {OPS1, OPS2, OPS3};
+        int resulttel = OLD;
 
         for (int i = 0; i < 3; ++i) {
-                cinfo[i].tels[0] = order[i] == idd->map[0] ? 
+                cinfo[i].tensneeded[0] = order[i] == map[0] ? 
                         optype[order[i]] : resulttel;
-                cinfo[i].tels[1] = order[i] != idd->map[0] ? 
+                cinfo[i].tensneeded[1] = order[i] != map[0] ? 
                         optype[order[i]] : resulttel;
 
                 cinfo[i].trans[0] = CblasNoTrans;
                 cinfo[i].trans[1] = 
-                        order[i] == idd->map[0] ? CblasNoTrans : CblasTrans;
+                        order[i] == map[0] ? CblasNoTrans : CblasTrans;
 
-                assert(workdim[order[i]] == idd->dim[OLD][order[i]]);
-                workdim[order[i]] = idd->dim[NEW][order[i]];
+                assert(workdim[order[i]] == dim[OLD][order[i]]);
+                workdim[order[i]] = dim[NEW][order[i]];
 
-                cinfo[i].M = order[i] == idd->map[2] ? 
-                        workdim[idd->map[0]] * workdim[idd->map[1]] :
-                        workdim[idd->map[0]];
+                cinfo[i].M = order[i] == map[2] ? 
+                        workdim[map[0]] * workdim[map[1]] :
+                        workdim[map[0]];
 
-                cinfo[i].N = order[i] == idd->map[0] ? 
-                        workdim[idd->map[1]] * workdim[idd->map[2]] :
+                cinfo[i].N = order[i] == map[0] ? 
+                        workdim[map[1]] * workdim[map[2]] :
                         workdim[order[i]];
 
-                cinfo[i].K = idd->dim[OLD][order[i]];
+                cinfo[i].K = dim[OLD][order[i]];
 
-                cinfo[i].L = order[i] == idd->map[1] ? workdim[idd->map[2]] : 1;
+                cinfo[i].L = order[i] == map[1] ? workdim[map[2]] : 1;
 
                 assert(cinfo[i].M * cinfo[i].N * cinfo[i].L == 
                        workdim[0] * workdim[1] * workdim[2]);
 
                 if (i != 2) {
-                        const enum hefftensor_type wmem = i == 0 ? WORK1 : WORK2;
-                        idd->tel[wmem] = safe_malloc(workdim[0] * workdim[1] * 
-                                                     workdim[2], EL_TYPE);
-                        cinfo[i].tels[2] = wmem;
-                        resulttel = cinfo[i].tels[2];
+                        const int wmem = i == 0 ? WORK1 : WORK2;
+                        cinfo[i].tensneeded[2] = wmem;
+                        resulttel = (int) cinfo[i].tensneeded[2];
                 } else {
-                        cinfo[i].tels[2] = NEW;
+                        cinfo[i].tensneeded[2] = NEW;
                 }
 
                 cinfo[i].lda = cinfo[i].trans[0] == CblasNoTrans ? 
@@ -582,42 +587,43 @@ static void prepare_cinfo_T3NS(struct indexdata * const idd,
                 cinfo[i].ldb = cinfo[i].trans[1] == CblasNoTrans ? 
                         cinfo[i].K : cinfo[i].N;
                 cinfo[i].ldc = cinfo[i].M;
-                cinfo[i].strideA = cinfo[i].M * cinfo[i].K;
-                cinfo[i].strideC = cinfo[i].M * cinfo[i].N;
+                cinfo[i].stride[0] = cinfo[i].M * cinfo[i].K;
+                cinfo[i].stride[1] = 0;
+                cinfo[i].stride[2] = cinfo[i].M * cinfo[i].N;
         }
 }
 
-static void prepare_cinfo_DMRG(struct indexdata * const idd, 
-                               struct heffcinfo * cinfo, 
-                               const int * order)
+static void prepare_cinfo_DMRG(int (*dim)[3], struct contractinfo * cinfo, 
+                               int ordernr)
 {
-        int workdim[2] = {idd->dim[OLD][0], idd->dim[OLD][1]};
-        enum hefftensor_type resulttel = OLD;
+        const int orderarray[2][2] = { {0,1}, {1,0} };
+        const int * order = orderarray[ordernr];
+
+        int workdim[2] = {dim[OLD][0], dim[OLD][1]};
+        int resulttel = OLD;
 
         assert(order[0] == 0 || order[0] == 1);
         assert(order[1] == 0 || order[1] == 1);
 
         for (int i = 0; i < 2; ++i) {
-                cinfo[i].tels[0] = order[i] == 0 ?  OPS1 : resulttel;
-                cinfo[i].tels[1] = order[i] == 0 ?  resulttel : OPS2;
+                cinfo[i].tensneeded[0] = order[i] == 0 ?  OPS1 : resulttel;
+                cinfo[i].tensneeded[1] = order[i] == 0 ?  resulttel : OPS2;
 
                 cinfo[i].trans[0] = CblasNoTrans;
                 cinfo[i].trans[1] = order[i] == 0 ? CblasNoTrans : CblasTrans;
 
-                workdim[order[i]] = idd->dim[NEW][order[i]];
+                workdim[order[i]] = dim[NEW][order[i]];
 
                 cinfo[i].M = workdim[0];
                 cinfo[i].N = workdim[1];
-                cinfo[i].K = idd->dim[OLD][order[i]];
+                cinfo[i].K = dim[OLD][order[i]];
                 cinfo[i].L = 1;
 
                 if (i != 1) {
-                        idd->tel[WORK1] = safe_malloc(workdim[0] * workdim[1],
-                                                      EL_TYPE);
-                        cinfo[i].tels[2] = WORK1;
-                        resulttel = cinfo[i].tels[2];
+                        cinfo[i].tensneeded[2] = WORK1;
+                        resulttel = cinfo[i].tensneeded[2];
                 } else {
-                        cinfo[i].tels[2] = NEW;
+                        cinfo[i].tensneeded[2] = NEW;
                 }
 
                 cinfo[i].lda = cinfo[i].trans[0] == CblasNoTrans ? 
@@ -625,14 +631,14 @@ static void prepare_cinfo_DMRG(struct indexdata * const idd,
                 cinfo[i].ldb = cinfo[i].trans[1] == CblasNoTrans ? 
                         cinfo[i].K : cinfo[i].N;
                 cinfo[i].ldc = cinfo[i].M;
-                cinfo[i].strideA = cinfo[i].M * cinfo[i].K;
-                cinfo[i].strideC = cinfo[i].M * cinfo[i].N;
+                cinfo[i].stride[0] = cinfo[i].M * cinfo[i].K;
+                cinfo[i].stride[1] = 0;
+                cinfo[i].stride[2] = cinfo[i].M * cinfo[i].N;
         }
-        idd->tel[WORK2] = NULL;
 }
 
-static void make_cinfo(struct indexdata * idd, struct heffcinfo * cinfo,
-                       int isdmrg)
+static int make_cinfo(struct indexdata * idd, struct contractinfo * cinfo,
+                      int isdmrg)
 {
         const int order[6][3] = {
                 {0,1,2}, {1,0,2}, {0,2,1}, {1,2,0}, {2,0,1}, {2,1,0}
@@ -663,42 +669,14 @@ static void make_cinfo(struct indexdata * idd, struct heffcinfo * cinfo,
 
         /* best way is found, now prepare it */
         if (isdmrg) {
-                prepare_cinfo_DMRG(idd, cinfo, order[1]);
+                prepare_cinfo_DMRG(idd->dim, cinfo, best);
         } else {
-                prepare_cinfo_T3NS(idd, cinfo, order[best]);
+                prepare_cinfo_T3NS(idd->dim, idd->map, cinfo, best);
         }
+        return best;
 }
 
-static void do_contract(const struct heffcinfo * cinfo, EL_TYPE ** tel,
-                        double alpha, double beta)
-{
-        assert(cinfo->tels[2] == NEW || 
-               cinfo->tels[2] == WORK1 || 
-               cinfo->tels[2] == WORK2);
-
-        EL_TYPE * A = tel[cinfo->tels[0]];
-        EL_TYPE * B = tel[cinfo->tels[1]];
-        EL_TYPE * C = tel[cinfo->tels[2]];
-
-        /* Maybe look at batch dgemm from mkl for this.
-         * Although I am not sure this will make a difference 
-         * since this is probably more for parallel dgemm */
-        cblas_dgemm(CblasColMajor, cinfo->trans[0], cinfo->trans[1], 
-                    cinfo->M, cinfo->N, cinfo->K, 
-                    alpha, A, cinfo->lda, B, cinfo->ldb, 
-                    beta, C, cinfo->ldc);
-
-        for (int l = 1; l < cinfo->L; ++l) {
-                A += cinfo->strideA;
-                C += cinfo->strideC;
-                cblas_dgemm(CblasColMajor, cinfo->trans[0], cinfo->trans[1], 
-                            cinfo->M, cinfo->N, cinfo->K, 
-                            alpha, A, cinfo->lda, B, cinfo->ldb, 
-                            beta, C, cinfo->ldc);
-        }
-}
-
-static void make_map(struct indexdata * idd, const struct Heffdata * data)
+static void make_map(int * map, const struct Heffdata * data)
 {
         int cnt = 0;
         /* only for twosite! */
@@ -706,9 +684,9 @@ static void make_map(struct indexdata * idd, const struct Heffdata * data)
                 cnt += data->rOperators_on_site[i] == data->posB;
         }
         assert(data->isdmrg + cnt == 2);
-        idd->map[0] = data->rOperators_on_site[1] != data->posB ? 1 : 0;
-        idd->map[1] = data->rOperators_on_site[1] != data->posB ? 0 : 1;
-        idd->map[2] = 2;
+        map[0] = data->rOperators_on_site[1] != data->posB ? 1 : 0;
+        map[1] = data->rOperators_on_site[1] != data->posB ? 0 : 1;
+        map[2] = 2;
 }
 
 static int search_block_with_qn(int ** sb, int qnid, 
@@ -723,7 +701,7 @@ static int search_block_with_qn(int ** sb, int qnid,
 }
 
 static void fill_indexes(int sb, struct indexdata * idd, 
-                         const struct Heffdata * data, enum hefftensor_type tp, 
+                         const struct Heffdata * data, int tp, 
                          double * vector)
 {
         const int nrsites = data->siteObject.nrsites;
@@ -754,7 +732,7 @@ static void fill_indexes(int sb, struct indexdata * idd,
                 if (!data->Operators[i].P_operator) { 
                         /* This rOperator will be contracted 
                          * with the branching tensor
-                         * only dimension of the i'th leg is needed */
+                         * only idd->dimension of the i'th leg is needed */
                         idd->dim[tp][i] = 
                                 data->symarr[site][i].dims[idd->id[site][tp][i]]; 
                 } else { 
@@ -846,9 +824,10 @@ static int find_operator_tel(const int * sb, EL_TYPE ** tel,
 
 static void transform_old_to_new_sb(int *i, struct indexdata * idd, 
                                     const struct Heffdata * data, 
-                                    struct heffcontr * secrun)
+                                    const struct contractinfo * cinfo,
+                                    struct newtooldmatvec * ntom)
 {
-        const int MPO = secrun->MPO[*i];
+        const int MPO = ntom->MPO[*i];
         const int step = data->isdmrg ? 2 : 3;
         const int * instr = &data->instructions[step * data->instrbegin[MPO]];
         const int * const endinstr = &data->instructions[step * data->instrbegin[MPO + 1]];
@@ -859,37 +838,36 @@ static void transform_old_to_new_sb(int *i, struct indexdata * idd,
         if (nrinst == 0) { return; }
 
         fill_MPO_indexes(idd, instr, data);
-        secrun->prefactor[*i] = calc_prefactor(idd, data);
-        if (COMPARE_ELEMENT_TO_ZERO(secrun->prefactor[*i])) { return; }
+        ntom->prefactor[*i] = calc_prefactor(idd, data);
+        if (COMPARE_ELEMENT_TO_ZERO(ntom->prefactor[*i])) { return; }
 
         find_operator_sb(idd, data);
-        secrun->sbops[*i][0] = idd->sb_op[0];
-        secrun->sbops[*i][1] = idd->sb_op[1];
-        secrun->sbops[*i][2] = idd->sb_op[2];
+        ntom->sbops[*i][0] = idd->sb_op[0];
+        ntom->sbops[*i][1] = idd->sb_op[1];
+        ntom->sbops[*i][2] = idd->sb_op[2];
 
         for (; instr < endinstr; instr += step, ++pref) {
-                const double totpref = *pref * secrun->prefactor[*i];
-                if (!find_operator_tel(secrun->sbops[*i], &idd->tel[OPS1], 
+                const double totpref = *pref * ntom->prefactor[*i];
+                if (!find_operator_tel(ntom->sbops[*i], &idd->tel[OPS1], 
                                        data->Operators, instr, data->isdmrg)) {
                         continue;
                 }
 
                 if (data->isdmrg) {
-                        do_contract(&secrun->cinfo[0], idd->tel, 1, 0);
-                        do_contract(&secrun->cinfo[1], idd->tel, totpref, 1);
+                        do_contract(&cinfo[0], idd->tel, 1, 0);
+                        do_contract(&cinfo[1], idd->tel, totpref, 1);
                 } else {
-                        do_contract(&secrun->cinfo[0], idd->tel, 1, 0);
-                        do_contract(&secrun->cinfo[1], idd->tel, 1, 0);
-                        do_contract(&secrun->cinfo[2], idd->tel, totpref, 1);
+                        do_contract(&cinfo[0], idd->tel, 1, 0);
+                        do_contract(&cinfo[1], idd->tel, 1, 0);
+                        do_contract(&cinfo[2], idd->tel, totpref, 1);
                 }
         }
-
         ++*i;
 }
 
 static void loop_oldqnBs(struct indexdata * idd, struct Heffdata * data,
                          int newqnB_id, const double * vec,
-                         struct heffcontr * secrun, int * wsize)
+                         struct newtooldmatvec * ntom, int * nrold, int * wsize)
 {
         const int oldnr_qnB = data->nr_qnBtoqnB[newqnB_id];
         QN_TYPE * oldqnB_arr = data->qnBtoqnB_arr[newqnB_id];
@@ -903,37 +881,36 @@ static void loop_oldqnBs(struct indexdata * idd, struct Heffdata * data,
 
                 int * oldsb = NULL;
                 while (search_block_with_qn(&oldsb, qnBtoSid, data)) {
-                        secrun->sbold = *oldsb;
                         fill_indexes(*oldsb, idd, data, OLD, (double *) vec);
-                        make_cinfo(idd, secrun->cinfo, data->isdmrg);
 
-                        secrun->prefactor = safe_malloc(nrMPOcombos, *secrun->prefactor);
-                        secrun->sbops = safe_malloc(nrMPOcombos, *secrun->sbops);
-                        secrun->MPO = safe_malloc(nrMPOcombos, *secrun->MPO);
-                        secrun->nmbr = 0;
+                        ntom->oldsb = *oldsb;
+                        ntom->nmbr = 0;
+                        struct contractinfo cinfo[3];
+                        ntom->bestorder = make_cinfo(idd, cinfo, data->isdmrg);
+
+                        int cwsize = cinfo[0].M * cinfo[0].N * cinfo[0].L;
+                        if (wsize[0] < cwsize) { wsize[0] = cwsize; }
+                        idd->tel[WORK1] = safe_malloc(cwsize, EL_TYPE);
+
+                        cwsize = cinfo[1].M * cinfo[1].N * cinfo[1].L * !data->isdmrg;
+                        if (wsize[1] < cwsize) { wsize[1] = cwsize; }
+                        idd->tel[WORK2] = safe_malloc(cwsize, EL_TYPE);
+
+                        ntom->sbops = malloc(nrMPOcombos * sizeof *ntom->sbops);
+                        ntom->prefactor = malloc(nrMPOcombos * sizeof *ntom->prefactor);
+                        ntom->MPO = malloc(nrMPOcombos * sizeof *ntom->MPO);
                         for (int i = 0; i < nrMPOcombos; ++i) {
-                                secrun->MPO[secrun->nmbr] = MPOs[i];
-                                transform_old_to_new_sb(&secrun->nmbr, idd, 
-                                                        data, secrun);
+                                ntom->MPO[ntom->nmbr] = MPOs[i];
+                                transform_old_to_new_sb(&ntom->nmbr, idd, data, 
+                                                        cinfo, ntom);
                         }
 
-                        int cwsize = secrun->cinfo[0].M * secrun->cinfo[0].N * 
-                                secrun->cinfo[0].L;
-                        if (wsize[0] < cwsize) { wsize[0] = cwsize; }
-                        cwsize = secrun->cinfo[1].M * secrun->cinfo[1].N * 
-                                secrun->cinfo[1].L * !data->isdmrg;
-                        if (wsize[1] < cwsize) { wsize[1] = cwsize; }
+                        ntom->sbops = realloc(ntom->sbops, ntom->nmbr * sizeof *ntom->sbops);
+                        ntom->prefactor = realloc(ntom->prefactor, ntom->nmbr * sizeof *ntom->prefactor);
+                        ntom->MPO = realloc(ntom->MPO, ntom->nmbr * sizeof *ntom->MPO);
 
-                        secrun->sbops = realloc(secrun->sbops, secrun->nmbr *
-                                                sizeof *secrun->sbops);
-                        secrun->prefactor = realloc(secrun->prefactor, secrun->nmbr *
-                                                    sizeof *secrun->prefactor);
-                        secrun->MPO = realloc(secrun->MPO, secrun->nmbr *
-                                              sizeof *secrun->MPO);
-
-                        if (secrun->nmbr != 0 && 
-                            (secrun->MPO == NULL || secrun->prefactor == NULL || 
-                             secrun->sbops == NULL)) {
+                        if (ntom->nmbr != 0 && 
+                            (ntom->MPO == NULL || ntom->prefactor == NULL || ntom->sbops == NULL)) {
                                 fprintf(stderr, "Error %s:%d: failed realloc.\n",
                                         __FILE__, __LINE__);
                                 exit(EXIT_FAILURE);
@@ -941,14 +918,17 @@ static void loop_oldqnBs(struct indexdata * idd, struct Heffdata * data,
 
                         safe_free(idd->tel[WORK1]);
                         safe_free(idd->tel[WORK2]);
-                        ++secrun;
+
+                        *nrold += ntom->nmbr != 0;
+                        ntom += ntom->nmbr != 0;
                 }
         }
-        secrun->sbold = -1;
 }
 
 static void execute_heffcontr(int i, const struct Heffdata * data, 
-                              const struct heffcontr * hc, EL_TYPE ** tels)
+                              const struct newtooldmatvec * hc, 
+                              const struct contractinfo * cinfo,
+                              EL_TYPE ** tels)
 {
         const int MPO = hc->MPO[i];
         const int step = data->isdmrg ? 2 : 3;
@@ -967,12 +947,12 @@ static void execute_heffcontr(int i, const struct Heffdata * data,
                 }
 
                 if (data->isdmrg) {
-                        do_contract(&hc->cinfo[0], tels, 1, 0);
-                        do_contract(&hc->cinfo[1], tels, totpref, 1);
+                        do_contract(&cinfo[0], tels, 1, 0);
+                        do_contract(&cinfo[1], tels, totpref, 1);
                 } else {
-                        do_contract(&hc->cinfo[0], tels, 1, 0);
-                        do_contract(&hc->cinfo[1], tels, 1, 0);
-                        do_contract(&hc->cinfo[2], tels, totpref, 1);
+                        do_contract(&cinfo[0], tels, 1, 0);
+                        do_contract(&cinfo[1], tels, 1, 0);
+                        do_contract(&cinfo[2], tels, totpref, 1);
                 }
         }
 }
@@ -980,25 +960,52 @@ static void execute_heffcontr(int i, const struct Heffdata * data,
 static void exec_secondrun(const double * const vec, double * const result, 
                            const struct Heffdata * const data)
 {
+        int map[3];
+        make_map(map, data);
+
         const int n = data->siteObject.nrblocks;
-#pragma omp parallel default(none)
+        int first = 0;
+        int second = 0;
+#pragma omp parallel default(none) shared(map) reduction(+:first,second)
         {
                 EL_TYPE * tels[7];
-                tels[WORK1] = safe_malloc(data->worksize[0], tels);
-                tels[WORK2] = safe_malloc(data->worksize[1], tels);
+                tels[WORK1] = safe_malloc(data->sr.worksize[0], tels);
+                tels[WORK2] = safe_malloc(data->sr.worksize[1], tels);
                 int * bb = data->siteObject.blocks.beginblock;
 
-#pragma omp for schedule(static) nowait
-                for (int i = 0; i < n; ++i) {
-                        tels[NEW] = result + bb[i];
-                        const struct heffcontr * hc = data->secondrun[i];
+#pragma omp for schedule(dynamic,10) nowait 
+                for (int ius = 0; ius < n; ++ius) {
+                        const int i = data->sr.shufid[ius];
+                        int dims[2][3];
 
-                        while (hc->sbold != -1) {
+                        dims[0][0] = data->sr.dimsofsb[i][0];
+                        dims[0][1] = data->sr.dimsofsb[i][1];
+                        dims[0][2] = data->sr.dimsofsb[i][2];
+
+                        tels[NEW] = result + bb[i];
+
+                        for (int j = 0; j < data->sr.nr_oldsb[i]; ++j) {
+                                const struct newtooldmatvec ntom = data->sr.ntom[i][j];
+                                dims[1][0] = data->sr.dimsofsb[ntom.oldsb][0];
+                                dims[1][1] = data->sr.dimsofsb[ntom.oldsb][1];
+                                dims[1][2] = data->sr.dimsofsb[ntom.oldsb][2];
+                                struct contractinfo cinfo[3];
+
+                                if (data->isdmrg) {
+                                        prepare_cinfo_DMRG(dims, cinfo,
+                                                           ntom.bestorder);
+                                } else {
+                                        prepare_cinfo_T3NS(dims, map, cinfo,
+                                                           ntom.bestorder);
+                                }
+
                                 tels[OLD] = (double *) vec;
-                                tels[OLD] += bb[hc->sbold];
-                                for (int j = 0; j < hc->nmbr; ++j)
-                                        execute_heffcontr(j, data, hc, tels);
-                                ++hc;
+                                tels[OLD] += bb[ntom.oldsb];
+                                for (int k = 0; k < ntom.nmbr; ++k) {
+                                        execute_heffcontr(k, data, &ntom, cinfo, tels);
+                                }
+                                second += ntom.nmbr;
+                                ++first;
                         }
                 }
 
@@ -1007,50 +1014,69 @@ static void exec_secondrun(const double * const vec, double * const result,
         }
 }
 
-void matvecT3NS(const double * vec, double * result, void * vdata)
+static void exec_firstrun(const double * const vec, double * const result, 
+                          struct Heffdata * const data)
 {
-        struct Heffdata * const data = vdata;
-        for (int i = 0; i < siteTensor_get_size(&data->siteObject); ++i) {
-                result[i] = 0;
-        }
-        if (data->secondrun != NULL) {
-                exec_secondrun(vec, result, data);
-                return;
-        }
-        data->secondrun = safe_malloc(data->siteObject.nrblocks, 
-                                      *data->secondrun);
+        const int n = data->siteObject.nrblocks;
+        data->sr.dimsofsb = safe_malloc(n, *data->sr.dimsofsb);
+        data->sr.nr_oldsb = safe_malloc(n, *data->sr.nr_oldsb);
+        data->sr.ntom = safe_malloc(n, *data->sr.ntom);
 
         int wsize[2] = {0, 0};
-#pragma omp parallel for schedule(dynamic) default(none) shared(vec, result, stderr) reduction(max:wsize)
+        printf("blocks : %d\tqns : %d\n", n, data->nr_qnB);
+#pragma omp parallel for schedule(dynamic) default(none) shared(stderr) reduction(max:wsize)
         for (int newqnB_id = 0; newqnB_id < data->nr_qnB; ++newqnB_id) {
                 struct indexdata idd;
-                make_map(&idd, data);
+                make_map(idd.map, data);
 
                 int * newsb = NULL;
                 while (search_block_with_qn(&newsb, newqnB_id, data)) {
-                        data->secondrun[*newsb] = safe_malloc(data->siteObject.nrblocks + 1, 
-                                                              *data->secondrun[*newsb]);
-                        // sentinel
-                        data->secondrun[*newsb][0].sbold = -1;
+                        data->sr.ntom[*newsb] = safe_malloc(data->siteObject.nrblocks, 
+                                                            *data->sr.ntom[*newsb]);
 
                         fill_indexes(*newsb, &idd, data, NEW, result);
-                        loop_oldqnBs(&idd, data, newqnB_id, vec, 
-                                     data->secondrun[*newsb], wsize);
+                        data->sr.dimsofsb[*newsb][0] = idd.dim[NEW][0];
+                        data->sr.dimsofsb[*newsb][1] = idd.dim[NEW][1];
+                        data->sr.dimsofsb[*newsb][2] = idd.dim[NEW][2];
 
-                        int cnt = 0;
-                        while (data->secondrun[*newsb][cnt++].sbold != -1) ;
-                        data->secondrun[*newsb] = realloc(data->secondrun[*newsb], cnt * 
-                                                          sizeof *data->secondrun[*newsb]);
-                        if (data->secondrun[*newsb] == NULL) {
+                        data->sr.nr_oldsb[*newsb] = 0;
+                        loop_oldqnBs(&idd, data, newqnB_id, vec, 
+                                     data->sr.ntom[*newsb], 
+                                     &data->sr.nr_oldsb[*newsb], wsize); 
+
+                        data->sr.ntom[*newsb] = realloc(data->sr.ntom[*newsb], 
+                                                        data->sr.nr_oldsb[*newsb] * 
+                                                        sizeof *data->sr.ntom[*newsb]);
+                        if (data->sr.ntom[*newsb] == NULL) {
                                 fprintf(stderr, "Error %s:%d: failed reallocating.\n",
                                         __FILE__, __LINE__);
                                 exit(EXIT_FAILURE);
                         }
                 }
         }
+        data->sr.worksize[0] = wsize[0];
+        data->sr.worksize[1] = wsize[1];
 
-        data->worksize[0] = wsize[0];
-        data->worksize[1] = wsize[1];
+        data->sr.shufid = safe_malloc(n, *data->sr.shufid);
+        for (int i = 0; i < n ; ++i) {
+                data->sr.shufid[i] = i;
+        }
+        shuffle(data->sr.shufid, n);
+}
+
+void matvecT3NS(const double * vec, double * result, void * vdata)
+{
+        struct Heffdata * const data = vdata;
+
+        for (int i = 0; i < siteTensor_get_size(&data->siteObject); ++i) {
+                result[i] = 0;
+        }
+
+        if (data->sr.dimsofsb != NULL) {
+                exec_secondrun(vec, result, data);
+        } else {
+                exec_firstrun(vec, result, data);
+        }
 }
 
 static void diag_old_to_new_sb(int MPO, struct indexdata * idd,
@@ -1196,23 +1222,26 @@ void init_Heffdata(struct Heffdata * data, const struct rOperators * Operators,
         safe_free(MPOinstr);
 
         make_sb_with_qnBid(data);
-
-        data->secondrun = NULL;
+        data->sr.dimsofsb = NULL;
 }
 
 static void destroy_secondrun(struct Heffdata * const data)
 {
-        for (int i = 0; i < data->siteObject.nrblocks; ++i) {
-                int j = 0;
-                while (data->secondrun[i][j].sbold != -1) {
-                        safe_free(data->secondrun[i][j].sbops);
-                        safe_free(data->secondrun[i][j].prefactor);
-                        safe_free(data->secondrun[i][j].MPO);
-                        ++j;
+        const int n = data->siteObject.nrblocks;
+
+        safe_free(data->sr.dimsofsb);
+        for (int i = 0; i < n; ++i) {
+                for (int j = 0; j < data->sr.nr_oldsb[i]; ++j) {
+                        struct newtooldmatvec * ntom = &data->sr.ntom[i][j];
+                        safe_free(ntom->sbops);
+                        safe_free(ntom->prefactor);
+                        safe_free(ntom->MPO);
                 }
-                safe_free(data->secondrun[i]);
+                safe_free(data->sr.ntom[i]);
         }
-        safe_free(data->secondrun);
+        safe_free(data->sr.ntom);
+        safe_free(data->sr.nr_oldsb);
+        safe_free(data->sr.shufid);
 }
 
 void destroy_Heffdata(struct Heffdata * const data)
@@ -1257,7 +1286,7 @@ EL_TYPE * make_diagonal(const struct Heffdata * const data)
 #pragma omp parallel for schedule(dynamic) default(none) shared(result)
         for (int newqnB_id = 0; newqnB_id < data->nr_qnB; ++newqnB_id) {
                 struct indexdata idd;
-                make_map(&idd, data);
+                make_map(idd.map, data);
 
                 const QN_TYPE qnB = data->qnB_arr[newqnB_id];
                 const int N = data->nr_qnBtoqnB[newqnB_id];
@@ -1294,3 +1323,4 @@ EL_TYPE * make_diagonal(const struct Heffdata * const data)
 #endif
         return result;
 }
+

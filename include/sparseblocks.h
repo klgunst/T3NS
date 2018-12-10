@@ -1,5 +1,11 @@
 #pragma once
 
+#ifdef T3NS_MKL
+#include "mkl.h"
+#else
+#include <cblas.h>
+#endif
+
 /* macro that defines the type of the tensor elements */
 #define EL_TYPE double
 #define EL_TYPE_H5 H5T_IEEE_F64LE
@@ -26,19 +32,6 @@ struct sparseblocks {
                               */
 };
 
-/**
- * \brief makes a QR decomposition of the blocks running from start to finish.
- *
- * R is forgotten.
- * These should all have the same third index and the blocks should be consecutive.
- *
- * \param [in, out] blocks The sparseblocks structure, Q is stored here.
- * \param [in] start The first block.
- * \param [in] finish The last block.
- * \param [in] total The total amount of blocks in the sparseblocks structure.
- * \param [in, out] N The size of the third dimension of the blocks. N can change if Q has 
- * zero-columns that should be kicked out.
- */
 void QR_blocks(struct sparseblocks * blocks, int start, int finish, 
                int total, int * N);
 
@@ -114,3 +107,33 @@ EL_TYPE * get_tel_block(const struct sparseblocks * blocks, int id);
  * \param [in] id The block index.
  */
 void print_block(const struct sparseblocks * blocks, int id);
+
+struct contractinfo {
+        int tensneeded[3];
+        CBLAS_TRANSPOSE trans[2];
+        int M;
+        int N;
+        int K;
+        int L;
+
+        int lda;
+        int ldb;
+        int ldc;
+        int stride[3];
+};
+
+/**
+ * \brief makes a QR decomposition of the blocks running from start to finish.
+ *
+ * R is forgotten.
+ * These should all have the same third index and the blocks should be consecutive.
+ *
+ * \param [in, out] blocks The sparseblocks structure, Q is stored here.
+ * \param [in] start The first block.
+ * \param [in] finish The last block.
+ * \param [in] total The total amount of blocks in the sparseblocks structure.
+ * \param [in, out] N The size of the third dimension of the blocks. N can change if Q has 
+ * zero-columns that should be kicked out.
+ */
+void do_contract(const struct contractinfo * cinfo, EL_TYPE ** tel, 
+                 double alpha, double beta);

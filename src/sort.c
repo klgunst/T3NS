@@ -119,3 +119,25 @@ int * inverse_permutation(int * perm, const int nrel)
   safe_free(perm);
   return res;
 }
+
+static int rand_int(int n)
+{
+        int limit = RAND_MAX - RAND_MAX % n;
+        int rnd;
+
+        do { rnd = rand(); } while (rnd >= limit);
+        return rnd % n;
+}
+
+void shuffle(int *array, int n)
+{
+        // Fischer Yates
+        int i, j, tmp;
+
+        for (i = n - 1; i > 0; i--) {
+                j = rand_int(i + 1);
+                tmp = array[j];
+                array[j] = array[i];
+                array[i] = tmp;
+        }
+}

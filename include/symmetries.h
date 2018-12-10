@@ -154,7 +154,7 @@ double prefactor_pUpdate(int ** irrep_arr, int is_left,
 double prefactor_mirror_coupling(int ** irrep_arr, 
                                  const enum symmetrygroup * sgs, int nrsy);
 
-double prefactor_bUpdate(int * const (*irrep_arr)[3], int updateCase,
+double prefactor_bUpdate(int * (*irrep_arr)[3], int updateCase,
                          const enum symmetrygroup * sgs, int nrsy);
 
 double prefactor_add_P_operator(int * const (*irreps)[3], int isleft, 

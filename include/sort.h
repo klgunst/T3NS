@@ -19,3 +19,5 @@ int qnbsearch(const QN_TYPE  * values, const int nr_values,
               const QN_TYPE * const array, const int step, const int n);
 
 int * inverse_permutation(int * perm, const int nrel);
+
+void shuffle(int *array, int n);
