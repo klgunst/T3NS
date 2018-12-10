@@ -594,11 +594,11 @@ void QC_write_hamiltonian_to_disk(const hid_t id)
         const int p2 = hdat.norb * hdat.norb;
         const int p4 = p2 * p2;
 
-        ints_write_attribute(group_id, "norb", &hdat.norb, 1);
-        ints_write_dataset(group_id, "./orbirrep", hdat.orbirrep, hdat.norb);
-        EL_TYPE_write_dataset(group_id, "./Vijkl", hdat.Vijkl, p4);
-        doubles_write_attribute(group_id, "core_energy", &hdat.core_energy, 1);
-        ints_write_attribute(group_id, "su2", &hdat.su2, 1);
+        write_attribute(group_id, "norb", &hdat.norb, 1, THDF5_INT);
+        write_dataset(group_id, "./orbirrep", hdat.orbirrep, hdat.norb, THDF5_INT);
+        write_dataset(group_id, "./Vijkl", hdat.Vijkl, p4, THDF5_EL_TYPE);
+        write_attribute(group_id, "core_energy", &hdat.core_energy, 1, THDF5_INT);
+        write_attribute(group_id, "su2", &hdat.su2, 1, THDF5_INT);
         H5Gclose(group_id);
 }
 
@@ -606,17 +606,17 @@ void QC_read_hamiltonian_from_disk(const hid_t id)
 {
         const hid_t group_id = H5Gopen(id, "./hamiltonian_data", H5P_DEFAULT);
 
-        ints_read_attribute(group_id, "norb", &hdat.norb);
+        read_attribute(group_id, "norb", &hdat.norb, THDF5_INT);
 
         hdat.orbirrep = safe_malloc(hdat.norb, int);
-        ints_read_dataset(group_id, "./orbirrep", hdat.orbirrep);
+        read_dataset(group_id, "./orbirrep", hdat.orbirrep, THDF5_INT);
 
         const int p2 = hdat.norb * hdat.norb;
         const int p4 = p2 * p2;
         hdat.Vijkl = safe_malloc(p4, EL_TYPE);
-        EL_TYPE_read_dataset(group_id, "./Vijkl", hdat.Vijkl);
-        doubles_read_attribute(group_id, "core_energy", &hdat.core_energy);
-        ints_read_attribute(group_id, "su2", &hdat.su2);
+        read_dataset(group_id, "./Vijkl", hdat.Vijkl, THDF5_EL_TYPE);
+        read_attribute(group_id, "core_energy", &hdat.core_energy, THDF5_DOUBLE);
+        read_attribute(group_id, "su2", &hdat.su2, THDF5_INT);
         H5Gclose(group_id);
 
         prepare_MPOsymsecs();

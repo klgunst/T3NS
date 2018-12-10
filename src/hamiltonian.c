@@ -247,7 +247,7 @@ void write_hamiltonian_to_disk(const hid_t id)
 {
         const hid_t group_id = H5Gcreate(id, "/hamiltonian", H5P_DEFAULT, 
                                          H5P_DEFAULT, H5P_DEFAULT);
-        ints_write_attribute(group_id, "type", (int*) &ham, 1);
+        write_attribute(group_id, "type", &ham, 1, THDF5_INT);
 
         switch(ham) {
         case QC :
@@ -268,7 +268,7 @@ void write_hamiltonian_to_disk(const hid_t id)
 void read_hamiltonian_from_disk(const hid_t id)
 {
         const hid_t group_id = H5Gopen(id, "/hamiltonian", H5P_DEFAULT);
-        ints_read_attribute(group_id, "type", (int*) &ham);
+        read_attribute(group_id, "type", &ham, THDF5_INT);
 
         switch(ham) {
         case QC :
@@ -300,9 +300,14 @@ static int set_hamiltonian(char hamiltonian[], int * const hassu2)
 
         if (ext) {
                 char *extfcidump = "FCIDUMP";
-
-                ext++;
-                while (*ext && tolower(*(ext++)) == tolower(*(extfcidump++)));
+                ++ext;
+                while (*ext) {
+                        const int lowe = tolower(*ext);
+                        ++ext;
+                        const int lowf = tolower(*extfcidump);
+                        ++extfcidump;
+                        if (lowe != lowf) { break; }
+                }
 
                 /* extension is fcidump */
                 if (*ext == *extfcidump)
