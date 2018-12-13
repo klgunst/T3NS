@@ -1,3 +1,19 @@
+/*
+    T3NS: an implementation of the Three-Legged Tree Tensor Network algorithm
+    Copyright (C) 2018 Klaas Gunst <Klaas.Gunst@UGent.be>
+    
+    This program is free software: you can redistribute it and/or modify
+    it under the terms of the GNU General Public License as published by
+    the Free Software Foundation, version 3.
+    
+    This program is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
+    
+    You should have received a copy of the GNU General Public License
+    along with this program.  If not, see <https://www.gnu.org/licenses/>.
+*/
 #include <stdlib.h>
 #include <stdio.h>
 
@@ -18,6 +34,7 @@ const char *irrepnames[][8] = {
         {"Ag", "Bg", "Au", "Bu"}, 
         {"Ag", "B1g", "B2g", "B3g", "Au", "B1u", "B2u", "B3u"}
 };
+// If fcidump at least uses molpro convention. Normally yes..
 const int fcidumptopsi4[5][8] = {
         {0},    // for C1
         {0, 1}, // for Ci, C2 and Cs

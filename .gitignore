@@ -7,3 +7,4 @@ tags
 *.taghl
 taghl_config.txt
 TODO
+addlicense.sh
