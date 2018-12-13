@@ -42,11 +42,15 @@ To install:
 
     > sudo make install
 
+Testing the build can be done by:
+
+    > make test
+
 The number of threads used by openMP can be specified by setting the 
 `OMP_NUM_THREADS` variable. e.g.:
 
     > export OMP_NUM_THREADS=4
 
-To see the help for do:
+To see the help for T3NS:
 
     > T3NS --help
