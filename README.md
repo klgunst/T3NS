@@ -39,6 +39,7 @@ To build with MKL and icc:
     > CC=$(which icc) cmake -DMKL=ON ..
 
 To install:
+
     > sudo make install
 
 The number of threads used by openMP can be specified by setting the 
