@@ -426,6 +426,8 @@ void init_calculation(struct siteTensor ** T3NS, struct rOperators ** rOps,
         init_null_T3NS(T3NS);
         init_null_rops(rOps);
 
+        printf(" >> Preparing siteTensors...\n");
+#pragma omp parallel for schedule(dynamic) default(none) shared(netw, T3NS, rOps, option)
         for (int i = 0; i < netw.nr_bonds; ++i) {
                 const int siteL = netw.bonds[i][0];
                 const int siteR = netw.bonds[i][1];
@@ -445,6 +447,7 @@ void init_calculation(struct siteTensor ** T3NS, struct rOperators ** rOps,
                 cblas_dscal(N, 1 / norm, tens->blocks.tel, 1);
         }
 
+        printf(" >> Preparing renormalized operators...\n");
         for (int i = 0; i < netw.nr_bonds; ++i) {
                 const int siteL = netw.bonds[i][0];
                 printf("bond: %d\n", i);

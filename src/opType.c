@@ -14,6 +14,8 @@
     You should have received a copy of the GNU General Public License
     along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
+#define _GNU_SOURCE
+
 #include <stdlib.h>
 #include <stdio.h>
 
@@ -52,6 +54,69 @@ struct makeinfo {
 /* ========================================================================== */
 /* ==================== DECLARATION STATIC FUNCTIONS ======================== */
 /* ========================================================================== */
+
+static int compare_el2(const void * a, const void * b)
+{
+        int * aa = (int *) a, *bb = (int *) b;
+        for (int i = 5; i >= 0; --i)
+                if (aa[i] != bb[i])
+                        return aa[i] - bb[i];
+        return 0;
+}
+
+static int compare_el(const int * a, const int * b, const int size_el)
+{
+        for (int i = size_el - 1; i >= 0; --i)
+                if (a[i] != b[i])
+                        return a[i] - b[i];
+        return 0;
+}
+
+struct sort_struct {
+        int * s_struct_array;
+        int s_struct_nrels;
+};
+
+static int comparetag(const void *a, const void *b, void *base_arr)
+{
+        int aa = *((int*) a), bb = *((int*) b);
+
+        struct sort_struct * sstruct = base_arr;
+        const int size = sstruct->s_struct_nrels;
+        const int * el1 = sstruct->s_struct_array + aa * size;
+        const int * el2 = sstruct->s_struct_array + bb * size;
+
+        return compare_el(el1, el2, size);
+}
+
+static void sort_tags(int ** array, const int nrels, const int n)
+{
+        if (n == 0) return;
+
+        struct sort_struct sstruct = { .s_struct_array = *array, .s_struct_nrels = nrels };
+        int * idx = safe_malloc(n, int);
+        for (int i = 0; i < n; ++i) idx[i] = i;
+
+        qsort_r(idx, n, sizeof(int), comparetag, &sstruct);
+        int * res = safe_malloc(n * nrels, int);
+        for (int i = 0; i < n; ++i) {
+                for (int j = 0; j < nrels; ++j) {
+                        res[i * nrels + j] = (*array)[idx[i] * nrels + j];
+                }
+        }
+        safe_free(*array);
+        *array = res;
+}
+
+static void sort_opType(struct opType * ops)
+{
+        for (int i = 0; i < NR_OPS; ++i) {
+                for (int j = 0; j < NR_TYP; ++j) {
+                        const int N = amount_opType(ops, i, (char) (j ? 'c' : 'n'));
+                        sort_tags(&ops->tags_opType[i][j], base_tag * nr_basetags[i][j], N);
+                }
+        }
+}
 
 static void clean_opType(struct opType * const ops);
 
@@ -105,20 +170,13 @@ void opType_print(const struct opType * const ops);
 int opType_exist(const struct opType * const ops, const int nrop, 
                  const char t, const int * const tag)
 {
+        assert(t == 'c' && nrop == 2);
         const int K = amount_opType(ops, nrop, t);
         const int * tagarr = ops->tags_opType[nrop][t == 'c'];
-        int i;
-        int sizetag = base_tag * nr_basetags[nrop][t == 'c'];
-        for(i = 0; i < K; ++i, tagarr += sizetag) {
-                int j;
-                for (j = 0; j < sizetag; ++j) {
-                        if (tag[j] != tagarr[j])
-                                break;
-                }
-                if (j == sizetag)
-                        return 1;
-        }
-        return 0;
+        const int sizetag = base_tag * nr_basetags[nrop][t == 'c'];
+
+        void * p = bsearch(tag, tagarr, K, sizetag * sizeof *tagarr, compare_el2);
+        return p != NULL;
 }
 
 int amount_opType(const struct opType * const ops, const int nrop, 
@@ -164,17 +222,21 @@ int id_opType(const struct opType * const ops, const char c)
 void get_opType(struct opType * const ops, const int bond, const int is_left)
 {
         if (opType_arr != NULL && 
-            opType_arr[2 * bond + is_left].begin_opType != NULL)
+            opType_arr[2 * bond + is_left].begin_opType != NULL) {
                 *ops = opType_arr[2 * bond + is_left];
-        else
+        } else {
                 init_opType(ops, bond, is_left);
+                sort_opType(ops);
+        }
 }
 
 void get_opType_site(struct opType * const ops, const int psite)
 {
-        if (site_opType.begin_opType == NULL)
+        if (site_opType.begin_opType == NULL) {
                 make_site_opType(&site_opType.begin_opType, 
                                  &site_opType.tags_opType);
+        }
+
         *ops = site_opType;
         change_site(ops, psite);
 }
@@ -226,17 +288,13 @@ void symsec_of_operators(int ** const list_of_ss, const int bond,
                                 const int is_left)
 {
         struct opType ops;
-        int i;
-        int * ss;
         get_opType(&ops, bond, is_left);
         *list_of_ss = safe_malloc(ops.begin_opType[NR_OPS * NR_TYP], int);
-        ss = *list_of_ss;
-        for (i = 0; i < NR_OPS; ++i) {
-                int j;
-                for (j = 0; j < NR_TYP; ++j) {
-                        int k;
+        int * ss = *list_of_ss;
+        for (int i = 0; i < NR_OPS; ++i) {
+                for (int j = 0; j < NR_TYP; ++j) {
                         const int N = amount_opType(&ops, i, (char) (j ? 'c' : 'n'));
-                        for (k = 0; k < N; ++k, ++ss) {
+                        for (int k = 0; k < N; ++k, ++ss) {
                                 *ss = symsec_opTypeid(&ops, i, j, k);
                         }
                 }
@@ -385,38 +443,35 @@ static void make_opType(struct opType * const ops,
         int * list = safe_calloc(initops.begin_opType[NR_OPS * NR_TYP], int);
         int * plist = list;
 
-        int i, j;
-        for (i = 0; i < instructions->nr_instr; ++i) {
+        for (int i = 0; i < instructions->nr_instr; ++i) {
                 if (instructions->instr[3 * i + 2] >= 0)
                         list[instructions->instr[3 * i + 2]] = 1;
         }
 
         ops->begin_opType = safe_calloc(NR_OPS * NR_TYP + 1, int);
-        for (i = 0; i < NR_OPS; ++i) {
-                for (j = 0; j < NR_TYP; ++j) {
-                        int k;
+        for (int i = 0; i < NR_OPS; ++i) {
+                for (int j = 0; j < NR_TYP; ++j) {
                         const char t = (char) (j ? 'c' : 'n');
                         const int N = amount_opType(&initops, i, t);
                         ops->begin_opType[i * NR_TYP + j + 1] = 
                                 ops->begin_opType[i * NR_TYP + j];
 
-                        for (k = 0; k < N; ++k, ++plist)
+                        for (int k = 0; k < N; ++k, ++plist)
                                 ops->begin_opType[i * NR_TYP + j + 1] += *plist;
                 }
         }
         make_tags(ops);
 
         plist = list;
-        for (i = 0; i < NR_OPS; ++i) {
-                for (j = 0; j < NR_TYP; ++j) {
-                        int k;
+        for (int i = 0; i < NR_OPS; ++i) {
+                for (int j = 0; j < NR_TYP; ++j) {
                         const char t = (char) (j ? 'c' : 'n');
                         const int N = amount_opType(&initops, i, t);
                         const int size = nr_basetags[i][j];
                         int * new  = ops->tags_opType[i][j];
                         int * copy = initops.tags_opType[i][j];
 
-                        for (k = 0; k < N; ++k, ++plist)
+                        for (int k = 0; k < N; ++k, ++plist)
                                 copy_tag_and_move(&copy, &new, size, *plist);
                 }
         }
@@ -427,11 +482,10 @@ static void make_opType(struct opType * const ops,
 
 static void make_tags(struct opType * const ops)
 {
-        int i, j;
         ops->tags_opType = safe_malloc(NR_OPS, int**);
-        for (i = 0; i < NR_OPS; ++i) {
+        for (int i = 0; i < NR_OPS; ++i) {
                 ops->tags_opType[i] = safe_malloc(NR_TYP, int*);
-                for (j = 0; j < NR_TYP; ++j) {
+                for (int j = 0; j < NR_TYP; ++j) {
                         const char t = (char) (j ? 'c' : 'n');
                         const int N = amount_opType(ops, i, t) *
                                 nr_basetags[i][j] * base_tag;

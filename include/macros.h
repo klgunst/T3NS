@@ -21,7 +21,7 @@
 #include <inttypes.h>
 
 /* For comparing doubles */
-#define COMPARE_ELEMENT_TO_ZERO(X) ((X) == 0)
+#define COMPARE_ELEMENT_TO_ZERO(X) (fabs(X) < 1e-20)
 
 /* macro that defines the size of the qnumbers stored */
 #define QN_TYPE int_fast64_t

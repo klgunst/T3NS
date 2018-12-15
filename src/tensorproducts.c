@@ -386,5 +386,5 @@ void tensprod_symsecs(struct symsecs * const res, const struct symsecs * const s
   }
 
   /* now we have the 'worst-case' res. Kick out all the symmsecs with dimension 0. */
-  kick_empty_symsecs(res, o == 'd' ? 'n' : o);
+  kick_empty_symsecs(res, (char) (o == 'd' ? 'n' : o));
 }
