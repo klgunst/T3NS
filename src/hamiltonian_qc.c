@@ -144,6 +144,8 @@ void QC_make_hamiltonian(char hamiltonianfile[], int su2)
         read_header(hamiltonianfile);
         read_integrals(&one_p_int, hamiltonianfile);
         form_integrals(one_p_int);
+        printf(" >> FCIDUMP read.\n");
+
 
         if (!check_orbirrep()) {
                 fprintf(stderr,
@@ -154,6 +156,7 @@ void QC_make_hamiltonian(char hamiltonianfile[], int su2)
         }
         prepare_MPOsymsecs();
         init_opType_array(su2);
+        printf(" >> opType prepared.\n");
 }
 
 void QC_get_physsymsecs(struct symsecs *res, int site)

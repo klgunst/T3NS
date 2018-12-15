@@ -1,5 +1,6 @@
 set(T3NSLIB_SOURCE_FILES
     "Heff.c"
+    "Wigner.c"
     "bookkeeper.c"
     "davidson.c"
     "hamiltonian.c"
@@ -36,7 +37,7 @@ set(T3NSLIB_SOURCE_FILES
     )
 
 add_library(T3NS-shared SHARED ${T3NSLIB_SOURCE_FILES})
-target_link_libraries(T3NS-shared gsl ${LAPACK_LIBRARIES} ${HDF5_LIBRARIES})
+target_link_libraries(T3NS-shared ${LAPACK_LIBRARIES} ${HDF5_LIBRARIES})
 set_target_properties(T3NS-shared PROPERTIES OUTPUT_NAME "T3NS" EXPORT_NAME "T3NS")
 
 add_executable(T3NS-bin executable.c)

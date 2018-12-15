@@ -447,6 +447,7 @@ void init_calculation(struct siteTensor ** T3NS, struct rOperators ** rOps,
 
         for (int i = 0; i < netw.nr_bonds; ++i) {
                 const int siteL = netw.bonds[i][0];
+                printf("bond: %d\n", i);
                 struct siteTensor * tens = &(*T3NS)[siteL];
                 init_rops(*rOps, tens, i);
         }

@@ -46,9 +46,6 @@ if(OPENMP_FOUND)
     set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} ${OpenMP_C_FLAGS}")
 endif(OPENMP_FOUND)
 
-# Find GSL
-find_package(GSL REQUIRED)
-
 # Find HDF5
 find_package(HDF5 REQUIRED)
 

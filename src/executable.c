@@ -251,9 +251,10 @@ static void initialize_program(int argc, char *argv[], struct siteTensor **T3NS,
 
         if (arguments.h5file == NULL) {
                 read_inputfile(arguments.args[0], scheme);
+                print_input(scheme);
                 assert(scheme->nrRegimes != 0);
                 create_list_of_symsecs(scheme->regimes[0].minD, 1);
-                print_input(scheme);
+                printf(" >> bookkeeper prepared.\n");
                 init_calculation(T3NS, rops, 'r');
         } else {
                 read_optScheme(arguments.args[0], scheme);

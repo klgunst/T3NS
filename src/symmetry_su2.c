@@ -17,11 +17,11 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <math.h>
-#include <gsl/gsl_sf_coupling.h>
 
 #include "symmetry_su2.h"
 #include "macros.h"
 #include "debug.h"
+#include "Wigner.h"
 
 static inline double bracket(const int twoj)    {return sqrt(twoj + 1);}
 static inline double divbracket(const int twoj) {return 1 / bracket(twoj);}
@@ -78,17 +78,17 @@ double SU2_prefactor_pAppend(const int * symv, int is_left)
                 double result =  bracket(symv[2]);
                 result *=  bracket(symv[5]);
                 result *=  bracket(symv[8]);
-                return result * gsl_sf_coupling_9j(symv[0], symv[3], symv[6],
-                                                   symv[1], symv[4], symv[7],
-                                                   symv[2], symv[5], symv[8]);
+                return result * wigner9j(symv[0], symv[3], symv[6],
+                                         symv[1], symv[4], symv[7],
+                                         symv[2], symv[5], symv[8]);
         } else {
                 double result =  bracket(symv[0]);
                 result *=  bracket(symv[3]);
                 result *=  bracket(symv[8]);
                 return ((symv[1] + symv[4] + symv[7]) % 4 ? -1 : 1) * 
-                        result * gsl_sf_coupling_9j(symv[0], symv[3], symv[6],
-                                                    symv[2], symv[5], symv[8],
-                                                    symv[1], symv[4], symv[7]);
+                        result * wigner9j(symv[0], symv[3], symv[6],
+                                          symv[2], symv[5], symv[8],
+                                          symv[1], symv[4], symv[7]);
         }
 }
 
@@ -101,9 +101,9 @@ double SU2_prefactor_combine_MPOs(int (*symv)[3], int * symvMPO, int isdmrg)
         } else {
                 double result = ((symv[0][2] + symv[1][2] + symvMPO[2]) % 4 ? -1 : 1) * 
                         bracket(symvMPO[2]);
-                return result * gsl_sf_coupling_9j(symv[0][0], symv[1][0], symvMPO[0],
-                                                   symv[0][1], symv[1][1], symvMPO[1],
-                                                   symv[0][2], symv[1][2], symvMPO[2]);
+                return result * wigner9j(symv[0][0], symv[1][0], symvMPO[0],
+                                         symv[0][1], symv[1][1], symvMPO[1],
+                                         symv[0][2], symv[1][2], symvMPO[2]);
         }
 }
 
@@ -114,9 +114,9 @@ double SU2_prefactor_bUpdate(int (*symv)[3], int uCase)
         double result = sign * bracket(symv[uCase][0]);
         result *= bracket(symv[uCase][1]);
         result *= bracket(symv[2][2]);
-        return result * gsl_sf_coupling_9j(symv[0][0], symv[0][1], symv[0][2],
-                                           symv[1][0], symv[1][1], symv[1][2],
-                                           symv[2][0], symv[2][1], symv[2][2]);
+        return result * wigner9j(symv[0][0], symv[0][1], symv[0][2],
+                                 symv[1][0], symv[1][1], symv[1][2],
+                                 symv[2][0], symv[2][1], symv[2][2]);
 }
 
 int SU2_multiplicity(int irrep) {return irrep + 1;}

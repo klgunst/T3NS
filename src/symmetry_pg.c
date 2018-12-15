@@ -24,9 +24,10 @@
 
 /* make sure the ordering is the same as in the macro POINT_GROUP_SYMMETRY !! */
 const int nr_irreps_pg[8] = {1, 2, 2, 2, 4, 4, 4, 8};
+// This is also the Psi4 ordering and the ordering I use.
 const char *irrepnames[][8] = {
-        {"A"}, 
-        {"Ag", "Au"}, 
+        {"A"},  //C1
+        {"Ag", "Au"},  
         {"A", "B"}, 
         {"A\'", "A\'\'"}, 
         {"A", "B1", "B2", "B3"}, 
@@ -34,7 +35,18 @@ const char *irrepnames[][8] = {
         {"Ag", "Bg", "Au", "Bu"}, 
         {"Ag", "B1g", "B2g", "B3g", "Au", "B1u", "B2u", "B3u"}
 };
-// If fcidump at least uses molpro convention. Normally yes..
+// If fcidump at least uses molpro convention. Normally yes...
+/* The Molpro ordering is given by
+ * 
+ * C1  : A
+ * Ci  : Ag Au
+ * C2  : A  B
+ * Cs  : A' A''
+ * D2  : A B3 B2 B1
+ * C2v : A1 B1 B2 A2
+ * C2h : Ag Au Bu Bg
+ * D2h : Ag B3u B2u B1g B1u B2g B3g Au 
+ */
 const int fcidumptopsi4[5][8] = {
         {0},    // for C1
         {0, 1}, // for Ci, C2 and Cs

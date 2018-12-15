@@ -209,6 +209,7 @@ void init_opType_array(int h)
         /* do for is_left = 1 and then for is_left = 0 */
         for (is_left = 1; is_left >= 0; --is_left) {
                 for (i = 0; i < netw.nr_bonds - 1; ++i) {
+                        printf("bond %c%d\n", is_left ? 'L' : 'R', i);
                         const int bond = is_left ? i : netw.nr_bonds - 1 - i;
                         init_opType_array_part(bond, is_left);
                 }
