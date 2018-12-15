@@ -478,7 +478,7 @@ int is_psite(int site)
 
 int get_left_psites(int bond) { return netw.nr_left_psites[bond]; }
 
-const int * get_order_psites(int bond, int is_left)
+int * get_order_psites(int bond, int is_left)
 {
         return &netw.order_psites[bond][is_left ? 0 : netw.nr_left_psites[bond]];
 }

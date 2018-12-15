@@ -113,7 +113,7 @@ void clean_symsecs_arr(int n, struct symsecs symarr[n], int bonds[n]);
  * \param[in] The array to search in.
  * \return -1 if not found, otherwise the index.
  */
-int search_symmsec(int* symmsec, const struct symsecs *sectors);
+int search_symsec(int* symmsec, const struct symsecs *sectors);
 
 /**
  * \brief Gives you a string of the specified sector.

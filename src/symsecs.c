@@ -114,21 +114,6 @@ void clean_symsecs_arr(int n, struct symsecs symarr[n], int bonds[n])
                 clean_symsecs(&symarr[i], bonds[i]);
 }
 
-int search_symmsec(int* symmsec, const struct symsecs *sectors)
-{
-        for (int i = 0; i < sectors->nrSecs; ++i) {
-                int j;
-                for (j = 0; j < bookie.nrSyms; ++j) {
-                        if (symmsec[j] != sectors->irreps[i][j])
-                                break;
-                }
-                if (j == bookie.nrSyms) {
-                        return i;
-                }
-        }
-        return -1;
-}
-
 void get_sectorstring(const struct symsecs* const symsec, int id, char buffer[])
 {
         int i;
@@ -230,4 +215,72 @@ int full_dimension(const struct symsecs * const sym)
                         multiplicity(bookie.nrSyms, bookie.sgs, sym->irreps[i]);
         }
         return result;
+}
+
+static int compare1(const void * a, const void * b)
+{
+        int *aa = ((int *) a), *bb = ((int *) b);
+        return (aa[0] - bb[0]);
+}
+
+static int compare2(const void * a, const void * b)
+{
+        int *aa = ((int *) a), *bb = ((int *) b);
+        if (aa[1] != bb[1]) { return (aa[1] - bb[1]); }
+        return (aa[0] - bb[0]);
+}
+
+static int compare3(const void * a, const void * b)
+{
+        int *aa = ((int *) a), *bb = ((int *) b);
+        if (aa[2] != bb[2]) { return (aa[2] - bb[2]); }
+        if (aa[1] != bb[1]) { return (aa[1] - bb[1]); }
+        return (aa[0] - bb[0]);
+}
+
+static int compare4(const void * a, const void * b)
+{
+        int *aa = ((int *) a), *bb = ((int *) b);
+        if (aa[3] != bb[3]) { return (aa[3] - bb[3]); }
+        if (aa[2] != bb[2]) { return (aa[2] - bb[2]); }
+        if (aa[1] != bb[1]) { return (aa[1] - bb[1]); }
+        return (aa[0] - bb[0]);
+}
+
+static int (*compararr[])(const void *, const void *) = {
+        compare1, compare2, compare3, compare4
+};
+
+#ifdef DEBUG_SYMSECS
+static int check_sorted(const struct symsecs * sectors)
+{
+        int (*compf)(const void *, const void *) = compararr[bookie.nrSyms - 1];
+        for (int i = 1; i < sectors->nrSecs; ++i) {
+                if (compf(sectors->irreps[i - 1], sectors->irreps[i]) > 0)
+                        return 0;
+        }
+        return 1;
+}
+#endif
+
+int search_symsec(int * symmsec, const struct symsecs * sectors)
+{
+#ifdef DEBUG_SYMSECS
+        if(!check_sorted(sectors)) {
+                fprintf(stderr, "Error %s:%d: symsec not sorted.\n", 
+                        __FILE__, __LINE__);
+                exit(EXIT_FAILURE);
+        }
+#endif
+        assert(bookie.nrSyms <= 4 && bookie.nrSyms > 0);
+
+        int (*p)[MAX_SYMMETRIES] = bsearch(symmsec, sectors->irreps, 
+                                           sectors->nrSecs, 
+                                           sizeof *sectors->irreps, 
+                                           compararr[bookie.nrSyms - 1]);
+        if (p == NULL) {
+                return -1;
+        } else {
+                return p - sectors->irreps;
+        }
 }

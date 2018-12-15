@@ -68,7 +68,7 @@ static void make_opType(struct opType * const ops,
                         const struct instructionset * instructions,
                         const int bond, const int is_left);
 
-void make_tags(struct opType * const ops);
+static void make_tags(struct opType * const ops);
 
 static void copy_tag_and_move(int ** const copy, int ** const new, 
                               const int size, const int do_copy);
@@ -86,8 +86,7 @@ static void fill_tags(const int nr, const int creator[nr],
 static int loop_positions(const int nr, const int creator[nr], int position[nr], 
                           int * const list, const int nrsites);
 
-static void make_begin_opType(struct opType * const ops, 
-                              const int counter[NR_OPS][NR_TYP]);
+static void make_begin_opType(struct opType * ops, int (*counter)[NR_TYP]);
 
 static int symsec_opTypeid(const struct opType * ops, const int nr, const int t,
                            const int id);
@@ -110,13 +109,12 @@ int opType_exist(const struct opType * const ops, const int nrop,
         const int * tagarr = ops->tags_opType[nrop][t == 'c'];
         int i;
         int sizetag = base_tag * nr_basetags[nrop][t == 'c'];
-        for(i = 0; i < K; ++i) {
+        for(i = 0; i < K; ++i, tagarr += sizetag) {
                 int j;
                 for (j = 0; j < sizetag; ++j) {
                         if (tag[j] != tagarr[j])
                                 break;
                 }
-                tagarr += sizetag;
                 if (j == sizetag)
                         return 1;
         }
@@ -237,7 +235,7 @@ void symsec_of_operators(int ** const list_of_ss, const int bond,
                 int j;
                 for (j = 0; j < NR_TYP; ++j) {
                         int k;
-                        const int N = amount_opType(&ops, i, j ? 'c' : 'n');
+                        const int N = amount_opType(&ops, i, (char) (j ? 'c' : 'n'));
                         for (k = 0; k < N; ++k, ++ss) {
                                 *ss = symsec_opTypeid(&ops, i, j, k);
                         }
@@ -319,7 +317,7 @@ static void change_site(struct opType * const ops, const int psite)
                 for (j = 0; j < NR_TYP; ++j) {
                         if (nr_basetags[i][j] == 0)
                                 continue;
-                        const char t = j ? 'c' : 'n';
+                        const char t = (char) (j ? 'c' : 'n');
                         const int nrops = amount_opType(ops, i, t) * 
                                 nr_basetags[i][j];
                         int * tag_arr = ops->tags_opType[i][j];
@@ -397,7 +395,7 @@ static void make_opType(struct opType * const ops,
         for (i = 0; i < NR_OPS; ++i) {
                 for (j = 0; j < NR_TYP; ++j) {
                         int k;
-                        const char t = j ? 'c' : 'n';
+                        const char t = (char) (j ? 'c' : 'n');
                         const int N = amount_opType(&initops, i, t);
                         ops->begin_opType[i * NR_TYP + j + 1] = 
                                 ops->begin_opType[i * NR_TYP + j];
@@ -412,7 +410,7 @@ static void make_opType(struct opType * const ops,
         for (i = 0; i < NR_OPS; ++i) {
                 for (j = 0; j < NR_TYP; ++j) {
                         int k;
-                        const char t = j ? 'c' : 'n';
+                        const char t = (char) (j ? 'c' : 'n');
                         const int N = amount_opType(&initops, i, t);
                         const int size = nr_basetags[i][j];
                         int * new  = ops->tags_opType[i][j];
@@ -427,14 +425,14 @@ static void make_opType(struct opType * const ops,
         safe_free(list);
 }
 
-void make_tags(struct opType * const ops)
+static void make_tags(struct opType * const ops)
 {
         int i, j;
         ops->tags_opType = safe_malloc(NR_OPS, int**);
         for (i = 0; i < NR_OPS; ++i) {
                 ops->tags_opType[i] = safe_malloc(NR_TYP, int*);
                 for (j = 0; j < NR_TYP; ++j) {
-                        const char t = j ? 'c' : 'n';
+                        const char t = (char) (j ? 'c' : 'n');
                         const int N = amount_opType(ops, i, t) *
                                 nr_basetags[i][j] * base_tag;
                         ops->tags_opType[i][j] = safe_malloc(N, int);
@@ -492,7 +490,7 @@ static void init_make_r_count(struct opType * const ops, const int bond,
         for (i = 0; i < NR_OPS; ++i) {
                 for (j = 0; j < NR_TYP; ++j) {
                         const int nr = nr_basetags[i][j];
-                        const char t = j ? 'c' : 'n';
+                        const char t = (char) (j ? 'c' : 'n');
                         int * tags = do_count ? NULL : ops->tags_opType[i][j];
                         int k;
                         for (k = 0 ; k < todo[i][j] ; ++k) {
@@ -586,8 +584,7 @@ static int loop_positions(const int nr, const int creator[nr], int position[nr],
         }
 }
 
-static void make_begin_opType(struct opType * const ops, 
-                              const int counter[NR_OPS][NR_TYP])
+static void make_begin_opType(struct opType * ops, int (*counter)[NR_TYP])
 {
         int i, j;
         ops->begin_opType = safe_malloc(NR_OPS * NR_TYP + 1, int);
@@ -671,7 +668,7 @@ void opType_print(const struct opType * const ops)
 
         for (i = 0; i < NR_OPS; ++i) {
                 for (j = 0; j < NR_TYP; ++j) {
-                        const char t = j ? 'c' : 'n';
+                        const char t = (char) (j ? 'c' : 'n');
                         const int N = amount_opType(ops, i, t);
 
                         for (k = 0; k < N; ++k, ++cnt) {

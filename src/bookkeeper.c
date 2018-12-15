@@ -249,13 +249,12 @@ static void calc_dims(int max_dim)
                 bookiess->totaldims = 0;
                 for (int i = 0; i < bookiess->nrSecs; ++i) {
                         int * irrep = bookiess->irreps[i];
-                        const int pos = search_symmsec(irrep, &newSymsec);
+                        const int pos = search_symsec(irrep, &newSymsec);
                         if (pos < 0) {
                                 fprintf(stderr, "Error @%s: irrep not found.\n",
                                         __func__);
                                 exit(EXIT_FAILURE);
                         }
-                        assert(pos >= 0);
                         if (newSymsec.dims[pos] > bookiess->fcidims[i]) {
                                 bookiess->dims[i] = (int) bookiess->fcidims[i];
                         } else {

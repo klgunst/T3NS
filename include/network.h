@@ -88,7 +88,7 @@ int is_psite(int site);
 
 int get_left_psites(int bond);
 
-const int * get_order_psites(int bond, int is_left);
+int * get_order_psites(int bond, int is_left);
 
 int site_is_left_of_bond(int site, int bond);
 
