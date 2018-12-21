@@ -592,7 +592,7 @@ static double get_V(const int * const tag1, const int * const tag2,
                 return 0;
 
         return hdat.Vijkl[tag1[1] + psites * tag4[1] + 
-                psites2 * tag3[1] + psites3 * tag2[1]];
+                psites2 * tag2[1] + psites3 * tag3[1]];
 }
 
 static double B(const int * const tags[4], const int twoJ)

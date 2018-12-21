@@ -48,6 +48,7 @@ endif(OPENMP_FOUND)
 
 # Find HDF5
 find_package(HDF5 REQUIRED)
+include_directories(${HDF5_INCLUDE_DIRS})
 
 # show all warnings
 if("${CMAKE_C_COMPILER_ID}" MATCHES "Intel")

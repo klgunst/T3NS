@@ -989,7 +989,7 @@ static void exec_secondrun(const double * const vec, double * const result,
                 tels[WORK2] = safe_malloc(data->sr.worksize[1], tels);
                 int * bb = data->siteObject.blocks.beginblock;
 
-#pragma omp for schedule(dynamic,10) nowait 
+#pragma omp for schedule(dynamic) nowait 
                 for (int ius = 0; ius < n; ++ius) {
                         const int i = data->sr.shufid[ius];
                         int dims[2][3];
