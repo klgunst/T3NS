@@ -315,7 +315,7 @@ int main(int argc, char *argv[])
 
         initialize_program(argc, argv, &T3NS, &rops, &scheme, &pbuffer);
 
-        execute_optScheme(T3NS, rops, &scheme, pbuffer);
+        //execute_optScheme(T3NS, rops, &scheme, pbuffer);
 
         cleanup_before_exit(&T3NS, &rops, &scheme);
         printf("SUCCESFULL END!\n");

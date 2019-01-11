@@ -128,7 +128,7 @@ struct nextshelper {
         int (**helper)[2];
 };
 
-struct indexhelper {
+static struct indexhelper {
         int id_ops[3];
         int maxdims[3][3];
         struct symsecs symarr[3][3];

@@ -27,118 +27,6 @@
 #include "macros.h"
 #include "debug.h"
 
-static void change_virt_dim(struct sparseblocks * blocks, int start, int finish, 
-                            int total, int * N)
-{
-        const int Nold = *N;
-        const int dim = blocks->beginblock[finish] - blocks->beginblock[start];
-        const int Nnew = dim / Nold;
-        int startnext = blocks->beginblock[start];
-        int block;
-
-        assert(dim % Nold == 0);
-        if (Nnew >= Nold)
-                return;
-        *N = Nnew;
-
-        for (block = start; block < finish; ++block) {
-                int d  = blocks->beginblock[block + 1] - startnext;
-                int d1 = d / Nold;
-                assert(d % Nold == 0);
-
-                startnext = blocks->beginblock[block + 1];
-                /* new size of symsec */
-                blocks->beginblock[block + 1] = blocks->beginblock[block] + 
-                        d1 * Nnew; 
-        }
-        assert(blocks->beginblock[finish] - blocks->beginblock[start] == 
-               Nnew * Nnew);
-
-        for (; block < total; ++block) {
-                int d  = blocks->beginblock[block + 1] - startnext;
-                startnext = blocks->beginblock[block + 1];
-                /* reposition symsec */
-                blocks->beginblock[block + 1] = blocks->beginblock[block] + d; 
-        }
-
-        blocks->tel = realloc(blocks->tel, blocks->beginblock[total] * 
-                              sizeof blocks->tel);
-        if (!blocks->tel) {
-                fprintf(stderr, "Error @%s: Reallocation of tel did not succeed!\n", 
-                        __func__);
-                exit(EXIT_FAILURE);
-        }
-}
-
-static void copy_fromto_mem(struct sparseblocks * blocks, EL_TYPE * mem, 
-                            int start, int finish, int M, int N, int to_mem)
-{
-        int tss = 0;
-        for (int block = start; block < finish; ++block) {
-                int m          = get_size_block(blocks, block);
-                EL_TYPE * temp = get_tel_block(blocks, block);
-
-                assert(m % N == 0);
-                m /= N;
-
-                if (to_mem) {
-                        for (int j = 0; j < N; ++j)
-                                for (int i = 0; i < m; ++i)
-                                        mem[M * j + i + tss] = temp[j * m + i];
-                } else {
-                        for (int j = 0; j < N; ++j)
-                                for (int i = 0; i < m; ++i)
-                                        temp[j * m + i] = mem[M * j + i + tss];
-                }
-                tss += m;
-        }
-}
-
-/* ========================================================================== */
-
-void QR_blocks(struct sparseblocks * blocks, int start, int finish, 
-               int total, int * N)
-{
-        if (finish == start)
-                return;
-
-        int dim = blocks->beginblock[finish] - blocks->beginblock[start];
-        int M = dim / *N;
-        assert(dim % *N == 0);
-
-        if (M < *N) {
-                change_virt_dim(blocks, start, finish, total, N);
-                dim = blocks->beginblock[finish] - blocks->beginblock[start];
-
-                assert(dim % *N == 0);
-                M = dim / *N;
-        }
-        assert(M >= *N);
-
-        EL_TYPE * mem = safe_malloc(dim, EL_TYPE);
-        copy_fromto_mem(blocks, mem, start, finish, M, *N, 1);
-
-        EL_TYPE * tau  = safe_malloc(*N, EL_TYPE);
-        int info = LAPACKE_dgeqrf(LAPACK_COL_MAJOR, M, *N, mem, M, tau);
-        if (info) {
-                fprintf(stderr, "Error @%s: dgeqrf exited with %d.\n", 
-                        __func__, info);
-                exit(EXIT_FAILURE);
-        }
-
-        info = LAPACKE_dorgqr(LAPACK_COL_MAJOR, M, *N, *N, mem, M, tau);
-        if (info) {
-                fprintf(stderr, "Error @%s: dorgqr exited with %d.\n", 
-                        __func__, info);
-                exit(EXIT_FAILURE);
-        }
-
-        copy_fromto_mem(blocks, mem, start, finish, M, *N, 0);
-        safe_free(mem);
-
-        safe_free(tau);
-}
-
 void init_null_sparseblocks(struct sparseblocks * blocks)
 {
         blocks->beginblock = NULL;
@@ -267,3 +155,20 @@ void do_contract(const struct contractinfo * cinfo, EL_TYPE ** tel,
         }
 }
 
+#ifdef DEBUG
+void print_contractinfo(const struct contractinfo * cinfo)
+{
+        printf("Contract inf = {\n"
+               "\talpha {T%d}%s {T%d}%s + beta {T%d} = {T%d}\n"
+               "\tM = %d, N = %d, K = %d, L = %d\n"
+               "\tlda = %d, ldb = %d, ldc = %d\n"
+               "\tstride = {%d, %d, %d}\n"
+               "}\n", 
+               cinfo->tensneeded[0], cinfo->trans[0] == CblasNoTrans ? "" : ".T",
+               cinfo->tensneeded[1], cinfo->trans[1] == CblasNoTrans ? "" : ".T",
+               cinfo->tensneeded[2], cinfo->tensneeded[2],
+               cinfo->M, cinfo->N, cinfo->K, cinfo->L,
+               cinfo->lda, cinfo->ldb, cinfo->ldc,
+               cinfo->stride[0], cinfo->stride[1], cinfo->stride[2]);
+}
+#endif

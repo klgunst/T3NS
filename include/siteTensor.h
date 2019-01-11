@@ -242,21 +242,78 @@ void siteTensor_give_externalbonds(const struct siteTensor * const tens, int ext
 
 int siteTensor_get_size(const struct siteTensor * const tens);
 
-/* ==================================== DECOMPOSE ============================================== */
+/* ============================ DECOMPOSE =================================== */
+
 /**
- * \brief Execute a QR decomposition on a one-site tensor.
- *
- * The first two indices are left indices, the last is the right index.
- * Only R = NULL is implemented at the moment.
- * If R = NULL the bookkeeper is also changed so the bonddimensions are consistent. 
- * This means that zero-columns in every Q are kicked out.
- * This is only implemented for making a correct initial RANDOM guess.
- * Do not use this function as it is for one-site optimization or so.
- *
- * \param [in,out] tens The one-site tensor to do QR on, Q is stored here.
- * \param [in,out] R R is stored here, or if NULL is inserted, R is just forgotten.
+ * A structure for the R matrix from QR
  */
-void QR(struct siteTensor * const tens, void * const R);
+struct Rmatrix {
+        /// The bond where the R matrix lives on.
+        int bond;
+        /// The number of sectors in this bond.
+        int nrblocks;
+        /** (minMN, N) for every block.
+         * minMN is stored in the bookkeeper, 
+         * while N is the actual dimension of the next tensor. */
+        int (*dims)[2];
+        /// Rmatrix[i] is the R matrix for the i'th sector.
+        EL_TYPE ** Rels;
+};
+
+/**
+ * @brief Destroys an Rmatrix.
+ *
+ * @param R [in,out] The matrix to destroy.
+ */
+void destroy_Rmatrix(struct Rmatrix * R);
+
+/**
+ * @brief Multiplies the matrix @p R to the siteTensor @A. 
+ *
+ * i.e. </tt> A R = B </tt>
+ *
+ * @param A [in] Tensor @p A
+ * @param bondA [in] bond of @p A to contract over
+ * @param R [in] Matrix @p R
+ * @param bondR [in]  bond of @p R to contract over.
+ * 0 if you want to contract with Q, 1 if you want to contract with next site.
+ * @param B [out] Resulting tensor @p B
+ * @return 0 for success, 1 for failure
+ */
+int multiplyR(struct siteTensor * A, const int bondA, 
+              struct Rmatrix * R, const int bondR, 
+              struct siteTensor * B);
+
+/**
+ * @brief qr decomposition on a one-site tensor.
+ *
+ * The user should be sure himself that the one-site tensor @p A is an
+ * orthogonality center.
+ *
+ * @param A [in] Orthogonality center to QR
+ * @param bond [in] the bond for which to do the QR. Should be 0,1 or 2.
+ * @param Q [out] The resulting orthogonalized tensor.
+ * @param R [out] Rmatrix given resulting R of QR.
+ * @return 0 on success, 1 on failure.
+ */
+int qr(struct siteTensor * A, int bond, 
+       struct siteTensor * Q, struct Rmatrix * R);
+
+/**
+ * @brief Destroys an Rmatrix.
+ *
+ * @param R [in,out] The matrix to destroy.
+ */
+void destroy_Rmatrix(struct Rmatrix * R);
+
+/**
+ * @brief Checks if the given tensor is orthogonal with respect to a certain bond.
+ *
+ * @param Q [in] The tensor to check
+ * @param bond [in] The bond where it has to be orthogonal to
+ * @return 1 if orthogonal, 0 if not.
+ */
+int is_orthogonal(struct siteTensor * Q, const int bond);
 
 /**
  * \brief Decomposes the multisite object into the different components through SVD.

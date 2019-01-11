@@ -225,10 +225,12 @@ double Z2_prefactor_add_P_operator(int (*symv)[3], int isleft)
          *
          * This goes eventually to:
          * random_ind ket(alpha)* | bra(alpha)* MPO ket(alpha) | bra(alpha) bra(i) bra(beta)* | random_ind
-         * the first bra(alpha)* is from the branching tensor.
+         * the first ket(alpha)* is from the branching tensor.
          * This is equal too:
          * random_indexes MPO bra(i) bra(beta)* random_indexes
          * with sign: ket(beta) + MPO * bra(alpha) = ket(beta) + bra(alpha) + bra(alpha)ket(alpha)
+         *
+         * Fout : het teken is ket(beta) + ket(alpha)
          */
         if (isleft)
                 return 1;

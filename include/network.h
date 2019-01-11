@@ -145,3 +145,25 @@ int is_dmrg_bond(int bond);
 void create_nr_left_psites(void);
 
 void create_order_psites(void);
+
+/**
+ * @brief makes a simple sweep instruction automatically
+ *
+ * The border sites are included or not depending on the input.
+ *
+ * The including of the border is not needed for a simple optimization if the 
+ * symmetry sectors of the local physical Hilbert space are all of dimension 1.
+ *
+ * For other cases, i.e. when the dimension of the local physical Hilbert space
+ * is larger than one or for the generation of a sweep for the calculation of 
+ * the RDMs, the borders should be included!
+ *
+ * The sweep starts at the outgoing bond.
+ *
+ * @param inclborder [in] 1 if borders should be included, 0 otherwise.
+ * @param sweep [out] The sweep array, giving the sites in order which they need 
+ * to be going through.
+ * @param swlength [out] The length of the sweep array.
+ * @return 0 if successful, 1 if not
+ */
+int  make_simplesweep(int inclborder, int ** sweep, int * swlength);

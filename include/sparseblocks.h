@@ -48,9 +48,6 @@ struct sparseblocks {
                               */
 };
 
-void QR_blocks(struct sparseblocks * blocks, int start, int finish, 
-               int total, int * N);
-
 /**
  * \brief Initializes a sparseblocks structure on NULL.
  *
@@ -153,3 +150,12 @@ struct contractinfo {
  */
 void do_contract(const struct contractinfo * cinfo, EL_TYPE ** tel, 
                  double alpha, double beta);
+
+#ifdef DEBUG
+/**
+ * @brief Debug functionality for printing of contractinfo.
+ *
+ * @param [in] The contractinfo structure.
+ */
+void print_contractinfo(const struct contractinfo * cinfo);
+#endif

@@ -118,6 +118,12 @@ static void get_common_with_next(int maxsites, struct stepSpecs * specs,
 {
         struct stepSpecs nextSpecs;
         get_sites_to_opt(maxsites, &nextSpecs, next_state);
+        if (next_state == 0) {
+                specs->common_next[0] = 0;
+                specs->common_next[1] = 1;
+                return;
+        }
+
         for (int i = 0; i < specs->nr_sites_opt; ++i) {
                 specs->common_next[i] = 0;
                 for (int j = 0; j < nextSpecs.nr_sites_opt; ++j) {
@@ -608,8 +614,7 @@ int next_opt_step(int maxsites, struct stepSpecs * specs)
         get_bonds_involved(specs);
 
         ++curr_state;
-        get_common_with_next(maxsites, specs, curr_state == netw.sweeplength ? 
-                             0 : curr_state);
+        get_common_with_next(maxsites, specs, curr_state % netw.sweeplength);
         return 1;
 }
 
@@ -630,4 +635,88 @@ int get_common_bond(int site1, int site2)
 int is_dmrg_bond(const int bond)
 {
         return is_psite(netw.bonds[bond][0]) && is_psite(netw.bonds[bond][1]);
+}
+
+static int recursive_stepping(int inclborder, int * sweep, int * id)
+{
+        // Get previous site. should be a physical one.
+        int site = sweep[*id - 1];
+        assert(is_psite(site));
+        int bonds[3];
+        int flag = 1;
+
+        // First: moving against the flow until we encounter branch or a border
+        do {
+                get_bonds_of_site(site, bonds);
+                assert(site == netw.bonds[bonds[0]][1]);
+                site = netw.bonds[bonds[0]][0];
+                // Border encountered
+                if (site == -1) {
+                        // Possibly remove last inserted site
+                        *id -= !inclborder;
+                        site = sweep[*id - 1];
+                        flag = 0;
+                } else {
+                        sweep[(*id)++] = site;
+                }
+        } while (flag && is_psite(site));
+
+        // We encountered a branching site. Added in sweep-array
+        if (flag) {
+                assert(!is_psite(site));
+                get_bonds_of_site(site, bonds);
+                sweep[(*id)++] = netw.bonds[bonds[1]][0];
+                recursive_stepping(inclborder, sweep, id);
+                sweep[(*id)++] = netw.bonds[bonds[0]][0];
+                recursive_stepping(inclborder, sweep, id);
+        }
+
+        // Second : moving with the flow until we encounter branch or a border
+        // If you encountered border and the current site is branching, 
+        // you should do nothing.
+        while (flag || is_psite(site)) {
+                flag = 0;
+                get_bonds_of_site(site, bonds);
+                assert(site == netw.bonds[bonds[2]][0]);
+                site = netw.bonds[bonds[2]][1];
+                // Border encountered
+                if (site == -1) {
+                        // Remove last inserted site
+                        --*id;
+                        break;
+                } else {
+                        sweep[(*id)++] = site;
+                }
+        } 
+        return 0;
+}
+
+int make_simplesweep(int inclborder, int ** sweep, int * swlength)
+{
+        // Maximal amount of sweep instructions.
+        *sweep = safe_malloc(netw.nr_bonds * 2, **sweep);
+        *swlength = 0;
+
+        // fetch outgoing bond of the network and store the corresponding site
+        for (int i = 0; i < netw.nr_bonds; ++i) {
+                if (netw.bonds[i][1] == -1) {
+                        (*sweep)[(*swlength)++] = netw.bonds[i][0];
+                        break;
+                }
+        }
+        if (*swlength != 1) {
+                fprintf(stderr, "Not an outgoing bond found in the network.\n");
+                safe_free(*sweep);
+                return 1;
+        }
+        if (!is_psite((*sweep)[*swlength - 1])) {
+                fprintf(stderr, "Site corresponding to the outgoing bond should be a physical site.\n");
+                safe_free(*sweep);
+                return 1;
+        }
+
+        if (recursive_stepping(inclborder, *sweep, swlength)) { return 1; }
+
+        *sweep = realloc(*sweep, *swlength * sizeof **sweep);
+        return 0;
 }

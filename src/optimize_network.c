@@ -35,6 +35,7 @@
 #include "Heff.h"
 #include "wrapper_solvers.h"
 #include "io_to_disk.h"
+#include "RedDM.h"
 
 #define MAX_NR_INTERNALS 3
 #define NR_TIMERS 12
@@ -284,6 +285,9 @@ struct sweep_info {
         double tottime;
 };
 
+static void init_rops(struct rOperators * const rops, 
+                      const struct siteTensor * const tens, const int bond);
+
 static struct sweep_info execute_sweep(struct siteTensor * T3NS, 
                                        struct rOperators * rops, 
                                        const struct regime * reg, 
@@ -393,6 +397,7 @@ static void init_rops(struct rOperators * const rops,
         if (siteL == -1 || siteR == -1) {
                 init_vacuum_rOperators(curr_rops, bond, siteL == -1);
         } else if (is_psite(siteL)) { /* physical tensor, DMRG update needed */
+                assert(tens != NULL);
                 int bonds[3];
                 int * tempdim = bookie.list_of_symsecs[bond].dims;
                 int i;
@@ -427,7 +432,7 @@ void init_calculation(struct siteTensor ** T3NS, struct rOperators ** rOps,
         init_null_rops(rOps);
 
         printf(" >> Preparing siteTensors...\n");
-#pragma omp parallel for schedule(dynamic) default(none) shared(netw, T3NS, rOps, option)
+
         for (int i = 0; i < netw.nr_bonds; ++i) {
                 const int siteL = netw.bonds[i][0];
                 const int siteR = netw.bonds[i][1];
@@ -435,23 +440,32 @@ void init_calculation(struct siteTensor ** T3NS, struct rOperators ** rOps,
                 if (siteL == -1) /* No left site to initialize */
                         continue;
 
-                struct siteTensor * tens = &(*T3NS)[siteL];
-                init_1siteTensor(tens, siteL, option);
-                QR(tens, NULL);
+                struct siteTensor A;
+                struct siteTensor * Q = &(*T3NS)[siteL];
+                init_1siteTensor(&A, siteL, option);
+
+                if (qr(&A, 2, Q, NULL) != 0) { exit(EXIT_FAILURE); }
+                destroy_siteTensor(&A);
 
                 if (siteR != -1) /* If the last site, then normalize wavefunc */
                         continue;
 
-                const int N = siteTensor_get_size(tens);
-                const double norm = cblas_dnrm2(N, tens->blocks.tel, 1);
-                cblas_dscal(N, 1 / norm, tens->blocks.tel, 1);
+                const int N = siteTensor_get_size(Q);
+                const double norm = cblas_dnrm2(N, Q->blocks.tel, 1);
+                cblas_dscal(N, 1 / norm, Q->blocks.tel, 1);
         }
+
+        struct RedDM rdm;
+        if (get_RedDMs(*T3NS, &rdm, 2)) { exit(EXIT_FAILURE); }
 
         printf(" >> Preparing renormalized operators...\n");
         for (int i = 0; i < netw.nr_bonds; ++i) {
                 const int siteL = netw.bonds[i][0];
-                struct siteTensor * tens = &(*T3NS)[siteL];
-                init_rops(*rOps, tens, i);
+                if (siteL == -1) {
+                        init_rops(*rOps, NULL, i);
+                } else {
+                        init_rops(*rOps, &(*T3NS)[siteL], i);
+                }
         }
 }
 

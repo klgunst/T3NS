@@ -270,10 +270,10 @@ double wigner6j(const int two_ja, const int two_jb, const int two_jc,
         if (min_beta < max_alpha){ return 0.0; }
         const int num_terms = min_beta - max_alpha + 1;
 
-        const long double prefactor = (sqrt_delta(two_ja, two_jb, two_jc)
-                                        * sqrt_delta(two_jd, two_je, two_jc)
-                                        * sqrt_delta(two_ja, two_je, two_jf)
-                                        * sqrt_delta(two_jd, two_jb, two_jf));
+        long double prefactor = sqrt_delta(two_ja, two_jb, two_jc);
+        prefactor *= sqrt_delta(two_jd, two_je, two_jc);
+        prefactor *= sqrt_delta(two_ja, two_je, two_jf);
+        prefactor *= sqrt_delta(two_jd, two_jb, two_jf);
 
         long double result = 0.0;
         long double factor = ((max_alpha % 2 == 0) ? 1 : -1) * prefactor;
@@ -310,7 +310,9 @@ double wigner9j(const int two_ja, const int two_jb, const int two_jc,
                 return 0.0;
         }
 
-        const int lower_2j = MAX(abs(two_ja - two_ji), MAX(abs(two_jh - two_jd), abs(two_jb - two_jf)));
+        int lower_2j = abs(two_jb - two_jf);
+        lower_2j = MAX(abs(two_jh - two_jd), lower_2j);
+        lower_2j = MAX(abs(two_ja - two_ji), lower_2j);
         const int upper_2j = MIN(two_ja + two_ji, MIN(two_jh + two_jd, two_jb + two_jf));
 
         double value = 0.0;

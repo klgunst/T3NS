@@ -105,6 +105,7 @@ static void sort_tags(int ** array, const int nrels, const int n)
                 }
         }
         safe_free(*array);
+        safe_free(idx);
         *array = res;
 }
 
