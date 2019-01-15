@@ -159,6 +159,19 @@ int siteTensor_get_size(const struct siteTensor * const tens)
   return tens->blocks.beginblock[tens->nrblocks];
 }
 
+int siteTensor_give_bondid(const struct siteTensor * tens, int bond)
+{
+        // only for siteTensors of size 1
+        assert(tens->nrsites == 1);
+        int bonds[3];
+        get_bonds_of_site(tens->sites[0], bonds);
+        for (int i = 0; i < 3; ++i) {
+                if (bonds[i] == bond) { return i; }
+        }
+        fprintf(stderr, "Bond not found in siteTensor.\n");
+        return -1;
+}
+
 /* ========================================================================== */
 /* ===================== DEFINITION STATIC FUNCTIONS ======================== */
 /* ========================================================================== */

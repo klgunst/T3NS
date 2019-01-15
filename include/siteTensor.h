@@ -84,11 +84,11 @@ struct siteTensor {
 
 /* =================================== INIT & DESTROY ========================================== */
 /**
- * \brief Initializes an siteTensor struct as null.
+ * @brief Initializes an siteTensor struct as null.
  *
- * \param [out] tens The pointer to the null-siteTensor struct.
+ * @param [out] tens The pointer to the null siteTensor struct.
  */
-void init_null_siteTensor(struct siteTensor * const tens);
+void init_null_siteTensor(struct siteTensor * const tens); 
 
 /**
  * \brief Initializes a one-site tensor.
@@ -242,6 +242,17 @@ void siteTensor_give_externalbonds(const struct siteTensor * const tens, int ext
 
 int siteTensor_get_size(const struct siteTensor * const tens);
 
+/**
+ * @brief Gives the bondid of a ceratain @p bond in the tensor @tens.
+ *
+ * This function only works for <tt>tens->nrsites == 1</tt>.
+ *
+ * @param tens [in] The siteTensor.
+ * @param bond [in] The bond to find.
+ * @return Returns the bondid or -1 on not found
+ */
+int siteTensor_give_bondid(const struct siteTensor * tens, int bond);
+
 /* ============================ DECOMPOSE =================================== */
 
 /**
@@ -298,6 +309,16 @@ int multiplyR(struct siteTensor * A, const int bondA,
  */
 int qr(struct siteTensor * A, int bond, 
        struct siteTensor * Q, struct Rmatrix * R);
+
+/**
+ * @brief Executes one QR decomposition for orthocenter and contracts the 
+ * resulting R in ortho, making this the new orthocenter.
+ *
+ * @param orthocenter [in,out] orthocenter = QR is inputted, Q is outputted.
+ * @param ortho [in, out] ortho = A is inputted, new orthocenter AR is outputted.
+ * @return 0 on success, 1 on failure.
+ */
+int qr_step(struct siteTensor * orthocenter, struct siteTensor * ortho);
 
 /**
  * @brief Destroys an Rmatrix.

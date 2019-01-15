@@ -37,6 +37,7 @@
 #include "symmetries.h"
 #include "options.h"
 #include "debug.h"
+#include "RedDM.h"
 
 const char *argp_program_version     = "T3NS " T3NS_VERSION;
 const char *argp_program_bug_address = "<" T3NS_MAIL ">";
@@ -314,8 +315,18 @@ int main(int argc, char *argv[])
         setvbuf(stdout, NULL, _IOLBF, BUFSIZ);
 
         initialize_program(argc, argv, &T3NS, &rops, &scheme, &pbuffer);
+        execute_optScheme(T3NS, rops, &scheme, pbuffer);
 
-        //execute_optScheme(T3NS, rops, &scheme, pbuffer);
+        struct RedDM rdm;
+        get_RedDMs(T3NS, &rdm, 1, 0);
+        double * ent;
+        get_1siteEntanglement(&rdm, &ent);
+        for(int i = 0; i < rdm.sites; ++i) {
+                printf("%f ", ent[i]);
+        }
+        printf("\n");
+        safe_free(ent);
+        destroy_RedDM(&rdm);
 
         cleanup_before_exit(&T3NS, &rops, &scheme);
         printf("SUCCESFULL END!\n");

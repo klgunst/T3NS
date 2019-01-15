@@ -19,6 +19,7 @@
 #include <omp.h>
 
 #include "siteTensor.h"
+#include "network.h"
 #include "sort.h"
 #include "macros.h"
 #include "debug.h"
@@ -347,7 +348,7 @@ int qr(struct siteTensor * A, int bond,
                 fprintf(stderr, "Q result from QR-decomposition is not orthogonal.\n");
                 erflag = 1;
         }
-        if(R != NULL && multiplyR(Q, bond, R, 0, &B)) {
+        if(R != NULL && !multiplyR(Q, bond, R, 0, &B)) {
                 double ero = 0;
                 const int N = siteTensor_get_size(Q);
                 for (int i = 0; i < N; ++i) { 
@@ -549,4 +550,29 @@ int is_orthogonal(struct siteTensor * Q, const int bond)
 
         destroy_qrdata(&dat);
         return orthoflag;
+}
+
+int qr_step(struct siteTensor * orthocenter, struct siteTensor * ortho)
+{
+        // Find common bond
+        const int comb = get_common_bond(orthocenter->sites[0], ortho->sites[0]);
+        const int oc_id = siteTensor_give_bondid(orthocenter, comb);
+        if (oc_id == -1) { return 1; }
+        const int o_id = siteTensor_give_bondid(ortho, comb);
+        if (o_id == -1) { return 1; }
+
+        // Do QR
+        struct siteTensor Q;
+        struct Rmatrix R;
+        if(qr(orthocenter, oc_id, &Q, &R)) { return 1; }
+        destroy_siteTensor(orthocenter);
+        *orthocenter = Q;
+
+        // Contract R
+        struct siteTensor B;
+        if(multiplyR(ortho, o_id, &R, 1, &B)) { return 1; }
+        destroy_Rmatrix(&R);
+        destroy_siteTensor(ortho);
+        *ortho = B;
+        return 0;
 }

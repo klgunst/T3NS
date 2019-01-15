@@ -119,4 +119,6 @@ double SU2_prefactor_bUpdate(int (*symv)[3], int uCase)
                                  symv[2][0], symv[2][1], symv[2][2]);
 }
 
+double SU2_prefactor_1siteRDM(int * symv) { return 1. / (symv[1] + 1); }
+
 int SU2_multiplicity(int irrep) {return irrep + 1;}

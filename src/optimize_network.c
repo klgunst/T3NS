@@ -455,9 +455,6 @@ void init_calculation(struct siteTensor ** T3NS, struct rOperators ** rOps,
                 cblas_dscal(N, 1 / norm, Q->blocks.tel, 1);
         }
 
-        struct RedDM rdm;
-        if (get_RedDMs(*T3NS, &rdm, 2)) { exit(EXIT_FAILURE); }
-
         printf(" >> Preparing renormalized operators...\n");
         for (int i = 0; i < netw.nr_bonds; ++i) {
                 const int siteL = netw.bonds[i][0];

@@ -509,6 +509,26 @@ double prefactor_combine_MPOs(int * const (*irreps)[3], int * const *irrMPO,
         return prefactor;
 }
 
+double prefactor_1siteRDM(int * (*irreps)[3], const enum symmetrygroup * sgs,
+                          int nrsy)
+{
+        int symvalues[3];
+        double prefactor = 1;
+        for (int i = 0; i < nrsy; ++i) {
+                switch(sgs[i]) {
+                case SU2 :
+                        for (int j = 0; j < 3; ++j) {
+                                symvalues[j] = (*irreps)[j][i];
+                        }
+                        prefactor *= SU2_prefactor_1siteRDM(symvalues);
+                        break;
+                default :
+                        break;
+                }
+        }
+        return prefactor;
+}
+
 int need_multiplicity(int nrSyms, const enum symmetrygroup * sgs)
 {
         for (int i = 0; i < nrSyms; ++i)

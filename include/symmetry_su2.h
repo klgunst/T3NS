@@ -74,4 +74,16 @@ double SU2_prefactor_combine_MPOs(int (*symv)[3], int * symvMPO, int isdmrg);
 
 double SU2_prefactor_bUpdate(int (*symv)[3], int uCase);
 
+/**
+ * @brief Returns the prefactor for \f$SU(2)\f$ for making the 1-site RDM
+ *
+ * In this step, a certain orthocenter is contracted with itself over 
+ * leg 1 and 3. The prefactor needed when using \f$SU(2)\f$ is 
+ * \f$\frac{1}{2 j_2 + 1}\f$.
+ *
+ * @param symv [in] array with symvalue of bond 1, 2, 3.
+ * @return The prefactor>
+ */
+double SU2_prefactor_1siteRDM(int * symv);
+
 int SU2_multiplicity(const int irrep);

@@ -34,11 +34,34 @@
  * A structure for the reduced density matrices.
  */
 struct RedDM {
-        /// Number of orbitals or one-bodies.
-        int orb;
+        /// Number of sites
+        int sites;
 
-        /// Array of pointers which stores the RDMs.
-        double (*RDM)[MAX_RDM];
+        /** Stores the chemical needed RDMs.
+         *
+         * i.e 
+         *
+         * \f$\Gamma^A(ij;kl) = 
+         * \sum_{\sigma\tau} \Gamma(i\sigma)(j\tau);(k\sigma)(l\tau)\f$
+         *
+         * \f$\Gamma^B(ij;kl) = 
+         * \sum_{\sigma\tau} (-1)^{\sigma - \tau}
+         * \Gamma(i\sigma)(j\tau);(k\sigma)(l\tau)\f$
+         *
+         * with
+         *
+         *
+         * \f$\Gamma(i\sigma)(j\tau);(k\sigma)(l\tau) = 
+         * \langle a^\dagger_{i\sigma}a^\dagger_{j\tau}a_{l\tau}a_{k\sigma} \rangle\f$
+         */
+        EL_TYPE * chemRDM[2];
+
+        /** Stores the site-RDMs.
+         *
+         * @p sRDMs[i] stores the site-RDMs for i-sites.
+         * length of @p sRDMs[i] = \f${N}\choose{i}\f$
+         */
+        struct siteTensor * sRDMs[MAX_RDM];
 };
 
 /**
@@ -48,6 +71,30 @@ struct RedDM {
  * @param rdm [out] The resulting RedDM structure
  * @param mrdm [in] The maximal RDM to be calculated.
  * This can not be larger than #MAX_RDM.
+ * @param chemRDM [in] 0 if @ref RedDM @p rdm->chemRDM should not be calculated, 
+ * 1 if they should.
  * @return 0 if successful, 1 if error occured.
  */
-int get_RedDMs(struct siteTensor * T3NS, struct RedDM * rdm, int mrdm);
+int get_RedDMs(struct siteTensor * T3NS, struct RedDM * rdm, 
+               int mrdm, int chemRDM);
+
+/**
+ * @brief Destroys a RedDM structure.
+ *
+ * @param rdm [in,out] The RedDM to destroy.
+ */
+void destroy_RedDM(struct RedDM * rdm);
+
+/**
+ * @brief Retrieves the 1-site entanglement for the given rdm.
+ *
+ * The entanglement is  given by \f$\sum \omega ln \omega\f$ where \f$\omega\f$
+ * is given by the schmidt values.
+ * This is equal to the square root of the eigenvalues of the 1-site RDM.
+ *
+ * @param rdm [in] The RedDM structure which stores the 1-site RDM.
+ * @param result [out] Array which has the different entanglement values 
+ * calculated.
+ * @return 0 if success, 1 if failed.
+ */
+int get_1siteEntanglement(const struct RedDM * rdm, double ** result);

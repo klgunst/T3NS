@@ -179,6 +179,20 @@ double prefactor_add_P_operator(int * const (*irreps)[3], int isleft,
 double prefactor_combine_MPOs(int * const (*irreps)[3], int * const *irrMPO, 
                               const enum symmetrygroup * sgs, int nrsy, int isdmrg);
 
+/**
+ * @brief Returns the prefactor for making the 1-site RDM.
+ *
+ * In this step, a certain orthocenter is contracted with itself over leg 1 
+ * and 3.
+ *
+ * @param irreps [in] The values of the symmetries of bonds 1, 2 and 3
+ * @param sgs [in] The symmetrygroups.
+ * @param nrsy [in] The number of symmetrygroups.
+ * @return The prefactor.
+ */
+double prefactor_1siteRDM(int * (*irreps)[3], const enum symmetrygroup * sgs,
+                          int nrsy);
+
 int need_multiplicity(int nrSyms, const enum symmetrygroup * sgs);
 
 int multiplicity(int nrSyms, const enum symmetrygroup * sgs, const int * irreps);
