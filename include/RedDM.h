@@ -30,36 +30,37 @@
 /// Maximal RDM that can be calculated is the #MAX_RDM-body RDM.
 #define MAX_RDM 2
 
-/**
- * A structure for the reduced density matrices.
- */
+/// A structure for the reduced density matrices.
 struct RedDM {
-        /// Number of sites
+        /// Number of sites.
         int sites;
 
-        /** Stores the chemical needed RDMs.
+        /** Stores the chemical needed RDMs. 
          *
-         * i.e 
-         *
-         * \f$\Gamma^A(ij;kl) = 
-         * \sum_{\sigma\tau} \Gamma(i\sigma)(j\tau);(k\sigma)(l\tau)\f$
-         *
-         * \f$\Gamma^B(ij;kl) = 
-         * \sum_{\sigma\tau} (-1)^{\sigma - \tau}
-         * \Gamma(i\sigma)(j\tau);(k\sigma)(l\tau)\f$
-         *
-         * with
-         *
-         *
-         * \f$\Gamma(i\sigma)(j\tau);(k\sigma)(l\tau) = 
-         * \langle a^\dagger_{i\sigma}a^\dagger_{j\tau}a_{l\tau}a_{k\sigma} \rangle\f$
+         * i.e.:<br>
+         * \f$Γ^A(ij;kl) = Σ_{στ} Γ(iσ)(jτ);(kσ)(lτ)\f$<br>
+         * \f$Γ^B(ij;kl) = Σ_{στ} (-1)^{σ - τ} Γ(iσ)(jτ);(kσ)(lτ)\f$<br>
+         * with<br>
+         * \f$Γ(iσ)(jτ);(kσ)(lτ) = 〈a^†_{iσ}a^†_{jτ}a_{lτ}a_{kσ}〉\f$
          */
         EL_TYPE * chemRDM[2];
 
         /** Stores the site-RDMs.
          *
-         * @p sRDMs[i] stores the site-RDMs for i-sites.
-         * length of @p sRDMs[i] = \f${N}\choose{i}\f$
+         * <tt>sRDMs[i]</tt> stores the site-RDMs for i-sites.<br>
+         * Length of <tt>sRDMs[i]</tt> = \f${N}\choose{i}\f$.
+         *
+         * For 1-site RDMs:  
+         * * qnumbers: \f$(〈i'|, 0, |i〉)\f$ where \f$ i = i' \f$.
+         * * indices: \f$(α_{i'}, α_i)\f$.<br>
+         *   This does not really matter because of the symmetry of the tensor.
+         *
+         * For 2-site RDMs:
+         * * qnumbers: \f$(|j〉, |i〉, 〈\mathrm{MPO}|)
+         *   (|\mathrm{MPO}〉, 〈 i'|, 〈 j'|)\f$.
+         * * indices: \f$(α_{i'}, α_{j'}, α_i, α_j)\f$.<br>
+         *   This tensor is also symmetric with respect to the couples
+         *   \f$(i,j), (i',j')\f$.
          */
         struct siteTensor * sRDMs[MAX_RDM];
 };
@@ -88,9 +89,9 @@ void destroy_RedDM(struct RedDM * rdm);
 /**
  * @brief Retrieves the 1-site entanglement for the given rdm.
  *
- * The entanglement is  given by \f$\sum \omega ln \omega\f$ where \f$\omega\f$
- * is given by the schmidt values.
- * This is equal to the square root of the eigenvalues of the 1-site RDM.
+ * The entanglement is  given by \f$\sum -\omega \ln \omega\f$ where \f$\omega\f$
+ * is given by the square of the schmidt values.
+ * This is equal to the eigenvalues of the 1-site RDM.
  *
  * @param rdm [in] The RedDM structure which stores the 1-site RDM.
  * @param result [out] Array which has the different entanglement values 

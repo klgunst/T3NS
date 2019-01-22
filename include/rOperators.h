@@ -21,114 +21,92 @@
 #include "symsecs.h"
 #include "macros.h"
 
-/**
- * Sooo... every siteTensor (so of the wave function) has as indices:
- *     alpha, beta, gamma (for branching) or alpha, i, beta (for physical)
- * The coupling is in the same order, so coupling array is given by:
- *     [alpha, i, beta] or [alpha, beta, gamma]
- * The is_in array is given by:
- *     [1, 1, 0]
- *     
- * I introduce a new notation now:
- *    with ket(alpha) I mean bond alpha of a T3NS tensor (the ket wavefunction)
- *    with bra(alpha) I mean bond alpha of the hermitian of a T3NS tensor (the bra wavefunction)
+/** 
+ * @file rOperators.h
  *
- * Now for left renormalized operators without physical site added:
- *     The indices array is given by : 
- *      ---[bra(alpha), ket(alpha), MPO]
- *     The coupling array is given by :
- *      ---[bra(alpha), MPO*, ket(alpha)*]      ===> Should couple to the trivial irrep or singlet
- *     The qnumberbonds array is given by :
- *      ---[bra(alpha), ket(alpha), MPO]
+ * The header file for the renormalized operators.
  *
- * Now for left renormalized operators with physical site added, (beta is an inner bond)
- *     The indices array is given by : 
- *      ---[bra(alpha), bra(i), bra(beta), ket(alpha), ket(i), ket(beta), MPO]
- *     The coupling array is given by :
- *      ---[bra(alpha), bra(i) , bra(beta)*,     ===> Should couple to the trivial irrep or singlet
- *           bra(beta) , MPO*   , ket(beta)*,     ===> Should couple to the trivial irrep or singlet
- *           ket(beta) , ket(i)*, ket(alpha)*]   ===> Should couple to the trivial irrep or singlet
- *     The qnumberbonds array is given by :
- *      ---[bra(alpha), bra(i)   , bra(beta),
- *           ket(alpha), ket(i)   , ket(beta),
- *           bra(beta) , ket(beta), MPO      ]
+ * This file defines a structure @ref rOperators. This structure defines the 
+ * so-called renormalized operators, which equals to partially contracted pieces 
+ * of the bra and ket tensor network (with possibly a MPO sandwiched between 
+ * it).
  *
- * Now for right renormalized operators without physical site added:
- *     The indices array is given by : 
- *      ---[bra(beta), ket(beta), MPO]
- *     The coupling array is given by :
- *      ---[bra(beta)*, MPO, ket(beta)]        ===> Should couple to the trivial irrep or singlet
- *     The qnumberbonds array is given by :
- *      ---[bra(beta), ket(beta), MPO]
+ * This structure is used for both the renormalized operators as for the 
+ * intermediate results during calculation of the RDM's in @ref RedDM.
  *
- * Now for right renormalized operators with physical site added, (alpha is an inner bond)
- *     The indices array is given by : 
- *      ---[bra(alpha), bra(i), bra(beta), ket(alpha), ket(i), ket(beta), MPO]
- *     The coupling array is given by :
- *      ---[bra(alpha) , bra(i) , bra(beta)*,    ===> Should couple to the trivial irrep or singlet
- *           bra(alpha)*, MPO*   , ket(alpha),    ===> Should couple to the trivial irrep or singlet
- *           ket(beta)  , ket(i)*, ket(alpha)*]  ===> Should couple to the trivial irrep or singlet
- *     The qnumberbonds array is given by :
- *      ---[bra(alpha), bra(i)    , bra(beta),
- *           ket(alpha), ket(i)    , ket(beta),
- *           bra(alpha), ket(alpha), MPO      ]
+ * It also defines functions for the update and initialization of the 
+ * @ref rOperators.
  */
 
 /**
- * \brief The structure for renormalized operators at a certain bond.
+ * The structure for renormalized operators at a certain bond.
+ *
+ * We differ between the order in which the qnumbers are stored, the actual
+ * coupling and the order in which the indices are stored of the blocks.<br>
+ * Let us call them *qnumber-order*, *coupling-order* and *index-order*.
+ *
+ * The bonds of the renormalized operators correspond always with some of the 
+ * bonds of a certain three-legged siteTensor, i.e.
+ * * 1 virtual bond for <tt>@ref P_operator = 0</tt>
+ * * 1 virtual and one physical bond for <tt>@ref P_operator = 1</tt>
+ *
+ * The relevant orders for this siteTensor and its adjoint is given by 
+ * (with\f$β\f$ either a physical or virtual bond):
+ *
+ * *Order Type* | *siteTensor*                               | *Adjoint siteTensor*
+ * -------------|--------------------------------------------|--------------------------------------------
+ * qnumber      | \f$(α, β, γ)\f$                            | \f$(α', β', γ')\f$                     
+ * coupling     | \f$(&#124; α〉, &#124; β〉, 〈γ&#124;)\f$  | \f$(&#124; γ'〉, 〈β'&#124;, 〈α'&#124;)\f$  
+ * index        | \f$α, β, γ\f$                              | \f$α', β', γ'\f$                            
+ *
+ * For the renormalized operators originating from partially contracting bra ket
+ * and Hamiltonian (i.e. paritally contracting \f$〈Ψ |H|Ψ〉\f$) the orders are
+ * given by:
+ *
+ * * For <tt>@ref P_operator = 0</tt>:
+ *   *Order Type* | *left*                                                | *right*
+ *   -------------|-------------------------------------------------------|-----------------------------------------
+ *   qnumber      | \f$(α', α, \mathrm{MPO})\f$                           | \f$(γ', γ, \mathrm{MPO})\f$                           
+ *   coupling     | \f$(&#124; α'〉, 〈\mathrm{MPO}&#124;, 〈α&#124;)\f$  | \f$(〈γ'&#124;, &#124;\mathrm{MPO}〉, &#124;γ〉)\f$  
+ *   index        | \f$α', α, \mathrm{MPO}\f$                             | \f$γ', γ, \mathrm{MPO}\f$                           
+ *
+ * * For <tt>@ref P_operator = 1</tt> (with \f$β\f$ a physical bond):
+ *   *Order Type* | *left*                                                                                                                            | *right*
+ *   -------------|-----------------------------------------------------------------------------------------------------------------------------------|---------------------------------------------------------------------------------------------------------------------------------
+ *   qnumber      | \f$(α', β', γ'),(α, β, γ),(γ', γ, \mathrm{MPO})\f$                                                                                | \f$(α', β', γ'),(α, β, γ),(α', α, \mathrm{MPO})\f$    
+ *   coupling     | \f$(&#124; α'〉, &#124; β'〉, 〈γ'&#124;), (&#124; β'〉, 〈\mathrm{MPO}&#124;, 〈β&#124;), (&#124; γ〉, 〈β&#124;, 〈α&#124;)\f$  | \f$(&#124; α'〉, &#124; β'〉, 〈γ'&#124;), (&#124; α'〉, 〈\mathrm{MPO}&#124;, 〈α&#124;), (&#124; γ〉, 〈β&#124;, 〈α&#124;)\f$
+ *   index        | \f$α', β', α, β, \mathrm{MPO})\f$                                                                                                 | \f$ β', γ', β, γ, \mathrm{MPO})\f$                     
  */
 struct rOperators {
-  int bond_of_operator;       /**< The bond according to the network of the operator. */
-  int is_left;                /**< Boolean that says if it is a left operator. */
-  int P_operator;             /**< Boolean that says if it is a physical operator. 
-                               *   Thus a operator with a site-operator appended.  */
-
-  int nrhss;                  /**< Number of hamiltonian symmetrysectors. */
-  int *begin_blocks_of_hss;   /**< Start of the blocks for every hamiltonian symmetrysector. */
-  QN_TYPE *qnumbers;          /**< Stores the quantum numbers linked to every sparse block.
-                               *
-                               *   The way of storing this is a bit tricky and differs from with
-                               *   how I do it for the siteTensors. The philosophy is the
-                               *   same, but the order is different.
-                               *
-                               *   For every sparse block, 1 number is stored for each coupling.
-                               *   Length of this array is thus nkappa_tot * nr_couplings.
-                               *   nr_couplings is 1 if P_operator == 0, 3 if P_operator == 1.
-                               *
-                               *   Since the coupling always originates from an original T3NS-tensor
-                               *   or a renormalized operator with 3 legs, we store the qnumbers
-                               *   like they are stored in those. Thus:
-                               *
-                               *   For a coupling originating from a T3NS:
-                               *   qnumbers-element: 
-                               *     (for branching T3NS-tensor)
-                               *        alpha + dim_alpha * beta + dim_alpha * dim_beta * gamma
-                               *     (for physical T3NS-tensor)
-                               *        alpha + dim_alpha * i + dim_alpha * dim_i * beta
-                               *
-                               *   This for both couplings originating from the T3NS and its adjoint
-                               *
-                               *   This in contrast when we do it for a renormalized operator.
-                               *   For a coupling originating from a 3-legged renormalized operator:
-                               *   qnumbers-element:
-                               *   bra(bond) + dim_bond * ket(bond) + dim_bond * dim_bond * MPO
-                               *
-                               *   The order in which the different couplings are given is defined
-                               *   as:
-                               *
-                               *   P_operator = 0
-                               *   coupling of rOps
-                               *
-                               *   P_operator = 1
-                               *   bra(T3NS) | ket(T3NS) | rOps
-                               */
-
-  int nrops;                           /**< The total number of renormalized operators. */
-  int * hss_of_ops;                    /**< The MPO-symsec of each operator. */
-  struct sparseblocks * operators;     /**< The different operators. */
+        /// The bond of the rOperators in the @ref netw.
+        int bond_of_operator;
+        /** If the contracted part of the network is to the left of the bond,
+         * then this is 1, otherwise 0. */
+        int is_left;
+        /// If the rOperator has a site-operator appended then 1, otherwise 0.
+        int P_operator;
+        // /// A @ref symsecs structure for the MPO bond (i.e. intermediate bond).
+        // struct symsecs * MPOss;
+        /// @ref number of symsecs for the MPO bond (i.e. intermediate bond).
+        int nrhss;
+        /// Start of the blocks for every symmetry sector in @ref MPOss.
+        int * begin_blocks_of_hss;
+        /** Stores the quantum numbers for every sparse block.
+         *
+         * Their order is given as specified by @p qnumber-order.<br>
+         * For <tt>@ref P_operator = 0</tt>, 1 @p qnumber is needed per block,<br>
+         * for <tt>@ref P_operator = 1</tt>, 3 @p qnumbers is needed per block.
+         */
+        QN_TYPE * qnumbers;        
+        /// The total number of renormalized operators stored.
+        int nrops;
+        /// The MPO-symsec of each operator. **How do I fix this for RDMs?**
+        int * hss_of_ops;
+        /// The renormalized operators.
+        struct sparseblocks * operators;
 };
 
-/* =================================== INIT & DESTROY ========================================== */
+/* =========================== INIT & DESTROY =============================== */
 /**
  * \brief Initializes a null-rOperators.
  *

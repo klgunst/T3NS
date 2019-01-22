@@ -20,33 +20,33 @@
 #include "symsecs.h"
 
 /**
- * \file bookkeeper.h
- * \brief Header file for the bookkeeper struct and related methods.
+ * @file bookkeeper.h
+ * Header file for the bookkeeper struct and related methods.
  *
  * This structure will be a global so make sure this stuff is threadsafe!
  */
 
-/**
- * \brief Struct for the bookkeeper for the different bonds.
+/** A structure for the bookkeeper for the different bonds.
  * 
- * This is a struct that contains the different symsecs structs for the
+ * This is a struct that contains the different @ref symsecs structures for the
  * different bonds in the network.
  */
 struct bookkeeper {
-        enum symmetrygroup* sgs;   /**< An array with the different symmetries 
-                                    *   in the system. */
-        int nrSyms;                /**< The number of symmetries. */
-        int *target_state;         /**< The irreps of the state we target. */
-        int nr_bonds;              /**< The number of TNSd, TNSu bonds in 
-                                    *   the network. */
-        struct symsecs *list_of_symsecs;/**< List with the different symsecs for the different bonds.
-                                         *   They are ordered in the following fashion :
-                                         *
-                                         *   nr_bonds x (TNSd/TNSu)
-                                         *
-                                         *   Total length is thus nr_bonds
-                                         */
+        /// An array with the different symmetries in the system.
+        enum symmetrygroup * sgs;
+        /// The number of symmetries.
+        int nrSyms;
+        /// The irreps of the state we target.
+        int *target_state;
+        /// The number of TNSd, TNSu bonds in the network.
+        int nr_bonds;
+        /** List with the different symsecs for the different bonds.  
+         *  Total length is @ref nr_bonds.
+         */
+        struct symsecs *list_of_symsecs;
 };
+
+/// The global bookkeeper
 extern struct bookkeeper bookie;
 
 /**

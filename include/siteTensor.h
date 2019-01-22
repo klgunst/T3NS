@@ -18,68 +18,75 @@
 #include "sparseblocks.h"
 #include "macros.h"
 
+/** 
+ * @file siteTensor.h
+ *
+ * The header file for the siteTensors.
+ *
+ * This file defines a structure siteTensor. This structure defines the
+ * siteTensor of the T3NS and also completed @ref RedDM's are of this
+ * structure.
+ *
+ * This structure also defines the structure Rmatrix. This is a matrix that is
+ * obtained from QR-decomposition and can be contracted with a suitable
+ * siteTensor.
+ */
+
 /**
- * \brief The structure for the sitetensors for the T3NS, thus branching and physical tensors.
+ * The structure for the sitetensors for the T3NS. 
  *
- * This is defined for one-site, two-site, three-site and four-site tensors.
- * This structure has some bookkeeping instances and has also a sparseblocks-struct in it.
+ * siteTensors can be multiple things:
+ * * A physical or branching tensor if <tt>@ref nrsites = 1</tt>.
+ * * A multi-site tensor if <tt>@ref nrsites > 1</tt>
+ * * reduced density matrices for sites (@ref RedDM.sRDMs).
  *
- * These siteTensors are always same in order of indices and so on, so I don't need all that 
- * bookkeeping.
+ * We differ between the order in which the qnumbers are stored, the actual
+ * coupling and the order in which the indices are stored of the blocks.<br>
+ * Let us call them *qnumber-order*, *coupling-order* and *index-order*.
  *
- * number of couplings = nrsites.
- * number of indices   = number of couplings * 2 + 1 // This is number of unique bonds in the tens.
- * number of exterior indices = number of couplings + 2
- * number of interior indices = number of coupling - 1
+ * The relevant orders for a branching or physical siteTensor and its adjoint is 
+ * given by (with\f$β\f$ either a physical or virtual bond):
  *
- * AT THIS MOMENT ONLY DEFINED FOR nrsites == 1
- * I SHOULD LATER ON THINK HOW TO ORDER THE MULTIPLE SITES BEST AND HOW IT AFFECTS COUPLING, IS_IN
- * AND SO ON.
+ * *Order Type* | *siteTensor*                               | *Adjoint siteTensor*
+ * -------------|--------------------------------------------|--------------------------------------------
+ * qnumber      | \f$(α, β, γ)\f$                            | \f$(α', β', γ')\f$                     
+ * coupling     | \f$(&#124; α〉, &#124; β〉, 〈γ&#124;)\f$  | \f$(&#124; γ'〉, 〈β'&#124;, 〈α'&#124;)\f$  
+ * index        | \f$α, β, γ\f$                              | \f$α', β', γ'\f$                            
  *
- * For nrsites = 1:
- * indices      = alpha beta/i gamma 
- * qnumberbonds = alpha beta/i gamma |
- * coupling     = ket(alpha) ket(beta/i) ket(gamma*)  // asterisk means it is an outward bond.
+ * For more sites, you just append these in the same order as they appear in
+ * @ref sites, e.g. for 2 sites:
+ *
+ * *Order Type* | *siteTensor with <tt>nrsites = 2</tt>*                                          | *Adjoint siteTensor with <tt>nrsites = 2</tt>*
+ * -------------|---------------------------------------------------------------------------------|-----------------------------------------------------------------------------------
+ * qnumber      | \f$(α, β, γ),(γ,δ,ε)\f$                                                         | \f$(α', β', γ'),(γ',δ',ε')\f$                            
+ * coupling     | \f$(&#124; α〉, &#124; β〉, 〈γ&#124;), (&#124; γ〉, &#124; δ〉, 〈ε&#124;)\f$  | \f$(&#124; ε'〉, 〈δ'&#124;, 〈γ'&#124;), (&#124; γ'〉, 〈β'&#124;, 〈α'&#124;)\f$
+ * index        | \f$α, β, δ, ε\f$                                                                | \f$α', β', δ', ε'\f$                              
+ *
+ * For reduced density matrices for sites:
+ * **AANVULLEN**
  */
 struct siteTensor {
-  int nrsites;                /**< The number of sites of the sitetensor. */
-  int * sites;                /**< The sites of the sitetensor. */
-
-  int nrblocks;               /**< Number of sparse blocks of the tensor. */
-  QN_TYPE *qnumbers;          /**< Stores the quantum numbers linked to every sparse block.
-                               *
-                               *   The way of storing this is a bit tricky and differs from with
-                               *   how I do it for the renormalized operators. The philosophy is the
-                               *   same, but the order is different.
-                               *
-                               *   For every sparse block, 1 number is stored for each coupling.
-                               *   Length of this array is thus nkappa_tot * nr_couplings.
-                               *   nr_couplings is exactly equal to nrsites.
-                               *
-                               *   Since the coupling always originates from an original T3NS-tensor
-                               *   or a renormalized operator with 3 legs, we store the qnumbers
-                               *   like they are stored in those. Thus:
-                               *
-                               *   For a coupling originating from a T3NS:
-                               *   qnumbers-element: 
-                               *     (for branching T3NS-tensor)
-                               *        alpha + dim_alpha * beta + dim_alpha * dim_beta * gamma
-                               *     (for physical T3NS-tensor)
-                               *        alpha + dim_alpha * i + dim_alpha * dim_i * beta
-                               *
-                               *   This for both couplings originating from the T3NS and its adjoint
-                               *
-                               *   This in contrast when we do it for a renormalized operator.
-                               *   For a coupling originating from a 3-legged renormalized operator:
-                               *   qnumbers-element:
-                               *   bra(bond) + dim_bond * ket(bond) + dim_bond * dim_bond * MPO
-                               *
-                               *   The order in which the different couplings are given is defined
-                               *   by the sites-array.
-                               */
-  struct sparseblocks blocks; /**< Structure which contains the elements of the siteTensor and 
-                                *  The size of each block.
-                                */
+        /// Number of sites in @ref sites.
+        int nrsites;
+        /** The sites of the siteTensor.
+         *
+         * For siteTensors of the T3NS itself, these are the sites corresponding
+         * with the @ref netw.
+         *
+         * For siteTensors corresponding with @ref RedDM.sRDMs these are the 
+         * sites for this RDM.
+         */
+        int * sites;
+        /// Number of sparse blocks.
+        int nrblocks;
+        /** Stores the quantum numbers for every sparse block.
+         *
+         * Their order is given as specified by @p qnumber-order.<br>
+         * @ref nrsites @p qnumbers is needed per block.
+         */
+        QN_TYPE *qnumbers;
+        /// Structure that contains the sparse blocks of the siteTensor.
+        struct sparseblocks blocks;
 };
 
 /* =================================== INIT & DESTROY ========================================== */

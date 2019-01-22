@@ -22,30 +22,36 @@
 #include <cblas.h>
 #endif
 
-/* macro that defines the type of the tensor elements */
+/**
+ * @file sparseblocks.h
+ *
+ * Header file for the sparseblocks structure.
+ * This is a structure for the storage of sparse blocks of a sparse tensor.
+ */
+
+/// Type of the elements of the tensors
 #define EL_TYPE double
+/// Type of the elements of the tensors for HDF5
 #define EL_TYPE_H5 H5T_IEEE_F64LE
 
 /**
- * \brief The structure for the sparse blocks of the tensors. 
+ * The structure for the sparse blocks of the tensors. 
  *
- * Completely unusable on its own since things like nkappa_tot are stored in its 
- * parent-structure.
+ * Completely unusable on its own since the number of blocks and the index-order 
+ * and dimensions of each block are stored in its parent-structure.
  */
 struct sparseblocks {
-  int * beginblock;          /**< Start of a certain sparse block. 
-                              *   Length of this array is nkappa_tot + 1.
-                              *
-                              *   This is allocated by this structure.
-                              */
-  EL_TYPE * tel;             /**< This stores the different elements of the sparse tensor.
-                              *   Length of this array is nkappa_begin[nkappa_tot].
-                              *
-                              *   The order of the elements in this are defined by the 
-                              *   parent-structure.
-                              *
-                              *   tel stands for tensor elements.
-                              */
+        /** Start of a certain sparse block.
+         *
+         * Length of this array is equal to <tt>nrblocks + 1</tt>.
+         */
+        int * beginblock;
+        /** Storage for the different elements of the sparse tensor.
+         *
+         * Length is <tt>@ref beginblock[nrblocks]</tt>.<br>
+         * The order of the elements are defined by the parent-structure.
+         */
+        EL_TYPE * tel;
 };
 
 /**

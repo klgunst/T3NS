@@ -56,6 +56,7 @@ struct stepSpecs {
         int common_next[STEPSPECS_MSITES];
 };
 
+/// The network of the T3NS
 extern struct network netw;
 
 /**

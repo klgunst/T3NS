@@ -327,64 +327,74 @@ void find_qnumbers_with_index_in_array(const int id, const int idnr, int *** qnu
   }
 }
 
-void tensprod_symsecs(struct symsecs * const res, const struct symsecs * const sectors1, 
-    const struct symsecs * const sectors2, const int sign, const char o)
+void tensprod_symsecs(struct symsecs * res, const struct symsecs * sectors1, 
+                      const struct symsecs * sectors2, int sign, char o)
 {
-  /* First I make a 'worst-case' res, where a rough first guess of the symmsecs that will occur 
-   * is initialized in. After this, this 'worst-case' res can be simplified by kicking out all 
-   * the symmsecs with D = 0.
-   */
-  int i;
-  assert(o == 'f' || o == 'n' || o == 'd');
+        /* First I make a 'worst-case' res, where a rough first guess of the
+         * symmsecs that will occur is initialized in. After this, this
+         * 'worst-case' res can be simplified by kicking out all the symmsecs
+         * with D = 0. */
+        assert(o == 'f' || o == 'n' || o == 'd');
 
-  res->nrSecs = 0;
-  res->irreps    = NULL;
-  res->fcidims   = NULL;
-  res->dims      = NULL;
-  res->totaldims = 0;
+        res->nrSecs = 0;
+        res->irreps    = NULL;
+        res->fcidims   = NULL;
+        res->dims      = NULL;
+        res->totaldims = 0;
 
-  /* This function will give a rough first irreps array with also a lot of forbidden symmsecs. */
-  build_all_sectors(res, sectors1, sectors2);
-  res->fcidims = safe_calloc(res->nrSecs,  double);
-  if (o != 'f') res->dims = safe_calloc(res->nrSecs,  int);
+        /* This function will give a rough first irreps array with also a lot
+         * of forbidden symmsecs. */
+        build_all_sectors(res, sectors1, sectors2);
+        res->fcidims = safe_calloc(res->nrSecs,  double);
+        if (o != 'f') res->dims = safe_calloc(res->nrSecs,  int);
 
-  for (i = 0; i < sectors1->nrSecs; i++) {
-    int j;
-    /* zero dimension symmsec */
-    if ((o == 'f' && sectors1->fcidims[i] < 0.5) || (o != 'f' && sectors1->dims[i] == 0))
-      continue;
+        for (int i = 0; i < sectors1->nrSecs; i++) {
+                /* zero dimension symmsec */
+                if ((o == 'f' && sectors1->fcidims[i] < 0.5) || 
+                    (o != 'f' && sectors1->dims[i] == 0)) { continue; }
 
-    for (j = 0; j < sectors2->nrSecs; j++) {
-      int nr_symmsecs;
-      int *resultsymmsec;
-      if ((o == 'f' && sectors2->fcidims[j] < 0.5) || (o != 'f' && sectors2->dims[j] == 0))
-        continue;
+                for (int j = 0; j < sectors2->nrSecs; j++) {
+                        int nr_symmsecs;
+                        int *resultsymmsec;
+                        if ((o == 'f' && sectors2->fcidims[j] < 0.5) || 
+                            (o != 'f' && sectors2->dims[j] == 0)) { continue; }
 
-      /* for non-abelian symmetries, like SU(2), there are multiple irreps that are valid as
-       * result of the tensorproduct of two irreps */
-      tensprod_symmsec(&resultsymmsec, &nr_symmsecs, sectors1->irreps[i], 
-                        sectors2->irreps[j], sign, bookie.sgs,
-                        bookie.nrSyms);
+                        /* for non-abelian symmetries, like SU(2), there are
+                         * multiple irreps that are valid as result of the
+                         * tensorproduct of two irreps */
+                        tensprod_symmsec(&resultsymmsec, &nr_symmsecs, 
+                                         sectors1->irreps[i], 
+                                         sectors2->irreps[j], sign, 
+                                         bookie.sgs, bookie.nrSyms);
 
-      for (nr_symmsecs--; nr_symmsecs >= 0; nr_symmsecs--) {
-        int pos_symmsec = search_symsec(resultsymmsec + bookie.nrSyms * nr_symmsecs, res);
-        if (pos_symmsec < 0)
-          break;
-        if (o == 'f')
-          res->fcidims[pos_symmsec] += sectors1->fcidims[i] * sectors2->fcidims[j];
-        if (o == 'n') {
-          res->fcidims[pos_symmsec] = 1;
-          res->dims[pos_symmsec] = 1;
+                        for (nr_symmsecs--; nr_symmsecs >= 0; nr_symmsecs--) {
+                                int pos_symmsec = 
+                                        search_symsec(resultsymmsec + 
+                                                      bookie.nrSyms * 
+                                                      nr_symmsecs, res);
+
+                                if (pos_symmsec < 0) { break; }
+                                if (o == 'f') {
+                                        res->fcidims[pos_symmsec] += 
+                                                sectors1->fcidims[i] * 
+                                                sectors2->fcidims[j];
+                                } else if (o == 'n') {
+                                        res->fcidims[pos_symmsec] = 1;
+                                        res->dims[pos_symmsec] = 1;
+                                } else if (o == 'd') {
+                                        res->fcidims[pos_symmsec] += 
+                                                sectors1->fcidims[i] * 
+                                                sectors2->fcidims[j];
+                                        res->dims[pos_symmsec] += 
+                                                sectors1->dims[i] * 
+                                                sectors2->dims[j];
+                                }
+                        }
+                        safe_free(resultsymmsec);
+                }
         }
-        if (o == 'd') {
-          res->fcidims[pos_symmsec] += sectors1->fcidims[i] * sectors2->fcidims[j];
-          res->dims[pos_symmsec] += sectors1->dims[i] * sectors2->dims[j];
-        }
-      }
-      safe_free(resultsymmsec);
-    }
-  }
 
-  /* now we have the 'worst-case' res. Kick out all the symmsecs with dimension 0. */
-  kick_empty_symsecs(res, (char) (o == 'd' ? 'n' : o));
+        /* now we have the 'worst-case' res. 
+         * Kick out all the symmsecs with dimension 0. */
+        kick_empty_symsecs(res, (char) (o == 'd' ? 'n' : o));
 }

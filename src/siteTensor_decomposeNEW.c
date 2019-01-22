@@ -31,6 +31,8 @@
 #include <lapacke.h>
 #endif
 
+//#define T3NS_SITETENSOR_DECOMPOSE_DEBUG
+
 /* changes the qnumbers array to an indices array of (x,y,z) tuples */
 static int (*qn_to_indices(struct siteTensor * tens))[3]
 {
@@ -341,7 +343,6 @@ int qr(struct siteTensor * A, int bond,
         }
 
         destroy_qrdata(&dat);
-#define T3NS_SITETENSOR_DECOMPOSE_DEBUG
 #ifdef T3NS_SITETENSOR_DECOMPOSE_DEBUG
         struct siteTensor B;
         if (!is_orthogonal(Q, bond)) {

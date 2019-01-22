@@ -32,17 +32,48 @@
 #include <lapacke.h>
 #endif
 
-#define T3NS_REDDM_DEBUG
+//#define T3NS_REDDM_DEBUG
 
-// Backup for the T3NS and the bookkeeper
-struct RDMbackup {
+/// A structure for maing a backup for the T3NS and the @ref bookie.
+static struct RDMbackup {
+        /// Backup of the coefficients of the @ref siteTensor array.
         EL_TYPE ** tels;
+        /** Backup of the symmetry sectors of the @ref bookie.
+         * 
+         * This is needed since QR decomposition can change the @ref bookie.
+         */
         struct symsecs * ss;
 };
 
-// Struct for the intermediate results needed for the calculation of the RDMs.
-struct RDMinterm {
-        struct siteTensor * sRDMs[(MAX_RDM + 1) / 2];
+/// A structure for intermediate results needed for the calculation of the RDMs.
+static struct RDMinterm {
+        /** Stores intermediate results for the calculation of the RedDM.sRDMs.
+         *
+         * 1RDMs do not need intermediate results, 2RDMs need intermediate
+         * results from 1 site. 3RDMs would need intermediate results of 2
+         * sites and so on...<br>
+         * For #MAX_RDM = 2 this gives thus 
+         * \f$\frac{\mathrm{MAX\_RDM} + 1}{2} = 1\f$.
+         *
+         * <tt>sRDMs[i]</tt> is a struct siteTensor * array.<br>
+         * For every bond it gives an array of struct siteTensor, i.e.
+         * <tt>sRDMs[i][bond]</tt> points to an array of struct siteTensor 
+         * objects.<br>
+         * Length of <tt>sRDMs[i][bond]</tt> is 
+         * \f$\mathrm{sites passed} \choose i+1\f$.<br>
+         * The array is ended with a sentinel:
+         * > <tt>sRDMs[i][last].nrsites = 0</tt>.
+         *
+         * For intermediates of 1 site:
+         * * <tt>sRDMs[0]</tt> is a struct siteTensor * array.<br>
+         *   These objects are different intermediate results for every physical 
+         *   site that we already passed when going through this bond.
+         *
+         *   For each of these objects:
+         *   * qnumbers: \f$(i, i', \mathrm{MPO}) (α, α', \mathrm{MPO})\f$<br>
+         *   * order of indices: \f$(α, i, i', α')\f$ 
+         */
+        struct siteTensor ** sRDMs[(MAX_RDM + 1) / 2];
 };
 
 static struct RDMbackup backup(struct siteTensor * T3NS)
@@ -79,7 +110,6 @@ static void putback_backup(struct siteTensor * T3NS, struct RDMbackup * backupv)
         safe_free(backupv->ss);
 }
 
-#ifdef T3NS_REDDM_DEBUG
 static int check_orthonormality(struct siteTensor * orthocenter,
                                 struct siteTensor * ortho)
 {
@@ -90,9 +120,9 @@ static int check_orthonormality(struct siteTensor * orthocenter,
         for (i = 0; i < siteTensor_get_size(orthocenter); ++i) {
                 norm += orthocenter->blocks.tel[i] * orthocenter->blocks.tel[i];
         }
-        if (fabs(norm - 1) > 1e-12) {
-                fprintf(stderr, "site %d : Orthocenter not normed.", 
-                        orthocenter->sites[0]);
+        if (fabs(norm - 1) > 1e-9) {
+                fprintf(stderr, "site %d : Orthocenter not normed. (deviation: %e)\n", 
+                        orthocenter->sites[0], fabs(norm - 1));
                 return 1;
         }
         const int comb = get_common_bond(orthocenter->sites[0], ortho->sites[0]);
@@ -102,12 +132,11 @@ static int check_orthonormality(struct siteTensor * orthocenter,
         assert(i != 3);
 
         if (!is_orthogonal(ortho, i)) {
-                fprintf(stderr, "site %d : Not orthogonal.", ortho->sites[0]);
+                fprintf(stderr, "site %d : Not orthogonal.\n", ortho->sites[0]);
                 return 1;
         }
         return 0;
 }
-#endif
 
 // Function to calculate combinatorics: pick N out of L
 static unsigned long combination(unsigned int L, unsigned int N)
@@ -216,65 +245,118 @@ static int make1siteRDM(struct siteTensor * rdm, struct siteTensor * orthoc)
                 crdm->blocks.beginblock[i + 1] = crdm->blocks.beginblock[i] +
                         symarr[1].dims[i] * symarr[1].dims[i];
         }
-        crdm->blocks.tel = safe_calloc(crdm->blocks.beginblock[crdm->nrblocks],
-                                       *crdm->blocks.tel);
+        const int N = crdm->blocks.beginblock[crdm->nrblocks];
+        crdm->blocks.tel = safe_calloc(N, *crdm->blocks.tel);
 
-        for (int i = 0; i < orthoc->nrblocks; ++i) {
-                const QN_TYPE qn = orthoc->qnumbers[i];
-                int ids[3] = {
-                        qn % dims[0],
-                        (qn / dims[0]) % dims[1],
-                        (qn / dims[0]) / dims[1] 
-                };
-                int * irreps[3] = {
-                        symarr[0].irreps[ids[0]],
-                        symarr[1].irreps[ids[1]],
-                        symarr[2].irreps[ids[2]]
-                };
+#pragma omp parallel default(none) shared(crdm,orthoc,symarr,bookie,dims)
+        {
+                EL_TYPE * temptel = safe_calloc(N, *temptel);
 
-                const double pref = prefactor_1siteRDM(&irreps, bookie.sgs, 
-                                                       bookie.nrSyms);
-                EL_TYPE * tenstel = get_tel_block(&orthoc->blocks, i);
-                EL_TYPE * const rdmtel  = get_tel_block(&crdm->blocks, ids[1]);
-                const int tdims[3] = {
-                        symarr[0].dims[ids[0]], 
-                        symarr[1].dims[ids[1]], 
-                        symarr[2].dims[ids[2]]
-                };
-                assert(tdims[0] * tdims[1] * tdims[2] == 
-                       get_size_block(&orthoc->blocks, i));
-                assert(tdims[1] * tdims[1] == 
-                       get_size_block(&crdm->blocks, ids[1]));
+#pragma omp for schedule(static) nowait
+                for (int i = 0; i < orthoc->nrblocks; ++i) {
+                        const QN_TYPE qn = orthoc->qnumbers[i];
+                        int ids[3] = {
+                                qn % dims[0],
+                                (qn / dims[0]) % dims[1],
+                                (qn / dims[0]) / dims[1] 
+                        };
+                        int * irreps[3] = {
+                                symarr[0].irreps[ids[0]],
+                                symarr[1].irreps[ids[1]],
+                                symarr[2].irreps[ids[2]]
+                        };
 
-//#pragma omp parallel for schedule(static) default(none) shared(tenstel,rdmtel,tdims)
-                for (int k = 0; k < tdims[2]; ++k) {
-                        cblas_dgemm(CblasColMajor, CblasTrans, CblasNoTrans, 
-                                    tdims[1], tdims[1], tdims[0], pref, 
-                                    tenstel, tdims[0], tenstel, tdims[0], 
-                                    1, rdmtel, tdims[1]);
-                        tenstel += tdims[0] * tdims[1];
+                        const double pref = prefactor_1siteRDM(&irreps, bookie.sgs, 
+                                                               bookie.nrSyms);
+                        EL_TYPE * tenstel = get_tel_block(&orthoc->blocks, i);
+                        EL_TYPE * const rdmtel = temptel + 
+                                crdm->blocks.beginblock[ids[1]];
+                        const int tdims[3] = {
+                                symarr[0].dims[ids[0]], 
+                                symarr[1].dims[ids[1]], 
+                                symarr[2].dims[ids[2]]
+                        };
+                        assert(tdims[0] * tdims[1] * tdims[2] == 
+                               get_size_block(&orthoc->blocks, i));
+                        assert(tdims[1] * tdims[1] == 
+                               get_size_block(&crdm->blocks, ids[1]));
+
+                        for (int k = 0; k < tdims[2]; ++k) {
+                                cblas_dgemm(CblasColMajor, CblasTrans, CblasNoTrans, 
+                                            tdims[1], tdims[1], tdims[0], pref, 
+                                            tenstel, tdims[0], tenstel, tdims[0], 
+                                            1, rdmtel, tdims[1]);
+                                tenstel += tdims[0] * tdims[1];
+                        }
                 }
+
+#pragma omp critical
+                for (int i = 0; i < N; ++i) {
+                        crdm->blocks.tel[i] += temptel[i];
+                }
+                safe_free(temptel);
         }
         clean_symsecs_arr(3, symarr, bonds);
         return 0;
 }
 
+// Make 1-site RDM intermediates.
+static int make1siteRDMinterm(struct siteTensor * orthoc, int bond,
+                              struct siteTensor ** interm)
+{
+        // First, determine the size of interm[bond].
+        const int bondid = siteTensor_give_bondid(orthoc, bond);
+        // If bondid = 2, then sites to the left are passed already.
+        // In the other cases, sites to the right are passed.
+        const int lsites = get_left_psites(bond);
+        const int nr_interm = bondid == 2 ? lsites : netw.psites - lsites;
+
+        // free possibly previous initialized intermediates.
+        struct siteTensor * temp = interm[bond];
+        while (temp->nrsites != 0) { destroy_siteTensor(temp++); }
+        safe_free(interm[bond]);
+
+        interm[bond] = safe_malloc(nr_interm + 1, *interm[bond]);
+        interm[bond][nr_interm].nrsites = 0; // adding sentinel
+
+        int bonds[3];
+        get_bonds_of_site(orthoc->sites[0], bonds);
+        temp = interm[bond];
+        for (int i = 0; i < 3; ++i) {
+                // Continue if bonds[i] is the loose bond or a physical bond.
+                if (bonds[i] == bond || bonds[i] >= netw.nr_bonds) { continue; }
+                assert(i != bondid);
+
+                struct siteTensor * tempprev = interm[bonds[i]];
+                while (tempprev->nrsites != 0) { 
+                        update1siteRDMinterm(orthoc, tempprev, i, bondid);
+                }
+        }
+
+        // Initialize a new intermediate
+        if (is_psite(orthoc->sites[0])) {
+
+        }
+}
+
 // Update siteRDM with a certain site. (for 1 and 2 site RDMs)
-static int u_siteRDM(struct siteTensor * orthoc, int bondid, 
-                     struct siteTensor * rdm, struct siteTensor ** interm, 
+static int u_siteRDM(struct siteTensor * orthoc, int bond,
+                     struct siteTensor * rdm, struct siteTensor *** interm, 
                      int si)
 {
         assert(si < 2);
         // End loop.
         if (rdm == NULL) { return 0; }
 
-        // Maxe 1-site RDMs
         if (si == 0) {
+                // Make 1-site RDMs
                 make1siteRDM(rdm, orthoc);
-                //make1siteRDMinterm(orthoc, bondid, interm);
         } else if (si == 1) {
-                //make2siteRDM(rdm, orthoc, interm);
-                //make2siteRDMinterm(orthoc, bondid, interm);
+                // Make 2-site RDMs and needed intermediates for those.
+
+                // These intermediates should be made after QR.
+                //make1siteRDMinterm(orthoc, bond, interm[0]);
+                //make2siteRDM(rdm, orthoc, interm[0]);
         } else {
                 fprintf(stderr, "Making of site-RDMs not implemented for %d sites.\n", si);
                 return 1;
@@ -282,11 +364,11 @@ static int u_siteRDM(struct siteTensor * orthoc, int bondid,
         return 0;
 }
 
-static int updateRDMs(struct siteTensor * orthoc, int bondid, 
+static int updateRDMs(struct siteTensor * orthoc, int bond, 
                       struct RedDM * rdm, struct RDMinterm * interm)
 {
         for (int i = 0; i < MAX_RDM; ++i) {
-                if (u_siteRDM(orthoc, bondid, rdm->sRDMs[i], interm->sRDMs, i)) { 
+                if (u_siteRDM(orthoc, bond, rdm->sRDMs[i], interm->sRDMs, i)) { 
                         return 1; 
                 }
         }
@@ -306,6 +388,11 @@ int get_RedDMs(struct siteTensor * T3NS, struct RedDM * rdm,
         int * sweep, swlength;
         if (make_simplesweep(1, &sweep, &swlength)) { return 1; }
 
+        // Not orthonormal (it is a hack fix)
+        if (check_orthonormality(&T3NS[sweep[0]], &T3NS[sweep[1]])) {
+                qr_step(&T3NS[sweep[1]], &T3NS[sweep[0]]);
+        }
+
         for (int i = 0; i < swlength; ++i) {
                 // So, now going through all the sites in the sweep.
                 // Assume that current site is orthogonality center, 
@@ -324,8 +411,7 @@ int get_RedDMs(struct siteTensor * T3NS, struct RedDM * rdm,
 
                 const int comb = get_common_bond(orthocenter->sites[0], 
                                                  ortho->sites[0]);
-                const int bondid = siteTensor_give_bondid(orthocenter, comb);
-                if (updateRDMs(orthocenter, bondid, rdm, &intermediateRes)) {
+                if (updateRDMs(orthocenter, comb, rdm, &intermediateRes)) {
                         exitcode = 1;
                         break;
                 }
@@ -342,15 +428,18 @@ int get_RedDMs(struct siteTensor * T3NS, struct RedDM * rdm,
         return exitcode;
 }
 
-int get_1siteEntanglement(const struct RedDM * rdm, double ** result) {
+int get_1siteEntanglement(const struct RedDM * rdm, double ** result)
+{
         if (rdm->sRDMs[0] == NULL) {
                 fprintf(stderr, "No rdm given to calculate 1 site entanglement.\n");
                 return 1;
         }
 
         *result = safe_calloc(rdm->sites, **result);
-//#pragma omp parallel for schedule(static) default(none)
+        int flag = 0;
+#pragma omp parallel for schedule(static) default(none) shared(result, rdm, stderr,flag,bookie)
         for (int i = 0; i < rdm->sites; ++i) {
+                if (flag) { continue; }
                 const struct siteTensor * crdm = &rdm->sRDMs[0][i];
                 int bonds[3];
                 struct symsecs ss;
@@ -375,15 +464,16 @@ int get_1siteEntanglement(const struct RedDM * rdm, double ** result) {
                                 fprintf(stderr, "dsyev ended with %d.\n", info);
                                 safe_free(mem);
                                 safe_free(eigvalues);
-                                return 1;
+                                flag = 1;
+                                break;
                         }
                         safe_free(mem);
                         const int multipl = multiplicity(bookie.nrSyms, 
                                                          bookie.sgs,
                                                          ss.irreps[j]);
                         for (int k = 0; k < dim; ++k) { 
-                                assert(eigvalues[k] > -1e-9);
-                                double omega = sqrt(eigvalues[k]);
+                                assert(eigvalues[k] < 1 && eigvalues[k] > -1e-9);
+                                double omega = eigvalues[k];
                                 (*result)[i] -= multipl * omega * log(omega); 
 #ifdef T3NS_REDDM_DEBUG
                                 sum += multipl * eigvalues[k];
@@ -393,12 +483,12 @@ int get_1siteEntanglement(const struct RedDM * rdm, double ** result) {
                 }
 #ifdef T3NS_REDDM_DEBUG
                 if (fabs(sum - 1) > 1e-12) {
-                        fprintf(stderr, "Trace of 1site RDM not equal to 1.\n");
+                        fprintf(stderr, "Trace of 1-site RDM not equal to 1.\n");
                         fprintf(stderr, "Deviation is %e.\n", fabs(sum - 1));
-                        return 1;
+                        flag = 1;
                 }
 #endif
                 clean_symsecs(&ss, bonds[1]);
         }
-        return 0;
+        return flag;
 }
