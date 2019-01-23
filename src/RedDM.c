@@ -21,6 +21,7 @@
 #include "RedDM.h"
 #include "siteTensor.h"
 #include "network.h"
+#include "rOperators.h"
 #include "macros.h"
 #include "debug.h"
 #include "symmetries.h"
@@ -35,7 +36,7 @@
 //#define T3NS_REDDM_DEBUG
 
 /// A structure for maing a backup for the T3NS and the @ref bookie.
-static struct RDMbackup {
+struct RDMbackup {
         /// Backup of the coefficients of the @ref siteTensor array.
         EL_TYPE ** tels;
         /** Backup of the symmetry sectors of the @ref bookie.
@@ -46,34 +47,22 @@ static struct RDMbackup {
 };
 
 /// A structure for intermediate results needed for the calculation of the RDMs.
-static struct RDMinterm {
+struct RDMinterm {
         /** Stores intermediate results for the calculation of the RedDM.sRDMs.
          *
          * 1RDMs do not need intermediate results, 2RDMs need intermediate
-         * results from 1 site. 3RDMs would need intermediate results of 2
+         * results from 1 site, 3RDMs would need intermediate results of 2
          * sites and so on...<br>
          * For #MAX_RDM = 2 this gives thus 
          * \f$\frac{\mathrm{MAX\_RDM} + 1}{2} = 1\f$.
          *
-         * <tt>sRDMs[i]</tt> is a struct siteTensor * array.<br>
-         * For every bond it gives an array of struct siteTensor, i.e.
-         * <tt>sRDMs[i][bond]</tt> points to an array of struct siteTensor 
-         * objects.<br>
-         * Length of <tt>sRDMs[i][bond]</tt> is 
-         * \f$\mathrm{sites passed} \choose i+1\f$.<br>
-         * The array is ended with a sentinel:
-         * > <tt>sRDMs[i][last].nrsites = 0</tt>.
+         * <tt>sRDMs[i]</tt> is a struct rOperators array.<br>
+         * For every bond a rOperators structure is given.
          *
-         * For intermediates of 1 site:
-         * * <tt>sRDMs[0]</tt> is a struct siteTensor * array.<br>
-         *   These objects are different intermediate results for every physical 
-         *   site that we already passed when going through this bond.
-         *
-         *   For each of these objects:
-         *   * qnumbers: \f$(i, i', \mathrm{MPO}) (α, α', \mathrm{MPO})\f$<br>
-         *   * order of indices: \f$(α, i, i', α')\f$ 
+         * For details on the the structure of these rOperators, see its 
+         * documentation.
          */
-        struct siteTensor ** sRDMs[(MAX_RDM + 1) / 2];
+        struct rOperators * sRDMs[(MAX_RDM + 1) / 2];
 };
 
 static struct RDMbackup backup(struct siteTensor * T3NS)
@@ -213,6 +202,7 @@ void destroy_RedDM(struct RedDM * rdm)
         } 
 }
 
+// Makes the 1-site RDM
 static int make1siteRDM(struct siteTensor * rdm, struct siteTensor * orthoc)
 {
         // No making of 1 site RDM for branching tensors.
@@ -301,47 +291,18 @@ static int make1siteRDM(struct siteTensor * rdm, struct siteTensor * orthoc)
 }
 
 // Make 1-site RDM intermediates.
-static int make1siteRDMinterm(struct siteTensor * orthoc, int bond,
-                              struct siteTensor ** interm)
+static int make1siteRDMinterm(struct siteTensor * ortho, int bond,
+                              struct rOperators * interm)
 {
-        // First, determine the size of interm[bond].
-        const int bondid = siteTensor_give_bondid(orthoc, bond);
-        // If bondid = 2, then sites to the left are passed already.
-        // In the other cases, sites to the right are passed.
-        const int lsites = get_left_psites(bond);
-        const int nr_interm = bondid == 2 ? lsites : netw.psites - lsites;
-
-        // free possibly previous initialized intermediates.
-        struct siteTensor * temp = interm[bond];
-        while (temp->nrsites != 0) { destroy_siteTensor(temp++); }
-        safe_free(interm[bond]);
-
-        interm[bond] = safe_malloc(nr_interm + 1, *interm[bond]);
-        interm[bond][nr_interm].nrsites = 0; // adding sentinel
-
-        int bonds[3];
-        get_bonds_of_site(orthoc->sites[0], bonds);
-        temp = interm[bond];
-        for (int i = 0; i < 3; ++i) {
-                // Continue if bonds[i] is the loose bond or a physical bond.
-                if (bonds[i] == bond || bonds[i] >= netw.nr_bonds) { continue; }
-                assert(i != bondid);
-
-                struct siteTensor * tempprev = interm[bonds[i]];
-                while (tempprev->nrsites != 0) { 
-                        update1siteRDMinterm(orthoc, tempprev, i, bondid);
-                }
-        }
-
-        // Initialize a new intermediate
-        if (is_psite(orthoc->sites[0])) {
-
-        }
+        const int bondid = siteTensor_give_bondid(ortho, bond);
+        interm->bond_of_operator = bond;
+        interm->is_left = bondid != 2;
+        interm->P_operator = 0;         // Always non-P_operator.
 }
 
 // Update siteRDM with a certain site. (for 1 and 2 site RDMs)
 static int u_siteRDM(struct siteTensor * orthoc, int bond,
-                     struct siteTensor * rdm, struct siteTensor *** interm, 
+                     struct siteTensor * rdm, struct rOperators ** interm, 
                      int si)
 {
         assert(si < 2);

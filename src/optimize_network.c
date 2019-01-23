@@ -119,6 +119,31 @@ static void set_internal_symsecs(void)
 
 static void preprocess_rOperators(const struct rOperators * rops)
 {
+        // one-site optimization & DMRG
+        if (o_dat.specs.nr_sites_opt == 1 && is_psite(o_dat.specs.sites_opt[0])) {
+                assert(o_dat.specs.nr_bonds_opt == 2);
+                // Which one is the most sparse? Bit heuristic. Just squaring sectors
+                int weight[2] = {0, 0};
+                for (int i = 0; i < 2; ++i) {
+                        struct symsecs ss;
+                        get_symsecs(&ss, o_dat.specs.bonds_opt[i]);
+                        for (int j = 0; j < ss.nrSecs; ++j) { 
+                                weight[i] += ss.dims[j] * ss.dims[j];
+                        }
+                        clean_symsecs(&ss, o_dat.specs.bonds_opt[i]);
+                }
+
+                const int lightest = weight[0] > weight[1];
+
+                // Set the heaviest symsec to an internal one.
+                const int bond = o_dat.specs.bonds_opt[!lightest];
+                struct symsecs * ss = &bookie.list_of_symsecs[bond];
+                
+                ss->dims = safe_malloc(ss->nrSecs, *ss->dims);
+                for (int i = 0; i < ss->nrSecs; ++i) { ss->dims[i] = 1; }
+                return;
+        }
+
         for (int i = 0; i < o_dat.specs.nr_bonds_opt; ++i) {
                 const int bond = o_dat.specs.bonds_opt[i];
                 const struct rOperators * opToProc = &rops[bond];

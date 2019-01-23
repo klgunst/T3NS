@@ -75,7 +75,15 @@
  *   -------------|-----------------------------------------------------------------------------------------------------------------------------------|---------------------------------------------------------------------------------------------------------------------------------
  *   qnumber      | \f$(α', β', γ'),(α, β, γ),(γ', γ, \mathrm{MPO})\f$                                                                                | \f$(α', β', γ'),(α, β, γ),(α', α, \mathrm{MPO})\f$    
  *   coupling     | \f$(&#124; α'〉, &#124; β'〉, 〈γ'&#124;), (&#124; β'〉, 〈\mathrm{MPO}&#124;, 〈β&#124;), (&#124; γ〉, 〈β&#124;, 〈α&#124;)\f$  | \f$(&#124; α'〉, &#124; β'〉, 〈γ'&#124;), (&#124; α'〉, 〈\mathrm{MPO}&#124;, 〈α&#124;), (&#124; γ〉, 〈β&#124;, 〈α&#124;)\f$
- *   index        | \f$α', β', α, β, \mathrm{MPO})\f$                                                                                                 | \f$ β', γ', β, γ, \mathrm{MPO})\f$                     
+ *   index        | \f$α', β', α, β, \mathrm{MPO}\f$                                                                                                  | \f$ β', γ', β, γ, \mathrm{MPO}\f$                     
+ *
+ * For the renormalized operators originating from calculating the 
+ * @ref RedDM.sRDMs, the orders are given by (for one site with bond \f$i\f$):
+ * *Order Type* | *left*                                                                             | *right*
+ * -------------|------------------------------------------------------------------------------------|-----------------------------------------------------------------------------------
+ * qnumber      | \f$(i, i', ii'),(α, α', ii')\f$                                                    | \f$(i, i', ii'),(α, α', ii')\f$                                                    
+ * coupling     | \f$(&#124; i'〉, 〈i&#124;, 〈ii'&#124;), (&#124; ii'〉, 〈α&#124;, &#124;α'〉)\f$ | \f$(&#124; i'〉, 〈i&#124;, 〈ii'&#124;), (&#124; ii'〉, 〈α&#124;, &#124;α'〉)\f$ 
+ * index        | \f$i,i,α,α'\f$                                                                     | \f$i,i,α,α'\f$                                                                     
  */
 struct rOperators {
         /// The bond of the rOperators in the @ref netw.
@@ -85,22 +93,27 @@ struct rOperators {
         int is_left;
         /// If the rOperator has a site-operator appended then 1, otherwise 0.
         int P_operator;
-        // /// A @ref symsecs structure for the MPO bond (i.e. intermediate bond).
-        // struct symsecs * MPOss;
-        /// @ref number of symsecs for the MPO bond (i.e. intermediate bond).
+        /// @ref number of symsecs for the MPO bond (i.e. the intermediate bond).
         int nrhss;
         /// Start of the blocks for every symmetry sector in @ref MPOss.
         int * begin_blocks_of_hss;
         /** Stores the quantum numbers for every sparse block.
          *
          * Their order is given as specified by @p qnumber-order.<br>
-         * For <tt>@ref P_operator = 0</tt>, 1 @p qnumber is needed per block,<br>
-         * for <tt>@ref P_operator = 1</tt>, 3 @p qnumbers is needed per block.
+         * > For <tt>@ref P_operator = 0</tt>: 1 @p qnumber is needed per block.<br>
+         * > For <tt>@ref P_operator = 1</tt>: 3 @p qnumbers is needed per block.
          */
         QN_TYPE * qnumbers;        
         /// The total number of renormalized operators stored.
         int nrops;
-        /// The MPO-symsec of each operator. **How do I fix this for RDMs?**
+        /** This identifies the needed intermediate symsecs for every operator.
+         *
+         * This array can be two things.
+         * * For normal rOperators it is the MPO-symsec for each operator.
+         * * For intermediates for the calculation of RedDM.sRDMs it is an
+         *   identification for the sites of which the intermediate is.<br>
+         *   E.g. for intermediates with one site it is just \#site.
+         */
         int * hss_of_ops;
         /// The renormalized operators.
         struct sparseblocks * operators;

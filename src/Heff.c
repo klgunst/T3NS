@@ -1339,4 +1339,3 @@ EL_TYPE * make_diagonal(const struct Heffdata * const data)
 #endif
         return result;
 }
-

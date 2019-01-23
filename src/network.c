@@ -92,23 +92,15 @@ static int strcmp_ign_ws(const char * s1, const char * s2)
 
 static void get_sites_to_opt(int maxsites, struct stepSpecs * specs, int state)
 {
-        if (maxsites != 2) {
-                fprintf (stderr, "Error: optimization with more than two sites not implemented yet.\n"
+        if (maxsites != 2 || maxsites != 1) {
+                fprintf (stderr, "Error: Only optimization with one and two sties are implemented.\n"
                          "Executing calculation with two-site optimization.\n");
                 maxsites = 2;
         }
 
         const int current_bond = netw.sweep[state];
-        const int siteL = netw.bonds[current_bond][0];
-        const int siteR = netw.bonds[current_bond][1];
-        const int is_dmrg = is_psite(siteL) && is_psite(siteR);
-        if (is_dmrg) {
-                specs->sites_opt[0] = siteL;
-                specs->sites_opt[1] = siteR;
-        } else { /* For two site optimisation */
-                specs->sites_opt[0] = siteL;
-                specs->sites_opt[1] = siteR;
-        }
+        specs->sites_opt[0] = netw.bonds[current_bond][0];
+        specs->sites_opt[1] = netw.bonds[current_bond][1];
         specs->nr_sites_opt = 2;
         assert(specs->sites_opt[0] != -1 && specs->sites_opt[1] != -1);
 }
@@ -602,7 +594,6 @@ void get_string_of_bond(char * buffer, int bond)
 int next_opt_step(int maxsites, struct stepSpecs * specs)
 {
         assert(STEPSPECS_MSITES >= maxsites);
-        /* only two-site optimization implemented atm */
         static int curr_state = 0;
         /* end of a sweep */
         if (curr_state == netw.sweeplength) {
@@ -694,7 +685,8 @@ static int recursive_stepping(int inclborder, int * sweep, int * id)
 int make_simplesweep(int inclborder, int ** sweep, int * swlength)
 {
         // Maximal amount of sweep instructions.
-        *sweep = safe_malloc(netw.nr_bonds * 2, **sweep);
+        // Every bond passed twice, 2 sites per bond.
+        *sweep = safe_malloc(netw.nr_bonds * 4, **sweep);
         *swlength = 0;
 
         // fetch outgoing bond of the network and store the corresponding site

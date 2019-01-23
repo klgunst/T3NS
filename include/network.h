@@ -17,16 +17,15 @@
 #pragma once
 
 /**
- * \file network.h
- * \brief Header file for the network struct and related methods.
- */
-/**
- * Take into account that the bonds are numbered in the logical order, meaning, higher bonds are
- * later in the in-out flow.
+ * @file network.h
+ * Header file for the network struct and related methods.
+ *
+ * Take into account that the bonds are numbered in the logical order, meaning,
+ * higher bonds are later in the in-out flow.
  */
 
 /**
- * \brief Struct for the tree tensor network.
+ * @brief Struct for the tree tensor network.
  */
 struct network {
         int nr_bonds;        /**< The number of TNSd, TNSu bonds in the network. */
@@ -45,14 +44,25 @@ struct network {
         int * sweep;
 };
 
+/// Maximal number of virtual bonds for the multi-site object that is optimized.
 #define STEPSPECS_MBONDS 3
+/// Maximal number of sites for the multi-site object.
 #define STEPSPECS_MSITES 4
 
+/// Structure for specifying which sites will be optimized in a certain step.
 struct stepSpecs {
+        /** Number of bonds of the multi-site object.
+         * * For a DMRG-like optimization: 2
+         * * For a T3NS-like optimization: 3
+         */
         int nr_bonds_opt;
+        /// The bonds of the multi-site object.
         int bonds_opt[STEPSPECS_MBONDS];
+        /// The number of sites to optimize.
         int nr_sites_opt;
+        /// The sites to optimize.
         int sites_opt[STEPSPECS_MSITES];
+        /// For every site: 1 if common with next optimization step, else 0
         int common_next[STEPSPECS_MSITES];
 };
 
@@ -148,13 +158,12 @@ void create_nr_left_psites(void);
 void create_order_psites(void);
 
 /**
- * @brief makes a simple sweep instruction automatically
+ * @brief makes a simple sweep instruction automatically.
  *
- * The border sites are included or not depending on the input.
- *
- * The including of the border is not needed for a simple optimization if the 
- * symmetry sectors of the local physical Hilbert space are all of dimension 1.
- *
+ * The border sites are included or not depending on the input.<br>
+ * The inclusion of the border is not needed for a simple optimization if the 
+ * @ref symsecs of the local physical Hilbert space are all of 
+ * reduced dimension 1.<br>
  * For other cases, i.e. when the dimension of the local physical Hilbert space
  * is larger than one or for the generation of a sweep for the calculation of 
  * the RDMs, the borders should be included!
@@ -165,6 +174,6 @@ void create_order_psites(void);
  * @param sweep [out] The sweep array, giving the sites in order which they need 
  * to be going through.
  * @param swlength [out] The length of the sweep array.
- * @return 0 if successful, 1 if not
+ * @return 0 if successful, 1 if not.
  */
 int  make_simplesweep(int inclborder, int ** sweep, int * swlength);

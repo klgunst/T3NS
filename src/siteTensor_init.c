@@ -138,70 +138,38 @@ void destroy_siteTensor(struct siteTensor * const tens)
   destroy_sparseblocks(&tens->blocks);
 }
 
-void makesiteTensor(struct siteTensor * const tens, struct siteTensor * const T3NS, 
-    const int sitelist[], int nr_sites)
+int makesiteTensor(struct siteTensor * tens, struct siteTensor * T3NS, 
+                   const int * sitelist, int nr_sites)
 {
-  /**
-   * Thus for this, first, I need all to calculate all the internal bonds for this site object.
-   * After that, I calculate for all sites, the possible symmetry sectors of the internal bonds of 
-   * every site. 
-   * Ie. 
-   * If I have a tensor with two outer and one inner bond, I calculate all the existing
-   * tensorproducts of the symsecs of the outer bonds to the inner bond.
-   * If I have a tensor with more than inner bonds, I first calculate the possible inner bonds 
-   * through other tensors and then check the possible tensorproducts to occur with this one.
-   * So I can have 3 different cases (exempting onesite optimization at the moment):
-   *
-   * twosite optimization:
-   *     * Two tenors with two outer bonds and 1 inner bond (which is a common one).
-   *     => First calculate the possible tensorproducts of the two outer bonds to the inner bond
-   *        for both sites. Than compare the two results and only keep the symsecs that occur in
-   *        both.
-   * threesite optimization:
-   *     * two tensors with two outer bonds and 1 inner bond, one tensor with one outer and two 
-   *       inner bonds, which are common bonds with the inners of the two other tensors.
-   *     => First calculate the possible tensorproducts of the sites with the two outer bonds to
-   *        inner bond. Than calculate the possible tensorproduct at the third (middle) site with
-   *        the inner symsecs you just obtained. symsecs that can not occur you kick out of the two
-   *        inner bonds.
-   * foursite optimization:
-   *     * three tensors with two outer bonds and 1 inner bond, one tensor with three inner bonds, 
-   *     which are common bonds with the inners of the three other tensors.
-   *     => First calculate the possible tensorproducts of the sites with the two outer bonds to
-   *        inner bond. Than calculate the possible tensorproduct at the fourth (middle) site with
-   *        the inner symsecs you just obtained. symsecs that can not occur you kick out of the two
-   *        inner bonds.
-   * 
-   * What would be the optimal site ordering?
-   *
-   * While doing all these tensorproducts, you should also already calculate the dimensions linked 
-   * with the sparse blocks for it.  After that you obtained the inner symsecs, you can create the 
-   * siteObject. Make the different qnumbers and their dimensions. and now do the contracts
-   * by looping over all the different qnumbers and matching them with the qnumbers of the original
-   * tensors and than contracting the blocks.
-   *
-   * Now you can destroy the original tensors (maybe dont do that in this function).
-   * You should also now set the symsecs of the inner bonds to dim=1. The original dimensions can
-   * now be forgotten.
-   */
-  struct symsecs internalsymsec[3];
-  int i;
+        struct symsecs internalsymsec[3];
+        tens->nrsites = nr_sites;
+        if (nr_sites > 2) {
+                fprintf(stderr, "Error: making of siteTensor for more than two sites not implemented.\n");
+                return 1;
+        }
 
-  tens->nrsites = nr_sites;
-  assert(tens->nrsites <= 2 && "At this moment only two-siteoptimization");
+        // For 1 site-optimization.
+        if (nr_sites == 1) {
+                deep_copy_siteTensor(&tens, &T3NS[sitelist[0]]);
+                assert(tens->sites[0] == sitelist[0]);
+                return 0;
+        }
 
-  tens->sites = safe_malloc(tens->nrsites, int);
-  for (i = 0; i < tens->nrsites; ++i) tens->sites[i] = sitelist[i];
-  assert(siteTensor_give_nr_internalbonds(tens) <= 3);
+        tens->sites = safe_malloc(tens->nrsites, *tens->sites);
+        for (int i = 0; i < tens->nrsites; ++i) { tens->sites[i] = sitelist[i]; }
 
-  /* This makes the new internal symsecs and the qnumbers array and the beginblock in the 
-   * sparseblock structure, no internal symsecs are made for tens->nrsites = 1  */
-  make_new_internalsymsecs_and_tensor(tens, internalsymsec);
-  /* contracts the correct tensor objects in T3NS to a new big site and destroys them */
-  contractsiteTensors(tens, T3NS, internalsymsec);
-  /* changes the passed internal symsecs linked to passed siteTensor in the bookkeeper */
-  
-  change_internals_in_bookkeeper(internalsymsec, tens);
+        /* This makes the new internal symsecs and the qnumbers array and the
+         * beginblock in the sparseblock structure, no internal symsecs are
+         * made for tens->nrsites = 1  */
+        make_new_internalsymsecs_and_tensor(tens, internalsymsec);
+        /* contracts the correct tensor objects in T3NS to a new big site and
+         * destroys them */
+        contractsiteTensors(tens, T3NS, internalsymsec);
+        /* changes the passed internal symsecs linked to passed siteTensor in
+         * the bookkeeper */
+
+        change_internals_in_bookkeeper(internalsymsec, tens);
+        return 0;
 }
 
 void deep_copy_siteTensor(struct siteTensor * const copy, const struct siteTensor * const tocopy)
