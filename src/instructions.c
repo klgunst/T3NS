@@ -48,7 +48,7 @@ static void print_T3NS_instructions(int * const instructions,
 
 static void print_merge_instructions(int * const instructions, 
                                      double * const prefactors, 
-                                     const int nr_instructions, const int bond);
+                                     const int nr_instructions, const int bond, int isdmrg);
 
 /* ========================================================================== */
 
@@ -96,20 +96,20 @@ void fetch_bUpdate(struct instructionset * const instructions, const int bond,
 }
 
 void fetch_merge(int ** const instructions, int * const nr_instructions, 
-                 double** const prefactors, const int bond)
+                 double** const prefactors, const int bond, int isdmrg)
 {
         struct instructionset instr;
         switch(ham)
         {
         case QC :
-                QC_fetch_merge(&instr, bond);
+                QC_fetch_merge(&instr, bond, isdmrg);
                 *instructions = instr.instr;
                 *prefactors = instr.pref;
                 *nr_instructions = instr.nr_instr;
                 break;
         case NN_HUBBARD :
                 NN_H_fetch_merge(instructions, nr_instructions, 
-                                 prefactors, bond);
+                                 prefactors, bond, isdmrg);
                 break;
         default:
                 fprintf(stderr, "%s@%s: Unrecognized Hamiltonian.\n", 
@@ -219,7 +219,7 @@ int get_next_unique_instr(int * const curr_instr,
 
 void print_instructions(int * const instructions, double * const prefactors, 
                         int * const hss, const int nr_instructions, 
-                        const int bond, const int is_left, const char kind)
+                        const int bond, const int is_left, const char kind, int isdmrg)
 {
         switch(kind) {
         case 'd':
@@ -228,7 +228,7 @@ void print_instructions(int * const instructions, double * const prefactors,
                 break;
         case 'm':
                 print_merge_instructions(instructions, prefactors, 
-                                         nr_instructions, bond);
+                                         nr_instructions, bond, isdmrg);
                 break;
         case 't':
                 print_T3NS_instructions(instructions, prefactors, hss, 
@@ -416,9 +416,8 @@ static void print_T3NS_instructions(int * const instructions,
 
 static void print_merge_instructions(int * const instructions, 
                                      double * const prefactors, 
-                                     const int nr_instructions, const int bond)
+                                     const int nr_instructions, const int bond, int isdmrg)
 {
-        const int isdmrg = is_dmrg_bond(bond);
         int i;
         const int step = 2 + !isdmrg;
         int bonds[step];

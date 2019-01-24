@@ -107,9 +107,14 @@ static struct optimize_data {
 
 static void set_internal_symsecs(void)
 {
-        o_dat.nr_internals = siteTensor_give_nr_internalbonds(&o_dat.msiteObj);
-        assert(o_dat.nr_internals <= MAX_NR_INTERNALS);
-        siteTensor_give_internalbonds(&o_dat.msiteObj, o_dat.internalbonds);
+        if (o_dat.specs.nr_sites_opt == 1) { 
+                o_dat.nr_internals = 1;
+                o_dat.internalbonds[0] = o_dat.specs.bonds_opt[o_dat.specs.common_next[0]];
+        } else {
+                o_dat.nr_internals = siteTensor_give_nr_internalbonds(&o_dat.msiteObj);
+                assert(o_dat.nr_internals <= MAX_NR_INTERNALS);
+                siteTensor_give_internalbonds(&o_dat.msiteObj, o_dat.internalbonds);
+        }
         deep_copy_symsecs_from_bookie(o_dat.nr_internals, o_dat.internalss, 
                                       o_dat.internalbonds);
 
@@ -118,29 +123,29 @@ static void set_internal_symsecs(void)
 }
 
 static void preprocess_rOperators(const struct rOperators * rops)
-{
-        // one-site optimization & DMRG
+{ // one-site optimization & DMRG
         if (o_dat.specs.nr_sites_opt == 1 && is_psite(o_dat.specs.sites_opt[0])) {
                 assert(o_dat.specs.nr_bonds_opt == 2);
-                // Which one is the most sparse? Bit heuristic. Just squaring sectors
-                int weight[2] = {0, 0};
-                for (int i = 0; i < 2; ++i) {
-                        struct symsecs ss;
-                        get_symsecs(&ss, o_dat.specs.bonds_opt[i]);
-                        for (int j = 0; j < ss.nrSecs; ++j) { 
-                                weight[i] += ss.dims[j] * ss.dims[j];
-                        }
-                        clean_symsecs(&ss, o_dat.specs.bonds_opt[i]);
-                }
 
-                const int lightest = weight[0] > weight[1];
+                assert(o_dat.specs.common_next[0] == 0 ||
+                       o_dat.specs.common_next[0] == 1);
 
-                // Set the heaviest symsec to an internal one.
-                const int bond = o_dat.specs.bonds_opt[!lightest];
+                // For 1-site DMRG set the internalbond as the one that is 
+                // common with the next step.
+                const int internalbond = o_dat.specs.common_next[0];
+                const int bond = o_dat.specs.bonds_opt[internalbond];
+                const int otherbond = o_dat.specs.bonds_opt[!internalbond];
+
                 struct symsecs * ss = &bookie.list_of_symsecs[bond];
                 
+                int * tempdim = ss->dims;
                 ss->dims = safe_malloc(ss->nrSecs, *ss->dims);
                 for (int i = 0; i < ss->nrSecs; ++i) { ss->dims[i] = 1; }
+
+                rOperators_append_phys(&o_dat.operators[!internalbond], &rops[otherbond]);
+                safe_free(ss->dims);
+                ss->dims = tempdim;
+                o_dat.operators[internalbond] = rops[bond];
                 return;
         }
 
@@ -194,6 +199,14 @@ static struct optimize_info optimize_siteTensor(struct siteTensor * T3NS,
         init_Heffdata(&mv_dat, o_dat.operators, &o_dat.msiteObj, isdmrg);
         timings[prep_heff] += stop_timing(0);
 
+        printf("**\tOptimize sites");
+        for (int i = 0; i < o_dat.specs.nr_sites_opt; ++i) {
+                printf(" %d %s", o_dat.specs.sites_opt[i], 
+                       i == o_dat.specs.nr_sites_opt - 1 ? ": " : "&");
+        }
+        printf("(blocks : %d, qns : %d, dim : %d)\n", o_dat.msiteObj.nrblocks, 
+               mv_dat.nr_qnB, size);
+
         start_timing(0);
         EL_TYPE * diagonal = make_diagonal(&mv_dat);
         timings[diag] += stop_timing(0);
@@ -210,10 +223,23 @@ static struct optimize_info optimize_siteTensor(struct siteTensor * T3NS,
         start_timing(0);
         /* same noise as CheMPS2 */
         add_noise(reg->noise * trunc_err);
-        decomposesiteObject(&o_dat.msiteObj, T3NS, o_dat.specs.sites_opt, 
-                            o_dat.specs.common_next, reg->minD, reg->maxD, 
-                            reg->truncerror, &info.trunc, &info.maxdim);
-        destroy_siteTensor(&o_dat.msiteObj);
+        if (o_dat.specs.nr_sites_opt == 1) {
+                const int bondcommon = o_dat.specs.bonds_opt[o_dat.specs.common_next[0]];
+                const int fsite = netw.bonds[bondcommon][0];
+                const int ssite = netw.bonds[bondcommon][1];
+                const int csite = o_dat.specs.sites_opt[0];
+                const int orthoc = fsite == csite ? fsite : ssite;
+                const int ortho  = fsite == csite ? ssite : fsite;
+                assert(orthoc != ortho);
+                destroy_siteTensor(&T3NS[orthoc]);
+                T3NS[orthoc] = o_dat.msiteObj;
+                qr_step(&T3NS[orthoc], &T3NS[ortho]);
+        } else {
+                decomposesiteObject(&o_dat.msiteObj, T3NS, o_dat.specs.sites_opt, 
+                                    o_dat.specs.common_next, reg->minD, reg->maxD, 
+                                    reg->truncerror, &info.trunc, &info.maxdim);
+                destroy_siteTensor(&o_dat.msiteObj);
+        }
         timings[STENS_DECOMP] += stop_timing(0);
 
         printf("**  \t\tEnergy : %.16lf\n\n", info.energy);
@@ -245,7 +271,7 @@ static void postprocess_rOperators(struct rOperators * rops,
                 const int siteid = find_in_array(o_dat.specs.nr_sites_opt, 
                                                  o_dat.specs.sites_opt, site);
                 assert(siteid != -1 && is_psite(site));
-                if (o_dat.specs.common_next[siteid]) {
+                if (o_dat.specs.common_next[siteid] && o_dat.specs.nr_sites_opt != 1) {
                         /* This Operator is not updated since it has a 
                          * common site with the next step */
                         assert(unupdated == -1 && unupdatedbond == -1);
@@ -269,12 +295,16 @@ static void postprocess_rOperators(struct rOperators * rops,
         }
         timings[ROP_UPDP] += stop_timing(0);
 
+        if (o_dat.specs.nr_sites_opt == 1) {
+                unupdated = o_dat.specs.common_next[0];
+                unupdatedbond = o_dat.specs.bonds_opt[unupdated];
+        }
         /* now do the possible T3NS update. Only 1 or none always */
         start_timing(0);
         for (int i = 0; i < o_dat.specs.nr_sites_opt; ++i) {
                 const int site = o_dat.specs.sites_opt[i];
 
-                if (is_psite(site) || o_dat.specs.common_next[i])
+                if (is_psite(site) || (o_dat.specs.common_next[i] && o_dat.specs.nr_sites_opt != 1))
                         continue;
 
                 const struct siteTensor * tens   = &T3NS[site];
@@ -323,12 +353,6 @@ static struct sweep_info execute_sweep(struct siteTensor * T3NS,
 
         start_timing(1);
         while (next_opt_step(reg->sitesize, &o_dat.specs)) {
-                printf("**\tOptimize sites");
-                for (int i = 0; i < o_dat.specs.nr_sites_opt; ++i) {
-                        printf(" %d %s", o_dat.specs.sites_opt[i], 
-                               i == o_dat.specs.nr_sites_opt - 1 ? ":\n" : "&");
-                }
-
                 /* The order of makesiteTensor and preprocess_rOperators is
                  * really important!
                  * In makesiteTensor the symsec is set to an internal symsec. 

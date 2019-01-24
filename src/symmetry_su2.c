@@ -92,12 +92,12 @@ double SU2_prefactor_pAppend(const int * symv, int is_left)
         }
 }
 
-double SU2_prefactor_combine_MPOs(int (*symv)[3], int * symvMPO, int isdmrg)
+double SU2_prefactor_combine_MPOs(int (*symv)[3], int * symvMPO, int isdmrg, int extradinge)
 {
         if (isdmrg) {
-                double result = divbracket(symv[0][0]);
-                return result * divbracket(symv[1][0]) * 
-                        ((symv[0][0] + symv[1][0] + symvMPO[1]) % 4 ? -1 : 1);
+                double result = divbracket(symv[0][extradinge]);
+                return result * divbracket(symv[1][extradinge]) * 
+                        ((symv[0][extradinge] + symv[1][extradinge] + symvMPO[1]) % 4 ? -1 : 1);
         } else {
                 double result = ((symv[0][2] + symv[1][2] + symvMPO[2]) % 4 ? -1 : 1) * 
                         bracket(symvMPO[2]);

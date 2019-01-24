@@ -70,7 +70,7 @@ double SU2_prefactor_mirror_coupling(const int * symv);
 
 double SU2_prefactor_pAppend(const int * symv, int is_left);
 
-double SU2_prefactor_combine_MPOs(int (*symv)[3], int * symvMPO, int isdmrg);
+double SU2_prefactor_combine_MPOs(int (*symv)[3], int * symvMPO, int isdmrg, int extradinge);
 
 double SU2_prefactor_bUpdate(int (*symv)[3], int uCase);
 

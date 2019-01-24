@@ -476,7 +476,7 @@ double prefactor_add_P_operator(int * const (*irreps)[3], int isleft,
 }
 
 double prefactor_combine_MPOs(int * const (*irreps)[3], int * const *irrMPO, 
-                              const enum symmetrygroup * sgs, int nrsy, int isdmrg)
+                              const enum symmetrygroup * sgs, int nrsy, int isdmrg, int extradinge)
 {
         int symvalues[2][3];
         int symvaluesMPO[3];
@@ -490,7 +490,7 @@ double prefactor_combine_MPOs(int * const (*irreps)[3], int * const *irrMPO,
                         for (int k = 0; k < (isdmrg ? 2 : 3); ++k)
                                 symvaluesMPO[k] = (irrMPO[k])[i];
 
-                        prefactor *= Z2_prefactor_combine_MPOs(symvalues, symvaluesMPO, isdmrg);
+                        prefactor *= Z2_prefactor_combine_MPOs(symvalues, symvaluesMPO, isdmrg, extradinge);
                         break;
                 case SU2 :
                         for (int j = 0; j < 2; ++j)
@@ -499,7 +499,7 @@ double prefactor_combine_MPOs(int * const (*irreps)[3], int * const *irrMPO,
                         for (int k = 0; k < (isdmrg ? 2 : 3); ++k)
                                 symvaluesMPO[k] = (irrMPO[k])[i];
 
-                        prefactor *= SU2_prefactor_combine_MPOs(symvalues, symvaluesMPO, isdmrg);
+                        prefactor *= SU2_prefactor_combine_MPOs(symvalues, symvaluesMPO, isdmrg, extradinge);
                         break;
                 case U1 :
                 default :

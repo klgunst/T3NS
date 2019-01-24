@@ -43,7 +43,7 @@ static void bUpdate_make_r_count(struct instructionset * const instructions,
                                  const int bond, const int updateCase);
 
 static void merge_make_r_count(struct instructionset * const instructions, 
-                                 const int bond);
+                                 const int bond, int isdmrg);
 
 static void combine_all_operators(const struct opType ops[3], const char c);
 
@@ -107,16 +107,16 @@ void QC_fetch_bUpdate(struct instructionset * const instructions,
 }
 
 void QC_fetch_merge(struct instructionset * const instructions, 
-                       const int bond)
+                       const int bond, int isdmrg)
 {
         instructions->instr = NULL;
         instructions->pref  = NULL;
-        merge_make_r_count(instructions, bond);
+        merge_make_r_count(instructions, bond, isdmrg);
 
         instructions->instr = safe_malloc(instructions->step * 
                                           instructions->nr_instr, int);
         instructions->pref  = safe_malloc(instructions->nr_instr, double);
-        merge_make_r_count(instructions, bond);
+        merge_make_r_count(instructions, bond, isdmrg);
 }
 
 /* ========================================================================== */
@@ -197,9 +197,8 @@ static void bUpdate_make_r_count(struct instructionset * const instructions,
 }
 
 static void merge_make_r_count(struct instructionset * const instructions, 
-                                 const int bond)
+                                 const int bond, int isdmrg)
 {
-        const int isdmrg = is_dmrg_bond(bond);
         struct opType ops[3];
         int order[3] = {0, 1, 2};
 
@@ -240,9 +239,10 @@ static void merge_make_r_count(struct instructionset * const instructions,
 
         if (instructions->instr != NULL && 
             instructions->nr_instr != get_nrinstr()) {
-                fprintf(stderr, "%s@%s: The calculated number of instructions are not consistent.\n", 
-                        __FILE__, __func__);
-                exit(EXIT_FAILURE);
+                instructions->nr_instr = get_nrinstr();
+                //fprintf(stderr, "%s@%s: The calculated number of instructions are not consistent.\n", 
+                        //__FILE__, __func__);
+                //exit(EXIT_FAILURE);
         }
 
         if (isdmrg) {

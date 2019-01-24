@@ -90,27 +90,57 @@ static int strcmp_ign_ws(const char * s1, const char * s2)
         return 0;
 }
 
-static void get_sites_to_opt(int maxsites, struct stepSpecs * specs, int state)
+static int get_sites_to_opt(int maxsites, struct stepSpecs * specs, int * state)
 {
-        if (maxsites != 2 || maxsites != 1) {
-                fprintf (stderr, "Error: Only optimization with one and two sties are implemented.\n"
+        if (maxsites != 2 && maxsites != 1) {
+                fprintf (stderr, "ERROR: Only optimization with one and two sties are implemented.\n"
                          "Executing calculation with two-site optimization.\n");
                 maxsites = 2;
         }
 
-        const int current_bond = netw.sweep[state];
-        specs->sites_opt[0] = netw.bonds[current_bond][0];
-        specs->sites_opt[1] = netw.bonds[current_bond][1];
+        specs->nr_sites_opt = 1;
+        specs->sites_opt[0] = netw.sweep[*state];
+        ++*state;
+        if(*state > netw.sweeplength) {
+                *state = 0;
+                return 1;
+        }
+        if (maxsites == 1) { return 0; }
+
+        specs->sites_opt[1] = netw.sweep[*state % netw.sweeplength];
+        const int cbond = get_common_bond(specs->sites_opt[0], specs->sites_opt[1]);
+        specs->sites_opt[0] = netw.bonds[cbond][0];
+        specs->sites_opt[1] = netw.bonds[cbond][1];
         specs->nr_sites_opt = 2;
+        const int nextbond = get_common_bond(specs->sites_opt[1], 
+                                             netw.sweep[(*state + 1) % netw.sweeplength]);
+        *state += (cbond == nextbond || specs->sites_opt[1] == netw.sweep[(*state + 1) % netw.sweeplength]);
+
         assert(specs->sites_opt[0] != -1 && specs->sites_opt[1] != -1);
+        return 0;
 }
 
 static void get_common_with_next(int maxsites, struct stepSpecs * specs, 
                                  int next_state)
 {
         struct stepSpecs nextSpecs;
-        get_sites_to_opt(maxsites, &nextSpecs, next_state);
-        if (next_state == 0) {
+        int nextmod = next_state % netw.sweeplength;
+        get_sites_to_opt(maxsites, &nextSpecs, &nextmod);
+        if (maxsites == 1) {
+                const int common_bond = get_common_bond(specs->sites_opt[0], 
+                                                        nextSpecs.sites_opt[0]);
+
+                for (specs->common_next[0] = 0; 
+                     specs->common_next[0] < specs->nr_bonds_opt; 
+                     specs->common_next[0]++) {
+                        if (specs->bonds_opt[specs->common_next[0]] == common_bond) {
+                                break;
+                        }
+                }
+                return;
+        }
+
+        if (next_state >= netw.sweeplength || nextmod >= netw.sweeplength) {
                 specs->common_next[0] = 0;
                 specs->common_next[1] = 1;
                 return;
@@ -157,13 +187,11 @@ static void get_bonds_involved(struct stepSpecs * specs)
                 assert(specs->nr_bonds_opt < STEPSPECS_MBONDS);
                 specs->bonds_opt[specs->nr_bonds_opt++] = allbonds[i];
         }
-        assert(specs->nr_bonds_opt == 3 || (is_psite(specs->sites_opt[0]) && 
-                                            is_psite(specs->sites_opt[1]) 
-                                            && specs->nr_bonds_opt == 2));
+        assert(specs->nr_bonds_opt == 3 || specs->nr_bonds_opt == 2);
         /* sort array */
         if (specs->bonds_opt[0] > specs->bonds_opt[1]) 
                 swap(&specs->bonds_opt[0], &specs->bonds_opt[1]);
-        if (specs->nr_sites_opt == STEPSPECS_MBONDS && 
+        if (specs->nr_bonds_opt == STEPSPECS_MBONDS && 
             specs->bonds_opt[1] > specs->bonds_opt[2])
                 swap(&specs->bonds_opt[1], &specs->bonds_opt[2]);
         if (specs->bonds_opt[0] > specs->bonds_opt[1])
@@ -281,7 +309,7 @@ void create_order_psites(void)
 /* ========================================================================== */
 
 void read_network(const char * inputfile, const char * relpath)
-{ 
+{
         char buffer[MY_STRING_LEN];
         char buffer2[MY_STRING_LEN];
         int ro;
@@ -314,6 +342,7 @@ void make_network(const char * netwfile)
 
         ln_cnt = 0;
 
+        netw.sweeplength = -1;
         while (fgets(buffer, sizeof buffer, fp) != NULL) {
                 ln_cnt++;
                 sscanf(buffer, " NR_SITES = %d ", &netw.sites);
@@ -364,33 +393,36 @@ void make_network(const char * netwfile)
                         break;
         }
 
-        netw.sweep = safe_calloc(netw.sweeplength, int);
-        ln_cnt++;
-        site_cnt = 0;
-        while ((kind = (char) getc(fp)) != '\n') {
-                int value = kind - '0';
-                if (kind == ' ') {
-                        site_cnt++;
-                } else if ((value <= 9) && (value >= 0)) {
-                        netw.sweep[site_cnt] = 10 * netw.sweep[site_cnt] + value;
-                } else {
-                        fprintf(stderr, "Wrong format of the sweep array at line %d!\n", ln_cnt);
+        if (netw.sweeplength != -1) {
+                netw.sweep = safe_calloc(netw.sweeplength, int);
+                ln_cnt++;
+                site_cnt = 0;
+                while (netw.sweeplength != -1 && (kind = (char) getc(fp)) != '\n') {
+                        int value = kind - '0';
+                        if (kind == ' ') {
+                                site_cnt++;
+                        } else if ((value <= 9) && (value >= 0)) {
+                                netw.sweep[site_cnt] = 10 * netw.sweep[site_cnt] + value;
+                        } else {
+                                fprintf(stderr, "Wrong format of the sweep array at line %d!\n", ln_cnt);
+                                exit(EXIT_FAILURE);
+                        }
+                }
+
+                if (site_cnt != netw.sweeplength){
+                        fprintf(stderr, "Wrong number of sweep instructions in the sweep_order array at line %d!\n", 
+                                ln_cnt);
                         exit(EXIT_FAILURE);
                 }
-        }
 
-        if (site_cnt != netw.sweeplength){
-                fprintf(stderr, "Wrong number of sweep instructions in the sweep_order array at line %d!\n", 
-                        ln_cnt);
-                exit(EXIT_FAILURE);
-        }
 
-        /* skipping all the rest until start of the network definition */
-        while (fgets(buffer, sizeof buffer, fp) != NULL) {
-                ln_cnt++;
-                if (!(strcmp_ign_ws(buffer, "&END") && strcmp_ign_ws(buffer, "/END") && 
-                      strcmp_ign_ws(buffer, "/")))
-                        break;
+                /* skipping all the rest until start of the network definition */
+                while (fgets(buffer, sizeof buffer, fp) != NULL) {
+                        ln_cnt++;
+                        if (!(strcmp_ign_ws(buffer, "&END") && strcmp_ign_ws(buffer, "/END") && 
+                              strcmp_ign_ws(buffer, "/")))
+                                break;
+                }
         }
 
         netw.bonds = malloc(netw.nr_bonds * sizeof netw.bonds[0]);
@@ -437,6 +469,12 @@ void make_network(const char * netwfile)
 
         create_nr_left_psites();
         create_order_psites();
+
+        if (netw.sweeplength == -1) {
+                if(make_simplesweep(0, &netw.sweep, &netw.sweeplength)) {
+                        exit(EXIT_FAILURE);
+                }
+        }
 }
 
 void destroy_network(void)
@@ -595,17 +633,11 @@ int next_opt_step(int maxsites, struct stepSpecs * specs)
 {
         assert(STEPSPECS_MSITES >= maxsites);
         static int curr_state = 0;
-        /* end of a sweep */
-        if (curr_state == netw.sweeplength) {
-                curr_state = 0;
-                return 0;
-        }
 
-        get_sites_to_opt(maxsites, specs, curr_state);
+        if(get_sites_to_opt(maxsites, specs, &curr_state)) return 0;
         get_bonds_involved(specs);
 
-        ++curr_state;
-        get_common_with_next(maxsites, specs, curr_state % netw.sweeplength);
+        get_common_with_next(maxsites, specs, curr_state);
         return 1;
 }
 

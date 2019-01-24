@@ -62,7 +62,13 @@ struct stepSpecs {
         int nr_sites_opt;
         /// The sites to optimize.
         int sites_opt[STEPSPECS_MSITES];
-        /// For every site: 1 if common with next optimization step, else 0
+        /** For every site: 1 if common with next optimization step, else 0
+         *
+         *
+         * **Note:** for <tt>@ref nr_sites_opt = 1</tt> 
+         * (i.e. a one-site optimization), <tt>common_next[0]</tt> is the mutual 
+         * bond-id instead (i.e. the index of the mutual bond in @ref bonds_opt).
+         */
         int common_next[STEPSPECS_MSITES];
 };
 

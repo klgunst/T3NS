@@ -123,8 +123,8 @@ void init_1siteTensor(struct siteTensor * const tens, const int site, const char
  * \param [in] sitelist The sites of which to make a product. maximal 4 and if less than four
  * a -1 sentinel is included.
  */
-void makesiteTensor(struct siteTensor * const tens, struct siteTensor * const T3NS, 
-    const int sitelist[], int nr_sites);
+int makesiteTensor(struct siteTensor * tens, struct siteTensor * T3NS, 
+                   const int * sitelist, int nr_sites);
 
 /**
  * \brief Destroys a siteTensor struct.

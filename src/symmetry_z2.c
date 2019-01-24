@@ -238,7 +238,7 @@ double Z2_prefactor_add_P_operator(int (*symv)[3], int isleft)
                 return (symv[1][2] + symv[1][0]) % 2 ? -1 : 1;
 }
 
-double Z2_prefactor_combine_MPOs(int (*symv)[3], int * symvMPO, int isdmrg)
+double Z2_prefactor_combine_MPOs(int (*symv)[3], int * symvMPO, int isdmrg, int extradinge)
 {
         /* We have as coupling:
          * bra(alpha) MPO(alpha)* ket(alpha)* | bra(beta) MPO(beta)* ket(beta)* | 
@@ -250,7 +250,7 @@ double Z2_prefactor_combine_MPOs(int (*symv)[3], int * symvMPO, int isdmrg)
          * with sign: ket(beta)MPO(alpha) + ket(gamma) + MPO(gamma) * bra(gamma)
          */
         if (isdmrg) {
-                return (symv[1][0] + symv[0][0] * symvMPO[1]) % 2 ? -1 : 1;
+                return (symv[1][extradinge] + symv[0][extradinge] * symvMPO[1]) % 2 ? -1 : 1;
         } else {
                 return (symv[1][1] * symvMPO[0] + symv[1][2] + symv[0][2] * symvMPO[2]) 
                         % 2 ? -1 : 1;

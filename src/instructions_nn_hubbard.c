@@ -33,7 +33,7 @@ static void H_fetch_DMRG(int ** const instructions, double ** const prefactors,
     int ** const hamsymsecs_of_new, int * const nr_instructions, const int bond, const int is_left);
   
 static void H_fetch_merge(int ** const instructions, int * const nr_instructions, double ** const 
-    prefactors, const int bond);
+    prefactors, const int bond, int isdmrg);
 
 static void H_fetch_T3NS(struct instructionset * const instructions, const int updateCase);
 
@@ -43,7 +43,7 @@ static void H_fetch_DMRG_su2(int ** const instructions, double ** const prefacto
     int ** const hamsymsecs_of_new, int * const nr_instructions, const int bond, const int is_left);
 
 static void H_fetch_merge_su2(int ** const instructions, int * const nr_instructions, double ** 
-    const prefactors, const int bond);
+    const prefactors, const int bond, int isdmrg);
 
 static void H_fetch_T3NS_su2(struct instructionset * const instructions, const int updateCase);
 
@@ -59,12 +59,12 @@ void NN_H_fetch_pUpdate(int ** const instructions, double ** const prefactors,
 }
 
 void NN_H_fetch_merge(int ** const instructions, int * const nr_instructions, 
-    double ** const prefactors, const int bond)
+    double ** const prefactors, const int bond, int isdmrg)
 {
   if (NN_H_has_su2())
-    H_fetch_merge_su2(instructions, nr_instructions, prefactors, bond);
+    H_fetch_merge_su2(instructions, nr_instructions, prefactors, bond, isdmrg);
   else
-    H_fetch_merge(instructions, nr_instructions, prefactors, bond);
+    H_fetch_merge(instructions, nr_instructions, prefactors, bond, isdmrg);
 }
 
 void NN_H_fetch_bUpdate(struct instructionset * const instructions, const int bond, const int 
@@ -141,12 +141,12 @@ static void H_fetch_DMRG(int ** const instructions, double ** const prefactors,
 }
 
 static void H_fetch_merge(int ** const instructions, int * const nr_instructions, double ** const 
-    prefactors, const int bond)
+    prefactors, const int bond, int isdmrg)
 {
   double U, t;
   NN_H_get_interactions(&t, &U);
 
-  if (is_dmrg_bond(bond)) {
+  if (isdmrg) {
     *nr_instructions = 6;
     *instructions = safe_malloc(*nr_instructions * 2, int);
     *prefactors = safe_malloc(*nr_instructions, double);
@@ -271,13 +271,13 @@ static void H_fetch_DMRG_su2(int ** const instructions, double ** const prefacto
 }
 
 static void H_fetch_merge_su2(int** const instructions, int * const nr_instructions, double ** const 
-    prefactors, const int bond)
+    prefactors, const int bond, int isdmrg)
 {
   double U, t;
   NN_H_get_interactions(&t, &U);
   t *= sqrt(2);
 
-  if (is_dmrg_bond(bond)) {
+  if (isdmrg) {
     *nr_instructions = 4;
     *instructions = safe_malloc(*nr_instructions * 2, int);
     *prefactors = safe_malloc(*nr_instructions, double);

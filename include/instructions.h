@@ -55,8 +55,8 @@ void fetch_pUpdate(int ** const instructions, double ** const prefactors, int
 void fetch_bUpdate(struct instructionset* const instructions, const int bond,
                    const int isleft);
 
-void fetch_merge(int ** const instructions, int * const nr_instructions,
-                 double** const prefactors, const int bond);
+void fetch_merge(int ** const instructions, int * const nr_instructions, 
+                 double** const prefactors, const int bond, int isdmrg);
 
 void sortinstructions_toMPOcombos(int ** const instructions, int ** const
                                   instrbegin, double ** const prefactors, const
@@ -71,4 +71,4 @@ void destroy_instructionset(struct instructionset * const instructions);
 
 void print_instructions(int * const instructions, double * const prefactors,
                         int * const hss, const int nr_instructions, const int
-                        bond, const int is_left, const char kind);
+                        bond, const int is_left, const char kind, int isdmrg);

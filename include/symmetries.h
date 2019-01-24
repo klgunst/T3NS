@@ -177,7 +177,7 @@ double prefactor_add_P_operator(int * const (*irreps)[3], int isleft,
                                 const enum symmetrygroup * sgs, int nrsy);
 
 double prefactor_combine_MPOs(int * const (*irreps)[3], int * const *irrMPO, 
-                              const enum symmetrygroup * sgs, int nrsy, int isdmrg);
+                              const enum symmetrygroup * sgs, int nrsy, int isdmrg, int extradinge);
 
 /**
  * @brief Returns the prefactor for making the 1-site RDM.
