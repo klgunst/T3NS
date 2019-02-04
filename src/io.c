@@ -20,6 +20,7 @@
 #include <ctype.h>
 
 #include "io.h"
+#include "options.h"
 #include "macros.h"
 #include "debug.h"
 #include "network.h"
@@ -56,7 +57,8 @@ static void relative_path(const int buflen, char relpath[buflen],
 
 /* ========================================================================== */
 
-void read_inputfile(const char inputfile[], struct optScheme * const scheme)
+void read_inputfile(const char inputfile[], struct optScheme * const scheme,
+                    int * minocc)
 {
         int ro;
         int sg;
@@ -141,6 +143,21 @@ void read_inputfile(const char inputfile[], struct optScheme * const scheme)
                 }
         }
 
+        { /* For the specification of the minimal amount of state. */
+                if ((ro = read_option("minimal states", inputfile, buffer)) == -1) {
+                        *minocc = DEFAULT_MINSTATES;
+                } else {
+                        char * pt;
+                        *minocc = strtol(buffer, &pt, 10);
+                        if (*pt != '\0') {
+                                fprintf(stderr, "Error reading minimal states.\n");
+                                exit(EXIT_FAILURE);
+                        }
+                        if( *minocc == 0) {
+                                *minocc = DEFAULT_MINSTATES;
+                        }
+                }
+        }
         read_network(inputfile, relpath);
 
         { /* For the path to the interactions file. */

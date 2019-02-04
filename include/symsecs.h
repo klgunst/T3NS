@@ -153,3 +153,10 @@ void kick_empty_symsecs(struct symsecs * sectors, char o);
 void deep_copy_symsecs(struct symsecs * copy, const struct symsecs * tocopy);
 
 int full_dimension(const struct symsecs * const sym);
+
+/**
+ * @brief Prints brief information about a certain symsec.
+ *
+ * @param [in] ss The symsecs structure.
+ */
+void print_symsecinfo(struct symsecs * ss);

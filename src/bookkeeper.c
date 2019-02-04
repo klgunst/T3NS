@@ -215,7 +215,7 @@ static void calc_fcidims(void)
                 make_symsec(&bookie.list_of_symsecs[bond], bond, 0, 'f');
 }
 
-static void scale_dims(int max_dim)
+static void scale_dims(int max_dim, int minocc)
 {
         for (int bnd = 0; bnd < bookie.nr_bonds; ++bnd) {
                 double ratio, totalfcidims = 0;
@@ -228,17 +228,17 @@ static void scale_dims(int max_dim)
                 sectors->totaldims = 0;
 
                 for (int i = 0; i < sectors->nrSecs; ++i) {
+                        const int dim = sectors->dims[i];
                         sectors->dims[i] = (int) ceil(ratio * sectors->fcidims[i]);
-                        if (sectors->dims[i] == 0)
-                                sectors->dims[i] = 1;
+                        if (sectors->dims[i] < minocc)
+                                sectors->dims[i] = dim < minocc ? dim : minocc;
 
                         sectors->totaldims += sectors->dims[i];
-                        assert(sectors->dims[i] > 0);
                 }
         }
 }
 
-static void calc_dims(int max_dim)
+static void calc_dims(int max_dim, int minocc)
 {
         for (int bond = 0; bond < bookie.nr_bonds; ++bond) {
                 struct symsecs newSymsec;
@@ -269,29 +269,28 @@ static void calc_dims(int max_dim)
                 double ratio = max_dim * 1. / bookiess->totaldims;
                 bookiess->totaldims = 0;
                 for (int i = 0; i < bookiess->nrSecs; ++i) {
+                        const int dim = bookiess->dims[i];
                         bookiess->dims[i] = (int) ceil(ratio * bookiess->dims[i]);
-                        if (bookiess->dims[i] == 0) {
-                                bookiess->dims[i] = 1;
+                        if (bookiess->dims[i] < minocc) {
+                                bookiess->dims[i] = dim < minocc ? dim : minocc;
                         }
                         bookiess->totaldims += bookiess->dims[i];
-                        assert(bookiess->dims[i] > 0);
                 }
         }
 }
 
 /* ========================================================================== */
 
-void create_list_of_symsecs(int max_dim, int interm_scale)
+void create_list_of_symsecs(int max_dim, int interm_scale, int minocc)
 {
         bookie.nr_bonds = netw.nr_bonds;
         bookie.list_of_symsecs = safe_malloc(bookie.nr_bonds, struct symsecs);
         calc_fcidims();
 
-
         if (interm_scale) {
-                calc_dims(max_dim);
+                calc_dims(max_dim, minocc);
         } else {
-                scale_dims(max_dim);
+                scale_dims(max_dim, minocc);
         }
 }
 
@@ -414,4 +413,10 @@ void get_tsstring(char * buffer)
                 strcat(buffer, buffer2);
                 strcat(buffer, "\t");
         }
+}
+
+void print_bondinfo(int bond)
+{
+        printf("bond %d : ", bond);
+        print_symsecinfo(&bookie.list_of_symsecs[bond]);
 }

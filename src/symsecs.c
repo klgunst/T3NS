@@ -284,3 +284,14 @@ int search_symsec(int * symmsec, const struct symsecs * sectors)
                 return p - sectors->irreps;
         }
 }
+
+void print_symsecinfo(struct symsecs * ss)
+{
+        printf("bond dimension : %d ", ss->totaldims);
+        if (need_multiplicity(bookie.nrSyms, bookie.sgs)) {
+                printf("(%d) ", full_dimension(ss));
+        }
+        int counter = 0;
+        for (int i = 0; i < ss->nrSecs; ++i) { counter += ss->dims[i] != 0; }
+        printf("in %d non-empty sectors.\n", counter);
+}

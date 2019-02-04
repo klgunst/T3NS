@@ -178,9 +178,12 @@ void decomposesiteObject(struct siteTensor * const siteObject, struct siteTensor
           printf("          - maximal dimension %d\n", mxrD);
   printf("          - maximal truncation error %.4e\n", mxtr);
 
-
   change_symsecs_to_best(selection, nr_of_orders, nr_of_SVDs, symseclist, bonds);
   change_tensors_to_best(selection, nr_of_orders, siteObject->nrsites, T3NS, tensorlist);
+  for (int i = 0; i < nr_of_SVDs; ++i) {
+          printf("**\t");
+          print_bondinfo(bonds[0][i]);
+  }
   if (*max_bonddim < mxrD) {
           *max_bonddim = mxrD;
   }

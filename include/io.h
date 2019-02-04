@@ -18,12 +18,15 @@
 
 #include "optScheme.h"
 /**
- * \brief Reads the inputfile.
+ * @brief Reads the inputfile.
  *
- * \param [in] inputfile The inputfile.
- * \param [out] scheme The optimization scheme is stored here.
+ * @param [in] inputfile The inputfile.
+ * @param [out] scheme The optimization scheme is stored here.
+ * @param [out] minocc The minimal occupation of the states for initialization
+ * is stored here.
  */
-void read_inputfile(const char inputfile[], struct optScheme * const scheme);
+void read_inputfile(const char inputfile[], struct optScheme * const scheme,
+                    int * minocc);
 
 /**
  * \brief Searches for an option in the inputfile and stores the set option 

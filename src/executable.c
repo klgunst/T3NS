@@ -64,6 +64,10 @@ T3NS_DESCRIPTION
 "                   For nearest neighbour hubbard:\n"
 "                       NN_HUBBARD (t = flt, U = flt)\n"
 "\n"
+"[MINIMAL STATES] = The minimal number of states to be kept\n"
+"                   in each symmetry sector at initialisation.\n"
+"                   Default : %d\n"
+"\n"
 "############################# CONVERGENCE SCHEME #############################\n"
 "MIND            = int, int, int\n"
 "                  Minimal bond dimension for the tensor network.\n"
@@ -220,9 +224,10 @@ static void initialize_program(int argc, char *argv[], struct siteTensor **T3NS,
         char buffer[buffersize];
 
         get_allsymstringnames(buffer_symm);
-        snprintf(buffer, buffersize, doc, buffer_symm, MAX_SYMMETRIES, 
-                 DEFAULT_SWEEPS, DEFAULT_E_CONV, DEFAULT_SITESIZE, 
-                 DEFAULT_SOLVER_TOL, DEFAULT_SOLVER_MAX_ITS, DEFAULT_NOISE);
+        snprintf(buffer, buffersize, doc, buffer_symm, MAX_SYMMETRIES,
+                 DEFAULT_MINSTATES, DEFAULT_SWEEPS, DEFAULT_E_CONV,
+                 DEFAULT_SITESIZE, DEFAULT_SOLVER_TOL, DEFAULT_SOLVER_MAX_ITS,
+                 DEFAULT_NOISE);
 
         struct argp argp = {options, parse_opt, args_doc, buffer};
 
@@ -251,10 +256,11 @@ static void initialize_program(int argc, char *argv[], struct siteTensor **T3NS,
         }
 
         if (arguments.h5file == NULL) {
-                read_inputfile(arguments.args[0], scheme);
+                int minocc;
+                read_inputfile(arguments.args[0], scheme, &minocc);
                 assert(scheme->nrRegimes != 0);
                 printf(" >> Preparing bookkeeper...\n");
-                create_list_of_symsecs(scheme->regimes[0].minD, 1);
+                create_list_of_symsecs(scheme->regimes[0].minD, 1, minocc);
                 init_calculation(T3NS, rops, 'r');
                 print_input(scheme);
         } else {

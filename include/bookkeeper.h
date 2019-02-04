@@ -41,8 +41,7 @@ struct bookkeeper {
         /// The number of TNSd, TNSu bonds in the network.
         int nr_bonds;
         /** List with the different symsecs for the different bonds.  
-         *  Total length is @ref nr_bonds.
-         */
+         *  Total length is @ref nr_bonds. */
         struct symsecs *list_of_symsecs;
 };
 
@@ -50,14 +49,16 @@ struct bookkeeper {
 extern struct bookkeeper bookie;
 
 /**
- * \brief Initializes the list_of_symsecs limiting the maximal dimension.
+ * @brief Initializes the @ref bookkeeper.list_of_symsecs limiting the maximal 
+ * dimension.
  *
- * The bookkeeper is stored in a global variable bookie.
+ * The @ref bookkeeper is stored in a global variable @ref bookie.
  *
- * \param [in] max_dim The maximal dimension of the bonds that is allowed.
- * \param [in] interm_scale Scale intermediately or scale the complete fci dims.
+ * @param [in] max_dim The maximal dimension of the bonds that is allowed.
+ * @param [in] interm_scale Scale intermediately or scale the complete fci dims.
+ * @param [in] minocc The minimal bond dimension to put in each symmetry sector.
  */
-void create_list_of_symsecs(int max_dim, int interm_scale);
+void create_list_of_symsecs(int max_dim, int interm_scale, int minocc);
 
 /**
  * \brief Frees the memory allocated to the global bookie variable.
@@ -127,3 +128,5 @@ void free_symsecs_from_bookie(int n, const int * bonds);
  */
 void deep_copy_symsecs_to_bookie(int n, const struct symsecs * symarr, 
                                  const int * bonds);
+
+void print_bondinfo(int bond);

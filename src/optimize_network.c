@@ -184,7 +184,7 @@ static struct optimize_info optimize_siteTensor(struct siteTensor * T3NS,
                                                 const struct regime * reg, 
                                                 double trunc_err, 
                                                 double * timings)
-{ 
+{
         assert(o_dat.specs.nr_bonds_opt == 2 || o_dat.specs.nr_bonds_opt == 3);
         const int isdmrg = o_dat.specs.nr_bonds_opt == 2;
         const enum timers prep_heff = isdmrg ? PREP_HEFF_DMRG : PREP_HEFF_T3NS;
@@ -234,6 +234,8 @@ static struct optimize_info optimize_siteTensor(struct siteTensor * T3NS,
                 destroy_siteTensor(&T3NS[orthoc]);
                 T3NS[orthoc] = o_dat.msiteObj;
                 qr_step(&T3NS[orthoc], &T3NS[ortho]);
+                printf("**\t");
+                print_bondinfo(bondcommon);
         } else {
                 decomposesiteObject(&o_dat.msiteObj, T3NS, o_dat.specs.sites_opt, 
                                     o_dat.specs.common_next, reg->minD, reg->maxD, 
