@@ -92,18 +92,18 @@ double Z2_prefactor_pAppend(const int * symv, int is_left)
 double Z2_prefactor_adjoint(const int * symv, char c)
 {
         switch(c) {
-        case 'l':
-                /* left renormalized tensor, no sign needed */
-                return 1;
         case 'c':
                 /* orthogonalization center, (-1)^|x3| */
                 return symv[2] ? -1 : 1;
-        case 'r':
+        case '1':
                 /* right renormalized tensor case 1, (-1)^|x2| */
                 return symv[1] ? -1 : 1;
-        case 'R':
+        case '2':
                 /* right renormalized tensor case 2, (-1)^|x1| */
                 return symv[0] ? -1 : 1;
+        case '3':
+                /* left renormalized tensor, no sign needed */
+                return 1;
         default:
                 fprintf(stderr, "error : wrong option (%c) in %s:%s\n", 
                         c, __FILE__, __func__);
@@ -254,5 +254,14 @@ double Z2_prefactor_combine_MPOs(int (*symv)[3], int * symvMPO, int isdmrg, int 
         } else {
                 return (symv[1][1] * symvMPO[0] + symv[1][2] + symv[0][2] * symvMPO[2]) 
                         % 2 ? -1 : 1;
+        }
+}
+
+double Z2_prefactor_RDMinterm(int * symvalues, int bond)
+{
+        if (bond == 0) {
+                return (symvalues[1] || symvalues[4]) && symvalues[0] ? -1 : 1;
+        } else {
+                return symvalues[1] && symvalues[4] || symvalues[5] ? -1 : 1;
         }
 }

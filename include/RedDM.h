@@ -42,18 +42,21 @@ struct RedDM {
          * \f$Γ^B(ij;kl) = Σ_{στ} (-1)^{σ - τ} Γ(iσ)(jτ);(kσ)(lτ)\f$<br>
          * with<br>
          * \f$Γ(iσ)(jτ);(kσ)(lτ) = 〈a^†_{iσ}a^†_{jτ}a_{lτ}a_{kσ}〉\f$
+         *
+         * **NOTE: This is not implemented yet.**
          */
         EL_TYPE * chemRDM[2];
 
         /** Stores the site-RDMs.
          *
-         * <tt>sRDMs[i]</tt> stores the site-RDMs for i-sites.<br>
+         * <tt>sRDMs[i]</tt> stores the site-RDMs for @p i sites.<br>
          * Length of <tt>sRDMs[i]</tt> = \f${N}\choose{i}\f$.
          *
          * For 1-site RDMs:  
          * * qnumbers: \f$(〈i'|, 0, |i〉)\f$ where \f$ i = i' \f$.
          * * indices: \f$(α_{i'}, α_i)\f$.<br>
-         *   This does not really matter because of the symmetry of the tensor.
+         *   This order does not really matter because of the symmetry of the 
+         *   tensor.
          *
          * For 2-site RDMs:
          * * qnumbers: \f$(|j〉, |i〉, 〈\mathrm{MPO}|)

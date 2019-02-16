@@ -62,8 +62,8 @@
  * coupling     | \f$(&#124; α〉, &#124; β〉, 〈γ&#124;), (&#124; γ〉, &#124; δ〉, 〈ε&#124;)\f$  | \f$(&#124; ε'〉, 〈δ'&#124;, 〈γ'&#124;), (&#124; γ'〉, 〈β'&#124;, 〈α'&#124;)\f$
  * index        | \f$α, β, δ, ε\f$                                                                | \f$α', β', δ', ε'\f$                              
  *
- * For reduced density matrices for sites:
- * **AANVULLEN**
+ * For reduced density matrices for sites and intermediate results see:<br>
+ * @ref RedDM.sRDMs and @ref RDMinterm.tens.
  */
 struct siteTensor {
         /// Number of sites in @ref sites.

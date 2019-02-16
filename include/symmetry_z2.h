@@ -61,6 +61,25 @@ int Z2_which_irrep(char * buffer, int *irr);
 
 double Z2_prefactor_pAppend(const int * symv, int is_left);
 
+/**
+ * @brief The prefactor fermionic \f$\mathbb{Z}_2\f$-symmetry when making the
+ * adjoint of a three-legged T3NS-tensor.
+ *
+ * For the coupling of the tensor, see @ref siteTensor.
+ *
+ * @param symv [in] The parities of the different bonds.<br>
+ * The order is given by: \f$α, β, γ\f$.
+ * @param c [in] The type of orthogonalized tensor. Options are:
+ * * 'c' for an orthogonality center.
+ * * '1' for orthogonalized tensors with respect of contraction over β and γ.
+ * * '2' for orthogonalized tensors with respect of contraction over α and γ.
+ * * '3' for orthogonalized tensors with respect of contraction over α and β.
+ * @return The prefactor. This is:
+ * * for 'c': \f$(-1)^{π_γ}\f$
+ * * for '1': \f$(-1)^{π_β}\f$
+ * * for '2': \f$(-1)^{π_α}\f$
+ * * for '3': \f$1\f$
+ */
 double Z2_prefactor_adjoint(const int * symv, char c);
 
 double Z2_prefactor_pUpdate(const int * symv, int is_left);
@@ -72,3 +91,21 @@ double Z2_prefactor_mirror_coupling(const int * symv);
 double Z2_prefactor_add_P_operator(int (*symv)[3], int isleft);
 
 double Z2_prefactor_combine_MPOs(int (*symv)[3], int * symvMPO, int isdmrg, int extradinge);
+
+/** @brief The prefactor for fermionic \f$\mathbb{Z}_2\f$-symmetry when 
+ * initializing an intermediate RDM needed for the calculation of the 2-site 
+ * RDM's.
+ *
+ * The changing of coupling can be found in @ref prefactor_RDMinterm.<br>
+ * The prefactors arising from this change of coupling are:
+ * * For contraction over \f$α: (-1)^{π_i π_{i'} + π_{β'}}\f$
+ * * For contraction over \f$β: (-1)^{(π_i + π_{i'})  π_α}\f$
+ *
+ * @param symvalues [in] The parities of the different bonds.<br>
+ * The order is given by: \f$α, i, β, α', i', β', ii'\f$.
+ * @param bond [in] The virtual bond that is left open, thus<br>
+ * * 0 if contraction over \f$β\f$
+ * * 2 if contraction over \f$α\f$
+ * @return The prefactor.
+ */
+double Z2_prefactor_RDMinterm(int * symvalues, int bond);

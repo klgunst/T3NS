@@ -161,8 +161,24 @@ int consistent_state(enum symmetrygroup * sgs, int * ts, int nrsy);
 
 double prefactor_pAppend(const int * symv, int is_left, enum symmetrygroup sg);
 
-double prefactor_adjoint(int ** irrep_arr, char c, 
-                         const enum symmetrygroup * sgs, int nrsy);
+/**
+ * @brief The prefactor when making the adjoint of a three-legged T3NS-tensor.
+ *
+ * For the coupling of the tensor, see @ref siteTensor.
+ *
+ * @param irreps [in] The different irreps of the symmetries of the current 
+ * symmetry sector.<br>
+ * The order is given by: \f$α, β, γ\f$.
+ * @param c [in] The type of orthogonalized tensor. Options are:
+ * * 'c' for an orthogonality center.
+ * * '1' for orthogonalized tensors with respect of contraction over β and γ.
+ * * '2' for orthogonalized tensors with respect of contraction over α and γ.
+ * * '3' for orthogonalized tensors with respect of contraction over α and β.
+ * @param sgs [in] The symmetrygroups.
+ * @param nrsy [in] The number of symmetrygroups.
+ */
+double prefactor_adjoint(int ** irreps, char c, enum symmetrygroup * sgs, 
+                         int nrsy);
 
 double prefactor_pUpdate(int ** irrep_arr, int is_left, 
                          const enum symmetrygroup * sgs, int nrsy);
@@ -182,16 +198,51 @@ double prefactor_combine_MPOs(int * const (*irreps)[3], int * const *irrMPO,
 /**
  * @brief Returns the prefactor for making the 1-site RDM.
  *
- * In this step, a certain orthocenter is contracted with itself over leg 1 
- * and 3.
+ * In this step, a certain orthocenter is contracted with itself over \f$α\f$
+ * and \f$β\f$.
  *
- * @param irreps [in] The values of the symmetries of bonds 1, 2 and 3
+ * The coupling is changed in the following way:
+ * \f$(|α〉,|i〉,〈β|),(|β'〉,〈i'|,〈α'|) → (〈i'|, 0, |i〉)\f$
+ *
+ * **Note :** For graded \f$\mathbb{Z}_2\f$-symmetry, one should need an extra
+ * \f$(-1)^{β'}\f$ prefactor. However, this is canceled with the prefactor 
+ * needed from the adjoint of a orthonormality center.
+ *
+ * @param irreps [in] The different irreps of the symmetries of the current 
+ * symmetry sector.<br>
+ * The order is given by: \f$α, i, β\f$.
  * @param sgs [in] The symmetrygroups.
  * @param nrsy [in] The number of symmetrygroups.
  * @return The prefactor.
  */
 double prefactor_1siteRDM(int * (*irreps)[3], const enum symmetrygroup * sgs,
                           int nrsy);
+
+
+/** @brief The prefactor when initializing an intermediate RDM needed for the
+ * calculation of the 2-site RDM's.
+ *
+ * Two physical tensor are contracted over bond \f$α\f$ or \f$β\f$, the physical 
+ * bond is not contracted over.
+ *
+ * The coupling is changed in the following way:
+ * * For contraction over \f$α\f$: \f$(|α〉,|i〉,〈β|),(|β'〉,〈i'|,〈α'|) → 
+ *   (|i〉,〈i'|, 〈ii'|), (|ii'〉, 〈β|, |β'〉)\f$
+ * * For contraction over \f$β\f$: \f$(|α〉,|i〉,〈β|),(|β'〉,〈i'|,〈α'|) → 
+ *   (|i〉,〈i'|, 〈ii'|), (|ii'〉, |α〉, 〈α'|)\f$
+ *
+ * @param irreps [in] The different irreps of the symmetries of the current 
+ * symmetry sector.<br>
+ * The order is given by: \f$α, i, β, α', i', β', ii'\f$.
+ * @param bond [in] The virtual bond that is left open, thus<br>
+ * * 0 if contraction over \f$β\f$
+ * * 2 if contraction over \f$α\f$
+ * @param sgs [in] The symmetrygroups.
+ * @param nrsy [in] The number of symmetrygroups.
+ * @return The prefactor.
+ */
+double prefactor_RDMinterm(int * (*irreps)[7], int bond, 
+                           enum symmetrygroup * sgs, int nrsy);
 
 int need_multiplicity(int nrSyms, const enum symmetrygroup * sgs);
 

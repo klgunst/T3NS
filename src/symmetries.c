@@ -326,16 +326,6 @@ double prefactor_pAppend(const int * symvalues, int is_left,
 double prefactor_adjoint(int ** irrep_arr, char c, 
                          const enum symmetrygroup * sgs, int nrsy)
 {
-        /* This returns the prefactor needed for the making of the adjoint of a three-legged T3NS-tensor.
-         * 
-         * Coupling : before : ket*(x1) ket*(x2) ket(x3)
-         *            after  : bra*(x3) bra(x2) bra(x1)
-         *
-         * c can be : 'l' for left orthogonalized tensors.                   (contract x1, x2)
-         *            'c' for orthogonalization centers.                     (contract x1, x2, x3)
-         *            'r' for right orthogonalization tensors, case 1        (contract x2, x3)
-         *            'R' for right orthogonalization tensors, case 2        (contract x1, x3)
-         */
         int symvalues[3];
         double prefactor = 1;
         for (int i = 0; i < nrsy; ++i) {
@@ -522,6 +512,31 @@ double prefactor_1siteRDM(int * (*irreps)[3], const enum symmetrygroup * sgs,
                         }
                         prefactor *= SU2_prefactor_1siteRDM(symvalues);
                         break;
+                default :
+                        break;
+                }
+        }
+        return prefactor;
+}
+
+double prefactor_RDMinterm(int * (*irreps)[7], int bond, 
+                           enum symmetrygroup * sgs, int nrsy)
+{
+        int symvalues[7];
+        double prefactor = 1;
+        for (int i = 0; i < nrsy; ++i) {
+                switch(sgs[i]) {
+                case SU2 :
+                        for (int j = 0; j < 7; ++j) {
+                                symvalues[j] = (*irreps)[j][i];
+                        }
+                        prefactor *= SU2_prefactor_RDMinterm(symvalues, bond);
+                        break;
+                case Z2 :
+                        for (int j = 0; j < 7; ++j) {
+                                symvalues[j] = (*irreps)[j][i];
+                        }
+                        prefactor *= Z2_prefactor_RDMinterm(symvalues, bond);
                 default :
                         break;
                 }

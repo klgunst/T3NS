@@ -75,15 +75,44 @@ double SU2_prefactor_combine_MPOs(int (*symv)[3], int * symvMPO, int isdmrg, int
 double SU2_prefactor_bUpdate(int (*symv)[3], int uCase);
 
 /**
- * @brief Returns the prefactor for \f$SU(2)\f$ for making the 1-site RDM
+ * @brief Returns the prefactor for \f$SU(2)\f$ for making the 1-site RDM.
  *
- * In this step, a certain orthocenter is contracted with itself over 
- * leg 1 and 3. The prefactor needed when using \f$SU(2)\f$ is 
- * \f$\frac{1}{2 j_2 + 1}\f$.
+ * In this step, a certain orthocenter is contracted with itself over \f$α\f$
+ * and \f$β\f$.
  *
- * @param symv [in] array with symvalue of bond 1, 2, 3.
- * @return The prefactor>
+ * The change of coupling is explained in @ref prefactor_1siteRDM.<br>
+ * The prefactor needed when using \f$SU(2)\f$ is \f$\frac{1}{2 j_i + 1}\f$.
+ *
+ * @param symv [in] The \f$2j\f$ values of the different bonds.<br>
+ * The order is given by: \f$α, i, β\f$.
+ * @return The prefactor.
  */
 double SU2_prefactor_1siteRDM(int * symv);
+
+/** 
+ * @brief The prefactor for \f$SU(2)\f$-symmetry when initializing an
+ * intermediate RDM needed for the calculation of the 2-site RDM's.
+ *
+ * The changing of coupling can be found in @ref prefactor_RDMinterm.<br>
+ * The prefactors arising from this change of coupling are:
+ * * For contraction over \f$α: (-1)^{α + í' - β'} [ii']^2 [β][β']
+ *   \begin{Bmatrix}
+ *   i & i' & ii'\\
+ *   β' & β & α
+ *   \end{Bmatrix}\f$
+ * * For contraction over \f$β: (-1)^{ii'  - β' - α' - i} [ii']^2 [α][α']
+ *   \begin{Bmatrix}
+ *   i & i' & ii'\\
+ *   α' & α & β
+ *   \end{Bmatrix}\f$
+ *
+ * @param symvalues [in] The parities of the different bonds.<br>
+ * The order is given by: \f$α, i, β, α', i', β', ii'\f$.
+ * @param bond [in] The virtual bond that is left open, thus<br>
+ * * 0 if contraction over \f$β\f$
+ * * 2 if contraction over \f$α\f$
+ * @return The prefactor.
+ */
+double SU2_prefactor_RDMinterm(int * symvalues, int bond);
 
 int SU2_multiplicity(const int irrep);

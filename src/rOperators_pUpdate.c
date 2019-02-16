@@ -271,7 +271,7 @@ void update_rOperators_physical(struct rOperators * const rops, const struct sit
             get_size_block(&tens->blocks, tens_herm_sb) == N * M);
 
         workmem = safe_malloc(dgemm_order ? M * N2 : N * M2, double);
-        prefactor  = prefactor_adjoint(irrep_arr, is_left ? 'l' : 'r', bookie.sgs, 
+        prefactor  = prefactor_adjoint(irrep_arr, is_left ? '3' : '1', bookie.sgs, 
             bookie.nrSyms);
         prefactor *= prefactor_pUpdate(irrep_arr, is_left, bookie.sgs, 
             bookie.nrSyms);

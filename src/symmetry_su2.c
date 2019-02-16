@@ -121,4 +121,10 @@ double SU2_prefactor_bUpdate(int (*symv)[3], int uCase)
 
 double SU2_prefactor_1siteRDM(int * symv) { return 1. / (symv[1] + 1); }
 
+double SU2_prefactor_RDMinterm(int * symvalues, int bond)
+{
+        fprintf(stderr, "Error: %s not implemented yet.\n", __func__);
+        return 0;
+}
+
 int SU2_multiplicity(int irrep) {return irrep + 1;}
