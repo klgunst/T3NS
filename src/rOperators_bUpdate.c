@@ -19,7 +19,7 @@
 #include <omp.h>
 
 #include "rOperators.h"
-#include "debug.h"
+#include <assert.h>
 #include "macros.h"
 #include "network.h"
 #include "instructions.h"

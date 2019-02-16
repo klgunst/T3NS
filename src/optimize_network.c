@@ -28,7 +28,7 @@
 
 #include "optimize_network.h"
 #include "macros.h"
-#include "debug.h"
+#include <assert.h>
 #include "options.h"
 #include "network.h"
 #include "bookkeeper.h"

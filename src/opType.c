@@ -23,7 +23,7 @@
 #include "instructions_qc.h"
 #include "hamiltonian_qc.h"
 #include "network.h"
-#include "debug.h"
+#include <assert.h>
 #include "macros.h"
 
 /* bundeling all these statics and defines into a struct? */

@@ -36,7 +36,7 @@
 #include "optimize_network.h"
 #include "symmetries.h"
 #include "options.h"
-#include "debug.h"
+#include <assert.h>
 #include "RedDM.h"
 
 const char *argp_program_version     = "T3NS " T3NS_VERSION;

@@ -24,7 +24,7 @@
 #include "sort.h"
 #include "macros.h"
 #include "network.h"
-#include "debug.h"
+#include <assert.h>
 #include "bookkeeper.h"
 
 /* ========================================================================== */

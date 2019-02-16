@@ -76,6 +76,11 @@ if(DAVID_INFO)
     add_definitions(-DDAVID_INFO)
 endif(DAVID_INFO)
 
+if (NOT CMAKE_BUILD_TYPE)
+    set (CMAKE_BUILD_TYPE "Release" CACHE STRING "Choose the type of build, options are: Debug Release RelWithDebInfo MinSizeRel." FORCE)
+endif()
+message("-- The CMake build type is ${CMAKE_BUILD_TYPE}")
+
 # for aggressive optimization or not
 if(ENABLE_XHOST)
     if("${CMAKE_C_COMPILER_ID}" MATCHES "Intel")

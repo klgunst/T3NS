@@ -22,7 +22,7 @@
 #include "network.h"
 #include "sort.h"
 #include "macros.h"
-#include "debug.h"
+#include <assert.h>
 #include "bookkeeper.h"
 
 #ifdef T3NS_MKL

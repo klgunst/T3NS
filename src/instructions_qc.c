@@ -22,7 +22,7 @@
 #include "hamiltonian_qc.h"
 #include "opType.h"
 #include "network.h"
-#include "debug.h"
+#include <assert.h>
 #include "macros.h"
 
 int * cinstrline; // current instructionline

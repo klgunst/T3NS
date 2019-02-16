@@ -22,7 +22,7 @@
 #include "instructions_nn_hubbard.h"
 #include "hamiltonian_nn_hubbard.h"
 #include "network.h"
-#include "debug.h"
+#include <assert.h>
 #include "macros.h"
 
 /* ========================================================================== */

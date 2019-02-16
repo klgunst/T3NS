@@ -25,7 +25,7 @@
 
 #include "sparseblocks.h"
 #include "macros.h"
-#include "debug.h"
+#include <assert.h>
 
 void init_null_sparseblocks(struct sparseblocks * blocks)
 {

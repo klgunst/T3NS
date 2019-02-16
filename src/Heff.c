@@ -21,7 +21,7 @@
 #include "Heff.h"
 #include "symmetries.h"
 #include "macros.h"
-#include "debug.h"
+#include <assert.h>
 #include "bookkeeper.h"
 #include "sort.h"
 #include "network.h"

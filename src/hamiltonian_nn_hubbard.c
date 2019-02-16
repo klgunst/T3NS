@@ -24,7 +24,7 @@
 #include "network.h"
 #include "bookkeeper.h"
 #include "macros.h"
-#include "debug.h"
+#include <assert.h>
 #include "io_to_disk.h"
 
 static struct hamdata {

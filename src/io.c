@@ -22,7 +22,7 @@
 #include "io.h"
 #include "options.h"
 #include "macros.h"
-#include "debug.h"
+#include <assert.h>
 #include "network.h"
 #include "bookkeeper.h"
 #include "symmetries.h"

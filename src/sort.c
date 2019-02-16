@@ -21,7 +21,7 @@
 
 #include "sort.h"
 #include "macros.h"
-#include "debug.h"
+#include <assert.h>
 
 struct sort_struct
 {

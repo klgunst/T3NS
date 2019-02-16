@@ -20,7 +20,7 @@
 
 #include "symmetry_su2.h"
 #include "macros.h"
-#include "debug.h"
+#include <assert.h>
 #include "Wigner.h"
 
 static inline double bracket(const int twoj)    {return sqrt(twoj + 1);}

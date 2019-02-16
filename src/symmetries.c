@@ -21,7 +21,7 @@
 
 #include "symmetries.h"
 #include "macros.h"
-#include "debug.h"
+#include <assert.h>
 
 int get_max_irrep(int (*prop1)[MAX_SYMMETRIES], int nr1, 
                   int (*prop2)[MAX_SYMMETRIES], int nr2,

@@ -23,7 +23,7 @@
 #include "macros.h"
 #include "options.h"
 #include "io.h"
-#include "debug.h"
+#include <assert.h>
 
 #define STRTOKSEP " ,\t\n"
 

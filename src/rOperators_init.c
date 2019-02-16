@@ -21,7 +21,7 @@
 #include "tensorproducts.h"
 #include "bookkeeper.h"
 #include "network.h"
-#include "debug.h"
+#include <assert.h>
 #include "macros.h"
 #include "sort.h"
 #include "hamiltonian.h"

@@ -23,7 +23,7 @@
 #include "network.h"
 #include "symmetries.h"
 #include "macros.h"
-#include "debug.h"
+#include <assert.h>
 #include "hamiltonian.h"
 
 struct bookkeeper bookie;

@@ -27,7 +27,7 @@
 #include <lapacke.h>
 #endif
 
-#include "debug.h"
+#include <assert.h>
 #include "davidson.h"
 #include "macros.h"
 

@@ -24,7 +24,7 @@
 #include "network.h"
 #include "symmetries.h"
 #include "macros.h"
-#include "debug.h"
+#include <assert.h>
 
 void init_null_symsecs(struct symsecs * symsec)
 {

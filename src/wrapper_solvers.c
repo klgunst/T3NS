@@ -18,7 +18,7 @@
 #include <string.h>
 
 #include "wrapper_solvers.h"
-#include "debug.h"
+#include <assert.h>
 #include "davidson.h"
 
 int sparse_eigensolve(double * result, double * energy, int size, int max_vecs, 

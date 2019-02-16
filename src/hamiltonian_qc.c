@@ -26,7 +26,7 @@
 #include "network.h"
 #include "bookkeeper.h"
 #include "macros.h"
-#include "debug.h"
+#include <assert.h>
 #include "opType.h"
 #include "io_to_disk.h"
 

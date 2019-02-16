@@ -29,7 +29,7 @@
 #include "symsecs.h"
 #include "network.h"
 #include "macros.h"
-#include "debug.h"
+#include <assert.h>
 #include "hamiltonian.h"
 
 static void write_symsec_to_disk(const hid_t id, const struct symsecs * const 

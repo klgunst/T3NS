@@ -20,7 +20,7 @@
 #include "symmetry_z2.h"
 #include "symmetries.h"
 #include "macros.h"
-#include "debug.h"
+#include <assert.h>
 
 int Z2_get_max_irrep(void)
 {

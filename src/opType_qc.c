@@ -21,7 +21,7 @@
 #include "network.h"
 #include "hamiltonian_qc.h"
 #include "macros.h"
-#include "debug.h"
+#include <assert.h>
 
 static enum{QC, QC_SU2, DOCI} ham;
 

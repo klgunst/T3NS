@@ -18,7 +18,7 @@
 #include <stdio.h>
 
 #include "siteTensor.h"
-#include "debug.h"
+#include <assert.h>
 #include "network.h"
 #include "bookkeeper.h"
 #include "sort.h"

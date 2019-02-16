@@ -19,7 +19,7 @@
 
 #include "tensorproducts.h"
 #include "macros.h"
-#include "debug.h"
+#include <assert.h>
 #include "hamiltonian.h"
 
 /* Builds a naive sectors list, just a direct product of the different ranges

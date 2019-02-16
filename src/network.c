@@ -22,7 +22,7 @@
 #include "network.h"
 #include "io.h"
 #include "macros.h"
-#include "debug.h"
+#include <assert.h>
 
 struct network netw;
 

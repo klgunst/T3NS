@@ -23,7 +23,7 @@
 #include "network.h"
 #include "rOperators.h"
 #include "macros.h"
-#include "debug.h"
+#include <assert.h>
 #include "symmetries.h"
 #include "bookkeeper.h"
 

@@ -18,7 +18,7 @@
 #include <stdio.h>
 
 #include "rOperators.h"
-#include "debug.h"
+#include <assert.h>
 #include "network.h"
 #include "bookkeeper.h"
 #include "hamiltonian.h"

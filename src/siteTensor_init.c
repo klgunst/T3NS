@@ -25,7 +25,7 @@
 #include "tensorproducts.h"
 #include "siteTensor.h"
 #include "macros.h"
-#include "debug.h"
+#include <assert.h>
 #include "sort.h"
 
 /* ============================================================================================== */
