@@ -216,7 +216,7 @@ static void update_selected_blocks(const struct rOperators Operator[2], struct r
 static int get_tels_operators(struct update_data * const data, const int * const ops, const int 
                               curr_unique, const struct rOperators Operator[2], const struct rOperators * const newops);
 
-#ifdef DEBUG
+#ifndef NDEBUG
 static int check_correctness(const struct rOperators Operator[2], const struct siteTensor * 
                              const tens);
 
@@ -1106,7 +1106,7 @@ static int get_tels_operators(struct update_data * data, const int * ops,
         return 1;
 }
 
-#ifdef DEBUG
+#ifndef NDEBUG
 static int check_correctness(const struct rOperators * Operator, 
                              const struct siteTensor * tens)
 {

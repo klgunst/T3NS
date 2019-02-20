@@ -100,7 +100,7 @@ static void init_david_dat(const double * result, const double * diagonal,
         david_dat.eigvalues  = safe_malloc(max_vecs, double);
 }
 
-#ifdef DEBUG
+#ifndef NDEBUG
 static void check_ortho(void)
 {
         double * Vi = david_dat.V;
@@ -123,7 +123,7 @@ static void new_search_vector(void)
         }
         double a = 1 / cblas_dnrm2(david_dat.size, david_dat.vec_t, 1);
         cblas_dscal(david_dat.size, a, david_dat.vec_t, 1);
-#ifdef DEBUG
+#ifndef NDEBUG
         check_ortho();
 #endif
         for(int i = 0; i < david_dat.size; ++i) { Vi[i] = david_dat.vec_t[i]; }

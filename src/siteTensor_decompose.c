@@ -573,7 +573,7 @@ static void get_block_for_svd(double ** mem, const int * const centerdims, const
     QN_TYPE * qnmbr = &original->qnumbers[original->nrsites * block];
     int orthostart = 0;
     int centerstart = 0;
-#ifdef DEBUG
+#ifndef NDEBUG
     int orthocnt, centercnt;
 #endif
 
@@ -593,7 +593,7 @@ static void get_block_for_svd(double ** mem, const int * const centerdims, const
       else
         orthostart += orthodims[i];
     assert(i != orthonrqn);
-#ifdef DEBUG
+#ifndef NDEBUG
     orthocnt = orthodims[i];
 #endif
 
@@ -614,7 +614,7 @@ static void get_block_for_svd(double ** mem, const int * const centerdims, const
         centerstart += centerdims[i];
     }
     assert(i != centernrqn);
-#ifdef DEBUG
+#ifndef NDEBUG
     centercnt = centerdims[i];
 #endif
 

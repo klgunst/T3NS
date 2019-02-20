@@ -161,7 +161,7 @@ static void opType_get_string(const struct opType * const ops, const int nr,
                               const int typ, const int k, int bsize, 
                               char buffer[bsize]);
 
-#ifdef DEBUG
+#ifndef NDEBUG
 static void opType_arr_print(void);
 
 void opType_print(const struct opType * const ops);
@@ -682,7 +682,7 @@ static void opType_get_string(const struct opType * const ops, const int nr,
         string_from_tag(nr, typ, tags, nr_tags, base_tag, bsize, buffer);
 }
 
-#ifdef DEBUG
+#ifndef NDEBUG
 static void opType_arr_print(void)
 {
         int i;

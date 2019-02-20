@@ -55,7 +55,7 @@ static QN_TYPE change_old_to_new_site(const QN_TYPE old, const int dimold, const
 
 static int * make_oldtonew(const struct symsecs * const internalss, const int bond);
 
-#ifdef DEBUG
+#ifndef NDEBUG
 static int consistency_check_for_update_physical(const struct rOperators * const rops, 
     const struct siteTensor * const tens);
 #endif
@@ -467,7 +467,7 @@ static void unique_rOperators_append_phys(struct rOperators * const uniquerops,
       {
         const int prevoperator = curr_instr[0];
         const int siteoperator = curr_instr[1];
-#ifdef DEBUG
+#ifndef NDEBUG
         const int nextoperator = curr_instr[2];
 #endif
         const struct sparseblocks * const prevBlock = &prevrops->operators[prevoperator];
@@ -731,7 +731,7 @@ static int * make_oldtonew(const struct symsecs * const internalss, const int bo
   return result;
 }
 
-#ifdef DEBUG
+#ifndef NDEBUG
 static int consistency_check_for_update_physical(const struct rOperators * const rops, 
     const struct siteTensor * const tens)
 {

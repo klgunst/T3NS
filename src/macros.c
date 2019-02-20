@@ -22,7 +22,7 @@
 
 static void print_status(void)
 {
-#ifdef DEBUG
+#ifndef NDEBUG
         /* /proc/[pid]/status contains all human readible status, if i want to
          * get the memory later on and am only interested in that (e.g. to
          * write to a file every x seconds), it is better to read from

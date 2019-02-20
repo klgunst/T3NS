@@ -72,7 +72,7 @@ void destroy_sparseblocks(struct sparseblocks * blocks)
 void kick_zero_blocks(struct sparseblocks * blocks, int nr_blocks)
 {
         int start = blocks->beginblock[0];
-#ifdef DEBUG
+#ifndef NDEBUG
         const int prevsize = blocks->beginblock[nr_blocks];
 #endif
 
@@ -155,7 +155,7 @@ void do_contract(const struct contractinfo * cinfo, EL_TYPE ** tel,
         }
 }
 
-#ifdef DEBUG
+#ifndef NDEBUG
 void print_contractinfo(const struct contractinfo * cinfo)
 {
         printf("Contract inf = {\n"
