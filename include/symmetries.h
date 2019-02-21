@@ -177,7 +177,7 @@ double prefactor_pAppend(const int * symv, int is_left, enum symmetrygroup sg);
  * @param sgs [in] The symmetrygroups.
  * @param nrsy [in] The number of symmetrygroups.
  */
-double prefactor_adjoint(int ** irreps, char c, enum symmetrygroup * sgs, 
+double prefactor_adjoint(int ** irreps, char c, const enum symmetrygroup * sgs, 
                          int nrsy);
 
 double prefactor_pUpdate(int ** irrep_arr, int is_left, 

@@ -157,7 +157,7 @@ struct Heffdata {
          *
          * The instructions shoulde besorted such that instructions which have
          * a same combination of MPOs for the @ref rOperators are concurrent. */
-        int * instructions;
+        int (*instructions)[3];
         /// The beginning of the instructions for every @ref MPOs combination.
         int * instrbegin;
         /// The prefactors for the instructions.

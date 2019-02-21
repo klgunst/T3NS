@@ -16,11 +16,10 @@
 */
 #pragma once
 
-void NN_H_fetch_pUpdate(int ** const instructions, double ** const prefactors, 
-    int ** const hamsymsecs_of_new, int * const nr_instructions, const int bond, const int is_left);
+void NN_H_fetch_pUpdate(struct instructionset * instructions, 
+                        int bond, int is_left);
 
-void NN_H_fetch_merge(int ** const instructions, int * const nr_instructions, 
-    double ** const prefactors, const int bond, int isdmrg);
+void NN_H_fetch_merge(struct instructionset * instructions, int isdmrg);
 
-void NN_H_fetch_bUpdate(struct instructionset * const instructions, const int bond, const int 
-    is_left);
+void NN_H_fetch_bUpdate(struct instructionset * instructions, 
+                        int bond, int is_left);

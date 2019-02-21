@@ -274,7 +274,7 @@ static void init_uniqueOperators(struct rOperators * const uniqueOps, const stru
         count = 0;
         curr_instr = -1;
         while (get_next_unique_instr(&curr_instr, instructions))
-                uniqueOps->hss_of_ops[count++] = instructions->hss_of_new[instructions->instr[3*curr_instr+2]];
+                uniqueOps->hss_of_ops[count++] = instructions->hss_of_new[instructions->instr[curr_instr][2]];
         assert(count == uniqueOps->nrops);
 
         /* initializing the stensors */
@@ -470,7 +470,7 @@ static void init_instrhelper(const struct instructionset * instructions,
         int * nrinstrhelper = safe_calloc(nrunique, int);
         idh.nrMPO_combos = 0;
         for (int i = 0; i < nrunique; ++i) {
-                int * currinstr = &instructions->instr[3 * instrunique[i]];
+                int * currinstr = &instructions->instr[instrunique[i]][0];
                 QN_TYPE currMPOc = hss_of_ops[0][currinstr[0]] +
                         hss_of_ops[1][currinstr[1]] * dimhss +
                         instructions->hss_of_new[currinstr[2]] * dimhss * dimhss;
@@ -505,7 +505,7 @@ static void init_instrhelper(const struct instructionset * instructions,
                 nrinstrhelper[i] = 0;
         }
         for (int i = 0; i < nrunique; ++i) {
-                int * currinstr = &instructions->instr[3 * instrunique[i]];
+                int * currinstr = &instructions->instr[instrunique[i]][0];
                 QN_TYPE currMPOc = hss_of_ops[0][currinstr[0]] +
                         hss_of_ops[1][currinstr[1]] * dimhss +
                         instructions->hss_of_new[currinstr[2]] * dimhss * dimhss;
@@ -1065,8 +1065,7 @@ static void update_selected_blocks(const struct rOperators * Operator,
 
         int (*instr_id)[2] = NULL;
         while (find_matching_instr(&instr_id, data)) {
-                const int * const ops = 
-                        &instructions->instr[instructions->step * (*instr_id)[0]];
+                const int * const ops = &instructions->instr[(*instr_id)[0]][0];
 
                 /* checks if the operators belongs to the right hss 
                  * and if the blocks aren't zero */

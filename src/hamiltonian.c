@@ -88,7 +88,7 @@ void get_hamiltoniansymsecs(struct symsecs * const res, const int bond)
 {
         switch(ham) {
         case QC :
-                QC_get_hamiltoniansymsecs(res, bond);
+                QC_get_hamiltoniansymsecs(res);
                 break;
         case NN_HUBBARD :
                 NN_H_get_hamiltoniansymsecs(res, bond);

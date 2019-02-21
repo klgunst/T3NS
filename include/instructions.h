@@ -23,7 +23,7 @@
  */
 
 struct instructionset {
-        int * instr;
+        int (*instr)[3];
         int   step;
 
         double * pref;
@@ -48,17 +48,17 @@ struct instructionset {
  * to happen.  \param [in] is_left Boolean saying if we are going 'left' or
  * 'right'.
  */
-void fetch_pUpdate(int ** const instructions, double ** const prefactors, int
+void fetch_pUpdate(int (**instructions)[3], double ** const prefactors, int
                    ** const hamsymsecs_of_new, int * const nr_instructions,
                    const int bond, const int is_left);
 
 void fetch_bUpdate(struct instructionset* const instructions, const int bond,
                    const int isleft);
 
-void fetch_merge(int ** const instructions, int * const nr_instructions, 
+void fetch_merge(int (**instructions)[3], int * const nr_instructions, 
                  double** const prefactors, const int bond, int isdmrg);
 
-void sortinstructions_toMPOcombos(int ** const instructions, int ** const
+void sortinstructions_toMPOcombos(int (**instructions)[3], int ** const
                                   instrbegin, double ** const prefactors, const
                                   int nr_instructions, const int step, int *
                                   const hss_of_Ops[step], int ** const
@@ -69,6 +69,10 @@ int get_next_unique_instr(int * const curr_instr, const struct instructionset *
 
 void destroy_instructionset(struct instructionset * const instructions);
 
-void print_instructions(int * const instructions, double * const prefactors,
+void print_instructions(int (*instructions)[3], double * const prefactors,
                         int * const hss, const int nr_instructions, const int
                         bond, const int is_left, const char kind, int isdmrg);
+
+void start_fill_instruction(struct instructionset * instructions, int step);
+
+void fill_instruction(int id1, int id2, int id3, double pref);

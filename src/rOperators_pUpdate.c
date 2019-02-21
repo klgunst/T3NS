@@ -29,13 +29,13 @@
 /* ==================== DECLARATION STATIC FUNCTIONS ======================== */
 /* ========================================================================== */
 
-static void unique_rOperators_append_phys(struct rOperators * const uniquerops,
-     const int * const instructions, const int * const hamsymsecs_of_new, const int nr_instructions,
-     const struct rOperators * const fullrops);
+static void unique_rOperators_append_phys(struct rOperators * uniquerops,
+                                          int (*instructions)[3], const int * hamsymsecs_of_new, 
+                                          int nr_instructions, const struct rOperators * prevrops);
 
-static void initialize_unique_rOperators_append_phys(struct rOperators * const uniquerops, 
-    const int bond_of_operator, const int is_left, const int * const instructions, 
-    const int * const hamsymsecs_of_new, const int nr_instructions);
+static void initialize_unique_rOperators_append_phys(struct rOperators * uniquerops, 
+                                                     int bond_of_operator, int is_left, int (*instructions)[3], 
+                                                     const int * hamsymsecs_of_new, int nr_instructions);
 
 static double calculate_prefactor_append_physical(const int indexes[], const struct symsecs 
     symarr[], const int is_left);
@@ -43,9 +43,9 @@ static double calculate_prefactor_append_physical(const int indexes[], const str
 static void get_separate_qnumbers(int indexes[], const QN_TYPE * const qnumbers, int maxdims[], 
     const int couplings);
 
-static int get_compressed_instructions(const int * const instructions, const int nr_instructions, 
-    const int * const prev_hss, const int site, const int * const new_hss, int ** const compr_instr,
-    int ** const compr_hss);
+static int get_compressed_instructions(int (*instructions)[3], int nr_instructions, 
+    const int * prev_hss, int site, const int * new_hss, int (**compr_instr)[3],
+    int ** compr_hss);
 
 static QN_TYPE change_new_to_old_ops(const QN_TYPE new, const int dimold, const int dimnew, 
     int * const oldtonew);
@@ -78,7 +78,7 @@ void rOperators_append_phys(struct rOperators * const newrops, const struct rOpe
    *
    * The instructions make a condensed set of renormalized operators.
    */
-  int *instructions, *hamsymsecs_of_new, nr_instructions;
+  int (*instructions)[3], *hamsymsecs_of_new, nr_instructions;
   double *prefactors;
 
   /* Here the result of all the unique physical appends is stored */
@@ -335,9 +335,9 @@ void update_rOperators_physical(struct rOperators * const rops, const struct sit
 /* ===================== DEFINITION STATIC FUNCTIONS ======================== */
 /* ========================================================================== */
 
-static void unique_rOperators_append_phys(struct rOperators * const uniquerops,
-    const int * const instructions, const int * const hamsymsecs_of_new, const int nr_instructions,
-     const struct rOperators * const prevrops)
+static void unique_rOperators_append_phys(struct rOperators * uniquerops,
+                                          int (*instructions)[3], const int * hamsymsecs_of_new, 
+                                          int nr_instructions, const struct rOperators * prevrops)
 {
   /* The Lsite for right, and Rsite for left */
   const int site = netw.bonds[prevrops->bond_of_operator][prevrops->is_left];
@@ -348,7 +348,7 @@ static void unique_rOperators_append_phys(struct rOperators * const uniquerops,
   const int couplings = 3;
   int maxdims[3 * couplings];
   int qnbonds[3 * couplings];
-  int *compr_instr;
+  int (*compr_instr)[3];
   int *compr_hss;
   int nrinstr;
   get_bonds_of_site(site,  bonds);
@@ -381,7 +381,7 @@ static void unique_rOperators_append_phys(struct rOperators * const uniquerops,
   rOperators_give_qnumberbonds(uniquerops, qnbonds);
   get_maxdims_of_bonds(maxdims, qnbonds, 3 * couplings);
   nrinstr = get_compressed_instructions(instructions, nr_instructions, prevrops->hss_of_ops, site, 
-      hamsymsecs_of_new, &compr_instr, &compr_hss);
+                                        hamsymsecs_of_new, &compr_instr, &compr_hss);
 
   /* Now loop over different symsecs of uniquerops, find the symsecs of the original that correspond
    * with it and of the siteoperator, and loop over all these possibilities also.
@@ -429,8 +429,7 @@ static void unique_rOperators_append_phys(struct rOperators * const uniquerops,
       const int hamsymsec_site = possible_prods[prod * 2];
       const int hamsymsec_old  = possible_prods[prod * 2 + 1];
       int instr;
-      int * curr_instr = compr_instr;
-      int * curr_hss = compr_hss;
+      int *curr_hss = compr_hss;
 
       /* oldqnumber is bra(alpha), ket(alpha), MPO for left
        * and           bra(beta), ket(beta), MPO for right */ 
@@ -463,12 +462,12 @@ static void unique_rOperators_append_phys(struct rOperators * const uniquerops,
       newblock = newsec - uniquerops->begin_blocks_of_hss[hamsymsec_new];
 
       /* Now loop over the different instructions and only execute the unique ones. */
-      for (instr = 0; instr < nrinstr; ++instr, ++nextBlock, curr_instr += 3, curr_hss += 3)
+      for (instr = 0; instr < nrinstr; ++instr, ++nextBlock, curr_hss += 3)
       {
-        const int prevoperator = curr_instr[0];
-        const int siteoperator = curr_instr[1];
+        const int prevoperator = compr_instr[instr][0];
+        const int siteoperator = compr_instr[instr][1];
 #ifndef NDEBUG
-        const int nextoperator = curr_instr[2];
+        const int nextoperator = compr_instr[instr][2];
 #endif
         const struct sparseblocks * const prevBlock = &prevrops->operators[prevoperator];
 
@@ -513,9 +512,9 @@ static void unique_rOperators_append_phys(struct rOperators * const uniquerops,
   safe_free(compr_hss);
 }
 
-static void initialize_unique_rOperators_append_phys(struct rOperators * const uniquerops, 
-    const int bond_of_operator, const int is_left, const int * const instructions, 
-    const int * const hamsymsecs_of_new, const int nr_instructions)
+static void initialize_unique_rOperators_append_phys(struct rOperators * uniquerops, 
+                                                     int bond_of_operator, int is_left, int (*instructions)[3], 
+                                                     const int * hamsymsecs_of_new, int nr_instructions)
 {
   int i;
   int count;
@@ -527,12 +526,12 @@ static void initialize_unique_rOperators_append_phys(struct rOperators * const u
   count = 0;
   for (i = 0; i < nr_instructions; ++i)
   {
-    const int prevoperator = instructions[i * 3 + 0];
-    const int siteoperator = instructions[i * 3 + 1];
-    const int nextoperator = instructions[i * 3 + 2];
-    if (i == 0 || prevoperator != instructions[(i - 1) * 3 + 0] ||
-        siteoperator != instructions[(i - 1) * 3 + 1] || 
-        hamsymsecs_of_new[nextoperator] != hamsymsecs_of_new[instructions[(i-1) * 3 + 2]])
+    const int prevoperator = instructions[i][0];
+    const int siteoperator = instructions[i][1];
+    const int nextoperator = instructions[i][2];
+    if (i == 0 || prevoperator != instructions[i - 1][0] ||
+        siteoperator != instructions[i - 1][1] || 
+        hamsymsecs_of_new[nextoperator] != hamsymsecs_of_new[instructions[i-1][2]])
       ++count;
   }
   uniquerops->nrops = count;
@@ -542,12 +541,12 @@ static void initialize_unique_rOperators_append_phys(struct rOperators * const u
   count = 0;
   for (i = 0; i < nr_instructions; ++i)
   {
-    const int prevoperator = instructions[i * 3 + 0];
-    const int siteoperator = instructions[i * 3 + 1];
-    const int nextoperator = instructions[i * 3 + 2];
-    if (i == 0 || prevoperator != instructions[(i - 1) * 3 + 0] ||
-        siteoperator != instructions[(i - 1) * 3 + 1] || 
-        hamsymsecs_of_new[nextoperator] != hamsymsecs_of_new[instructions[(i-1) * 3 + 2]])
+    const int prevoperator = instructions[i][0];
+    const int siteoperator = instructions[i][1];
+    const int nextoperator = instructions[i][2];
+    if (i == 0 || prevoperator != instructions[i - 1][0] ||
+        siteoperator != instructions[i - 1][1] || 
+        hamsymsecs_of_new[nextoperator] != hamsymsecs_of_new[instructions[i-1][2]])
       uniquerops->hss_of_ops[count++] = hamsymsecs_of_new[nextoperator];
   }
   assert(count == uniquerops->nrops);
@@ -615,33 +614,33 @@ static void get_separate_qnumbers(int indexes[], const QN_TYPE * const qnumbers,
   }
 }
 
-static int get_compressed_instructions(const int * const instructions, const int nr_instructions, 
-    const int * const prev_hss, const int site, const int * const new_hss, int ** const compr_instr,
-    int ** const compr_hss)
+static int get_compressed_instructions(int (*instructions)[3], int nr_instructions, 
+    const int * prev_hss, int site, const int * new_hss, int (**compr_instr)[3],
+    int ** compr_hss)
 {
   int instr;
   int nrinstr = 0;
-  *compr_instr = safe_malloc(nr_instructions * 3, int);
+  *compr_instr = safe_malloc(nr_instructions, **compr_instr);
   *compr_hss = safe_malloc(nr_instructions * 3, int);
 
   /* Now loop over the different instructions and only execute the unique ones. */
   for (instr = 0; instr < nr_instructions; ++instr)
   {
-    const int prevoperator = instructions[instr * 3 + 0];
-    const int siteoperator = instructions[instr * 3 + 1];
-    const int nextoperator = instructions[instr * 3 + 2];
+    const int prevoperator = instructions[instr][0];
+    const int siteoperator = instructions[instr][1];
+    const int nextoperator = instructions[instr][2];
 
     /* This instruction is the same as the previous one, thus already executed, just skip it. */
     /* If it is the first instruction, you have to execute it for sure */
-    if (instr != 0 && prevoperator == instructions[(instr - 1) * 3 + 0] &&
-        siteoperator == instructions[(instr - 1) * 3 + 1] && 
-        new_hss[nextoperator] == new_hss[instructions[(instr - 1) * 3 + 2]])
+    if (instr != 0 && prevoperator == instructions[instr - 1][0] &&
+        siteoperator == instructions[instr - 1][1] && 
+        new_hss[nextoperator] == new_hss[instructions[instr - 1][2]])
       continue;
 
     /* save the new instructions */
-    (*compr_instr)[3 * nrinstr + 0] = instructions[instr * 3 + 0];
-    (*compr_instr)[3 * nrinstr + 1] = instructions[instr * 3 + 1];
-    (*compr_instr)[3 * nrinstr + 2] = instructions[instr * 3 + 2];
+    (*compr_instr)[ nrinstr][0] = instructions[instr][0];
+    (*compr_instr)[nrinstr][1] = instructions[instr][1];
+    (*compr_instr)[nrinstr][2] = instructions[instr][2];
 
     (*compr_hss)[3 * nrinstr + 0] = prev_hss[prevoperator];
     (*compr_hss)[3 * nrinstr + 1] = symsec_siteop(siteoperator, site);
@@ -649,8 +648,8 @@ static int get_compressed_instructions(const int * const instructions, const int
     ++nrinstr;
   }
 
-  *compr_instr = realloc(*compr_instr, nrinstr * 3 * sizeof(int));
-  *compr_hss   = realloc(*compr_hss, nrinstr * 3 * sizeof(int));
+  *compr_instr = realloc(*compr_instr, nrinstr * sizeof **compr_instr);
+  *compr_hss   = realloc(*compr_hss, nrinstr * 3 * sizeof **compr_hss);
   return nrinstr;
 }
 

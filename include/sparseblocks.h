@@ -157,7 +157,7 @@ struct contractinfo {
 void do_contract(const struct contractinfo * cinfo, EL_TYPE ** tel, 
                  double alpha, double beta);
 
-#ifdef DEBUG
+#ifndef NDEBUG
 /**
  * @brief Debug functionality for printing of contractinfo.
  *

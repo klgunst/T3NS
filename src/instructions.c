@@ -33,26 +33,26 @@
 
 static void sort_instructions(struct instructionset * const instructions);
 
-static void sort_instructionsx(int ** instructions, double ** prefactors, 
+static void sort_instructionsx(int (**instructions)[3], double ** prefactors, 
                                const int nr_instructions, const int step);
 
-static void print_DMRG_instructions(int * const instructions, 
+static void print_DMRG_instructions(int (*instructions)[3],
+                                    double * const prefactors, 
+                                    int * const hss, const int nr_instructions, 
+                                    const int bond, const int is_left);
+
+static void print_T3NS_instructions(int (*instructions)[3],
                                     double * const prefactors, int * const hss, 
                                     const int nr_instructions, const int bond, 
                                     const int is_left);
 
-static void print_T3NS_instructions(int * const instructions, 
-                                    double * const prefactors, int * const hss, 
-                                    const int nr_instructions, const int bond, 
-                                    const int is_left);
-
-static void print_merge_instructions(int * const instructions, 
+static void print_merge_instructions(int (*instructions)[3], 
                                      double * const prefactors, 
                                      const int nr_instructions, const int bond, int isdmrg);
 
 /* ========================================================================== */
 
-void fetch_pUpdate(int ** const instructions, double ** const prefactors, 
+void fetch_pUpdate(int (**instructions)[3], double ** prefactors, 
                    int ** const hamsymsecs_of_new, int * const nr_instructions, 
                    const int bond, const int is_left)
 {
@@ -66,8 +66,11 @@ void fetch_pUpdate(int ** const instructions, double ** const prefactors,
                 *nr_instructions = instr.nr_instr;
                 break;
         case NN_HUBBARD :
-                NN_H_fetch_pUpdate(instructions, prefactors, hamsymsecs_of_new, 
-                                   nr_instructions, bond, is_left);
+                NN_H_fetch_pUpdate(&instr, bond, is_left);
+                *instructions = instr.instr;
+                *prefactors = instr.pref;
+                *hamsymsecs_of_new = instr.hss_of_new;
+                *nr_instructions = instr.nr_instr;
                 break;
         default:
                 fprintf(stderr, "%s@%s: Unrecognized Hamiltonian.\n", 
@@ -95,7 +98,7 @@ void fetch_bUpdate(struct instructionset * const instructions, const int bond,
         sort_instructions(instructions);
 }
 
-void fetch_merge(int ** const instructions, int * const nr_instructions, 
+void fetch_merge(int (**instructions)[3], int * const nr_instructions, 
                  double** const prefactors, const int bond, int isdmrg)
 {
         struct instructionset instr;
@@ -108,8 +111,10 @@ void fetch_merge(int ** const instructions, int * const nr_instructions,
                 *nr_instructions = instr.nr_instr;
                 break;
         case NN_HUBBARD :
-                NN_H_fetch_merge(instructions, nr_instructions, 
-                                 prefactors, bond, isdmrg);
+                NN_H_fetch_merge(&instr, isdmrg);
+                *instructions = instr.instr;
+                *prefactors = instr.pref;
+                *nr_instructions = instr.nr_instr;
                 break;
         default:
                 fprintf(stderr, "%s@%s: Unrecognized Hamiltonian.\n", 
@@ -118,7 +123,7 @@ void fetch_merge(int ** const instructions, int * const nr_instructions,
         }
 }
 
-void sortinstructions_toMPOcombos(int ** const instructions, 
+void sortinstructions_toMPOcombos(int (**instructions)[3], 
                                   int ** const instrbegin, 
                                   double ** const prefactors, 
                                   const int nr_instructions, const int step, 
@@ -126,7 +131,7 @@ void sortinstructions_toMPOcombos(int ** const instructions,
                                   int ** const MPOinstr, int * const nrMPOinstr)
 {
         int * temp = safe_malloc(nr_instructions, int); 
-        int * newinstructions = safe_malloc(nr_instructions * step , int);
+        int (*newinstructions)[3] = safe_malloc(nr_instructions, **instructions);
         double * newpref = safe_malloc(nr_instructions, double);
         int * idx;
         int i;
@@ -137,7 +142,7 @@ void sortinstructions_toMPOcombos(int ** const instructions,
                 int j;
                 temp[i] = 0;
                 for (j = step - 1; j >= 0; --j)
-                        temp[i] = hss_of_Ops[j][(*instructions)[step * i + j]] + 
+                        temp[i] = hss_of_Ops[j][(*instructions)[i][j]] + 
                                 temp[i] * hssdim;
         }
 
@@ -152,16 +157,14 @@ void sortinstructions_toMPOcombos(int ** const instructions,
         ++(*nrMPOinstr);
         newpref[0] = (*prefactors)[idx[0]];
         for (i = 0; i < step; ++i)
-                newinstructions[0 * step + i] = 
-                        (*instructions)[idx[0] * step + i];
+                newinstructions[0][i] = (*instructions)[idx[0]][i];
         for (i = 1; i < nr_instructions; ++i) {
                 int j;
                 assert((*MPOinstr)[(*nrMPOinstr) - 1] <= temp[idx[i]]);
 
                 newpref[i] = (*prefactors)[idx[i]];
                 for (j = 0; j < step; ++j)
-                        newinstructions[i * step + j] = 
-                                (*instructions)[idx[i] * step + j];
+                        newinstructions[i][j] = (*instructions)[idx[i]][j];
 
                 if ((*MPOinstr)[(*nrMPOinstr) - 1] != temp[idx[i]]) {
                         (*instrbegin)[(*nrMPOinstr)] = i;
@@ -199,16 +202,15 @@ int get_next_unique_instr(int * const curr_instr,
                 ++*curr_instr;
                 return 1;
         } else {
-                const int step = instructions->step;
-                const int old1 = instructions->instr[step * *curr_instr];
-                const int old2 = instructions->instr[step * *curr_instr + 1];
-                const int old3 = instructions->instr[step * *curr_instr + 2];
+                const int old1 = instructions->instr[*curr_instr][0];
+                const int old2 = instructions->instr[*curr_instr][1];
+                const int old3 = instructions->instr[*curr_instr][2];
                 const int hss_old = instructions->hss_of_new[old3];
 
                 for (++*curr_instr; *curr_instr < instructions->nr_instr; ++*curr_instr) {
-                        const int new1 = instructions->instr[step * *curr_instr];
-                        const int new2 = instructions->instr[step * *curr_instr + 1];
-                        const int new3 = instructions->instr[step * *curr_instr + 2];
+                        const int new1 = instructions->instr[*curr_instr][0];
+                        const int new2 = instructions->instr[*curr_instr][1];
+                        const int new3 = instructions->instr[*curr_instr][2];
                         const int hss_new = instructions->hss_of_new[new3];
                         if (old1 != new1 || old2 != new2 || hss_old != hss_new)
                                 return 1;
@@ -217,7 +219,7 @@ int get_next_unique_instr(int * const curr_instr,
         }
 }
 
-void print_instructions(int * const instructions, double * const prefactors, 
+void print_instructions(int (*instructions)[3], double * const prefactors, 
                         int * const hss, const int nr_instructions, 
                         const int bond, const int is_left, const char kind, int isdmrg)
 {
@@ -249,7 +251,7 @@ static void sort_instructions(struct instructionset * const instructions)
         const int nr_instr = instructions->nr_instr;
         int max[step];
         int *idx;
-        int *instr_new  = safe_malloc(nr_instr * step, int);
+        int (*instr_new)[3]  = safe_malloc(nr_instr, *instr_new);
         int *array      = safe_malloc(nr_instr, int);
         double *prefnew = instructions->pref == NULL ? 
                 NULL : safe_malloc(nr_instr, double);
@@ -258,8 +260,8 @@ static void sort_instructions(struct instructionset * const instructions)
         for (i = 0; i < step; ++i) {
                 max[i] = -1;
                 for (j = 0; j < nr_instr; ++j)
-                        max[i] = max[i] < instructions->instr[j * step + i] + 1 ? 
-                                instructions->instr[j * step + i] + 1 : max[i];
+                        max[i] = max[i] < instructions->instr[j][i] + 1 ? 
+                                instructions->instr[j][i] + 1 : max[i];
         }
         for (i = step - 2; i >= 0; --i) max[i] *= max[i + 1];
         for (i = 0; i < step - 1; ++i) max[i]  = max[i + 1];
@@ -268,13 +270,13 @@ static void sort_instructions(struct instructionset * const instructions)
         for (i = 0; i < nr_instr; ++i) {
                 array[i] = 0;
                 for (j = 0; j < step; ++j)
-                        array[i] += max[j] * instructions->instr[i * step + j];
+                        array[i] += max[j] * instructions->instr[i][j];
         }
 
         idx = quickSort(array, nr_instr);
         for (i = 0; i < nr_instr; i++) {
                 for (j = 0; j < step; ++j)
-                        instr_new[i * step + j] = instructions->instr[idx[i] * step + j];
+                        instr_new[i][j] = instructions->instr[idx[i]][j];
 
                 if (prefnew != NULL) prefnew[i] = instructions->pref[idx[i]];
         }
@@ -286,12 +288,12 @@ static void sort_instructions(struct instructionset * const instructions)
         instructions->pref       = prefnew;
 }
 
-static void sort_instructionsx(int ** instructions, double ** prefactors, 
+static void sort_instructionsx(int (**instructions)[3], double ** prefactors, 
                                const int nr_instructions, const int step)
 {
         int max[step];
         int *idx;
-        int *instr_new  = safe_malloc(nr_instructions * step, int);
+        int (*instr_new)[3]  = safe_malloc(nr_instructions, *instr_new);
         int *array      = safe_malloc(nr_instructions, int);
         double *prefnew = prefactors == NULL ? NULL : safe_malloc(nr_instructions, double);
         int i, j;
@@ -300,7 +302,7 @@ static void sort_instructionsx(int ** instructions, double ** prefactors,
         {
                 max[i] = -1;
                 for (j = 0; j < nr_instructions; ++j)
-                        max[i] = (max[i] < (*instructions)[j * step + i]+1) ? (*instructions)[j*step + i]+1 : max[i];
+                        max[i] = (max[i] < (*instructions)[j][i] + 1) ? (*instructions)[j][i] + 1 : max[i];
         }
         for (i = step - 2; i >= 0; --i) max[i] *= max[i + 1];
         for (i = 0; i < step - 1; ++i) max[i]  = max[i + 1];
@@ -310,13 +312,13 @@ static void sort_instructionsx(int ** instructions, double ** prefactors,
         {
                 array[i] = 0;
                 for (j = 0; j < step; ++j)
-                        array[i] += max[j] * (*instructions)[i * step + j];
+                        array[i] += max[j] * (*instructions)[i][j];
         }
         idx = quickSort(array, nr_instructions);
         for (i = 0; i < nr_instructions; i++)
         {
                 for (j = 0; j < step; ++j)
-                        instr_new[i * step + j] = (*instructions)[idx[i] * step + j];
+                        instr_new[i][j] = (*instructions)[idx[i]][j];
 
                 if (prefnew != NULL) prefnew[i] = (*prefactors)[idx[i]];
         }
@@ -328,7 +330,7 @@ static void sort_instructionsx(int ** instructions, double ** prefactors,
         *prefactors       = prefnew;
 }
 
-static void print_DMRG_instructions(int * const instructions, 
+static void print_DMRG_instructions(int (*instructions)[3],
                                     double * const prefactors, 
                                     int * const hss, const int nr_instructions, 
                                     const int bond, const int is_left)
@@ -348,13 +350,13 @@ static void print_DMRG_instructions(int * const instructions,
         for (i = 0; i < nr_instructions; ++i)
         {
                 char buffer[255];
-                get_string_of_rops(buffer, instructions[i * 3 + 0], bond, is_left, 'e');
+                get_string_of_rops(buffer, instructions[i][0], bond, is_left, 'e');
                 printf("%14.8g * %-16s + ", prefactors[i], buffer);
-                get_string_of_siteops(buffer, instructions[i * 3 + 1], site);
+                get_string_of_siteops(buffer, instructions[i][1], site);
                 printf("%-32s --> ", buffer);
-                get_sectorstring(&MPO, hss[instructions[i * 3 + 2]], buffer);
+                get_sectorstring(&MPO, hss[instructions[i][2]], buffer);
                 printf("(%s)", buffer);
-                get_string_of_rops(buffer, instructions[i * 3 + 2], bonds[2 * is_left], is_left, 'c');
+                get_string_of_rops(buffer, instructions[i][2], bonds[2 * is_left], is_left, 'c');
                 printf("\t%s\n", buffer);
         }
 
@@ -362,7 +364,7 @@ static void print_DMRG_instructions(int * const instructions,
         clean_symsecs(&MPO, -1);
 }
 
-static void print_T3NS_instructions(int * const instructions, 
+static void print_T3NS_instructions(int (*instructions)[3],
                                     double * const prefactors, int * const hss, 
                                     const int nr_instructions, const int bond, 
                                     const int is_left)
@@ -401,20 +403,20 @@ static void print_T3NS_instructions(int * const instructions,
 
         for (i = 0; i < nr_instructions; ++i) {
                 char buffer[255];
-                get_string_of_rops(buffer, instructions[i * 3 + 0], bond1, left1, 'e');
+                get_string_of_rops(buffer, instructions[i][0], bond1, left1, 'e');
                 printf("%14.8g * %-16s + ", prefactors[i], buffer);
-                get_string_of_rops(buffer, instructions[i * 3 + 1], bond2, left2, 'e');
+                get_string_of_rops(buffer, instructions[i][1], bond2, left2, 'e');
                 printf("%-32s --> ", buffer);
-                get_sectorstring(&MPO, hss[instructions[i * 3 + 2]], buffer);
+                get_sectorstring(&MPO, hss[instructions[i][2]], buffer);
                 printf("(%s)", buffer);
-                get_string_of_rops(buffer, instructions[i * 3 + 2], bond, is_left, 'c');
+                get_string_of_rops(buffer, instructions[i][2], bond, is_left, 'c');
                 printf("\t%s\n", buffer);
         }
 
         clean_symsecs(&MPO, -1);
 }
 
-static void print_merge_instructions(int * const instructions, 
+static void print_merge_instructions(int (*instructions)[3], 
                                      double * const prefactors, 
                                      const int nr_instructions, const int bond, int isdmrg)
 {
@@ -453,9 +455,40 @@ static void print_merge_instructions(int * const instructions,
                 printf("%14.8g * ", prefactors[i]);
                 for (j = 0; j < step; ++ j)
                 {
-                        get_string_of_rops(buffer, instructions[i * step + j], bonds[j], isleft[j], 'e');
+                        get_string_of_rops(buffer, instructions[i][j], bonds[j], isleft[j], 'e');
                         printf("%-16s%s", buffer, j == step - 1 ? "\n" : " + ");
                 }
         }
         clean_symsecs(&MPO, -1);
 }
+
+static int insrno;
+static struct instructionset * instr;
+
+void start_fill_instruction(struct instructionset * instructions, int step)
+{
+        insrno = 0;
+        instructions->step = step;
+        if (instructions->instr == NULL) {
+                instructions->nr_instr = 0;
+        }
+        instr = instructions;
+}
+
+void fill_instruction(int id1, int id2, int id3, double pref)
+{
+        if (id1 < 0 || id2 < 0 || id3 < 0) {
+                return;
+        }
+        if (instr->instr == NULL) {
+                ++(instr->nr_instr);
+        } else {
+                assert(insrno < instr->nr_instr);
+                instr->instr[insrno][0] = id1;
+                instr->instr[insrno][1] = id2;
+                instr->instr[insrno][2] = id3;
+                instr->pref[insrno] = pref;
+                ++insrno;
+        }
+}
+

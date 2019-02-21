@@ -33,7 +33,7 @@ void QC_make_hamiltonian(char hamiltonianfile[], int su2);
 
 void QC_get_physsymsecs(struct symsecs *res, int site);
 
-void QC_get_hamiltoniansymsecs(struct symsecs * const res, const int bond);
+void QC_get_hamiltoniansymsecs(struct symsecs * const res);
 
 int QC_get_nr_hamsymsec(void);
 

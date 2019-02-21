@@ -163,9 +163,8 @@ static void opType_get_string(const struct opType * const ops, const int nr,
 
 #ifndef NDEBUG
 static void opType_arr_print(void);
-
-void opType_print(const struct opType * const ops);
 #endif
+
 /* ========================================================================== */
 
 int opType_exist(const struct opType * const ops, const int nrop, 
@@ -444,8 +443,8 @@ static void make_opType(struct opType * const ops,
         int * plist = list;
 
         for (int i = 0; i < instructions->nr_instr; ++i) {
-                if (instructions->instr[3 * i + 2] >= 0)
-                        list[instructions->instr[3 * i + 2]] = 1;
+                if (instructions->instr[i][2] >= 0)
+                        list[instructions->instr[i][2]] = 1;
         }
 
         ops->begin_opType = safe_calloc(NR_OPS * NR_TYP + 1, int);
@@ -711,8 +710,7 @@ static void opType_arr_print(void)
 
 void opType_print(const struct opType * const ops)
 {
-        const int bsize = 255;
-        char buffer[bsize];
+        char buffer[MY_STRING_LEN];
         int i, j, k, cnt = 0;
 
         if(ops->begin_opType == NULL) {
@@ -726,7 +724,7 @@ void opType_print(const struct opType * const ops)
                         const int N = amount_opType(ops, i, t);
 
                         for (k = 0; k < N; ++k, ++cnt) {
-                                opType_get_string(ops, i, j, k, bsize, buffer);
+                                opType_get_string(ops, i, j, k, MY_STRING_LEN, buffer);
                                 printf("%-28s%s", buffer, cnt % 3 == 2 ?"\n":"");
                         }
                 }

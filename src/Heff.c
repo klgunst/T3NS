@@ -777,7 +777,7 @@ static void fill_indexes(int sb, struct indexdata * idd,
                idd->dim[tp][0] * idd->dim[tp][1] * idd->dim[tp][2]);
 }
 
-static void fill_MPO_indexes(struct indexdata * idd, const int * instr, 
+static void fill_MPO_indexes(struct indexdata * idd, int *instr, 
                              const struct Heffdata * data)
 {
         idd->idMPO[0] = data->Operators[0].hss_of_ops[instr[0]];
@@ -855,16 +855,15 @@ static void transform_old_to_new_sb(int *i, struct indexdata * idd,
                                     struct newtooldmatvec * ntom)
 {
         const int MPO = ntom->MPO[*i];
-        const int step = data->isdmrg ? 2 : 3;
-        const int * instr = &data->instructions[step * data->instrbegin[MPO]];
-        const int * const endinstr = &data->instructions[step * data->instrbegin[MPO + 1]];
+        int (*instr)[3] = &data->instructions[data->instrbegin[MPO]];
+        int (*endinstr)[3] = &data->instructions[data->instrbegin[MPO + 1]];
         const double * pref = &data->prefactors[data->instrbegin[MPO]];
 
         const int nrinst = data->instrbegin[MPO + 1] - data->instrbegin[MPO];
 
         if (nrinst == 0) { return; }
 
-        fill_MPO_indexes(idd, instr, data);
+        fill_MPO_indexes(idd, *instr, data);
         ntom->prefactor[*i] = calc_prefactor(idd, data);
         if (COMPARE_ELEMENT_TO_ZERO(ntom->prefactor[*i])) { return; }
 
@@ -874,10 +873,10 @@ static void transform_old_to_new_sb(int *i, struct indexdata * idd,
         ntom->sbops[*i][1] = idd->sb_op[1];
         ntom->sbops[*i][2] = idd->sb_op[2];
 
-        for (; instr < endinstr; instr += step, ++pref) {
+        for (; instr < endinstr; ++instr, ++pref) {
                 const double totpref = *pref * ntom->prefactor[*i];
                 if (!find_operator_tel(ntom->sbops[*i], &idd->tel[OPS1], 
-                                       data->Operators, instr, data->isdmrg)) {
+                                       data->Operators, *instr, data->isdmrg)) {
                         continue;
                 }
 
@@ -959,18 +958,17 @@ static void execute_heffcontr(int i, const struct Heffdata * data,
                               EL_TYPE ** tels)
 {
         const int MPO = hc->MPO[i];
-        const int step = data->isdmrg ? 2 : 3;
-        const int * instr = &data->instructions[step * data->instrbegin[MPO]];
-        const int * const endinstr = &data->instructions[step * data->instrbegin[MPO + 1]];
+        int (*instr)[3] = &data->instructions[data->instrbegin[MPO]];
+        int (*endinstr)[3] = &data->instructions[data->instrbegin[MPO + 1]];
         const double * pref = &data->prefactors[data->instrbegin[MPO]];
 
         const int nrinst = data->instrbegin[MPO + 1] - data->instrbegin[MPO];
         if (nrinst == 0) { return; }
 
-        for (; instr < endinstr; instr += step, ++pref) {
+        for (; instr < endinstr; ++instr, ++pref) {
                 const double totpref = *pref * hc->prefactor[i];
                 if (!find_operator_tel(hc->sbops[i], &tels[OPS1],
-                                       data->Operators, instr, data->isdmrg)) {
+                                       data->Operators, *instr, data->isdmrg)) {
                         continue;
                 }
 
@@ -1109,13 +1107,12 @@ void matvecT3NS(const double * vec, double * result, void * vdata)
 static void diag_old_to_new_sb(int MPO, struct indexdata * idd,
                                const struct Heffdata * data)
 {
-        const int step = data->isdmrg ? 2 : 3;
-        int * instr    = &data->instructions[step * data->instrbegin[MPO]];
-        int * endinstr = &data->instructions[step * data->instrbegin[MPO + 1]];
+        int (*instr)[3]    = &data->instructions[data->instrbegin[MPO]];
+        int (*endinstr)[3] = &data->instructions[data->instrbegin[MPO + 1]];
         double * pref  = &data->prefactors[data->instrbegin[MPO]];
         if (instr == endinstr) { return; }
 
-        fill_MPO_indexes(idd, instr, data);
+        fill_MPO_indexes(idd, *instr, data);
         find_operator_sb(idd, data);
         const double prefsym = calc_prefactor(idd, data);
 
@@ -1126,9 +1123,9 @@ static void diag_old_to_new_sb(int MPO, struct indexdata * idd,
         const int Np1 = N + 1;
         const int Kp1 = K + 1;
 
-        for (; instr < endinstr; instr += step, ++pref) {
+        for (; instr < endinstr; ++instr, ++pref) {
                 if (!find_operator_tel(idd->sb_op, &idd->tel[OPS1], 
-                                       data->Operators, instr, data->isdmrg)) {
+                                       data->Operators, *instr, data->isdmrg)) {
                         continue;
                 }
                 const double one = 1.0;

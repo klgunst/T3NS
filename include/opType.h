@@ -69,7 +69,9 @@ void opType_get_string_of_siteops(char buffer[], const int siteid,
 
 int opType_symsec_siteop(const int siteoperator, const int site);
 
+#ifndef NDEBUG
 void opType_print(const struct opType * const ops);
+#endif
 
 void get_string_operator(char buffer[], const struct opType * const ops,
                                 const int ropsindex);

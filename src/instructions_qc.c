@@ -25,7 +25,7 @@
 #include <assert.h>
 #include "macros.h"
 
-int * cinstrline; // current instructionline
+int (*cinstrline)[3]; // current instructionline
 double * cpref;   // current prefactor
 int nr_instr_id;  // current instruction
 int order_ins[3]; // the new_instr will always be given in the order I, II, III
@@ -53,10 +53,10 @@ static void combine_operators(const int operators[3], const struct opType ops[3]
 static int loop_operators(int new_instr[3], const struct opType ops[3], const
                           int operators[3]);
 
-static void start_fill_instruction(struct instructionset * const instructions,
+static void qc_start_fill_instruction(struct instructionset * const instructions,
                                    const int order[3]);
 
-static void fill_instruction(const int new_instr[step], const double pr);
+static void qc_fill_instruction(const int new_instr[step], const double pr);
 
 static int get_nrinstr(void);
 
@@ -77,8 +77,10 @@ void QC_fetch_pUpdate(struct instructionset * const instructions,
         /* first count the nr of instructions needed */
         pUpdate_make_r_count(instructions, bond, is_left);
 
-        instructions->instr = safe_malloc(3 * instructions->nr_instr, int);
-        instructions->pref  = safe_malloc(instructions->nr_instr, double);
+        instructions->instr = safe_malloc(instructions->nr_instr, 
+                                          *instructions->instr);
+        instructions->pref = safe_malloc(instructions->nr_instr, 
+                                         *instructions->pref);
         pUpdate_make_r_count(instructions, bond, is_left);
 
         /* Now make the hamsymsecs_of_new */
@@ -99,8 +101,10 @@ void QC_fetch_bUpdate(struct instructionset * const instructions,
         /* first count the nr of instructions needed */
         bUpdate_make_r_count(instructions, bond, updateCase);
 
-        instructions->instr = safe_malloc(3 * instructions->nr_instr, int);
-        instructions->pref  = safe_malloc(instructions->nr_instr, double);
+        instructions->instr = safe_malloc(instructions->nr_instr,
+                                          *instructions->instr);
+        instructions->pref = safe_malloc(instructions->nr_instr,
+                                         *instructions->pref);
         bUpdate_make_r_count(instructions, bond, updateCase);
 
         symsec_of_operators(&instructions->hss_of_new, bond, is_left);
@@ -113,9 +117,10 @@ void QC_fetch_merge(struct instructionset * const instructions,
         instructions->pref  = NULL;
         merge_make_r_count(instructions, bond, isdmrg);
 
-        instructions->instr = safe_malloc(instructions->step * 
-                                          instructions->nr_instr, int);
-        instructions->pref  = safe_malloc(instructions->nr_instr, double);
+        instructions->instr = safe_malloc(instructions->nr_instr, 
+                                          *instructions->instr);
+        instructions->pref  = safe_malloc(instructions->nr_instr, 
+                                          *instructions->pref);
         merge_make_r_count(instructions, bond, isdmrg);
 }
 
@@ -139,8 +144,8 @@ static void pUpdate_make_r_count(struct instructionset * const instructions,
         get_opType(&ops[0], bonds[0], is_left);
         get_opType(&ops[2], bonds[2], is_left);
 
-        start_fill_instruction(instructions, order);
-        combine_all_operators(ops, is_left ? '3' : '1');
+        qc_start_fill_instruction(instructions, order);
+        combine_all_operators(ops, (char) (is_left ? '3' : '1'));
 
         if (bonds[0] == 0 && is_left) 
         {
@@ -150,7 +155,7 @@ static void pUpdate_make_r_count(struct instructionset * const instructions,
 
                 assert(new_instr[0] != -1 && new_instr[1] != -1 && 
                        new_instr[2] != -1);
-                fill_instruction(new_instr, core_e);
+                qc_fill_instruction(new_instr, core_e);
         }
 
         if (instructions->instr != NULL && 
@@ -180,8 +185,8 @@ static void bUpdate_make_r_count(struct instructionset * const instructions,
         get_opType(&ops[1], bonds[1], updateCase != 1);
         get_opType(&ops[2], bonds[2], updateCase == 2);
 
-        start_fill_instruction(instructions, order[updateCase]);
-        combine_all_operators(ops, '1' + updateCase);
+        qc_start_fill_instruction(instructions, order[updateCase]);
+        combine_all_operators(ops, (char) ('1' + updateCase));
 
         if (instructions->instr != NULL && 
             instructions->nr_instr != get_nrinstr()) {
@@ -225,17 +230,17 @@ static void merge_make_r_count(struct instructionset * const instructions,
                 instructions->step = 2 + (isdmrg == 0);
                 instructions->nr_instr = 0;
 
-                for (i = 0; i < 3; ++i)
-                        instructions->nr_instr += 
-                                amount_opType(&ops[i], 2, 'c') + 
-                                amount_opType(&ops[i], 3, 'c') + 
-                                amount_opType(&ops[i], 4, 'c');
+                for (i = 0; i < 3; ++i) {
+                        instructions->nr_instr += amount_opType(&ops[i], 2, 'c');
+                        instructions->nr_instr += amount_opType(&ops[i], 3, 'c');
+                        instructions->nr_instr += amount_opType(&ops[i], 4, 'c');
+                }
                 return;
         }
         assert(instructions->step == 2 + (isdmrg == 0));
 
-        start_fill_instruction(instructions, order);
-        combine_all_operators(ops, isdmrg ? 'd' : 't');
+        qc_start_fill_instruction(instructions, order);
+        combine_all_operators(ops, (char) (isdmrg ? 'd' : 't'));
 
         if (instructions->instr != NULL && 
             instructions->nr_instr != get_nrinstr()) {
@@ -284,7 +289,7 @@ static void combine_operators(const int operators[3], const struct opType ops[3]
         while (loop_operators(new_instr, ops, new_ops)) {
                 double val;
                 if (interactval(new_instr, ops, c, &val))
-                        fill_instruction(new_instr, val);
+                        qc_fill_instruction(new_instr, val);
         }
 }
 
@@ -319,8 +324,8 @@ static int loop_operators(int new_instr[3], const struct opType ops[3], const
         return !firsttime;
 }
 
-static void start_fill_instruction(struct instructionset * const instructions,
-                                   const int order[3])
+static void qc_start_fill_instruction(struct instructionset * const instructions,
+                                      const int order[3])
 {
         cinstrline = instructions->instr;
         cpref      = instructions->pref;
@@ -331,19 +336,17 @@ static void start_fill_instruction(struct instructionset * const instructions,
         order_ins[2] = order[2];
 }
 
-static void fill_instruction(const int new_instr[step], const double pr)
+static void qc_fill_instruction(const int new_instr[step], const double pr)
 {
         if(COMPARE_ELEMENT_TO_ZERO(pr))
                 return;
 
-        if (cinstrline != NULL)
-        {
-                int i;
-                for (i = 0; i < step; ++i)
-                        *(cinstrline++) = new_instr[order_ins[i]];
+        if (cinstrline != NULL) {
+                for (int i = 0; i < step; ++i)
+                        (*cinstrline)[i] = new_instr[order_ins[i]];
+                ++cinstrline;
         }
-        if (cpref != NULL) 
-                *(cpref++) = pr;
+        if (cpref != NULL) { *(cpref++) = pr; }
         ++nr_instr_id;
 }
 

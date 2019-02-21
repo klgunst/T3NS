@@ -93,12 +93,16 @@ static int strcmp_ign_ws(const char * s1, const char * s2)
 static int get_sites_to_opt(int maxsites, struct stepSpecs * specs, int * state)
 {
         if (maxsites != 2 && maxsites != 1) {
-                fprintf (stderr, "ERROR: Only optimization with one and two sties are implemented.\n"
+                fprintf (stderr, "ERROR: Only optimization with one and two sites are implemented.\n"
                          "Executing calculation with two-site optimization.\n");
                 maxsites = 2;
         }
 
         specs->nr_sites_opt = 1;
+        if(*state > netw.sweeplength) {
+                *state = 0;
+                return 1;
+        }
         specs->sites_opt[0] = netw.sweep[*state];
         ++*state;
         if(*state > netw.sweeplength) {

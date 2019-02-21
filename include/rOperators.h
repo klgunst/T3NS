@@ -158,7 +158,7 @@ void init_rOperators(struct rOperators * const rops, int ***tmp_nkappa_begin,
     const int bond_of_operator, const int is_left, const int P_operator);
 
 void sum_unique_rOperators(struct rOperators * const newrops, const struct rOperators * const 
-    uniquerops, const int * const instructions, const int * const hamsymsec_new, const double * 
+    uniquerops, int (*instructions)[3], const int * const hamsymsec_new, const double * 
     const prefactors, const int nr_instructions);
 
 /* ====================================== MISC ================================================= */
