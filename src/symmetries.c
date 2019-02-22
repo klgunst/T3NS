@@ -224,38 +224,6 @@ int find_Z2(enum symmetrygroup * sgs, int * ts, int nrsy)
         return flag;
 }
 
-int valid_sgs(enum symmetrygroup * sgs, int nrsy)
-{
-        int nrU1 = 0;
-        int nrSU2 = 0;
-        int nrPG = 0;
-
-        if (sgs[0] != Z2)
-                return 0;
-
-        for (int i = 1; i < nrsy; ++i) {
-                switch(sgs[i]) {
-                case Z2:
-                        return 0;
-                case U1:
-                        ++nrU1;
-                        break;
-                case SU2:
-                        ++nrSU2;
-                        break;
-                default:
-                        ++nrPG;
-                        if (nrPG > 1)
-                                return 0;
-                }
-        }
-
-        if (nrSU2 != 0)
-                return nrSU2 == nrU1 && nrSU2 == 1;
-        else
-                return 1;
-}
-
 int consistent_state(enum symmetrygroup * sgs, int * ts, int nrsy)
 {
         int nrU1 = 0;
@@ -278,12 +246,6 @@ int consistent_state(enum symmetrygroup * sgs, int * ts, int nrsy)
                         ;
                 }
         }
-        if (hasU1 && nrU1 % 2 != ts[0])
-                return 0;
-
-        if (hasSU2 && nrSU2 % 2 != ts[0])
-                return 0;
-
         return 1;
 }
 

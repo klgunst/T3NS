@@ -141,7 +141,7 @@ void QC_make_hamiltonian(char hamiltonianfile[], int su2)
         double *one_p_int;
 
         hdat.su2 = su2;
-        printf(" >> Reading FCIDUMP...\n");
+        printf(" >> Reading FCIDUMP %s\n", hamiltonianfile);
         read_header(hamiltonianfile);
         read_integrals(&one_p_int, hamiltonianfile);
 

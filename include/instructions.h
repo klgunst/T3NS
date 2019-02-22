@@ -42,11 +42,12 @@ struct instructionset {
  * operator in the new bond.  <td> prefactor </table>
  *
  * \param [out] instructions The pointer where the different instructions will
- * be stored.  \param [out] prefactor The pointer where the different
- * prefactors will be stored.  \param [out] nr_instructions The number of
- * instructions to be excecuted.  \param [in] bond The bond where the merge has
- * to happen.  \param [in] is_left Boolean saying if we are going 'left' or
- * 'right'.
+ * be stored.
+ * \param [out] prefactor The pointer where the different prefactors will be
+ * stored.
+ * \param [out] nr_instructions The number of instructions to be excecuted.
+ * \param [in] bond The bond where the merge has to happen.
+ * \param [in] is_left Boolean saying if we are going 'left' or 'right'.
  */
 void fetch_pUpdate(int (**instructions)[3], double ** const prefactors, int
                    ** const hamsymsecs_of_new, int * const nr_instructions,

@@ -82,37 +82,12 @@ void read_inputfile(const char inputfile[], struct optScheme * const scheme,
                         if (permarray == NULL)
                                 exit(EXIT_FAILURE);
 
-                        if (bookie.sgs[0] != Z2) { /* Z2 symmetry was not included! */
-                                enum symmetrygroup *tempsgs = safe_malloc(bookie.nrSyms + 1, enum symmetrygroup);
-                                int *temppermarray = safe_malloc(bookie.nrSyms + 1, int);
-
-                                tempsgs[0] = Z2;
-                                temppermarray[0] = -1;
-                                for (i = 0; i < bookie.nrSyms; ++i) {
-                                        tempsgs[i + 1]       = bookie.sgs[i];
-                                        temppermarray[i + 1] = permarray[i];
-                                }
-                                bookie.nrSyms++;
-                                safe_free(bookie.sgs);
-                                safe_free(permarray);
-                                bookie.sgs = tempsgs;
-                                permarray = temppermarray;
-                        }
                         if (bookie.nrSyms > MAX_SYMMETRIES) {
                                 fprintf(stderr, "Error: program was compiled for a maximum of %d symmetries.\n"
                                         "Recompile with a DMAX_SYMMETRIES flag set at least to %d to do the calculation.\n",
                                         MAX_SYMMETRIES, bookie.nrSyms);
                                 exit(EXIT_FAILURE);
                         }
-                }
-
-                if (!valid_sgs(bookie.sgs, bookie.nrSyms)) {
-                        get_sgsstring(bookie.nrSyms, buffer);
-                        fprintf(stderr, 
-                                "Error in reading input : Invalid combination of symmetry groups.\n"
-                                "                         Following  symmetries were inputted:\n"
-                                "                         %s\n", buffer);
-                        exit(EXIT_FAILURE);
                 }
         }
 
@@ -368,11 +343,6 @@ static int read_targetstate(char line[], int *permarray, int no_irr, int sg)
                         pch = strtok(NULL, STRTOKSEP);
                         ++i;
                 }
-        }
-
-        if (no_irr != bookie.nrSyms) {
-                if (!find_Z2(bookie.sgs, bookie.target_state, bookie.nrSyms))
-                        return 0;
         }
         return 1;
 }

@@ -16,16 +16,19 @@
 */
 #include <stdio.h>
 #include <stdlib.h>
+#include <assert.h>
 
 #include "instructions.h"
 #include "instructions_qc.h"
 #include "instructions_nn_hubbard.h"
+#include "instructions_doci.h"
 #include "hamiltonian.h"
 #include "sort.h"
 #include "macros.h"
 #include "network.h"
-#include <assert.h>
 #include "bookkeeper.h"
+
+//#define PRINT_INSTRUCTIONS
 
 /* ========================================================================== */
 /* ==================== DECLARATION STATIC FUNCTIONS ======================== */
@@ -72,12 +75,24 @@ void fetch_pUpdate(int (**instructions)[3], double ** prefactors,
                 *hamsymsecs_of_new = instr.hss_of_new;
                 *nr_instructions = instr.nr_instr;
                 break;
+        case DOCI :
+                DOCI_fetch_pUpdate(&instr, bond, is_left);
+                *instructions = instr.instr;
+                *prefactors = instr.pref;
+                *hamsymsecs_of_new = instr.hss_of_new;
+                *nr_instructions = instr.nr_instr;
+                break;
         default:
                 fprintf(stderr, "%s@%s: Unrecognized Hamiltonian.\n", 
                         __FILE__, __func__);
                 exit(EXIT_FAILURE);
         }
         sort_instructionsx(instructions, prefactors, *nr_instructions, 3);
+
+#ifdef PRINT_INSTRUCTIONS
+        print_DMRG_instructions(*instructions, *prefactors, *hamsymsecs_of_new, 
+                                *nr_instructions, bond, is_left);
+#endif
 }
 
 void fetch_bUpdate(struct instructionset * const instructions, const int bond, 
@@ -90,12 +105,20 @@ void fetch_bUpdate(struct instructionset * const instructions, const int bond,
         case NN_HUBBARD :
                 NN_H_fetch_bUpdate(instructions, bond, isleft);
                 break;
+        case DOCI :
+                DOCI_fetch_bUpdate(instructions, bond, isleft);
+                break;
         default:
                 fprintf(stderr, "%s@%s: Unrecognized Hamiltonian.\n", 
                         __FILE__, __func__);
                 exit(EXIT_FAILURE);
         }
         sort_instructions(instructions);
+#ifdef PRINT_INSTRUCTIONS
+        print_T3NS_instructions(instructions->instr, instructions->pref, 
+                                instructions->hss_of_new, 
+                                instructions->nr_instr, bond, isleft);
+#endif
 }
 
 void fetch_merge(int (**instructions)[3], int * const nr_instructions, 
@@ -116,11 +139,22 @@ void fetch_merge(int (**instructions)[3], int * const nr_instructions,
                 *prefactors = instr.pref;
                 *nr_instructions = instr.nr_instr;
                 break;
+        case DOCI :
+                DOCI_fetch_merge(&instr, bond, isdmrg);
+                *instructions = instr.instr;
+                *prefactors = instr.pref;
+                *nr_instructions = instr.nr_instr;
+                break;
         default:
                 fprintf(stderr, "%s@%s: Unrecognized Hamiltonian.\n", 
                         __FILE__, __func__);
                 exit(EXIT_FAILURE);
         }
+
+#ifdef PRINT_INSTRUCTIONS
+        print_merge_instructions(*instructions, *prefactors, *nr_instructions, 
+                                 bond, isdmrg);
+#endif
 }
 
 void sortinstructions_toMPOcombos(int (**instructions)[3], 
@@ -349,7 +383,7 @@ static void print_DMRG_instructions(int (*instructions)[3],
 
         for (i = 0; i < nr_instructions; ++i)
         {
-                char buffer[255];
+                char buffer[MY_STRING_LEN];
                 get_string_of_rops(buffer, instructions[i][0], bond, is_left, 'e');
                 printf("%14.8g * %-16s + ", prefactors[i], buffer);
                 get_string_of_siteops(buffer, instructions[i][1], site);

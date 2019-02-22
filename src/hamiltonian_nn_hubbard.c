@@ -110,7 +110,7 @@ void NN_H_get_physsymsecs(struct symsecs *res)
         }
 }
 
-void NN_H_get_hamiltoniansymsecs(struct symsecs * const res, const int bond)
+void NN_H_get_hamiltoniansymsecs(struct symsecs * const res)
 {
         *res = MPOsymsecs;
 }
@@ -213,7 +213,7 @@ int NN_H_symsec_siteop(const int siteop)
 }
 
 void NN_H_tprods_ham(int * const nr_of_prods, int ** const possible_prods, 
-                     const int resulting_hamsymsec, const int site)
+                     const int resulting_hamsymsec)
 {
         const int size  = hdat.su2 
                 ? sizeof irreps_SU2 / sizeof irreps_SU2[0]
@@ -307,18 +307,11 @@ static void prepare_MPOsymsecs(void)
                 ? sizeof irreps_SU2 / sizeof irreps_SU2[0]
                 : sizeof irreps_U1 / sizeof irreps_U1[0];
 
-        int (*curr_irrep)[MAX_SYMMETRIES], *curr_dims;
-        double *curr_fcidims;
-
         MPOsymsecs.nrSecs = size;
         MPOsymsecs.irreps = safe_malloc(MPOsymsecs.nrSecs, *MPOsymsecs.irreps);
         MPOsymsecs.fcidims = safe_malloc(MPOsymsecs.nrSecs, double);
         MPOsymsecs.dims = safe_malloc(MPOsymsecs.nrSecs, int);
         MPOsymsecs.totaldims = MPOsymsecs.nrSecs;
-
-        curr_irrep   = MPOsymsecs.irreps;
-        curr_dims    = MPOsymsecs.dims;
-        curr_fcidims = MPOsymsecs.fcidims;
 
         if (hdat.su2) {
                 for (int i = 0; i < size; ++i) {

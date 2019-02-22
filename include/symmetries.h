@@ -141,15 +141,6 @@ int find_str_in_array(char * buffer, const char ** arr, int length, int * ind);
 int find_Z2(enum symmetrygroup * sgs, int * ts, int nrsy);
 
 /**
- * \brief Checks if the inputted symmetrygroups are valid ones (well for me at least)
- *
- * \param [in] sgs The symmetrygroups.
- * \param [in] nr_symmetries The number of symmetrygroups in sgs.
- * \return 1 if successful, otherwise 0.
- */
-int valid_sgs(enum symmetrygroup * sgs, int nrsy);
-
-/**
  * \brief Checks if the inputted state is consistent.
  *
  * \param [in] sgs The symmetrygroups.

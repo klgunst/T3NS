@@ -25,7 +25,7 @@ void NN_H_make_hamiltonian(char hamiltonianfile[], const int su2);
 
 void NN_H_get_physsymsecs(struct symsecs *res);
 
-void NN_H_get_hamiltoniansymsecs(struct symsecs * const res, const int bond);
+void NN_H_get_hamiltoniansymsecs(struct symsecs * const res);
 
 int NN_H_get_nr_hamsymsec(void);
 
@@ -38,7 +38,7 @@ double NN_H_el_siteop(const int siteoperator, const int braindex, const int keti
 int NN_H_symsec_siteop(const int siteoperator);
 
 void NN_H_tprods_ham(int * const nr_of_prods, int ** const possible_prods, const 
-    int resulting_hamsymsec, const int site);
+    int resulting_hamsymsec);
 
 int NN_H_MPO_couples_to_singlet(const int n, const int MPO[n]);
 

@@ -223,7 +223,9 @@ const long double sqrt_fact[ WIGNER_FACTORIAL_MAX + 1 ] =
         1.35975793102072127197584619684017539710327446682830024041110759004397440380130651896772216452518306764491453984964618714830010495e177L   // sqrt(191!)
 };
 
+#ifndef NDEBUG
 static int max_2j(){ return WIGNER_MAX_2J; }
+#endif
 
 static int triangle_fails(int two_ja, int two_jb, int two_jc)
 {

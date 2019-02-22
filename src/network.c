@@ -633,6 +633,22 @@ void get_string_of_bond(char * buffer, int bond)
         }
 }
 
+#ifndef NDEBUG
+void print_stepSpecs(const struct stepSpecs * specs)
+{
+        printf("Bonds : ");
+        for (int i = 0; i < specs->nr_bonds_opt; ++i) {
+                printf("%d ", specs->bonds_opt[i]);
+        }
+        printf("\nSites : ");
+        for (int i = 0; i < specs->nr_sites_opt; ++i) {
+                printf("%d%s ", specs->sites_opt[i], 
+                       specs->common_next[i] ? "*" : "");
+        }
+        printf("\n");
+}
+#endif
+
 int next_opt_step(int maxsites, struct stepSpecs * specs)
 {
         assert(STEPSPECS_MSITES >= maxsites);
