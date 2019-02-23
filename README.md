@@ -63,7 +63,7 @@ For running a T3NS calculation, one needs to specify both an input file and a
 network file.
 
 Possible options for the input file can be found through `T3NS --help`.
-Mandatory options are
+Mandatory options are:
 
 * `networkfile` : The path to the defined network file for the tensor network
 * `symm` : The symmetries that should be used.
@@ -79,26 +79,26 @@ Mandatory options are
 
 A selection of the optional options are:
 
-    * `D` : The maximal virtual bond dimension
-    * `SITE_SIZE` : currently supports 1 and 2 site optimization.
-    * `SWEEPS` : The maximal number of sweeps to be executed.
-    * `E_CONV` : If this energy difference between sweeps has been reached, the
-      current optimization regime is stopped.
+* `D` : The maximal virtual bond dimension
+* `SITE_SIZE` : currently supports 1 and 2 site optimization.
+* `SWEEPS` : The maximal number of sweeps to be executed.
+* `E_CONV` : If this energy difference between sweeps has been reached, the
+  current optimization regime is stopped.
 
 The network file is formatted as follows:
     
-    > NR_SITES = number of branching and physical tensors
-    > NR_PHYS_SITES = number of physical tensors
-    > NR_BONDS = number of virtual bonds in the network. At the border of the
-      network there is an extra bond which connects the bordering tensor to
-      nothing.
-    > &END
-    > List of sites. `*` depict branching sites and numbers represent physical
-      sites where the number corresponds with the orbital in the FCIDUMP
-      (counting starts from 0).
+    NR_SITES = number of branching and physical tensors
+    NR_PHYS_SITES = number of physical tensors
+    NR_BONDS = number of virtual bonds in the network. At the border of the
+    network there is an extra bond which connects the bordering tensor to
+    nothing.
+    &END
+    List of sites. `*` depict branching sites and numbers represent physical
+    sites where the number corresponds with the orbital in the FCIDUMP
+    (counting starts from 0).
 
-    > &END
-    > List of bonds. The bonds are specified by giving two tensors which it
-      should connect. The number 'n' corresponds with the 'n'th tensor in the 
-      previously specified list of tensors.
+    &END
+    List of bonds. The bonds are specified by giving two tensors which it
+    should connect. The number 'n' corresponds with the 'n'th tensor in the 
+    previously specified list of tensors.
 
