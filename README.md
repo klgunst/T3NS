@@ -93,12 +93,29 @@ The network file is formatted as follows:
     network there is an extra bond which connects the bordering tensor to
     nothing.
     &END
-    List of sites. `*` depict branching sites and numbers represent physical
+    List of sites. '*' depict branching sites and numbers represent physical
     sites where the number corresponds with the orbital in the FCIDUMP
     (counting starts from 0).
-
     &END
     List of bonds. The bonds are specified by giving two tensors which it
-    should connect. The number 'n' corresponds with the 'n'th tensor in the 
-    previously specified list of tensors.
+    should connect. The number 'n' corresponds with the n'th tensor in the 
+    previously specified list of tensors. 
+    To specify the bond connecting the n'th tensor with nothing (and thus
+    specify that this tensor is a border), use:
+    -1 n
 
+    Every bond starts at a new line and the number of bonds should correspond
+    with the previously defined amount.
+
+Once defined the files, a T3NS calculation can be executed by:
+
+    > T3NS inputfile
+
+Intermediate results are stored in the current working directory in hdf5 format
+and can be used to continue a calculation through:
+    
+    > T3NS --continue=T3NSwav.h5 inputfile
+
+In this case, only the optimization scheme defined in the input file will be
+used for the continued calculation. Other specified options will be ignored and
+instead read from the hdf5 file.

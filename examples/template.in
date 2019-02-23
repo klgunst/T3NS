@@ -1,0 +1,33 @@
+# Uncomment which network to use
+networkfile 	10_T3NS.netw
+#networkfile 	10_DMRG.netw
+
+# Uncomment this for a regular quantum chemical calculation with both su2 and 
+# point group symmetries.
+symm 		u1 su2 d2h
+ts 		14 0 0
+interaction 	N2.STO3G.FCIDUMP
+
+# Uncomment this for a regular quantum chemical calculation without su2 and 
+# point group symmetries.
+#symm 		u1 u1
+#ts 		7  7
+#interaction 	N2.STO3G.FCIDUMP
+
+# Uncomment this for a quantum chemical calculation in the segniority zero 
+# subspace. The number of particles in the 'ts' option is now the number of 
+# electron pairs.
+#symm 		u1
+#ts 		7
+#interaction 	DOCI N2.STO3G.FCIDUMP
+
+# When for the random initial guess, it is assured that every 'symmetry sector'
+# has at least 1 corresponding renormalized state. With this option,  this can 
+# increased to an arbitrary number of renormalized states per symmetry sector.
+#minimal states  5
+
+# The optimization scheme
+# This exemplar scheme has three regimes.
+D 		100 	200 	200
+SITE_SIZE	2	2 	1
+SWEEPS  	4 	10 	10
