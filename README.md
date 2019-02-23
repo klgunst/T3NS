@@ -64,19 +64,21 @@ network file.
 
 Possible options for the input file can be found through `T3NS --help`.
 Mandatory options are
-    * `networkfile` : The path to the defined network file for the tensor network
-    * `symm` : The symmetries that should be used.
-    * `ts` : The irreps of the targeted ground state. For each symmetry in
-      `symm` you need one irrep.
-    * `interaction` : The type of interaction. Possibilities are:
-	* If a path to a `.FCIDUMP` file, it will optimize this Hamiltonian.
-	* If a path to a `.FCIDUMP` file preceded by `DOCI`, it will optimize
-	  within the seniority zero subspace.
-	* For a nearest neighbor Hubbard calculations (nearest neighbor
-	  according to the network geometry) use the following format: 
-	  `NN_HUBBARD (t = ..., U = ...)`.
+
+* `networkfile` : The path to the defined network file for the tensor network
+* `symm` : The symmetries that should be used.
+* `ts` : The irreps of the targeted ground state. For each symmetry in
+  `symm` you need one irrep.
+* `interaction` : The type of interaction. Possibilities are:
+    * If a path to a `.FCIDUMP` file, it will optimize this Hamiltonian.
+    * If a path to a `.FCIDUMP` file preceded by `DOCI`, it will optimize
+      within the seniority zero subspace.
+    * For a nearest neighbor Hubbard calculations (nearest neighbor
+      according to the network geometry) use the following format: 
+      `NN_HUBBARD (t = ..., U = ...)`.
 
 A selection of the optional options are:
+
     * `D` : The maximal virtual bond dimension
     * `SITE_SIZE` : currently supports 1 and 2 site optimization.
     * `SWEEPS` : The maximal number of sweeps to be executed.
@@ -86,19 +88,17 @@ A selection of the optional options are:
 The network file is formatted as follows:
     
     > NR_SITES = number of branching and physical tensors
-
     > NR_PHYS_SITES = number of physical tensors
-
     > NR_BONDS = number of virtual bonds in the network. At the border of the
-    > network there is an extra bond which connects the bordering tensor to
-    > nothing.
-
+      network there is an extra bond which connects the bordering tensor to
+      nothing.
     > &END
     > List of sites. `*` depict branching sites and numbers represent physical
-    > sites where the number corresponds with the orbital in the FCIDUMP
-    > (counting starts from 0).
+      sites where the number corresponds with the orbital in the FCIDUMP
+      (counting starts from 0).
 
     > &END
     > List of bonds. The bonds are specified by giving two tensors which it
-    > should connect. The number 'n' corresponds with the 'n'th tensor in the 
-    > previously specified list of tensors.
+      should connect. The number 'n' corresponds with the 'n'th tensor in the 
+      previously specified list of tensors.
+
