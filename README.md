@@ -93,17 +93,17 @@ The network file is formatted as follows:
     network there is an extra bond which connects the bordering tensor to
     nothing.
     &END
-    List of sites. '*' depict branching sites and numbers represent physical
-    sites where the number corresponds with the orbital in the FCIDUMP
-    (counting starts from 0).
+    List of sites. 
+    '*' depict branching sites and numbers represent physical sites where the
+    number corresponds with the orbital in the FCIDUMP (counting starts from 0).
     &END
-    List of bonds. The bonds are specified by giving two tensors which it
-    should connect. The number 'n' corresponds with the n'th tensor in the 
-    previously specified list of tensors. 
+    List of bonds.
+    The bonds are specified by giving two tensors which it should connect. The
+    number 'n' corresponds with the n'th tensor in the previously specified list
+    of tensors. 
     To specify the bond connecting the n'th tensor with nothing (and thus
     specify that this tensor is a border), use:
     -1 n
-
     Every bond starts at a new line and the number of bonds should correspond
     with the previously defined amount.
 
