@@ -2,7 +2,7 @@ T3NS: An implementation of the Three-Legged Tree Tensor Network algorithm
 =========================================================================
 
 T3NS: an implementation of the Three-Legged Tree Tensor Network algorithm
-Copyright (C) 2018 Klaas Gunst <Klaas.Gunst@UGent.be>
+Copyright (C) 2018-2019 Klaas Gunst <Klaas.Gunst@UGent.be>
 
 This program is free software: you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
