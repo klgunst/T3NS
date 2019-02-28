@@ -58,7 +58,7 @@ static int * sort_indices(int (*indices)[3], int n, int b)
         assert(b < 3 && b >= 0);
         int * relid = safe_malloc(n, *relid);
         for (int i = 0; i < n; ++i) { relid[i] = indices[i][b]; }
-        int * idx = quickSort(relid, n);
+        int * idx = quickSort(relid, n, SORT_INT);
         safe_free(relid);
         return idx;
 }

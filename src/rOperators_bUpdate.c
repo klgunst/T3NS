@@ -343,7 +343,7 @@ static void make_qntens(const struct siteTensor * tens)
                 qnumbertenshelper2[j] = qn;
                 idh.nrqnumbertens += j == idh.nrqnumbertens;
         }
-        int * idx = qnumbersSort(qnumbertenshelper2, 1, idh.nrqnumbertens);
+        int * idx = quickSort(qnumbertenshelper2, idh.nrqnumbertens, SORT_QN_TYPE);
         idh.qnumbertens = safe_malloc(idh.nrqnumbertens, QN_TYPE);
         int * nrsbhelper3 = safe_malloc(idh.nrqnumbertens, int);
         for (int i = 0; i < idh.nrqnumbertens; ++i) {
@@ -483,7 +483,7 @@ static void init_instrhelper(const struct instructionset * instructions,
                 idh.nrMPO_combos += j == idh.nrMPO_combos;
         }
 
-        int * idx = qnumbersSort(MPO_c_unsort, 1, idh.nrMPO_combos);
+        int * idx = quickSort(MPO_c_unsort, idh.nrMPO_combos, SORT_QN_TYPE);
         idh.MPO_combos_arr   = safe_malloc(idh.nrMPO_combos, QN_TYPE);
         int * nrinstrhelper2 = safe_malloc(idh.nrMPO_combos, int);
         for (int i = 0; i < idh.nrMPO_combos; ++i) {
@@ -700,8 +700,9 @@ static int next_sb_tens(const int ** sb, int * qnid, QN_TYPE qntomatch,
 
         /* First time we are entering this function since the while-loop. */
         if (*qnid == -1) {
-                *qnid = qnbsearch(&qntomatch, 1, idh.qnumbertens, 
-                                  1, idh.nrqnumbertens);
+                *qnid = binSearch(&qntomatch, idh.qnumbertens, 
+                                  idh.nrqnumbertens, SORT_QN_TYPE,
+                                  sizeof qntomatch);
                 if (*qnid == -1) { return 0; }
                 *sb = idh.sbqnumbertens[*qnid];
                 if (**sb == -1) { return 0; }
@@ -737,7 +738,8 @@ static int next_sb_sec_op(int (**curr_sb)[2], struct update_data * data,
                 QN_TYPE * qntosearch = idh.sop[idmpo].qns;
                 int nr = idh.sop[idmpo].nrqns;
                 if (nr == 0) { return 0; }
-                int curid = qnbsearch(&qntomatch, 1, qntosearch, 1, nr);
+                int curid = binSearch(&qntomatch, qntosearch, nr, SORT_QN_TYPE,
+                                      sizeof qntomatch);
 
                 if (curid == -1) { return 0; }
 
@@ -804,7 +806,8 @@ static int find_block_adj(const struct siteTensor * tens,
                 qn += data->id[i][BRA];
         }
         /* find the qnumber */
-        int block = qnbsearch(&qn, 1, tens->qnumbers, 1, tens->nrblocks);
+        int block = binSearch(&qn, tens->qnumbers, tens->nrblocks, 
+                              SORT_QN_TYPE, sizeof qn);
         if (block == -1) { return 0; }
 
         data->tels[ADJ] = get_tel_block(&tens->blocks, block);
@@ -1035,8 +1038,9 @@ static int find_matching_instr(int (**instr_id)[2], struct update_data * data)
                 MPOtomatch += get_id(data, OPS2, MPO) * dimhss;
                 MPOtomatch += get_id(data, NEWOPS, MPO) * dimhss * dimhss;
 
-                int MPOid = qnbsearch(&MPOtomatch, 1, idh.MPO_combos_arr, 1, 
-                                      idh.nrMPO_combos);
+                int MPOid = binSearch(&MPOtomatch, idh.MPO_combos_arr, 
+                                      idh.nrMPO_combos, SORT_QN_TYPE, 
+                                      sizeof MPOtomatch);
                 if (MPOid == -1) { return 0; }
 
                 *instr_id = idh.instrhelper[MPOid];

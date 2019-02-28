@@ -15,25 +15,99 @@
     along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 #pragma once
-
 #include "macros.h"
 
-/**
- * \brief Gives the permutation array for the sorted array, does not sort the array.
+/** 
+ * @file sort.h
  *
- * \param [in,out] idx The permutation array (first filled with 0,1,2,3,4,5,...)
- * \param [in] array The array which should be sorted.
- * \param [in] n Number of elements.
+ * The header file for sorting routines and affiliated stuff.
+ *
+ * This file defines an enum @ref sortType for specifying the type of the 
+ * elements in the array. See @ref sortType to see which types are supported.<br>
+ * The file has routines for quick sort, linear search 
+ * (for searching in unordered arrays) and binary search.<br>
+ * It has also a shuffle function (through Fischer Yates) and a function to 
+ * inverse a permutation array.
  */
-int * quickSort(int *array, int n);
 
-int * qnumbersSort(QN_TYPE * array, int nrels, int n);
+/// Defines different types for sorting.
+enum sortType {
+        /// For sorting QN_TYPE arrays.
+        SORT_QN_TYPE = 1,
+        /// For sorting QN_TYPE[2] arrays.
+        SORT_QN_TYPE2,
+        /// For sorting QN_TYPE[3] arrays.
+        SORT_QN_TYPE3,
+        /// For sorting QN_TYPE[4] arrays.
+        SORT_QN_TYPE4,
+        /// For sorting integer arrays.
+        SORT_INT,
+        /// For sorting integer[2] arrays.
+        SORT_INT2,
+        /// For sorting integer[3] arrays.
+        SORT_INT3,
+        /// For sorting integer[4] arrays.
+        SORT_INT4,
+        /// For sorting double arrays.
+        SORT_DOUBLE
+};
 
-int search(const int value, const int * const array, const int n);
+/**
+ * @brief Gives the permutation array for the sorted array, does not sort the 
+ * array. The permutation array is found through a thread-safe quick sort using
+ * `qsort_r` (glibc specific).
+ *
+ * @param array [in] The array which should be sorted.
+ * @param n [in] Number of elements.
+ * @param st [in] The type of elements in the array.
+ * @return The permutation array. e.g. perm[i] = j tels us that element j will
+ * be placed on place i in the sorted array.
+ */
+int * quickSort(void * array, int n, enum sortType st);
 
-int qnbsearch(const QN_TYPE  * values, const int nr_values, 
-              const QN_TYPE * const array, const int step, const int n);
-
+/**
+ * @brief Inverts the permutation array.
+ *
+ * i.e. \f$\mathrm{perm}^{-1}[i] = j\f$ such that \f$\mathrm{perm}[j] = i\f$.
+ *
+ * @param perm [in] The permutation array to invert.
+ * @param nrel [in] The length of the permutation array.
+ * @return Returns the inverted permutation array, should be freed by the user.
+ */
 int * inverse_permutation(int * perm, const int nrel);
 
-void shuffle(int *array, int n);
+/**
+ * @brief Performs a linear search in an unsorted array.
+ *
+ * @param value [in] Pointer to the value that has to be searched.
+ * @param array [in] The array in which to search.
+ * @param n [in] The number of elements in the array.
+ * @param st [in] The type of elements in the array.
+ * @param incr [in] The size of one element. 
+ * The increment used to loop through the array.
+ * @return The index of the found value in the array, if not found -1.
+ */
+int linSearch(const void * value, const void * array, int n, 
+              enum sortType st, size_t incr);
+
+/**
+ * @brief Performs a binary search in a sorted array.
+ *
+ * @param value [in] Pointer to the value that has to be searched.
+ * @param array [in] The array in which to search.
+ * @param n [in] The number of elements in the array.
+ * @param st [in] The type of elements in the array.
+ * @param incr [in] The size of one element. 
+ * The increment used to loop through the array.
+ * @return The index of the found value in the array, if not found -1.
+ */
+int binSearch(const void * value, const void * array, int n, 
+              enum sortType st, size_t incr);
+
+/**
+ * @brief Shuffling of an array through the Fischer Yates algorithm.
+ *
+ * @param array [in,out] The array to shuffle is inputted and inplace shuffled.
+ * @param n [in] Number of elements in the array.
+ */
+void shuffle(int * array, int n);

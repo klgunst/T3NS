@@ -49,12 +49,6 @@ void print_siteTensor(const struct siteTensor * const tens)
   print_blocks(tens);
 }
 
-int siteTensor_search_qnumber(QN_TYPE qnumber, const struct siteTensor * const tens)
-{
-  assert(tens->nrsites == 1 && "Only defined for 1 site sitetensors");
-  return qnbsearch(&qnumber, 1, tens->qnumbers, 1, tens->nrblocks);
-}
-
 /* HELPERS */
 int siteTensor_give_nr_of_couplings(const struct siteTensor * const tens)
 {

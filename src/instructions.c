@@ -180,7 +180,7 @@ void sortinstructions_toMPOcombos(int (**instructions)[3],
                                 temp[i] * hssdim;
         }
 
-        idx = quickSort(temp, nr_instructions);
+        idx = quickSort(temp, nr_instructions, SORT_INT);
 
         *instrbegin = safe_malloc(nr_instructions + 1, int);
         *MPOinstr   = safe_malloc(nr_instructions, int);
@@ -307,7 +307,7 @@ static void sort_instructions(struct instructionset * const instructions)
                         array[i] += max[j] * instructions->instr[i][j];
         }
 
-        idx = quickSort(array, nr_instr);
+        idx = quickSort(array, nr_instr, SORT_INT);
         for (i = 0; i < nr_instr; i++) {
                 for (j = 0; j < step; ++j)
                         instr_new[i][j] = instructions->instr[idx[i]][j];
@@ -348,7 +348,7 @@ static void sort_instructionsx(int (**instructions)[3], double ** prefactors,
                 for (j = 0; j < step; ++j)
                         array[i] += max[j] * (*instructions)[i][j];
         }
-        idx = quickSort(array, nr_instructions);
+        idx = quickSort(array, nr_instructions, SORT_INT);
         for (i = 0; i < nr_instructions; i++)
         {
                 for (j = 0; j < step; ++j)

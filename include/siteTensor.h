@@ -149,15 +149,6 @@ void deep_copy_siteTensor(struct siteTensor * const copy, const struct siteTenso
  */
 void print_siteTensor(const struct siteTensor * const tens);
 
-/**
- * \brief Searches a certain qnumber in a siteTensor.
- *
- * \param [in] qnumber The quantum number to search.
- * \param [in] tens The siteTensor.
- * \return The location of the found qnumber. -1 if not found.
- */
-int siteTensor_search_qnumber(QN_TYPE qnumber, const struct siteTensor * const tens);
-
 /* HELPERS */
 /**
  * \brief Gives the number of couplings in the siteTensor.

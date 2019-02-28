@@ -217,8 +217,13 @@ void update_rOperators_physical(struct rOperators * const rops, const struct sit
         const QN_TYPE T3NShermqnumber = change_old_to_new_site(T3NSoldhermqnumber, dimoldint, 
             maxdims, oldtonew, is_left);
         double prefactor;
-        const int tens_sb       = siteTensor_search_qnumber(T3NSqnumber, tens);
-        const int tens_herm_sb  = siteTensor_search_qnumber(T3NShermqnumber, tens);
+        const int tens_sb       = binSearch(&T3NSqnumber, tens->qnumbers,
+                                            tens->nrblocks, SORT_QN_TYPE,
+                                            sizeof T3NSqnumber);
+        const int tens_herm_sb  = binSearch(&T3NShermqnumber, tens->qnumbers,
+                                            tens->nrblocks, SORT_QN_TYPE,
+                                            sizeof T3NSqnumber);
+
         const int new_sb_tens   = new_sb - updated_rops.begin_blocks_of_hss[newhss];
         const int old_sb_tens   = old_sb - rops->begin_blocks_of_hss[newhss];
 
@@ -451,10 +456,10 @@ static void unique_rOperators_append_phys(struct rOperators * uniquerops,
       /* This function calculates the prefactor for this symsec manipulation, for all symmetries */
       prefactor = calculate_prefactor_append_physical(indexes, symarr, uniquerops->is_left);
 
-      oldblock = qnbsearch(&oldqnumber, 1,
+      oldblock = binSearch(&oldqnumber,
           rOperators_give_qnumbers_for_hss(prevrops, hamsymsec_old), 
-          rOperators_give_nr_of_couplings(prevrops),
-          rOperators_give_nr_blocks_for_hss(prevrops, hamsymsec_old));
+          rOperators_give_nr_blocks_for_hss(prevrops, hamsymsec_old),
+          SORT_QN_TYPE, sizeof oldqnumber);
 
       /* symsec not found */
       if (oldblock == -1 || COMPARE_ELEMENT_TO_ZERO(prefactor))

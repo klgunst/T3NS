@@ -298,7 +298,8 @@ static void init_nP_rOperators(struct rOperators * const rops, int ***tmp_nkappa
     safe_free(qnumbersarray[hss]);
     safe_free(dimarray[hss]);
 
-    idx = qnumbersSort(qnumberstemp, rOperators_give_nr_of_couplings(rops), N);
+    assert(rOperators_give_nr_of_couplings(rops) == 1);
+    idx = quickSort(qnumberstemp, N, SORT_QN_TYPE);
     (*tmp_nkappa_begin)[hss][0] = 0;
     for (i = 0; i < N; ++i)
     {
@@ -479,7 +480,8 @@ static void init_P_rOperators(struct rOperators * const rops, int ***nkappa_begi
     }
     assert(curr_qnumber == N);
 
-    idx = qnumbersSort(qnumberstmp, couplings, N);
+    assert(couplings == 3);
+    idx = quickSort(qnumberstmp, N, SORT_QN_TYPE3);
     for (i = 0; i < N; ++i)
     {
       int j;

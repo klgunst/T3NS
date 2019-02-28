@@ -232,7 +232,7 @@ static void make_1sblocks(struct siteTensor * const tens, int ***dimarray, int *
   safe_free(qnumbersarray);
 
   /* Reform leading order, and I could kick this order */
-  idx = qnumbersSort(tempqnumbers, siteTensor_give_nr_of_couplings(tens), tens->nrblocks);
+  idx = quickSort(tempqnumbers, tens->nrblocks, tens->nrsites);
 
   tens->blocks.beginblock[0] = 0;
   for (i = 0; i < tens->nrblocks; ++i)
@@ -565,7 +565,7 @@ static void sort_and_make(struct siteTensor * const tens, int ** const dim_of_bl
   int i;
 
   tens->blocks.beginblock = safe_malloc(tens->nrblocks + 1, int);
-  idx = qnumbersSort(tens->qnumbers, tens->nrsites, tens->nrblocks);
+  idx = quickSort(tens->qnumbers, tens->nrblocks, tens->nrsites);
 
   tens->blocks.beginblock[0] = 0; 
   for (i = 0; i < tens->nrblocks; ++i)
@@ -639,8 +639,10 @@ static void contractsiteTensors(struct siteTensor * const tens, struct siteTenso
     if (oldqnumeros[0] < 0 || oldqnumeros[1] < 0)
       continue;
 
-    block1 = qnbsearch(&oldqnumeros[0], 1, tens1.qnumbers, 1, tens1.nrblocks);
-    block2 = qnbsearch(&oldqnumeros[1], 1, tens2.qnumbers, 1, tens2.nrblocks);
+    block1 = binSearch(&oldqnumeros[0], tens1.qnumbers, tens1.nrblocks,
+                       SORT_QN_TYPE, sizeof oldqnumeros[0]);
+    block2 = binSearch(&oldqnumeros[1], tens2.qnumbers, tens2.nrblocks,
+                       SORT_QN_TYPE, sizeof oldqnumeros[1]);
 
     if (block1 < 0 || block2 < 0)
       continue;

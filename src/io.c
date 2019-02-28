@@ -281,7 +281,7 @@ static int* read_symmetries(char line[], int sg)
                 pch = strtok(NULL, STRTOKSEP);
                 ++i;
         }
-        idx = quickSort((int*) tempsgs, bookie.nrSyms);
+        idx = quickSort(tempsgs, bookie.nrSyms, SORT_INT);
 
         for (i = 0; i < bookie.nrSyms; ++i)
                 bookie.sgs[i] = tempsgs[idx[i]];

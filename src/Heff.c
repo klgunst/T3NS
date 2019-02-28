@@ -122,9 +122,10 @@ static void adaptMPOcombos(int ** nrMPOcombos, int *** MPOs, const int * MPOinst
                 for (int j = 0; j < dimint2; ++j) {
                         int cnt = 0;
                         for (int k = 0; k < nrMPOcombos[i][j]; ++k) {
-                                const int position = search(MPOs[i][j][k], 
-                                                            MPOinstr, 
-                                                            nrMPOinstr);
+                                const int position = 
+                                        linSearch(&MPOs[i][j][k], MPOinstr, 
+                                                  nrMPOinstr, SORT_INT, 
+                                                  sizeof(int));
                                 /* the MPO combo not found in the instructions, 
                                  * so will not occur */
                                 if (position == -1) { continue; }
@@ -208,7 +209,7 @@ static void destroyqnumbersarr(int **** qnumbersarray, int internaldim)
 
 static void order_qnB_arr(QN_TYPE ** array, int el)
 {
-        int * idx = qnumbersSort(*array, 1, el);
+        int * idx = quickSort(*array, el, SORT_QN_TYPE);
         QN_TYPE * temp = safe_malloc(el, QN_TYPE);
         for (int i = 0; i < el; ++i) { temp[i] = (*array)[idx[i]]; }
         safe_free(*array);
@@ -817,7 +818,8 @@ static void find_operator_sb(struct indexdata * idd,
                                                           idd->idMPO[i]);
 
                 if (!data->Operators[i].P_operator) {
-                        idd->sb_op[i] = qnbsearch(&qninner, 1, qnarray, 1, nr_blocks);
+                        idd->sb_op[i] = binSearch(&qninner, qnarray, nr_blocks,
+                                                  SORT_QN_TYPE, sizeof qninner);
                         assert(idd->sb_op[i] != - 1);
                 } else {
                         const QN_TYPE qn[3] = {
@@ -826,7 +828,8 @@ static void find_operator_sb(struct indexdata * idd,
                                 qninner
                         };
 
-                        idd->sb_op[i] = qnbsearch(qn, 3, qnarray, 3, nr_blocks);
+                        idd->sb_op[i] = binSearch(qn, qnarray, nr_blocks,
+                                                  SORT_QN_TYPE3, sizeof qn);
                         assert(idd->sb_op[i] != -1);
                 }
         }
@@ -900,8 +903,9 @@ static void loop_oldqnBs(struct indexdata * idd, struct Heffdata * data,
         QN_TYPE * oldqnB_arr = data->qnBtoqnB_arr[newqnB_id];
 
         for (int oldqnB_id = 0; oldqnB_id < oldnr_qnB; ++oldqnB_id) {
-                const int qnBtoSid = qnbsearch(&oldqnB_arr[oldqnB_id], 1,
-                                               data->qnB_arr, 1, data->nr_qnB);
+                const int qnBtoSid = binSearch(&oldqnB_arr[oldqnB_id],
+                                               data->qnB_arr, data->nr_qnB,
+                                               SORT_QN_TYPE, sizeof(QN_TYPE));
 
                 const int nrMPOcombos = data->nrMPOcombos[newqnB_id][oldqnB_id];
                 int * MPOs = data->MPOs[newqnB_id][oldqnB_id];
@@ -1303,7 +1307,6 @@ void destroy_Heffdata(struct Heffdata * const data)
 
 EL_TYPE * make_diagonal(const struct Heffdata * const data)
 {
-
         EL_TYPE * result = 
                 safe_calloc(siteTensor_get_size(&data->siteObject), EL_TYPE);
 

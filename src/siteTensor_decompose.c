@@ -963,7 +963,7 @@ static int * make_and_sort(struct siteTensor * tens, int **dim, QN_TYPE **qn, in
   for (ss = 0; ss < newSymsec->nrSecs; ++ss)
     for (i = 0; i < (newSymsec->dims[ss] != 0) * nrqn[ss] * tens->nrsites; ++i, ++p_qn) 
       *p_qn = qn[ss][i];
-  perm = qnumbersSort(tempqn, tens->nrsites, tens->nrblocks);
+  perm = quickSort(tempqn, tens->nrblocks, tens->nrsites);
   perm = inverse_permutation(perm, tens->nrblocks);
 
   cnt = 0;
