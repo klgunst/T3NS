@@ -32,8 +32,10 @@
 
 /// Defines different types for sorting.
 enum sortType {
+        /// Invalid sorting type.
+        SORT_ERROR,
         /// For sorting QN_TYPE arrays.
-        SORT_QN_TYPE = 1,
+        SORT_QN_TYPE,
         /// For sorting QN_TYPE[2] arrays.
         SORT_QN_TYPE2,
         /// For sorting QN_TYPE[3] arrays.
@@ -51,6 +53,11 @@ enum sortType {
         /// For sorting double arrays.
         SORT_DOUBLE
 };
+
+/// Array such that sort_qn[i] will return SORT_QN_TYPEi
+extern const enum sortType sort_qn[];
+/// Array such that sort_int[i] will return SORT_INTi
+extern const enum sortType sort_int[];
 
 /**
  * @brief Gives the permutation array for the sorted array, does not sort the 

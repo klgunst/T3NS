@@ -232,7 +232,7 @@ static void make_1sblocks(struct siteTensor * const tens, int ***dimarray, int *
   safe_free(qnumbersarray);
 
   /* Reform leading order, and I could kick this order */
-  idx = quickSort(tempqnumbers, tens->nrblocks, tens->nrsites);
+  idx = quickSort(tempqnumbers, tens->nrblocks, sort_qn[tens->nrsites]);
 
   tens->blocks.beginblock[0] = 0;
   for (i = 0; i < tens->nrblocks; ++i)
@@ -565,7 +565,7 @@ static void sort_and_make(struct siteTensor * const tens, int ** const dim_of_bl
   int i;
 
   tens->blocks.beginblock = safe_malloc(tens->nrblocks + 1, int);
-  idx = quickSort(tens->qnumbers, tens->nrblocks, tens->nrsites);
+  idx = quickSort(tens->qnumbers, tens->nrblocks, sort_qn[tens->nrsites]);
 
   tens->blocks.beginblock[0] = 0; 
   for (i = 0; i < tens->nrblocks; ++i)

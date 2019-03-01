@@ -220,9 +220,8 @@ int full_dimension(const struct symsecs * const sym)
 
 int search_symsec(int * symmsec, const struct symsecs * sectors)
 {
-        enum sortType st = (enum sortType) (SORT_INT + (bookie.nrSyms - 1));
         return binSearch(symmsec, sectors->irreps, sectors->nrSecs, 
-                         st, sizeof *sectors->irreps);
+                         sort_int[bookie.nrSyms], sizeof *sectors->irreps);
 }
 
 void print_symsecinfo(struct symsecs * ss)

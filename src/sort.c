@@ -26,6 +26,13 @@
 #include "sort.h"
 #include "macros.h"
 
+// Array such that sort_qn[i] will return SORT_QN_TYPEi
+const enum sortType sort_qn[] = {SORT_ERROR, SORT_QN_TYPE, SORT_QN_TYPE2,
+        SORT_QN_TYPE3, SORT_QN_TYPE4};
+// Array such that sort_int[i] will return SORT_INTi
+const enum sortType sort_int[] = {SORT_ERROR, SORT_INT, SORT_INT2, 
+        SORT_INT3, SORT_INT4};
+
 static int comparintsearch(const void * a, const void * b)
 {
         int aa = *((int *) a), bb = *((int *) b);
