@@ -131,7 +131,7 @@ One can generate a T3NS  or DMRG network file by executing
     > ./makenetwork.py nr_sites
     > ./makenetwork.py nr_sites DMRG
 
-This will print the network file to `stdin`. Afterwards one can optimize the
+This will print the network file to `stdout`. Afterwards one can optimize the
 orbital ordering by providing a FCIDUMP and the previously generated network
 file.
     
