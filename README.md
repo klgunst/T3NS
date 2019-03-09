@@ -119,3 +119,22 @@ and can be used to continue a calculation through:
 In this case, only the optimization scheme defined in the input file will be
 used for the continued calculation. Other specified options will be ignored and
 instead read from the hdf5 file.
+
+Provided scripts
+----------------
+
+In the `scripts` folder, there are some python scripts provided for the
+automatic generation of network files and the optimization of the ordering.
+
+One can generate a T3NS  or DMRG network file by executing
+
+    > ./makenetwork.py nr_sites
+    > ./makenetwork.py nr_sites DMRG
+
+This will print the network file to `stdin`. Afterwards one can optimize the
+orbital ordering by providing a FCIDUMP and the previously generated network
+file.
+    
+    > ./optimizenetwork.py networkfile fcidump
+
+Both scripts have a rudimentary help accessed by the `-h` or `--help` arguments.
