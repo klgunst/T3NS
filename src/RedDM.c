@@ -435,7 +435,11 @@ int get_1siteEntanglement(const struct RedDM * rdm, double ** result)
                         for (int k = 0; k < dim; ++k) { 
                                 assert(eigvalues[k] < 1 && eigvalues[k] > -1e-9);
                                 double omega = eigvalues[k];
-                                (*result)[i] -= multipl * omega * log(omega); 
+                                // Prevents log(0). max error is order 2e-9
+                                if (omega > 1e-10) {
+                                        (*result)[i] -= 
+                                                multipl * omega * log(omega); 
+                                } 
 #ifdef T3NS_REDDM_DEBUG
                                 sum += multipl * eigvalues[k];
 #endif
