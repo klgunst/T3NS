@@ -16,7 +16,7 @@ option(DAVID_INFO     	"Print intermediate results for the Davidson algorithm" O
 option(BUILD_TESTING 	"Compile the tests" 			  ON)
 option(PERFORMANCETEST  "Compile the performance tests" 	  OFF)
 option(BUILD_DOXYGEN    "Use Doxygen to create a HTML/PDF manual" OFF)
-set(MAX_SYMMETRIES "4" CACHE STRING "")
+set(MAX_SYMMETRIES "5" CACHE STRING "")
 
 # Find Lapack or MKL
 if(MKL)

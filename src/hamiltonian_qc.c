@@ -20,22 +20,23 @@
 #include <ctype.h>
 #include <math.h>
 #include <hdf5.h>
+#include <assert.h>
 
 #include "hamiltonian_qc.h"
 #include "io.h"
 #include "network.h"
 #include "bookkeeper.h"
 #include "macros.h"
-#include <assert.h>
 #include "opType.h"
 #include "io_to_disk.h"
 
 static struct hamdata {
-        int norb;           /**< number of orbitals. */
-        int *orbirrep;      /**< the pg_irreps of the orbitals. */
-        double core_energy; /**< core_energy of the system. */
-        double* Vijkl;      /**< interaction terms of the system. */
-        int su2;            /**< has SU(2) turned on or not. */
+        int norb;           // number of orbitals.
+        int *orbirrep;      // the pg_irreps of the orbitals.
+        double core_energy; // core_energy of the system.
+        double* Vijkl;      // interaction terms of the system.
+        int su2;            // has SU(2) turned on or not.
+        int has_seniority;  // Seniority restricted calculation.
 } hdat;
 
 static const int irreps_QC[13][2] = {
@@ -136,11 +137,12 @@ void QC_destroy_hamiltonian(void)
         opType_destroy_all();
 }
 
-void QC_make_hamiltonian(char hamiltonianfile[], int su2)
+void QC_make_hamiltonian(char hamiltonianfile[], int su2, int has_seniority)
 {
         double *one_p_int;
 
         hdat.su2 = su2;
+        hdat.has_seniority = has_seniority;
         printf(" >> Reading FCIDUMP %s\n", hamiltonianfile);
         read_header(hamiltonianfile);
         read_integrals(&one_p_int, hamiltonianfile);
@@ -162,12 +164,11 @@ void QC_make_hamiltonian(char hamiltonianfile[], int su2)
 
 void QC_get_physsymsecs(struct symsecs *res, int site)
 {
-        int irrep[4][3]     = {{0,0,0},{1,1,0},{1,0,1},{0,1,1}};
-        int irrep_su2[3][3] = {{0,0,0},{1,1,1},{0,2,0}};
+        int irrep[4][3]     = {{0,0,0}, {1,1,0}, {1,0,1}, {0,1,1}};
+        int irrep_su2[3][3] = {{0,0,0}, {1,1,1}, {0,2,0}};
         int (*irreparr)[3]    = hdat.su2 ? irrep_su2 : irrep;
-        int i, j;
 
-        assert(bookie.nrSyms == 3 + (get_pg_symmetry() != -1));
+        assert(bookie.nrSyms == 3 + (get_pg_symmetry() != -1) + hdat.has_seniority);
 
         res->nrSecs = hdat.su2 ? 3 : 4;
         res->totaldims = res->nrSecs;
@@ -175,16 +176,25 @@ void QC_get_physsymsecs(struct symsecs *res, int site)
         res->dims = safe_malloc(res->nrSecs, int);
         res->fcidims = safe_malloc(res->nrSecs, double);
 
-        for (i = 0; i < res->nrSecs; ++i) {
+        for (int i = 0; i < res->nrSecs; ++i) {
+                int j;
                 res->dims   [i] = 1;
                 res->fcidims[i] = 1;
                 for (j = 0; j < 3; ++j)
                         res->irreps[i][j] = irreparr[i][j];
 
-                /* trivial if even parity, otherwise irrep of orbital*/
-                if (get_pg_symmetry() != -1)
+                /* trivial if even parity, otherwise irrep of orbital */
+                if (get_pg_symmetry() != -1) {
                         res->irreps[i][j] = res->irreps[i][0] ?  
                                 hdat.orbirrep[netw.sitetoorb[site]] : 0;
+                        ++j;
+                }
+                if (hdat.has_seniority) {
+                        // Seniority equals parity for orbital
+                        res->irreps[i][j] = res->irreps[i][0];
+                        ++j;
+                }
+                assert(j == bookie.nrSyms);
 
                 /* Z2 should come first */
                 assert(bookie.sgs[0] == Z2);
@@ -946,7 +956,7 @@ static void prepare_MPOsymsecs(void)
         const int size  = hdat.su2 
                 ? sizeof irreps_QCSU2 / sizeof irreps_QCSU2[0]
                 : sizeof irreps_QC / sizeof irreps_QC[0];
-        assert(bookie.nrSyms == 3 + (pg != -1));
+        assert(bookie.nrSyms == 3 + (pg != -1) + hdat.has_seniority);
 
         MPOsymsecs.nrSecs = nr_of_pg * size;
         MPOsymsecs.irreps = safe_malloc(MPOsymsecs.nrSecs, *MPOsymsecs.irreps);
@@ -955,21 +965,27 @@ static void prepare_MPOsymsecs(void)
         MPOsymsecs.totaldims = MPOsymsecs.nrSecs;
 
         for (int i = 0; i < size; ++i) {
-                int j;
-                for (j = 0; j < nr_of_pg; ++j) {
+                for (int j = 0; j < nr_of_pg; ++j) {
                         int cnt = i * nr_of_pg + j;
+                        int k = 0;
                         /* Z2 */
-                        if (hdat.su2)
-                                MPOsymsecs.irreps[cnt][0] = abs(irreps[i * 2]) % 2;
-                        else
-                                MPOsymsecs.irreps[cnt][0] = abs(irreps[i * 2] + 
-                                                                irreps[i * 2 + 1]) % 2;
+                        if (hdat.su2) {
+                                MPOsymsecs.irreps[cnt][k++] = 
+                                        abs(irreps[i * 2]) % 2;
+                        } else {
+                                MPOsymsecs.irreps[cnt][k++] = 
+                                        abs(irreps[i * 2] + 
+                                            irreps[i * 2 + 1]) % 2;
+                        }
                         /* U1 */
-                        MPOsymsecs.irreps[cnt][1] = irreps[i * 2];
+                        MPOsymsecs.irreps[cnt][k++] = irreps[i * 2];
                         /* U1 or SU2 */
-                        MPOsymsecs.irreps[cnt][2] = irreps[i * 2 + 1];
-                        if (pg != -1)
-                                MPOsymsecs.irreps[cnt][3] = j;
+                        MPOsymsecs.irreps[cnt][k++] = irreps[i * 2 + 1];
+                        if (pg != -1) { MPOsymsecs.irreps[cnt][k++] = j; }
+                        if (hdat.has_seniority) {
+                                MPOsymsecs.irreps[cnt][k++] = -1;
+                        }
+                        assert(k == bookie.nrSyms);
 
                         MPOsymsecs.dims[cnt] = 1;
                         MPOsymsecs.fcidims[cnt] = 1;

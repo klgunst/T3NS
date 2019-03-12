@@ -50,6 +50,8 @@ enum sortType {
         SORT_INT3,
         /// For sorting integer[4] arrays.
         SORT_INT4,
+        /// For sorting integer[5] arrays.
+        SORT_INT5,
         /// For sorting double arrays.
         SORT_DOUBLE
 };

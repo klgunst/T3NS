@@ -33,11 +33,19 @@ int U1_get_max_irrep(int (*prop1)[MAX_SYMMETRIES], int nr1,
 }
 
 void U1_tensprod_irrep(int *min_irrep, int *nr_irreps, int *step, 
-                       int irrep1, int irrep2, int sign)
+                       int irrep1, int irrep2, int sign, int seniority)
 {
-        *min_irrep = irrep1 + sign * irrep2;
-        *nr_irreps = 1;
-        *step = 1;
+        if (seniority && irrep1 == -1) {
+                // HACK
+                // -1 signals we are taking MPO x virtual bond as tens product.
+                *min_irrep = irrep2 - 4 < 0 ? 0 : irrep2 - 4;
+                *step = 1;
+                *nr_irreps = irrep2 + 4 - *min_irrep + 1;
+        } else {
+                *min_irrep = irrep1 + sign * irrep2;
+                *nr_irreps = 1;
+                *step = 1;
+        }
 }
 
 void U1_get_irrstring(char * buffer, int irr)
@@ -45,11 +53,17 @@ void U1_get_irrstring(char * buffer, int irr)
         snprintf(buffer, MY_STRING_LEN, "%d", irr);
 }
 
-int U1_which_irrep(char * buffer, int *irr)
+int U1_which_irrep(char * buffer, int *irr, int seniority)
 {
-        *irr = atoi(buffer);
+        *irr = 1;
+        if (seniority) {
+                *irr = buffer[0] == '=' ? -1 : 1;
+                while (*buffer == '=' || *buffer == ' ') { ++buffer; }
+        }
+        *irr *= atoi(buffer);
         /* no error in reading buffer */
-        if ((*irr != 0) ^ (buffer[0] == '0'))
-                return *irr >= 0;
+        if ((*irr != 0) ^ (buffer[0] == '0')) {
+                return *irr >= 0 || seniority;
+        }
         return 0;
 }

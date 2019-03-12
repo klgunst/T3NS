@@ -19,6 +19,7 @@
 #include <sys/time.h>
 #include <math.h>
 #include <time.h>
+#include <assert.h>
 
 #ifdef T3NS_MKL
 #include "mkl.h"
@@ -28,7 +29,6 @@
 
 #include "optimize_network.h"
 #include "macros.h"
-#include <assert.h>
 #include "options.h"
 #include "network.h"
 #include "bookkeeper.h"

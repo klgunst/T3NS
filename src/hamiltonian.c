@@ -35,7 +35,7 @@ enum hamtypes ham;
 /* ========================================================================== */
 
 /** Sets the Hamiltonian to the right internal enum. **/
-static int set_hamiltonian(char hamiltonian[], int * const hassu2);
+static int set_hamiltonian(char hamiltonian[], int * const hassu2, int * hasseniority);
 
 /* ========================================================================== */
 
@@ -49,12 +49,13 @@ void readinteraction(char interactionstring[])
         interact[BUFLEN - 1] = '\0';
 
         int hassu2 = 0;
-        if (!set_hamiltonian(interactionstring, &hassu2))
+        int hasseniority = 0;
+        if (!set_hamiltonian(interactionstring, &hassu2, &hasseniority))
                 exit(EXIT_FAILURE);
 
         switch(ham) {
         case QC :
-                QC_make_hamiltonian(interactionstring, hassu2);
+                QC_make_hamiltonian(interactionstring, hassu2, hasseniority);
                 break;
         case NN_HUBBARD :
                 NN_H_make_hamiltonian(interactionstring, hassu2);
@@ -362,7 +363,7 @@ void read_hamiltonian_from_disk(const hid_t id)
 /* ===================== DEFINITION STATIC FUNCTIONS ======================== */
 /* ========================================================================== */
 
-static int set_hamiltonian(char hamiltonian[], int * const hassu2)
+static int set_hamiltonian(char hamiltonian[], int * const hassu2, int * hasseniority)
 {
         char *ext = strrchr(hamiltonian, '.');
 
@@ -426,13 +427,17 @@ static int set_hamiltonian(char hamiltonian[], int * const hassu2)
                         return 0;
         }
 
-        if (bookie.nrSyms != 3 && bookie.nrSyms != 4) {
+        if (bookie.nrSyms != 3 && bookie.nrSyms != 4 && bookie.nrSyms != 5) {
                 fprintf(stderr, "Invalid symmetry groups for quantum chemistry were inputted!\n");
                 return 0;
         }
         if (bookie.nrSyms == 4 && bookie.sgs[3] < C1) {
                 fprintf(stderr, "Invalid symmetry groups for quantum chemistry were inputted!\n");
                 return 0;
+        }
+
+        if(bookie.sgs[bookie.nrSyms - 1] == SENIORITY) {
+                *hasseniority = 1;
         }
 
         for (i = 0; i < 3; ++i)

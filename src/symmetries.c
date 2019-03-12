@@ -18,10 +18,10 @@
 #include <stdio.h>
 #include <string.h>
 #include <ctype.h>
+#include <assert.h>
 
 #include "symmetries.h"
 #include "macros.h"
-#include <assert.h>
 
 int get_max_irrep(int (*prop1)[MAX_SYMMETRIES], int nr1, 
                   int (*prop2)[MAX_SYMMETRIES], int nr2,
@@ -31,6 +31,7 @@ int get_max_irrep(int (*prop1)[MAX_SYMMETRIES], int nr1,
         case Z2 :
                 return Z2_get_max_irrep();
         case U1 :
+        case SENIORITY:
                 return U1_get_max_irrep(prop1, nr1, prop2, nr2, whichsym);
         case SU2 :
                 return SU2_get_max_irrep(prop1, nr1, prop2, nr2, whichsym);
@@ -86,9 +87,10 @@ void tensprod_irrep(int *min_irrep, int *nr_irreps, int *step, int irrep1,
                 Z2_tensprod_irrep(min_irrep, nr_irreps, step, irrep1, irrep2);
                 break;
         case U1 :
+        case SENIORITY:
                 /* only here sign is needed ! */
                 U1_tensprod_irrep(min_irrep, nr_irreps, step, irrep1, irrep2, 
-                                  sign);
+                                  sign, sg == SENIORITY);
                 break;
         case SU2 :
                 SU2_tensprod_irrep(min_irrep, nr_irreps, step, irrep1, irrep2);
@@ -102,7 +104,7 @@ void tensprod_irrep(int *min_irrep, int *nr_irreps, int *step, int irrep1,
 }
 
 const char * symmetrynames[] = {
-        "Z2", "U1", "SU2", "C1", "Ci", "C2", "Cs", "D2", "C2v", "C2h", "D2h"
+        "Z2", "U1", "SU2", "C1", "Ci", "C2", "Cs", "D2", "C2v", "C2h", "D2h", "SENIORITY"
 };
 
 const char * get_symstring(enum symmetrygroup sg)
@@ -142,6 +144,7 @@ void get_irrstring(char * buffer, enum symmetrygroup sg, int irr)
                 Z2_get_irrstring(buffer, irr);
                 break;
         case U1 :
+        case SENIORITY:
                 U1_get_irrstring(buffer, irr);
                 break;
         case SU2 :
@@ -158,7 +161,8 @@ int which_irrep(char * buffer, enum symmetrygroup sg, int * irr)
         case Z2 :
                 return Z2_which_irrep(buffer, irr);
         case U1 :
-                return U1_which_irrep(buffer, irr);
+        case SENIORITY:
+                return U1_which_irrep(buffer, irr, sg == SENIORITY);
         case SU2 :
                 return SU2_which_irrep(buffer, irr);
         default :
@@ -396,7 +400,6 @@ double prefactor_bUpdate(int * (*irrep_arr)[3], int updateCase,
                                         symvalues[j][k] = (irrep_arr[j][k])[i];
                         prefactor *= SU2_prefactor_bUpdate(symvalues, updateCase);
                         break;
-                case U1 :
                 default :
                         break;
                 }
@@ -418,8 +421,6 @@ double prefactor_add_P_operator(int * const (*irreps)[3], int isleft,
 
                         prefactor *= Z2_prefactor_add_P_operator(symvalues, isleft);
                         break;
-                case SU2 :
-                case U1 :
                 default :
                         break;
                 }
@@ -453,7 +454,6 @@ double prefactor_combine_MPOs(int * const (*irreps)[3], int * const *irrMPO,
 
                         prefactor *= SU2_prefactor_combine_MPOs(symvalues, symvaluesMPO, isdmrg, extradinge);
                         break;
-                case U1 :
                 default :
                         break;
                 }

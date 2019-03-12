@@ -17,14 +17,15 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
+#include <assert.h>
 
 #include "bookkeeper.h"
 #include "tensorproducts.h"
 #include "network.h"
 #include "symmetries.h"
 #include "macros.h"
-#include <assert.h>
 #include "hamiltonian.h"
+#include "sort.h"
 
 struct bookkeeper bookie;
 
@@ -83,19 +84,52 @@ static void init_vacuumstate(struct symsecs * sectors, char o)
 
 static void init_targetstate(struct symsecs * sectors, char o)
 { 
-        destroy_symsecs(sectors);
-        sectors->nrSecs     = 1;
-        sectors->irreps     = safe_malloc(sectors->nrSecs, *sectors->irreps);
-        sectors->fcidims    = safe_malloc(sectors->nrSecs, double);
-        sectors->fcidims[0] = 1;
-        if (o == 'f') {
-                sectors->dims = NULL;
-        } else if (o == 'd') {
-                sectors->dims    = safe_malloc(sectors->nrSecs, int);
-                sectors->dims[0] = 1;
+        enum symmetrygroup senior = SENIORITY;
+        int seniority_id = linSearch(&senior, bookie.sgs, bookie.nrSyms, 
+                                     SORT_INT, sizeof senior);
+        if (seniority_id != -1) { bookie.target_state[seniority_id] *= -1; }
+
+        if (seniority_id == -1 || bookie.target_state[seniority_id] >= 0) {
+                sectors->nrSecs     = 1;
+                sectors->irreps     = safe_malloc(sectors->nrSecs, 
+                                                  *sectors->irreps);
+                sectors->fcidims    = safe_malloc(sectors->nrSecs, double);
+                sectors->fcidims[0] = 1;
+                if (o == 'f') {
+                        sectors->dims = NULL;
+                } else if (o == 'd') {
+                        sectors->dims    = safe_malloc(sectors->nrSecs, int);
+                        sectors->dims[0] = 1;
+                }
+                for (int i = 0; i < bookie.nrSyms; ++i) 
+                        sectors->irreps[0][i] = bookie.target_state[i]; 
+        } else {
+                sectors->nrSecs = -bookie.target_state[seniority_id] / 2 + 1;
+                sectors->irreps = safe_malloc(sectors->nrSecs, 
+                                              *sectors->irreps);
+                sectors->fcidims = safe_malloc(sectors->nrSecs, double);
+                for (int i = 0; i < sectors->nrSecs; ++i) {
+                        sectors->fcidims[i] = 1;
+                }
+                if (o == 'f') {
+                        sectors->dims = NULL;
+                } else if (o == 'd') {
+                        sectors->dims    = safe_malloc(sectors->nrSecs, int);
+                        for (int i = 0; i < sectors->nrSecs; ++i) {
+                                sectors->dims[i] = 1;
+                        }
+                }
+                int sen = -bookie.target_state[seniority_id] % 2;
+                for (int i = 0; i < sectors->nrSecs; ++i) {
+                        for (int j = 0; j < bookie.nrSyms; ++j) {
+                                sectors->irreps[i][j] = bookie.target_state[j]; 
+                        }
+                        sectors->irreps[i][seniority_id] = sen;
+                        sen += 2;
+                }
+                assert(sen == -bookie.target_state[seniority_id] + 2);
         }
-        for (int i = 0; i < bookie.nrSyms; ++i) 
-                sectors->irreps[0][i] = bookie.target_state[i]; 
+        if (seniority_id != -1) { bookie.target_state[seniority_id] *= -1; }
 }
 
 static int is_equal_symsector(struct symsecs *sectors1, int i, 
@@ -139,7 +173,15 @@ static int select_lowest(struct symsecs *sectors1, struct symsecs *sectors2)
 static void make_symsec(struct symsecs *symsec, int bond, int is_left, char o)
 {
         if (netw.bonds[bond][!is_left] == -1) {
-                is_left ?  init_vacuumstate(symsec, o) : init_targetstate(symsec, o);
+                if (is_left) {
+                        init_vacuumstate(symsec, o);
+
+                } else {
+                        struct symsecs temp;
+                        init_targetstate(&temp, o);
+                        select_lowest(symsec, &temp);
+                        destroy_symsecs(&temp);
+                }
                 return;
         }
 
@@ -379,7 +421,7 @@ int get_particlestarget(void)
 int get_pg_symmetry(void)
 {
         for (int i = 0; i < bookie.nrSyms; ++i)
-                if (bookie.sgs[i] >= C1)
+                if (bookie.sgs[i] >= C1 && bookie.sgs[i] < SENIORITY)
                         return bookie.sgs[i];
         return -1;
 }

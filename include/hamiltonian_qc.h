@@ -29,7 +29,7 @@
 
 void QC_destroy_hamiltonian(void);
 
-void QC_make_hamiltonian(char hamiltonianfile[], int su2);
+void QC_make_hamiltonian(char hamiltonianfile[], int su2, int has_seniority);
 
 void QC_get_physsymsecs(struct symsecs *res, int site);
 

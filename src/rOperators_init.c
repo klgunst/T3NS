@@ -71,26 +71,52 @@ void destroy_rOperators(struct rOperators * const rops)
 void init_vacuum_rOperators(struct rOperators * const rops, const int bond_of_operator, const int
     is_left)
 {
-  int i;
-  assert(netw.bonds[bond_of_operator][!is_left] == -1 && "Not a bond for vacuum rOperators!");
-  rops->bond_of_operator    = bond_of_operator;
-  rops->is_left             = is_left;
-  rops->P_operator          = 0;
-  rops->nrhss               = get_nr_hamsymsec();
-  rops->begin_blocks_of_hss = safe_malloc(rops->nrhss + 1, int);
+        int i;
+        struct symsecs ss;
+        get_symsecs(&ss, bond_of_operator);
+        assert(netw.bonds[bond_of_operator][!is_left] == -1 && 
+               "Not a bond for vacuum rOperators!");
+        rops->bond_of_operator    = bond_of_operator;
+        rops->is_left             = is_left;
+        rops->P_operator          = 0;
+        rops->nrhss               = get_nr_hamsymsec();
+        rops->begin_blocks_of_hss = safe_malloc(rops->nrhss + 1, int);
 
-  /* Only the trivial hamsymsec is valid at these vacuum operators, and it has exactly one block */
-  for (i = 0; i < get_trivialhamsymsec() + 1; ++i) rops->begin_blocks_of_hss[i] = 0;
-  for (; i < rops->nrhss + 1; ++i) rops->begin_blocks_of_hss[i] = 1;
+        const int trivhss = get_trivialhamsymsec();
+        // Only the trivial hamsymsec is valid at these vacuum operators.
+        for (i = 0; i < trivhss + 1; ++i) {
+                rops->begin_blocks_of_hss[i] = 0;
+        }
+        // And it has exactly nrSecs blocks.
+        // QUICKFIX This is a really dirty fix
+        if (is_left) {
+                for (; i < rops->nrhss + 1; ++i) {
+                        rops->begin_blocks_of_hss[i] = ss.nrSecs;
+                }
 
-  rops->qnumbers      = safe_malloc(1, QN_TYPE);      /* only 1 coupling and one valid symsec */
-  rops->qnumbers[0] = 0 + get_trivialhamsymsec() * 1; /* (0,0,trivialhamsymsec) */
+                rops->qnumbers = safe_malloc(ss.nrSecs, QN_TYPE);
+                for (i = 0; i < ss.nrSecs; ++i) {
+                        rops->qnumbers[i] = i * (ss.nrSecs + 1) + 
+                                ss.nrSecs * ss.nrSecs * trivhss;
+                }
+        } else {
+                // For seniority calculations the unit operator at the end
+                // needs to connect ALL blocks.
+                for (; i < rops->nrhss + 1; ++i) {
+                        rops->begin_blocks_of_hss[i] = ss.nrSecs * ss.nrSecs;
+                }
 
-  rops->nrops           = 1;
-  rops->hss_of_ops      = safe_malloc(rops->nrops, int);
-  rops->hss_of_ops[0] = get_trivialhamsymsec();
-  rops->operators       = safe_malloc(rops->nrops, struct sparseblocks);
-  make_unitOperator(rops, 0);
+                rops->qnumbers = safe_malloc(ss.nrSecs * ss.nrSecs, QN_TYPE);
+                for (i = 0; i < ss.nrSecs * ss.nrSecs; ++i) {
+                        rops->qnumbers[i] = i + 
+                                ss.nrSecs * ss.nrSecs * trivhss;
+                }
+        }
+        rops->nrops = 1;
+        rops->hss_of_ops = safe_malloc(rops->nrops, int);
+        rops->hss_of_ops[0] = trivhss;
+        rops->operators = safe_malloc(rops->nrops, struct sparseblocks);
+        make_unitOperator(rops, 0);
 }
 
 void init_rOperators(struct rOperators * const rops, int ***tmp_nkappa_begin, const int 
@@ -147,77 +173,77 @@ void sum_unique_rOperators(struct rOperators * const newrops, const struct rOper
 
 static void make_unitOperator(struct rOperators * const ops, const int op)
 {
-  const int nr_indices  = rOperators_give_nr_of_indices(ops);
-  const int halfindexes = nr_indices / 2;
-  const int hss = get_trivialhamsymsec();
-  const int nr_blocks = rOperators_give_nr_blocks_for_hss(ops, hss);
-  int maxdims[halfindexes];
-  int indexbonds[nr_indices];
-  int totdim = 0;
-  int block;
-  struct symsecs symarr[halfindexes];
-  struct symsecs symMPO;
-  struct sparseblocks * const unitOperator = &ops->operators[op];
-  QN_TYPE * const qnumbers_of_unit         = rOperators_give_qnumbers_for_hss(ops, hss);
-  if (ops->P_operator == 1)
-  {
-    fprintf(stderr, "%s@%s: Not implemented for physical rOperators.\n", __FILE__, __func__);
-    return;
-  }
-  rOperators_give_indices(ops, indexbonds);
+        const int nr_indices  = rOperators_give_nr_of_indices(ops);
+        const int halfindexes = nr_indices / 2;
+        const int hss = get_trivialhamsymsec();
+        const int nr_blocks = rOperators_give_nr_blocks_for_hss(ops, hss);
+        int maxdims[halfindexes];
+        int indexbonds[nr_indices];
+        int totdim = 0;
+        int block;
+        struct symsecs symarr[halfindexes];
+        struct symsecs symMPO;
+        struct sparseblocks * const unitOperator = &ops->operators[op];
+        QN_TYPE * const qnumbers_of_unit         = rOperators_give_qnumbers_for_hss(ops, hss);
+        if (ops->P_operator == 1)
+        {
+                fprintf(stderr, "%s@%s: Not implemented for physical rOperators.\n", __FILE__, __func__);
+                return;
+        }
+        rOperators_give_indices(ops, indexbonds);
 
-  get_symsecs_arr(halfindexes, symarr, indexbonds);
-  get_symsecs(&symMPO, indexbonds[nr_indices - 1]);
-  get_maxdims_of_bonds(maxdims, indexbonds, halfindexes);
+        get_symsecs_arr(halfindexes, symarr, indexbonds);
+        get_symsecs(&symMPO, indexbonds[nr_indices - 1]);
+        get_maxdims_of_bonds(maxdims, indexbonds, halfindexes);
 
-  /* I will first use this array to store the sqrt(D) instead of D */
-  unitOperator->beginblock = safe_malloc(nr_blocks + 1, int);
-  unitOperator->beginblock[0] = 0;
-  for (block = 0; block < nr_blocks; ++block)
-  {
-    QN_TYPE ind = qnumbers_of_unit[block];
-    int j;
-    unitOperator->beginblock[block + 1] = 1;
-    for (j = 0; j < halfindexes; ++j)
-    {
-      int currind = ind % maxdims[j];
-      ind         = ind / maxdims[j];
-      unitOperator->beginblock[block + 1] *= symarr[j].dims[currind];
-    }
-    totdim += unitOperator->beginblock[block + 1] * unitOperator->beginblock[block + 1];
-  }
+        /* I will first use this array to store the sqrt(D) instead of D */
+        unitOperator->beginblock = safe_malloc(nr_blocks + 1, int);
+        unitOperator->beginblock[0] = 0;
+        for (block = 0; block < nr_blocks; ++block)
+        {
+                QN_TYPE ind = qnumbers_of_unit[block];
+                unitOperator->beginblock[block + 1] = 1;
+                for (int j = 0; j < halfindexes; ++j)
+                {
+                        int currind = ind % maxdims[j];
+                        ind         = ind / maxdims[j];
+                        unitOperator->beginblock[block + 1] *= symarr[j].dims[currind];
+                }
+                totdim += unitOperator->beginblock[block + 1] * unitOperator->beginblock[block + 1];
+        }
 
-  unitOperator->tel =safe_calloc(totdim, EL_TYPE);
-  for (block = 0; block < nr_blocks; ++block)
-  {
-    const int D            = unitOperator->beginblock[block + 1];
-    EL_TYPE * const telcur = get_tel_block(unitOperator, block);
-    QN_TYPE ind = qnumbers_of_unit[block];
-    int *irrep_arr[3];
-    int j;
-    double prefactor = 1;
+        unitOperator->tel =safe_calloc(totdim, EL_TYPE);
+        for (block = 0; block < nr_blocks; ++block)
+        {
+                const int D            = unitOperator->beginblock[block + 1];
+                EL_TYPE * const telcur = unitOperator->tel + 
+                        unitOperator->beginblock[block];
+                QN_TYPE ind = qnumbers_of_unit[block];
+                int *irrep_arr[3];
+                int j;
+                double prefactor = 1;
 
-    /* only for halfindexes == 1 */
-    for (j = 0; j < halfindexes; ++j)
-    {
-      irrep_arr[j] = symarr[j].irreps[ind % maxdims[j]];
-      irrep_arr[2 - j] = irrep_arr[j];
-      ind         = ind / maxdims[j];
-    }
-    irrep_arr[1] = symMPO.irreps[get_trivialhamsymsec()];
-    /* coupling is bra MPO ket and should be ket MPO bra for right rops, so you should mirror the
-     * coupling. For left rops, nothing should be changed. */
-    if (!ops->is_left)
-      prefactor *= prefactor_mirror_coupling(irrep_arr, bookie.sgs, bookie.nrSyms);
+                /* only for halfindexes == 1 */
+                for (j = 0; j < halfindexes; ++j)
+                {
+                        irrep_arr[j] = symarr[j].irreps[ind % maxdims[j]];
+                        irrep_arr[2 - j] = irrep_arr[j];
+                        ind         = ind / maxdims[j];
+                }
+                irrep_arr[1] = symMPO.irreps[get_trivialhamsymsec()];
+                /* coupling is bra MPO ket and should be ket MPO bra for right rops, so you should mirror the
+                 * coupling. For left rops, nothing should be changed. */
+                if (!ops->is_left)
+                        prefactor *= prefactor_mirror_coupling(irrep_arr, bookie.sgs, bookie.nrSyms);
 
-    /* diagonal */
-    for (j = 0; j < D; ++j)
-      telcur[j * D + j] = prefactor;
-    unitOperator->beginblock[block + 1] = unitOperator->beginblock[block] + D * D;
-  }
+                /* diagonal */
+                for (j = 0; j < D; ++j)
+                        telcur[j * D + j] = prefactor;
+                unitOperator->beginblock[block + 1] = unitOperator->beginblock[block] + D * D;
+        }
 
-  clean_symsecs_arr(halfindexes, symarr, indexbonds);
-  clean_symsecs(&symMPO, indexbonds[nr_indices - 1]);
+        clean_symsecs_arr(halfindexes, symarr, indexbonds);
+        clean_symsecs(&symMPO, indexbonds[nr_indices - 1]);
 }
 
 static void init_nP_rOperators(struct rOperators * const rops, int ***tmp_nkappa_begin, const int 

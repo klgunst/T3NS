@@ -99,7 +99,7 @@ static int get_sites_to_opt(int maxsites, struct stepSpecs * specs, int * state)
         }
 
         specs->nr_sites_opt = 1;
-        if(*state > netw.sweeplength) {
+        if(*state >= netw.sweeplength) {
                 *state = 0;
                 return 1;
         }

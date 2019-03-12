@@ -31,7 +31,7 @@
 
 /* POINT_GROUP_SYMMETRY is a macro!!! */
 /* If you change this, you should change the symmetrynames in symmetries.c also */
-enum symmetrygroup { Z2, U1, SU2, POINT_GROUP_SYMMETRY };
+enum symmetrygroup { Z2, U1, SU2, POINT_GROUP_SYMMETRY, SENIORITY };
 
 /**
  * \brief Gives the maximal label + 1 of the irreps that can be generated symmetrygroup 
