@@ -322,7 +322,9 @@ int main(int argc, char *argv[])
 
         initialize_program(argc, argv, &T3NS, &rops, &scheme, &pbuffer);
         execute_optScheme(T3NS, rops, &scheme, pbuffer);
+        print_target_state_coeff(T3NS);
 
+        /*
         struct RedDM rdm;
         get_RedDMs(T3NS, &rdm, 1, 0);
         double * ent;
@@ -333,6 +335,7 @@ int main(int argc, char *argv[])
         printf("\n");
         safe_free(ent);
         destroy_RedDM(&rdm);
+        */
 
         cleanup_before_exit(&T3NS, &rops, &scheme);
         printf("SUCCESFULL END!\n");

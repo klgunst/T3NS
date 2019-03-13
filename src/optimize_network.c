@@ -540,5 +540,45 @@ double execute_optScheme(struct siteTensor * const T3NS, struct rOperators * con
  
         printf("** TIMERS FOR OPTIMIZATION SCHEME\n");
         print_timers(timings);
+        printf("============================================================================\n\n");
         return energy;
+}
+
+void print_target_state_coeff(const struct siteTensor * T3NS)
+{
+        // Just do a QR at the last bond.
+        struct siteTensor lastT = T3NS[netw.sites - 1];
+        struct siteTensor Q;
+        struct Rmatrix R;
+        if (qr(&lastT, 2, &Q, &R)) { exit(EXIT_FAILURE); }
+        destroy_siteTensor(&Q);
+        struct symsecs ss;
+        get_symsecs(&ss, R.bond);
+        char buffer[MY_STRING_LEN];
+
+        assert(R.nrblocks == ss.nrSecs);
+        if (R.nrblocks == 1) {
+                destroy_Rmatrix(&R);
+                clean_symsecs(&ss, R.bond);
+                return;
+        }
+        printf(" >> |c_i|^2 of target states:\n");
+        printf("\t");
+        for (int j = 0; j < bookie.nrSyms; ++j) {
+                printf("%s%s", get_symstring(bookie.sgs[j]), 
+                       j == bookie.nrSyms - 1 ? "\n" : ",\t");
+        }
+        for (int i = 0; i < ss.nrSecs; ++i) {
+                assert(R.dims[i][0] == 1 && R.dims[i][1] == 1);
+                int * irrep = ss.irreps[i];
+                printf("\t");
+                for (int j = 0; j < bookie.nrSyms; ++j) {
+                        get_irrstring(buffer, bookie.sgs[j], irrep[j]);
+                        printf("%s%s", buffer, 
+                               j == bookie.nrSyms - 1 ? ":\t" : ",\t");
+                }
+                printf("%g\n", R.Rels[i][0] * R.Rels[i][0]);
+        }
+        destroy_Rmatrix(&R);
+        clean_symsecs(&ss, R.bond);
 }
