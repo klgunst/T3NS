@@ -547,7 +547,11 @@ double execute_optScheme(struct siteTensor * const T3NS, struct rOperators * con
 void print_target_state_coeff(const struct siteTensor * T3NS)
 {
         // Just do a QR at the last bond.
-        struct siteTensor lastT = T3NS[netw.sites - 1];
+        struct siteTensor lastT;
+        // Search last tensor
+        for (int i = 0; i < netw.nr_bonds; ++i) {
+                if (netw.bonds[i][1] == -1) { lastT = T3NS[netw.bonds[i][0]]; }
+        }
         struct siteTensor Q;
         struct Rmatrix R;
         if (qr(&lastT, 2, &Q, &R)) { exit(EXIT_FAILURE); }
