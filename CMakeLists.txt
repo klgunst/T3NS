@@ -9,7 +9,6 @@ string(TIMESTAMP THISTIME "Compiled %b %d %Y %H:%M:%S")
 set(CMAKE_MODULE_PATH "${PROJECT_SOURCE_DIR}/cmake/Modules")
 
 option(DEBUG 		"Debug symbols used" 			  OFF)
-option(DEBUGFLAG        "Compile with DDEBUG flag" 		  OFF)
 option(MKL 		"Compile using MKL" 			  OFF)
 option(ENABLE_XHOST     "Enable processor-specific optimizations" ON)
 option(DAVID_INFO     	"Print intermediate results for the Davidson algorithm" OFF)
@@ -68,10 +67,6 @@ if(DEBUG)
 endif(DEBUG)
 
 add_definitions(-DMAX_SYMMETRIES=${MAX_SYMMETRIES})
-# set DDEBUG flag
-if(DEBUGFLAG)
-    add_definitions(-DDEBUG)
-endif(DEBUGFLAG)
 if(DAVID_INFO)
     add_definitions(-DDAVID_INFO)
 endif(DAVID_INFO)

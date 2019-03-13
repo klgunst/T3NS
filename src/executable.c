@@ -263,7 +263,6 @@ static void initialize_program(int argc, char *argv[], struct siteTensor **T3NS,
                 create_list_of_symsecs(scheme->regimes[0].minD, 1, minocc);
                 init_calculation(T3NS, rops, 'r');
                 print_input(scheme);
-                print_bookkeeper(0);
         } else {
                 read_optScheme(arguments.args[0], scheme);
                 assert(scheme->nrRegimes != 0);

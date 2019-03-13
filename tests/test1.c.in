@@ -26,6 +26,7 @@
 #include "hamiltonian_qc.h"
 #include "bookkeeper.h"
 #include "optimize_network.h"
+#include "instructions.h"
 
 static void initialize_program(struct siteTensor **T3NS, 
                                struct rOperators **rops, 
@@ -72,6 +73,7 @@ static void destroy_all_rops(struct rOperators **rops)
 static void cleanup_before_exit(struct siteTensor **T3NS, 
                                 struct rOperators **rops)
 {
+        clear_instructions();
         destroy_bookkeeper();
         destroy_network();
         destroy_T3NS(T3NS);

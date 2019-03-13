@@ -93,10 +93,6 @@ void rOperators_append_phys(struct rOperators * const newrops, const struct rOpe
   sum_unique_rOperators(newrops, &uniquerops, instructions, hamsymsecs_of_new, prefactors, 
       nr_instructions);
   destroy_rOperators(&uniquerops);
-
-  safe_free(instructions);
-  safe_free(prefactors);
-  safe_free(hamsymsecs_of_new);
 }
 
 void update_rOperators_physical(struct rOperators * const rops, const struct siteTensor * 

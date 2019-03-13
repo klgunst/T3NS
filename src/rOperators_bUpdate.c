@@ -246,7 +246,6 @@ void update_rOperators_branching(struct rOperators * const newops, const struct 
                               instructions.pref, instructions.nr_instr);
 
         destroy_rOperators(&uniqueOperators);
-        destroy_instructionset(&instructions);
 }
 
 /* ========================================================================== */

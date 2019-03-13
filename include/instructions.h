@@ -77,3 +77,5 @@ void print_instructions(int (*instructions)[3], double * const prefactors,
 void start_fill_instruction(struct instructionset * instructions, int step);
 
 void fill_instruction(int id1, int id2, int id3, double pref);
+
+void clear_instructions(void);
