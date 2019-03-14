@@ -82,7 +82,7 @@ static void init_vacuumstate(struct symsecs * sectors, char o)
                 sectors->irreps[0][i] = 0;
 }
 
-static void init_targetstate(struct symsecs * sectors, char o)
+void init_targetstate(struct symsecs * sectors, char o)
 { 
         enum symmetrygroup senior = SENIORITY;
         int seniority_id = linSearch(&senior, bookie.sgs, bookie.nrSyms, 
@@ -424,26 +424,6 @@ int get_pg_symmetry(void)
         return -1;
 }
 
-void get_sgsstring(int sg, char * buffer)
-{
-        buffer[0] = '\0';
-        if (sg == -1) {
-                for (int i = 0; i < bookie.nrSyms; ++i) {
-                        if (bookie.sgs[i] == Z2) {
-                                strcat(buffer, "(Z2)\t");
-                        } else {
-                                strcat(buffer, get_symstring(bookie.sgs[i]));
-                                strcat(buffer, "\t");
-                        }
-                }
-        } else {
-                for (int i = sg != bookie.nrSyms; i < bookie.nrSyms; ++i) {
-                        strcat(buffer, get_symstring(bookie.sgs[i]));
-                        strcat(buffer, "\t");
-                }
-        }
-}
-
 void get_tsstring(char * buffer)
 {
         char buffer2[MY_STRING_LEN];
@@ -459,4 +439,57 @@ void print_bondinfo(int bond)
 {
         printf("bond %d : ", bond);
         print_symsecinfo(&bookie.list_of_symsecs[bond]);
+}
+
+int find_Z2(void)
+{
+        int flag = 0;
+        assert(bookie.sgs[0] == Z2);
+        bookie.target_state[0] = 0;
+
+        /* find Z2 through U1 */
+        for (int i = 1; i < bookie.nrSyms; ++i) {
+                if (bookie.sgs[i] == U1) {
+                        flag = 1;
+                        bookie.target_state[0] += bookie.target_state[i];
+                }
+        }
+
+        /* find Z2 through SU2 */
+        if (!flag) {
+                for (int i = 1; i < bookie.nrSyms; ++i) {
+                        if (bookie.sgs[i] == SU2) {
+                                flag = 1;
+                                bookie.target_state[0] += bookie.target_state[i];
+                        }
+                }
+        }
+
+        if (!flag) {
+                fprintf(stderr, "Error @%s: the given symmetries don't specify explicitly or implicitly Z2\n",
+                        __func__);
+        }
+
+        bookie.target_state[0] %= 2;
+        return flag;
+}
+
+int include_Z2(void)
+{
+        if (bookie.sgs[0] == Z2) { return 0; }
+        ++bookie.nrSyms;
+        if (bookie.nrSyms > MAX_SYMMETRIES) {
+                fprintf(stderr, "Error: program was compiled for a maximum of %d symmetries.\n"
+                        "Recompile with a DMAX_SYMMETRIES flag set at least to %d to do the calculation.\n",
+                        MAX_SYMMETRIES, bookie.nrSyms);
+                return 1;
+        }
+
+        for (int i = bookie.nrSyms - 1; i >= 1; --i) {
+                bookie.sgs[i] = bookie.sgs[i - 1];
+                bookie.target_state[i] = bookie.target_state[i - 1];
+        }
+        bookie.sgs[0] = Z2;
+        if (!find_Z2()) { return 1; }
+        return 0;
 }

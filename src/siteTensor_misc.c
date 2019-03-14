@@ -16,11 +16,18 @@
 */
 #include <stdlib.h>
 #include <stdio.h>
+#include <assert.h>
+
+#ifdef T3NS_MKL
+#include "mkl.h"
+#else
+#include <cblas.h>
+#endif
 
 #include "siteTensor.h"
-#include <assert.h>
 #include "network.h"
 #include "bookkeeper.h"
+#include "symsecs.h"
 #include "sort.h"
 
 /* ========================================================================== */
@@ -164,6 +171,63 @@ int siteTensor_give_bondid(const struct siteTensor * tens, int bond)
         }
         fprintf(stderr, "Bond not found in siteTensor.\n");
         return -1;
+}
+
+void norm_tensor(struct siteTensor * tens)
+{
+        const int N = siteTensor_get_size(tens);
+        const double norm = cblas_dnrm2(N, tens->blocks.tel, 1);
+        cblas_dscal(N, 1. / norm, tens->blocks.tel, 1);
+}
+
+void change_sectors_tensor(struct siteTensor * oldtens, 
+                           struct symsecs * ss_old, int bond)
+{
+        assert(oldtens->nrsites == 1);
+        struct siteTensor newtens;
+        int bonds[3];
+        get_bonds_of_site(oldtens->sites[0], bonds);
+        const int bondid = linSearch(&bond, bonds, 3, SORT_INT, sizeof bond);
+        assert(bondid != -1);
+        struct symsecs ss_new;
+        get_symsecs(&ss_new, bonds[bondid]);
+        int dimsnew[3];
+        get_maxdims_of_bonds(dimsnew, bonds, 3);
+        int dimsold[3] = {dimsnew[0], dimsnew[1], dimsnew[2]};
+        dimsold[bondid] = ss_old->nrSecs;
+
+        init_1siteTensor(&newtens, oldtens->sites[0], '0');
+
+        for (int oldblock = 0; oldblock < oldtens->nrblocks; ++oldblock) {
+                int idold[3];
+                int idnew[3];
+                QN_TYPE qn = oldtens->qnumbers[oldblock];
+                for (int i = 0; i < 3; ++i) {
+                        idold[i] = qn % dimsold[i];
+                        idnew[i] = idold[i];
+                        qn /= dimsold[i];
+                }
+                assert(qn == 0);
+                idnew[bondid] =
+                        search_symsec(ss_old->irreps[idold[bondid]], &ss_new);
+                const QN_TYPE qnnew = idnew[0] + idnew[1] * dimsnew[0] +
+                        idnew[2] * dimsnew[0] * dimsnew[1];
+
+                const int newblock = binSearch(&qnnew, newtens.qnumbers,
+                                               newtens.nrblocks, SORT_QN_TYPE,
+                                               sizeof qnnew);
+                if (newblock == -1) { continue; }
+                const int N = get_size_block(&newtens.blocks, newblock);
+                assert(N == get_size_block(&oldtens->blocks, oldblock));
+                EL_TYPE * telnew = get_tel_block(&newtens.blocks, newblock);
+                EL_TYPE * telold = get_tel_block(&oldtens->blocks, oldblock);
+                for (int i = 0; i < N; ++i) { telnew[i] = telold[i]; }
+        }
+
+
+        clean_symsecs(&ss_new, bonds[bondid]);
+        destroy_siteTensor(oldtens);
+        *oldtens = newtens;
 }
 
 /* ========================================================================== */

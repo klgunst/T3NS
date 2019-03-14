@@ -16,7 +16,7 @@
 */
 #include <stdlib.h>
 #include <stdio.h>
-#include <string.h>
+#include <string.h> 
 #include <hdf5.h>
 #include <unistd.h>
 #include <omp.h>
@@ -51,7 +51,7 @@ static void write_symsec_to_disk(const hid_t id, const struct symsecs * const
 }
 
 static void read_symsec_from_disk(const hid_t id, struct symsecs * const ssec, 
-                                  const int nmbr, int offset)
+                                  const int nmbr, int offset, int nrSyms)
 {
         char buffer[255];
         sprintf(buffer, "./symsec_%d", nmbr);
@@ -68,7 +68,7 @@ static void read_symsec_from_disk(const hid_t id, struct symsecs * const ssec,
         read_dataset(group_id, "./irreps", dummyirreps);
 
         for (int i = 0; i < ssec->nrSecs; ++i) {
-                for (int j = 0; j < bookie.nrSyms; ++j) {
+                for (int j = 0; j < nrSyms; ++j) {
                         ssec->irreps[i][j] = dummyirreps[i * offset + j];
                 }
         }
@@ -99,32 +99,36 @@ static void write_bookkeeper_to_disk(const hid_t file_id)
         H5Gclose(group_id);
 }
 
-static void read_bookkeeper_from_disk(const hid_t file_id)
+static void read_bookkeeper_from_disk(const hid_t file_id, 
+                                      enum symmetrygroup * sgs,
+                                      int * target_state,
+                                      int * nrSyms)
 {
         const hid_t group_id = H5Gopen(file_id, "/bookkeeper", H5P_DEFAULT);
 
-        read_attribute(group_id, "nrSyms", &bookie.nrSyms);
-        if (bookie.nrSyms > MAX_SYMMETRIES) {
+        read_attribute(group_id, "nrSyms", nrSyms);
+        if (*nrSyms > MAX_SYMMETRIES) {
                 fprintf(stderr, "Error: This wave function can not be read.\n"
                         "The currently compiled program can not run with the specified number of symmetries.\n"
                         "Specified: %d, maximal allowed: %d.\n"
-                        "Recompile with a higher MAX_SYMMETRIES", bookie.nrSyms, MAX_SYMMETRIES);
+                        "Recompile with a higher MAX_SYMMETRIES", *nrSyms, MAX_SYMMETRIES);
                 exit(EXIT_FAILURE);
         }
         int offset;
         read_attribute(group_id, "Max_symmetries", &offset);
 
-        read_attribute(group_id, "sgs", (int *) bookie.sgs);
+        read_attribute(group_id, "sgs", (int *) sgs);
 
-        read_attribute(group_id, "target_state", bookie.target_state);
+        read_attribute(group_id, "target_state", target_state);
 
         read_attribute(group_id, "nr_bonds", &bookie.nr_bonds);
 
         bookie.list_of_symsecs = safe_malloc(bookie.nr_bonds, struct symsecs);
 
-        for (int i = 0 ; i < bookie.nr_bonds; ++i) 
+        for (int i = 0 ; i < bookie.nr_bonds; ++i) {
                 read_symsec_from_disk(group_id, &bookie.list_of_symsecs[i], i, 
-                                      offset);
+                                      offset, *nrSyms);
+        }
 
         H5Gclose(group_id);
 }
@@ -133,12 +137,17 @@ static void write_sparseblocks_to_disk(const hid_t id,
                                        const struct sparseblocks * block, 
                                        const int nrblocks, const int nmbr)
 {
+        if (block == NULL) { return; }
         char buffer[255];
         sprintf(buffer, "./block_%d", nmbr);
         hid_t group_id = H5Gcreate(id, buffer, H5P_DEFAULT, 
                                    H5P_DEFAULT, H5P_DEFAULT);
 
         write_attribute(group_id, "nrBlocks", &nrblocks, 1, THDF5_INT);
+        if (nrblocks == 0) { 
+                H5Gclose(group_id);
+                return; 
+        }
         write_dataset(group_id, "./beginblock", block->beginblock,
                       nrblocks + 1, THDF5_INT);
         write_dataset(group_id, "./tel", block->tel, 
@@ -156,9 +165,18 @@ static void read_sparseblocks_from_disk(const hid_t id,
         int bloccount;
 
         const hid_t group_id = H5Gopen(id, buffer, H5P_DEFAULT);
+        if (group_id < 0) { 
+                return;
+        }
 
         read_attribute(group_id, "nrBlocks", &bloccount);
         assert(bloccount == nrblocks);
+        if (bloccount == 0) {
+                block->beginblock = NULL;
+                block->tel = NULL;
+                H5Gclose(group_id);
+                return;
+        }
 
         block->beginblock = safe_malloc(nrblocks + 1, int);
         read_dataset(group_id, "./beginblock", block->beginblock);
@@ -388,7 +406,6 @@ static void read_network_from_disk(const hid_t id)
         read_dataset(group_id, "./sweep", netw.sweep);
 
         H5Gclose(group_id);
-        print_network();
 
         create_nr_left_psites();
         create_order_psites();
@@ -439,24 +456,116 @@ void write_to_disk(const char * hdf5_loc, const struct siteTensor * const T3NS,
         H5Fclose(file_id);
 }
 
-void read_from_disk(const char filename[], struct siteTensor ** const T3NS, 
+static int change_seniority(struct siteTensor * T3NS,
+                            struct rOperators * ops, 
+                            int seniorsym, int oldsenior)
+{
+        const int newsenior = bookie.target_state[seniorsym];
+        if (oldsenior == newsenior) { return 0; }
+        int endbond;
+        for (endbond = 0; endbond < netw.nr_bonds; ++endbond) {
+                if (netw.bonds[endbond][1] == -1) { break; }
+        }
+        assert(endbond != netw.nr_bonds);
+        if (newsenior < 0 || oldsenior < 0) {
+                fprintf(stderr, "Only able to convert from one range of seniorities to another for the target state.\n");
+                fprintf(stderr, "No conversion for fixed seniorities allowed (except seniority zero).\n");
+                return 1;
+        }
+        struct symsecs oldtarget = bookie.list_of_symsecs[endbond];
+        // Change the symsec
+        init_targetstate(&bookie.list_of_symsecs[endbond], 'd');
+        /* Change the renormalized operators at the end.
+           This is just reinitializing the unitary at the end.
+        */
+        destroy_rOperators(&ops[endbond]);
+        init_vacuum_rOperators(&ops[endbond], endbond, 0);
+
+        /* Change the last site tensor appropriately.
+           This means changing the qnumbers appropriately and for
+                increase of the seniority number, adding sectors with all 
+                elements 0.
+          
+                decrease of the seniority number, removing sectors and 
+                renorming.
+        */
+        struct siteTensor * endTensor = &T3NS[netw.bonds[endbond][0]];
+        change_sectors_tensor(endTensor, &oldtarget, endbond);
+        // Now renorming it.
+        norm_tensor(endTensor);
+
+        destroy_symsecs(&oldtarget);
+        return 0;
+}
+
+static int change_targetstate(struct siteTensor * T3NS, 
+                               struct rOperators * ops,
+                               enum symmetrygroup * sgs,
+                               int * target_state,
+                               int nrSyms)
+{
+        // Later on, also input that you just forget seniority.
+        // Not now yet though.
+        char buffer[MY_STRING_LEN];
+        for (int i = 0; i < nrSyms; ++i) {
+                if (sgs[i] != bookie.sgs[i]) {
+                        fprintf(stderr, "Symmetries do not match between input file and previous calculation.\n");
+                        get_sgsstring(bookie.sgs, bookie.nrSyms, buffer);
+                        fprintf(stderr, "Input file: %s\n", buffer);
+                        get_sgsstring(sgs, nrSyms, buffer);
+                        fprintf(stderr, "Previous calculation: %s\n", buffer);
+                        return 1;
+                }
+                if (target_state[i] != bookie.target_state[i]) { 
+                        if (sgs[i] == SENIORITY) {
+                                if (!change_seniority(T3NS, ops, i,
+                                                      target_state[i])) {
+                                        // succesful change of seniority
+                                        continue;
+                                }
+                        }
+                        get_irrstring(buffer, sgs[i], bookie.target_state[i]);
+                        fprintf(stderr, "Not able to change target state from %s to ", buffer);
+                        get_irrstring(buffer, sgs[i], target_state[i]);
+                        fprintf(stderr, " for %s.\n", get_symstring(sgs[i]));
+                        return 1;
+                }
+        }
+        return 0;
+}
+
+int read_from_disk(const char filename[], struct siteTensor ** const T3NS, 
                     struct rOperators ** const ops)
 {
         if (access(filename, F_OK) != 0) {
                 fprintf(stderr, "Error in %s: Can not read from disk.\n"
                         "%s was not found.\n", __func__, filename);
-                exit(EXIT_FAILURE);
+                return 1;
         }
 
         hid_t file_id = H5Fopen(filename, H5F_ACC_RDONLY, H5P_DEFAULT);
 
         read_network_from_disk(file_id);
-        read_bookkeeper_from_disk(file_id);
+        enum symmetrygroup sgs[MAX_SYMMETRIES];
+        int target_state[MAX_SYMMETRIES];
+        int nrSyms;
+        read_bookkeeper_from_disk(file_id, sgs, target_state, &nrSyms);
+        if (bookie.nrSyms == -1) {
+                bookie.nrSyms = nrSyms;
+                for (int i = 0; i < nrSyms; ++i) {
+                        bookie.sgs[i] = sgs[i];
+                        bookie.target_state[i] = target_state[i];
+                }
+        }
         read_hamiltonian_from_disk(file_id);
         read_T3NS_from_disk(file_id, T3NS);
         read_rOps_from_disk(file_id, ops);
+        if (change_targetstate(*T3NS, *ops, sgs, target_state, nrSyms)) {
+                return 1;
+        }
 
         H5Fclose(file_id);
+        return 0;
 }
 
 void write_attribute(hid_t group_id, const char atrname[], const void * atr, 

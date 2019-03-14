@@ -120,6 +120,9 @@ void init_1siteTensor(struct siteTensor * const tens, const int site, const char
     case 'c':
       srand(0);
       break;
+    case '0':
+      tens->blocks.tel = safe_calloc(tens->blocks.beginblock[tens->nrblocks], EL_TYPE);
+      return;
     default:
       fprintf(stderr, "%s@%s: Unknown option \'%c\' was inputted.\n", __FILE__, __func__, o);
       exit(EXIT_FAILURE);

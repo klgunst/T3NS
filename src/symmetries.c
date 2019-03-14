@@ -196,38 +196,6 @@ int find_str_in_array(char * buffer, const char ** arr, int length, int * ind)
         return 0;
 }
 
-int find_Z2(enum symmetrygroup * sgs, int * ts, int nrsy)
-{
-        int flag = 0;
-        assert(sgs[0] == Z2);
-        ts[0] = 0;
-
-        /* find Z2 through U1 */
-        for (int i = 1; i < nrsy; ++i) {
-                if (sgs[i] == U1) {
-                        flag = 1;
-                        ts[0] += ts[i];
-                }
-        }
-
-        /* find Z2 through SU2 */
-        if (!flag) {
-                for (int i = 1; i < nrsy; ++i) {
-                        if (sgs[i] == SU2) {
-                                flag = 1;
-                                ts[0] += ts[i];
-                        }
-                }
-        }
-
-        if (!flag)
-                fprintf(stderr, "Error @%s: the given symmetries don't specify explicitly or implicitly Z2\n",
-                        __func__);
-
-        ts[0] %= 2;
-        return flag;
-}
-
 int consistent_state(enum symmetrygroup * sgs, int * ts, int nrsy)
 {
         int nrU1 = 0;
@@ -528,3 +496,13 @@ int multiplicity(int nrSyms, const enum symmetrygroup * sgs, const int * irreps)
         }
         return result;
 }
+
+void get_sgsstring(enum symmetrygroup * sgs, int nrSyms, char * buffer)
+{
+        buffer[0] = '\0';
+        for (int i = 0; i < nrSyms; ++i) {
+                strcat(buffer, get_symstring(sgs[i]));
+                strcat(buffer, "\t");
+        }
+}
+

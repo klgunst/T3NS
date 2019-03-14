@@ -17,6 +17,7 @@
 #pragma once
 #include "sparseblocks.h"
 #include "macros.h"
+#include "symsecs.h"
 
 /** 
  * @file siteTensor.h
@@ -250,6 +251,28 @@ int siteTensor_get_size(const struct siteTensor * const tens);
  * @return Returns the bondid or -1 on not found
  */
 int siteTensor_give_bondid(const struct siteTensor * tens, int bond);
+
+/**
+ * @brief Norms the siteTensor, i.e. the sum of the square of all the elements
+ * becomes 1.
+ *
+ * @param [in,out] tens The tensor to norm.
+ */
+void norm_tensor(struct siteTensor * tens);
+
+/**
+ * @brief Changes a siteTensor appropriately when a symsec of the siteTensor 
+ * has been changed.
+ *
+ * The siteTensor has to be a one-site tensor.
+ *
+ * @param [in,out] oldtens The siteTensor to change.
+ * @param [in] ss_old The old symmetry sector. The new one should be stored
+ * in the bookkeeper already.
+ * @param [in] bond The bond where the changed symmetry sector belongs.
+ */
+void change_sectors_tensor(struct siteTensor * oldtens, 
+                           struct symsecs * ss_old, int bond);
 
 /* ============================ DECOMPOSE =================================== */
 

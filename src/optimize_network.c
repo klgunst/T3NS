@@ -21,12 +21,6 @@
 #include <time.h>
 #include <assert.h>
 
-#ifdef T3NS_MKL
-#include "mkl.h"
-#else
-#include <cblas.h>
-#endif
-
 #include "optimize_network.h"
 #include "macros.h"
 #include "options.h"
@@ -170,8 +164,7 @@ static void add_noise(double noiseLevel)
                 const double random_nr = rand() / RAND_MAX - 0.5;
                 o_dat.msiteObj.blocks.tel[i] += random_nr * noiseLevel;
         }
-        const double norm = cblas_dnrm2(N, o_dat.msiteObj.blocks.tel, 1);
-        cblas_dscal(N, 1. / norm, o_dat.msiteObj.blocks.tel, 1);
+        norm_tensor(&o_dat.msiteObj);
 }
 
 struct optimize_info {
@@ -501,9 +494,7 @@ void init_calculation(struct siteTensor ** T3NS, struct rOperators ** rOps,
                 if (siteR != -1) /* If the last site, then normalize wavefunc */
                         continue;
 
-                const int N = siteTensor_get_size(Q);
-                const double norm = cblas_dnrm2(N, Q->blocks.tel, 1);
-                cblas_dscal(N, 1 / norm, Q->blocks.tel, 1);
+                norm_tensor(Q);
         }
 
         printf(" >> Preparing renormalized operators...\n");
@@ -573,7 +564,10 @@ void print_target_state_coeff(const struct siteTensor * T3NS)
                        j == bookie.nrSyms - 1 ? "\n" : ",\t");
         }
         for (int i = 0; i < ss.nrSecs; ++i) {
-                assert(R.dims[i][0] == 1 && R.dims[i][1] == 1);
+                assert(R.dims[i][0] == 0 || R.dims[i][0] == 1);
+                assert(R.dims[i][1] == 0 || R.dims[i][1] == 1);
+                const double value = R.dims[i][0] == 0 ? 0 : 
+                        R.Rels[i][0] * R.Rels[i][0];
                 int * irrep = ss.irreps[i];
                 printf("\t");
                 for (int j = 0; j < bookie.nrSyms; ++j) {
@@ -581,7 +575,7 @@ void print_target_state_coeff(const struct siteTensor * T3NS)
                         printf("%s%s", buffer, 
                                j == bookie.nrSyms - 1 ? ":\t" : ",\t");
                 }
-                printf("%g\n", R.Rels[i][0] * R.Rels[i][0]);
+                printf("%g\n", value);
         }
         destroy_Rmatrix(&R);
         clean_symsecs(&ss, R.bond);

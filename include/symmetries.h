@@ -130,17 +130,6 @@ int which_irrep(char * buffer, enum symmetrygroup sg, int * irr);
 int find_str_in_array(char * buffer, const char ** arr, int length, int * ind);
 
 /**
- * \brief Finds the parity of the targetstate with given irreps for other symmetrygroups.
- *
- * \param [in] sgs The symmetrygroups of the target state. The first element should be Z2.
- * \param [in,out] ts The irreps of the targetstate. The parity of the ts is stored in the first
- * element.
- * \param [in] nr_symmetries The number of symmetries in the system.
- * \return 1 if the determination of the parity was successful, 0 otherwise.
- */
-int find_Z2(enum symmetrygroup * sgs, int * ts, int nrsy);
-
-/**
  * \brief Checks if the inputted state is consistent.
  *
  * \param [in] sgs The symmetrygroups.
@@ -238,3 +227,12 @@ double prefactor_RDMinterm(int * (*irreps)[7], int bond,
 int need_multiplicity(int nrSyms, const enum symmetrygroup * sgs);
 
 int multiplicity(int nrSyms, const enum symmetrygroup * sgs, const int * irreps);
+
+/**
+ * @brief returns a buffer of the different symmetry groups inputted.
+ *
+ * @param [in] sgs The symmetry groups.
+ * @param [in] nrSyms The length of the sgs array.
+ * @param [in,out] buffer Allocated buffer space.
+ */
+void get_sgsstring(enum symmetrygroup * sgs, int nrSyms, char * buffer);

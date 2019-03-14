@@ -68,22 +68,18 @@ void read_sg_and_ts(const char * inputfile)
         if ((sg = read_option("symmetries", inputfile, buffer)) == -1) {
                 sg = read_option("symm", inputfile, buffer);
         }
-        switch(sg) {
-        case -1:
-                fprintf(stderr, "The default initialization is not fixed yet\n");
-                exit(EXIT_FAILURE);
-                break;
-        default:
-                permarray = read_symmetries(buffer, sg);
-                if (permarray == NULL)
-                        exit(EXIT_FAILURE);
+        if (sg == -1) {
+                bookie.nrSyms = -1;
+                return;
+        }
+        permarray = read_symmetries(buffer, sg);
+        if (permarray == NULL) { exit(EXIT_FAILURE); }
 
-                if (bookie.nrSyms > MAX_SYMMETRIES) {
-                        fprintf(stderr, "Error: program was compiled for a maximum of %d symmetries.\n"
-                                "Recompile with a DMAX_SYMMETRIES flag set at least to %d to do the calculation.\n",
-                                MAX_SYMMETRIES, bookie.nrSyms);
-                        exit(EXIT_FAILURE);
-                }
+        if (bookie.nrSyms > MAX_SYMMETRIES) {
+                fprintf(stderr, "Error: program was compiled for a maximum of %d symmetries.\n"
+                        "Recompile with a DMAX_SYMMETRIES flag set at least to %d to do the calculation.\n",
+                        MAX_SYMMETRIES, bookie.nrSyms);
+                exit(EXIT_FAILURE);
         }
 
         int ro;
@@ -101,7 +97,7 @@ void read_sg_and_ts(const char * inputfile)
 
         if (!consistent_state(bookie.sgs, bookie.target_state, bookie.nrSyms)) {
                 char buffer2[MY_STRING_LEN];
-                get_sgsstring(bookie.nrSyms, buffer);
+                get_sgsstring(bookie.sgs, bookie.nrSyms, buffer);
                 get_tsstring(buffer2);
                 fprintf(stderr, 
                         "Error in reading input : Invalid combination of irreps of the target state.\n"
@@ -122,6 +118,10 @@ void read_inputfile(const char inputfile[], struct optScheme * const scheme,
         relative_path(MY_STRING_LEN, relpath, inputfile);
 
         read_sg_and_ts(inputfile);
+        if (bookie.nrSyms == -1) {
+                fprintf(stderr, "Symmetries should be specified in the input file.\n");
+                exit(EXIT_FAILURE);
+        }
 
         int ro;
         if ((ro = read_option("minimal states", inputfile, buffer)) == -1) {
@@ -160,7 +160,7 @@ void read_inputfile(const char inputfile[], struct optScheme * const scheme,
 void print_input(const struct optScheme * scheme)
 {
         char buffer[255];
-        get_sgsstring(bookie.nrSyms, buffer);
+        get_sgsstring(bookie.sgs, bookie.nrSyms, buffer);
         printf("Symmetries  = %s\n", buffer);
 
         get_tsstring(buffer);
@@ -295,7 +295,7 @@ static int read_targetstate(char line[], int *permarray, int no_irr, int sg)
         assert((sg == -1) ^ (permarray != NULL));
         if (sg == -1) { /* default symmetries were inserted */
                 if (no_irr != bookie.nrSyms || no_irr != bookie.nrSyms - 1) {
-                        get_sgsstring(sg, buffer);
+                        get_sgsstring(bookie.sgs, bookie.nrSyms, buffer);
                         fprintf(stderr, "Error: Target state doesn't have the correct number of symmetries.\n"
                                 "Following  symmetries were expected : %s\n", buffer);
                         return 0;
@@ -315,7 +315,7 @@ static int read_targetstate(char line[], int *permarray, int no_irr, int sg)
                 }
         } else { /* Own symmetries were inserted. */
                 if (no_irr != sg) {
-                        get_sgsstring(sg, buffer);
+                        get_sgsstring(bookie.sgs, bookie.nrSyms, buffer);
                         fprintf(stderr, "Error: Target state doesn't have the correct number of symmetries.\n"
                                 "Following  symmetries were expected : %s\n", buffer);
                         return 0;

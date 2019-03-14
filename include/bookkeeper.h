@@ -88,14 +88,6 @@ int get_particlestarget(void);
 int get_pg_symmetry(void);
 
 /**
- * \brief Returns a correctly formatted string of the symmetries used.
- *
- * \param [in] sg The number of symmetry groups or -1 if defaults were used.
- * \param [out] buffer The buffer where the string is stored.
- */
-void get_sgsstring(int sg, char * buffer);
-
-/**
  * \brief Returns a correctly formatted string of the target state.
  *
  * \param [out] buffer The buffer where the string is stored.
@@ -130,3 +122,24 @@ void deep_copy_symsecs_to_bookie(int n, const struct symsecs * symarr,
                                  const int * bonds);
 
 void print_bondinfo(int bond);
+
+/**
+ * @brief Initializes the target state.
+ *
+ * @param [in] sectors The symsecs structure to initialize the target state to.
+ * @param [in] o 'f' if only the fcidims should be initialized, 'd' otherwise.
+ */
+void init_targetstate(struct symsecs * sectors, char o);
+
+/**
+ * @brief Finds the parity of the targetstate with given irreps for other 
+ * symmetrygroups in the bookkeeper.
+ *
+ * @return 1 if the determination of the parity was successful, 0 otherwise.
+ */
+int find_Z2(void);
+
+/** 
+ * @brief Adds the Z2 symmetry in the bookkeeper if not added.
+ */
+int include_Z2(void);

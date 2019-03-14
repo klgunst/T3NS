@@ -265,8 +265,11 @@ static void initialize_program(int argc, char *argv[], struct siteTensor **T3NS,
                 print_input(scheme);
         } else {
                 read_optScheme(arguments.args[0], scheme);
+                read_sg_and_ts(arguments.args[0]);
                 assert(scheme->nrRegimes != 0);
-                read_from_disk(arguments.h5file, T3NS, rops);
+                if (read_from_disk(arguments.h5file, T3NS, rops)) {
+                        exit(EXIT_FAILURE);
+                }
                 print_input(scheme);
         }
 

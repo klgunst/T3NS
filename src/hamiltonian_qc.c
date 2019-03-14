@@ -638,6 +638,7 @@ void QC_write_hamiltonian_to_disk(const hid_t id)
         write_dataset(group_id, "./Vijkl", hdat.Vijkl, p4, THDF5_EL_TYPE);
         write_attribute(group_id, "core_energy", &hdat.core_energy, 1, THDF5_INT);
         write_attribute(group_id, "su2", &hdat.su2, 1, THDF5_INT);
+        write_attribute(group_id, "has_seniority", &hdat.has_seniority, 1, THDF5_INT);
         H5Gclose(group_id);
 }
 
@@ -656,6 +657,7 @@ void QC_read_hamiltonian_from_disk(const hid_t id)
         read_dataset(group_id, "./Vijkl", hdat.Vijkl);
         read_attribute(group_id, "core_energy", &hdat.core_energy);
         read_attribute(group_id, "su2", &hdat.su2);
+        read_attribute(group_id, "has_seniority", &hdat.has_seniority);
         H5Gclose(group_id);
 
         prepare_MPOsymsecs();

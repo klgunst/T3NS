@@ -202,6 +202,8 @@ static struct qrdata init_qrdata(struct siteTensor * A, struct siteTensor * Q,
                 dat.R->dims = safe_malloc(dat.R->nrblocks, *dat.R->dims);
                 dat.R->Rels = safe_malloc(dat.R->nrblocks, *dat.R->Rels);
                 for (int i = 0; i < dat.R->nrblocks; ++i) { 
+                        dat.R->dims[i][0] = 0;
+                        dat.R->dims[i][1] = 0;
                         dat.R->Rels[i] = NULL; 
                 }
         }

@@ -342,9 +342,11 @@ void read_hamiltonian_from_disk(const hid_t id)
 
         switch(ham) {
         case QC :
+                if (include_Z2()) { exit(EXIT_FAILURE); }
                 QC_read_hamiltonian_from_disk(group_id);
                 break;
         case NN_HUBBARD :
+                if (include_Z2()) { exit(EXIT_FAILURE); }
                 NN_H_read_hamiltonian_from_disk(group_id);
                 break;
         case DOCI :
@@ -400,25 +402,7 @@ static int set_hamiltonian(char hamiltonian[], int * const hassu2, int * hasseni
                         hamiltonian);
         }
 
-        if (bookie.sgs[0] != Z2) { /* Z2 symmetry was not included! */
-                ++bookie.nrSyms;
-                if (bookie.nrSyms > MAX_SYMMETRIES) {
-                        fprintf(stderr, "Error: program was compiled for a maximum of %d symmetries.\n"
-                                "Recompile with a DMAX_SYMMETRIES flag set at least to %d to do the calculation.\n",
-                                MAX_SYMMETRIES, bookie.nrSyms);
-                        exit(EXIT_FAILURE);
-                }
-
-                for (i = bookie.nrSyms - 1; i >= 1; --i) {
-                        bookie.sgs[i] = bookie.sgs[i - 1];
-                        bookie.target_state[i] = bookie.target_state[i - 1];
-                }
-                bookie.sgs[0] = Z2;
-
-
-                if (!find_Z2(bookie.sgs, bookie.target_state, bookie.nrSyms))
-                        return 0;
-        }
+        if (include_Z2()) { return 0; }
 
         if (bookie.nrSyms != 3 && bookie.nrSyms != 4 && bookie.nrSyms != 5) {
                 fprintf(stderr, "Invalid symmetry groups for quantum chemistry were inputted!\n");
