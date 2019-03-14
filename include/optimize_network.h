@@ -57,6 +57,6 @@ double execute_optScheme(struct siteTensor * T3NS, struct rOperators * rops,
  * If \f$|Ψ〉= Σ c_i |Ψ_i〉\f$ with \f$|Ψ_i〉\f$ having distinct quantum 
  * numbers, it will print out \f$|c_i|^2\f$ for every \f$|Ψ_i〉\f$.
  *
- * @param T3NS [in] The wave function.
+ * @param [in] T3NS The wave function.
  */
 void print_target_state_coeff(const struct siteTensor * T3NS);

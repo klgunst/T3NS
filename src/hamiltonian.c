@@ -409,18 +409,11 @@ static int set_hamiltonian(char hamiltonian[], int * const hassu2, int * hasseni
                         exit(EXIT_FAILURE);
                 }
 
-                enum symmetrygroup *tempsgs = safe_malloc(bookie.nrSyms, *tempsgs);
-
-                tempsgs[0] = Z2;
-                int *tempts = safe_malloc(bookie.nrSyms, *tempts);
-                for (i = 1; i < bookie.nrSyms; ++i) {
-                        tempsgs[i] = bookie.sgs[i - 1];
-                        tempts[i] = bookie.target_state[i - 1];
+                for (i = bookie.nrSyms - 1; i >= 1; --i) {
+                        bookie.sgs[i] = bookie.sgs[i - 1];
+                        bookie.target_state[i] = bookie.target_state[i - 1];
                 }
-                safe_free(bookie.sgs);
-                bookie.sgs = tempsgs;
-                safe_free(bookie.target_state);
-                bookie.target_state = tempts;
+                bookie.sgs[0] = Z2;
 
 
                 if (!find_Z2(bookie.sgs, bookie.target_state, bookie.nrSyms))

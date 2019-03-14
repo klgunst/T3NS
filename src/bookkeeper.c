@@ -341,8 +341,6 @@ void destroy_bookkeeper(void)
         for (int cnt = 0; cnt < bookie.nr_bonds; ++cnt)
                 destroy_symsecs(&bookie.list_of_symsecs[cnt]);
         safe_free(bookie.list_of_symsecs);
-        safe_free(bookie.sgs);
-        safe_free(bookie.target_state);
 }
 
 void deep_copy_symsecs_from_bookie(int n, struct symsecs  * symarr, 

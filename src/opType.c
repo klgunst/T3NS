@@ -175,8 +175,13 @@ int opType_exist(const struct opType * const ops, const int nrop,
         const int * tagarr = ops->tags_opType[nrop][t == 'c'];
         const int sizetag = base_tag * nr_basetags[nrop][t == 'c'];
 
-        void * p = bsearch(tag, tagarr, K, sizetag * sizeof *tagarr, compare_el2);
-        return p != NULL;
+        if (tagarr != NULL) {
+                void * p = bsearch(tag, tagarr, K, sizetag * sizeof *tagarr, 
+                                   compare_el2);
+                return p != NULL;
+        } else {
+                return 0;
+        }
 }
 
 int amount_opType(const struct opType * const ops, const int nrop, 

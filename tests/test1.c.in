@@ -41,8 +41,6 @@ static void initialize_program(struct siteTensor **T3NS,
                 {Z2,U1,SU2, D2h}
         };
         bookie.nrSyms = nrsyms[testnr];
-        bookie.target_state = safe_malloc(bookie.nrSyms, int);
-        bookie.sgs = safe_malloc(bookie.nrSyms, enum symmetrygroup);
         for (int i = 0; i < bookie.nrSyms; ++i) { 
                 bookie.target_state[i] = tstate[testnr][i];
                 bookie.sgs[i] = sgs[testnr][i];

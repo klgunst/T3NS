@@ -114,10 +114,8 @@ static void read_bookkeeper_from_disk(const hid_t file_id)
         int offset;
         read_attribute(group_id, "Max_symmetries", &offset);
 
-        bookie.sgs = safe_malloc(bookie.nrSyms, enum symmetrygroup);
         read_attribute(group_id, "sgs", (int *) bookie.sgs);
 
-        bookie.target_state = safe_malloc(bookie.nrSyms, int);
         read_attribute(group_id, "target_state", bookie.target_state);
 
         read_attribute(group_id, "nr_bonds", &bookie.nr_bonds);

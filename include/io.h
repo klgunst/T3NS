@@ -18,6 +18,14 @@
 
 #include "optScheme.h"
 /**
+ * @brief Reads the symmetry groups needed and the target state of the 
+ * inputfile and stores it in the global bookkeeper.
+ *
+ * @param [in] inputfile The inputfile.
+ */
+void read_sg_and_ts(const char * inputfile);
+
+/**
  * @brief Reads the inputfile.
  *
  * @param [in] inputfile The inputfile.

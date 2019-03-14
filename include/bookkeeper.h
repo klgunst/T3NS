@@ -32,12 +32,12 @@
  * different bonds in the network.
  */
 struct bookkeeper {
-        /// An array with the different symmetries in the system.
-        enum symmetrygroup * sgs;
         /// The number of symmetries.
         int nrSyms;
+        /// An array with the different symmetries in the system.
+        enum symmetrygroup sgs[MAX_SYMMETRIES];
         /// The irreps of the state we target.
-        int *target_state;
+        int target_state[MAX_SYMMETRIES];
         /// The number of TNSd, TNSu bonds in the network.
         int nr_bonds;
         /** List with the different symsecs for the different bonds.  
