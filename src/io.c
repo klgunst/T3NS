@@ -172,7 +172,7 @@ void print_input(const struct optScheme * scheme)
 
 int read_option(const char option[], const char inputfile[], char buffer[])
 {
-        char tempbuffer[255];
+        char tempbuffer[MY_STRING_LEN];
         FILE *fp = fopen(inputfile, "r");
         int nr_options = -1;
         int flag = 1;

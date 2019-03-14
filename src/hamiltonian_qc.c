@@ -730,7 +730,7 @@ static int equaltags(const int *tag1, const int *tag2,
 
 static void read_header(char fil[])
 {
-        char buffer[255];
+        char buffer[MY_STRING_LEN];
         char *pch;
 
         if (read_option("&FCI NORB", fil, buffer) < 1) {
