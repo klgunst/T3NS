@@ -193,14 +193,13 @@ int amount_opType(const struct opType * const ops, const int nrop,
         return ops->begin_opType[id + 1] - ops->begin_opType[id];
 }
 
-int range_opType(int * const begin, int * const end, 
-                  const struct opType * const ops, const int nrop)
+void range_opType(int * offset, int * amount, 
+                  const struct opType * ops, int nrop)
 {
         assert(nrop < NR_OPS);
-
-        *begin = ops->begin_opType[nrop * NR_TYP];
-        *end = ops->begin_opType[(nrop + 1) * NR_TYP];
-        return *begin != *end;
+        *offset = ops->begin_opType[nrop * NR_TYP];
+        *amount = ops->begin_opType[(nrop + 1) * NR_TYP] - *offset;
+        *amount = *amount < 0 ? 0 : *amount;
 }
 
 int id_opType(const struct opType * const ops, const char c)

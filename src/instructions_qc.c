@@ -26,6 +26,11 @@
 #include "network.h"
 #include "macros.h"
 
+// The maximal number of valid instructions per thread.
+// If it surpasses this number, we will paste an extra WORKMEMINSTR at the end
+// of it
+#define MEMINSTR 100000
+
 static void add_instruction(struct instructionset * instructions,
                             const int * instr, double val)
 {
@@ -42,34 +47,27 @@ static void add_instruction(struct instructionset * instructions,
         instructions->pref[instructions->nr_instr - 1] = val;
 }
 
-static int loopids(const int * begin, const int * end, int * curr)
-{
-        if (curr[0] == -1) {
-                curr[0] = begin[0]; 
-                curr[1] = begin[1];
-                curr[2] = begin[2];
-                return 1;
-        } else {
-                for (int i = 0; i < 3; ++i) {
-                        ++curr[i];
-                        if (curr[i] != end[i]) { 
-                                return 1; 
-                        } else {
-                                curr[i] = begin[i];
-                        }
-                }
-                return 0;
-        }
-}
+struct instruction_data {
+        int size;
+        int (*offset)[3];
+        int (*amount)[3];
+        int *start_combine;
+};
 
-static int count_max_instructions(const struct opType * ops, char c)
+static struct instruction_data get_instruction_data(const struct opType * ops, 
+                                                    char c)
 {
+        struct instruction_data result;
         const int (*operator_array)[3];
-        const int size = get_combine_array(&operator_array);
+        result.size = get_combine_array(&operator_array);
+        result.offset = safe_malloc(result.size, *result.offset);
+        result.amount = safe_malloc(result.size, *result.amount);
+        result.start_combine = safe_malloc(result.size + 1, 
+                                           *result.start_combine);
 
         // Get the maximal number of instructions. Really worst case scenario.
-        int result = 0;
-        for (int i = 0; i < size; ++i) {
+        result.start_combine[0] = 0;
+        for (int i = 0; i < result.size; ++i) {
                 int nr = 1;
                 int opn[3] = {
                         operator_array[i][0],
@@ -79,111 +77,145 @@ static int count_max_instructions(const struct opType * ops, char c)
                 if (c != 't' && c != 'd') {
                         opn[c - '1'] = 4 - opn[c - '1'];
                 }
+
                 for (int j = 0; j < 3; ++j) {
-                        int begin, end;
-                        range_opType(&begin, &end, &ops[j], opn[j]);
-                        assert(begin >= 0 && end >= 0);
-                        nr *= end - begin;
+                        range_opType(&result.offset[i][j], 
+                                     &result.amount[i][j],
+                                     &ops[j], opn[j]);
+                        nr *= result.amount[i][j];
                 }
-                result += nr;
+                result.start_combine[i + 1] = result.start_combine[i] + nr;
         }
         return result;
 }
 
-static void fill_max_instructions(const struct opType * ops, char c,
-                                  struct instructionset * instructions)
+static void free_instruction_data(struct instruction_data * dat)
 {
-        const int (*operator_array)[3];
-        const int size = get_combine_array(&operator_array);
-
-        int cnt = 0;
-        for (int i = 0; i < size; ++i) {
-                int beginid[3] = {0};
-                int endid[3] = {0};
-                int currid[3] = {-1};
-                int flag = 1;
-                int opn[3] = {
-                        operator_array[i][0],
-                        operator_array[i][1],
-                        operator_array[i][2]
-                };
-                if (c != 't' && c != 'd') {
-                        opn[c - '1'] = 4 - opn[c - '1'];
-                }
-
-                for (int j = 0; j < 3; ++j) {
-                        flag *= range_opType(&beginid[j], &endid[j], 
-                                             &ops[j], opn[j]);
-                }
-                if (!flag) { continue; }
-
-                while (loopids(beginid, endid, currid)) {
-                        instructions->instr[cnt][0] = currid[0];
-                        instructions->instr[cnt][1] = currid[1];
-                        instructions->instr[cnt][2] = currid[2];
-                        ++cnt;
-                }
-        }
-        assert(cnt == instructions->nr_instr);
+        safe_free(dat->offset);
+        safe_free(dat->amount);
+        safe_free(dat->start_combine);
 }
 
-static void fill_interact_instructions(const struct opType * const ops, 
-                                       const char c, struct instructionset * 
-                                       const instructions)
+static void id_to_curr_instr(int id, int * curr_instr, 
+                             const struct instruction_data * data)
 {
-#pragma omp parallel for schedule(static) default(none)  
-        for (int i = 0; i < instructions->nr_instr; ++i) {
-                if (!interactval(instructions->instr[i], ops, c, 
-                                &instructions->pref[i]) 
-                    || COMPARE_ELEMENT_TO_ZERO(instructions->pref[i])) {
-                        // invalid interaction
-                        instructions->instr[i][0] = -1;
+        int i;
+        for (i = 0; i < data->size; ++i) {
+                if (data->start_combine[i + 1] > id) { break; }
+        }
+        assert(i != data->size);
+
+        id -= data->start_combine[i];
+        assert(id >= 0);
+        curr_instr[0] = id % data->amount[i][0] + data->offset[i][0];
+        id /= data->amount[i][0];
+        curr_instr[1] = id % data->amount[i][1] + data->offset[i][1];
+        id /= data->amount[i][1];
+        curr_instr[2] = id + data->offset[i][2];
+        assert(id < data->amount[i][2]);
+}
+
+static void add_instruction_thread(const int * curr_instr, double val, 
+                                   const int * order,
+                                   int (**t_instructions)[3], 
+                                   double ** t_pref,
+                                   int * meml, int * t_nr)
+{
+        if (COMPARE_ELEMENT_TO_ZERO(val)) { return; }
+        if (*t_nr >= *meml) {
+                *meml += MEMINSTR;
+                *t_instructions = realloc(*t_instructions, *meml * 
+                                          sizeof **t_instructions);
+                *t_pref = realloc(*t_pref, *meml * sizeof **t_pref);
+                if (*t_pref == NULL || *t_instructions == NULL) {
+                        fprintf(stderr, "%s:%d; Realloc failed.\n",
+                                __FILE__, __LINE__);
+                        exit(EXIT_FAILURE);
                 }
+        }
+        (*t_instructions)[*t_nr][0] = curr_instr[order[0]];
+        (*t_instructions)[*t_nr][1] = curr_instr[order[1]];
+        (*t_instructions)[*t_nr][2] = curr_instr[order[2]];
+        (*t_pref)[*t_nr] = val;
+        ++*t_nr;
+}
+
+static void append_instructions(struct instructionset * instructions,
+                                int (*instr)[3], double * pref, int nr)
+{
+        if (nr == 0) { 
+                safe_free(instr);
+                safe_free(pref);
+                return; 
+        }
+        if (instructions->nr_instr == 0) {
+                instructions->nr_instr = nr;
+                instructions->instr = instr;
+                instructions->pref = pref;
+        } else {
+                int start = instructions->nr_instr;
+                instructions->nr_instr += nr;
+                instructions->instr = realloc(instructions->instr, 
+                                              instructions->nr_instr * 
+                                              sizeof *instructions->instr);
+                instructions->pref = realloc(instructions->pref, 
+                                             instructions->nr_instr * 
+                                             sizeof *instructions->pref);
+                if (instructions->instr == NULL || instructions->pref == NULL) {
+                        fprintf(stderr, "%s:%d; Realloc failed.\n",
+                                __FILE__, __LINE__);
+                        exit(EXIT_FAILURE);
+                }
+
+                for (int i = 0; i < nr; ++i, ++start) {
+                        instructions->instr[start][0] = instr[i][0];
+                        instructions->instr[start][1] = instr[i][1];
+                        instructions->instr[start][2] = instr[i][2];
+                        instructions->pref[start] = pref[i];
+                }
+                safe_free(instr);
+                safe_free(pref);
         }
 }
 
-static void remove_invalid_instructions(struct instructionset * instructions,
-                                        const int * order)
-{
-        int cnt = 0;
-        for (int i = 0; i < instructions->nr_instr; ++i) {
-                if (instructions->instr[i][0] == -1) { continue; }
-                const int orderedinstr[3] = {
-                        instructions->instr[i][order[0]],
-                        instructions->instr[i][order[1]],
-                        instructions->instr[i][order[2]],
-                };
-                for (int j = 0; j < instructions->step; ++j) {
-                        instructions->instr[cnt][j] = orderedinstr[j];
-                }
-                instructions->pref[cnt] = instructions->pref[i];
-                ++cnt;
-        }
-        instructions->nr_instr = cnt;
-        instructions->instr = realloc(instructions->instr, 
-                                      cnt * sizeof *instructions->instr);
-        instructions->pref = realloc(instructions->pref, 
-                                     cnt * sizeof *instructions->pref);
-}
-
-static void combine_all_operators(const struct opType * ops, char c,
-                                  struct instructionset * instructions,
-                                  const int * order)
+static void combine_all_operators(const struct opType * const ops, const char c,
+                                  struct instructionset * const instructions,
+                                  const int * const order)
 {
         assert(c == '1' || c == '2' || c == '3' || c == 't' || c == 'd');
-        instructions->nr_instr = count_max_instructions(ops, c);
+        struct instruction_data data = get_instruction_data(ops, c);
+        instructions->nr_instr = 0;
+        instructions->instr = NULL;
+        instructions->pref = NULL;
+        const int max_instr = data.start_combine[data.size];
 
-        // Initializing instructions
-        instructions->instr = safe_malloc(instructions->nr_instr, 
-                                          *instructions->instr);
-        instructions->pref = safe_malloc(instructions->nr_instr, 
-                                         *instructions->pref);
+#pragma omp parallel default(none) shared(data)
+        {
+                // First, for every thread, allocate some working memory
+                // for the instructions.
+                int meml = max_instr > MEMINSTR ?  MEMINSTR : max_instr;
 
-        fill_max_instructions(ops, c, instructions);
+                int (*t_instructions)[3] = safe_malloc(meml, *t_instructions);
+                double *t_pref = safe_malloc(meml, *t_pref);
+                int t_nr = 0;
 
-        fill_interact_instructions(ops, c, instructions);
+#pragma omp for schedule(guided)
+                for (int i = 0; i < max_instr; ++i) {
+                        int curr_instr[3];
+                        double val;
+                        id_to_curr_instr(i, curr_instr, &data);
+                        if (interactval(curr_instr, ops, c, &val)) {
+                                add_instruction_thread(curr_instr, val, order,
+                                                       &t_instructions,
+                                                       &t_pref, &meml, &t_nr);
+                        }
+                }
 
-        remove_invalid_instructions(instructions, order);
+#pragma omp critical
+                append_instructions(instructions, t_instructions, t_pref, t_nr);
+        }
+
+        free_instruction_data(&data);
 }
 
 void QC_fetch_pUpdate(struct instructionset * instructions, 

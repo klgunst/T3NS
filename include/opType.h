@@ -27,8 +27,8 @@ int amount_opType(const struct opType * const ops, const int nrop,
 int opType_exist(const struct opType * const ops, const int nrop, 
                  const char t, const int * const tag);
 
-int range_opType(int * const begin, int * const end, 
-                  const struct opType * const ops, const int nrop);
+void range_opType(int * offset, int * amount, 
+                  const struct opType * ops, int nrop);
 
 int id_opType(const struct opType * const ops, const char c);
 
