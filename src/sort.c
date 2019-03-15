@@ -18,13 +18,16 @@
 
 #include <stdlib.h>
 
-#ifndef NDEBUG
-#include <stdio.h>
-#endif
-
 #include "assert.h"
 #include "sort.h"
 #include "macros.h"
+
+//#define SORT_DEBUG
+
+#ifdef SORT_DEBUG
+#include <stdio.h>
+#endif
+
 
 // Array such that sort_qn[i] will return SORT_QN_TYPEi
 const enum sortType sort_qn[] = {SORT_ERROR, SORT_QN_TYPE, SORT_QN_TYPE2,
@@ -214,7 +217,7 @@ int linSearch(const void * value, const void * array, int n,
         return -1;
 }
 
-#ifndef NDEBUG
+#ifdef SORT_DEBUG
 static int check_sorted(const void * array, int n, enum sortType st, size_t incr)
 {
         for (int i = 1; i < n; ++i) {
@@ -229,7 +232,7 @@ static int check_sorted(const void * array, int n, enum sortType st, size_t incr
 int binSearch(const void * value, const void * array, int n, 
               enum sortType st, size_t incr)
 {
-#ifndef NDEBUG 
+#ifdef SORT_DEBUG 
         if (!check_sorted(array, n, st, incr)) {
                 fprintf(stderr, "%s :: array is not sorted.\n", __func__);
                 return -1;

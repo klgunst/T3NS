@@ -70,9 +70,8 @@ int get_next_unique_instr(int * const curr_instr, const struct instructionset *
 
 void destroy_instructionset(struct instructionset * const instructions);
 
-void print_instructions(int (*instructions)[3], double * const prefactors,
-                        int * const hss, const int nr_instructions, const int
-                        bond, const int is_left, const char kind, int isdmrg);
+void print_instructions(struct instructionset * instructions, int bond, 
+                        int is_left, char kind, int isdmrg);
 
 void start_fill_instruction(struct instructionset * instructions, int step);
 

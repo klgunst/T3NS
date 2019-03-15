@@ -324,6 +324,7 @@ int main(int argc, char *argv[])
         setvbuf(stdout, NULL, _IOLBF, BUFSIZ);
 
         initialize_program(argc, argv, &T3NS, &rops, &scheme, &pbuffer);
+        return EXIT_SUCCESS;
         execute_optScheme(T3NS, rops, &scheme, pbuffer);
         print_target_state_coeff(T3NS);
 

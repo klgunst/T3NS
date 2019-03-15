@@ -37,27 +37,175 @@ static struct instructionset (*iset_merge)[2] = NULL;
 
 //#define PRINT_INSTRUCTIONS
 
-/* ========================================================================== */
-/* ==================== DECLARATION STATIC FUNCTIONS ======================== */
-/* ========================================================================== */
+static void sort_instructions(struct instructionset * const instructions)
+{
+        const int step = instructions->step;
+        const int nr_instr = instructions->nr_instr;
+        int max[step];
+        int *idx;
+        int (*instr_new)[3]  = safe_malloc(nr_instr, *instr_new);
+        int *array      = safe_malloc(nr_instr, int);
+        double *prefnew = instructions->pref == NULL ? 
+                NULL : safe_malloc(nr_instr, double);
+        int i, j;
 
-static void sort_instructions(struct instructionset * const instructions);
+        for (i = 0; i < step; ++i) {
+                max[i] = -1;
+                for (j = 0; j < nr_instr; ++j)
+                        max[i] = max[i] < instructions->instr[j][i] + 1 ? 
+                                instructions->instr[j][i] + 1 : max[i];
+        }
+        for (i = step - 2; i >= 0; --i) max[i] *= max[i + 1];
+        for (i = 0; i < step - 1; ++i) max[i]  = max[i + 1];
+        max[step - 1] = 1;
 
-static void print_DMRG_instructions(int (*instructions)[3],
-                                    double * const prefactors, 
-                                    int * const hss, const int nr_instructions, 
-                                    const int bond, const int is_left);
+        for (i = 0; i < nr_instr; ++i) {
+                array[i] = 0;
+                for (j = 0; j < step; ++j)
+                        array[i] += max[j] * instructions->instr[i][j];
+        }
 
-static void print_T3NS_instructions(int (*instructions)[3],
-                                    double * const prefactors, int * const hss, 
-                                    const int nr_instructions, const int bond, 
-                                    const int is_left);
+        idx = quickSort(array, nr_instr, SORT_INT);
+        for (i = 0; i < nr_instr; i++) {
+                for (j = 0; j < step; ++j)
+                        instr_new[i][j] = instructions->instr[idx[i]][j];
 
-static void print_merge_instructions(int (*instructions)[3], 
-                                     double * prefactors, int nr_instructions, 
-                                     int bond, int isdmrg);
+                if (prefnew != NULL) prefnew[i] = instructions->pref[idx[i]];
+        }
+        safe_free(instructions->instr);
+        safe_free(instructions->pref);
+        safe_free(array);
+        safe_free(idx);
+        instructions->instr      = instr_new;
+        instructions->pref       = prefnew;
+}
 
-/* ========================================================================== */
+static void print_DMRG_instructions(struct instructionset * instructions, 
+                                    const int bond, const int is_left)
+{
+        const int site = netw.sitetoorb[netw.bonds[bond][is_left]];
+        int bonds[3];
+        struct symsecs MPO;
+        get_symsecs(&MPO, -1);
+
+        get_bonds_of_site(netw.bonds[bond][is_left], bonds);
+        assert(bond == bonds[2 * !is_left]);
+
+        printf("================================================================================\n" 
+               "Printing DMRG instructions for bond %d going %s.\n", 
+               bond, is_left ? "left" : "right");
+
+        for (int i = 0; i < instructions->nr_instr; ++i) {
+                char buffer[MY_STRING_LEN];
+                get_string_of_rops(buffer, instructions->instr[i][0], 
+                                   bond, is_left, 'e');
+                printf("%14.8g * %-16s + ", instructions->pref[i], buffer);
+                get_string_of_siteops(buffer, instructions->instr[i][1], site);
+                printf("%-32s --> ", buffer);
+                get_sectorstring(&MPO, instructions->hss_of_new[
+                                 instructions->instr[i][2]], buffer);
+                printf("(%s)", buffer);
+                get_string_of_rops(buffer, instructions->instr[i][2], 
+                                   bonds[2 * is_left], is_left, 'c');
+                printf("\t%s\n", buffer);
+        }
+
+        printf("================================================================================\n");
+        clean_symsecs(&MPO, -1);
+}
+
+static void print_T3NS_instructions(struct instructionset * instructions, 
+                                    int bond, int is_left)
+{
+        int bonds[3];
+        int bond1, bond2, left1, left2;
+        struct symsecs MPO;
+        get_symsecs(&MPO, -1);
+
+        assert(!is_psite(netw.bonds[bond][!is_left]));
+        get_bonds_of_site(netw.bonds[bond][!is_left], bonds);
+        assert((bonds[0] == bond && !is_left) || (bonds[1] == bond && !is_left) || 
+               (bonds[2] == bond && is_left));
+
+        if (bonds[0] == bond && !is_left) {
+                bond1 = bonds[1];
+                bond2 = bonds[2];
+                left1 = 1;
+                left2 = 0;
+        } else if (bonds[1] == bond && !is_left) {
+                bond1 = bonds[0];
+                bond2 = bonds[2];
+                left1 = 1;
+                left2 = 0;
+        } else {
+                bond1 = bonds[0];
+                bond2 = bonds[1];
+                left1 = 1;
+                left2 = 1;
+        }
+
+        printf("================================================================================\n" 
+               "Printing T3NS update  instructions for bond %d going %s.\n", 
+               bond, is_left ? "left" : "right");
+
+        for (int i = 0; i < instructions->nr_instr; ++i) {
+                char buffer[255];
+                get_string_of_rops(buffer, instructions->instr[i][0],
+                                   bond1, left1, 'e');
+                printf("%14.8g * %-16s + ", instructions->pref[i], buffer);
+                get_string_of_rops(buffer, instructions->instr[i][1], 
+                                   bond2, left2, 'e');
+                printf("%-32s --> ", buffer);
+                get_sectorstring(&MPO, instructions->hss_of_new[
+                                 instructions->instr[i][2]], buffer);
+                printf("(%s)", buffer);
+                get_string_of_rops(buffer, instructions->instr[i][2], 
+                                   bond, is_left, 'c');
+                printf("\t%s\n", buffer);
+        }
+
+        clean_symsecs(&MPO, -1);
+}
+
+static void print_merge_instructions(struct instructionset * instructions,
+                                     int bond, int isdmrg)
+{
+        const int step = 2 + !isdmrg;
+        int bonds[step];
+        int isleft[step];
+        struct symsecs MPO;
+        get_symsecs(&MPO, -1);
+
+        if (isdmrg) {
+                bonds[0] = bond;
+                bonds[1] = bond;
+                isleft[0] = 1;
+                isleft[1] = 0;
+        } else {
+                int branching_site = netw.bonds[bond][is_psite(netw.bonds[bond][0])];
+                assert(!is_psite(branching_site));
+                get_bonds_of_site(branching_site, bonds);
+
+                isleft[0] = 1;
+                isleft[1] = 1;
+                isleft[2] = 0;
+        }
+
+        printf("================================================================================\n" 
+               "Printing merge instructions for bond %d.\n", bond);
+
+        for (int i = 0; i < instructions->nr_instr; ++i) {
+                char buffer[MY_STRING_LEN];
+                printf("%14.8g * ", instructions->pref[i]);
+                for (int j = 0; j < instructions->step; ++ j) {
+                        get_string_of_rops(buffer, instructions->instr[i][j], 
+                                           bonds[j], isleft[j], 'e');
+                        printf("%-16s%s", buffer, j == instructions->step - 1 
+                               ? "\n" : " + ");
+                }
+        }
+        clean_symsecs(&MPO, -1);
+}
 
 void clear_instructions(void)
 {
@@ -122,8 +270,7 @@ void fetch_pUpdate(int (**instructions)[3], double ** prefactors,
         *nr_instructions = iset_pUpdate[bond][is_left].nr_instr;
 
 #ifdef PRINT_INSTRUCTIONS
-        print_DMRG_instructions(*instructions, *prefactors, *hamsymsecs_of_new, 
-                                *nr_instructions, bond, is_left);
+        print_DMRG_instructions(&iset_pUpdate[bond][is_left], bond, is_left);
 #endif
 }
 
@@ -159,9 +306,7 @@ void fetch_bUpdate(struct instructionset * instructions, int bond, int is_left)
         *instructions = iset_bUpdate[bond][is_left];
 
 #ifdef PRINT_INSTRUCTIONS
-        print_T3NS_instructions(instructions->instr, instructions->pref, 
-                                instructions->hss_of_new, 
-                                instructions->nr_instr, bond, isleft);
+        print_T3NS_instructions(&iset_bUpdate[bond][is_left], bond, is_left);
 #endif
 }
 
@@ -200,8 +345,7 @@ void fetch_merge(int (**instructions)[3], int * const nr_instructions,
         *nr_instructions = iset_merge[bond][isdmrg].nr_instr;
 
 #ifdef PRINT_INSTRUCTIONS
-        print_merge_instructions(*instructions, *prefactors, 
-                                 *nr_instructions, bond, isdmrg);
+        print_merge_instructions(&iset_merge[bond][isdmrg], bond, isdmrg);
 #endif
 }
 
@@ -294,205 +438,22 @@ int get_next_unique_instr(int * const curr_instr,
         }
 }
 
-void print_instructions(int (*instructions)[3], double * const prefactors, 
-                        int * const hss, const int nr_instructions, 
-                        const int bond, const int is_left, const char kind, int isdmrg)
+void print_instructions(struct instructionset * instructions, int bond, 
+                        int is_left, char kind, int isdmrg)
 {
         switch(kind) {
         case 'd':
-                print_DMRG_instructions(instructions, prefactors, hss, 
-                                        nr_instructions, bond, is_left);
+                print_DMRG_instructions(instructions, bond, is_left);
                 break;
         case 'm':
-                print_merge_instructions(instructions, prefactors, 
-                                         nr_instructions, bond, isdmrg);
+                print_merge_instructions(instructions, bond, isdmrg);
                 break;
         case 't':
-                print_T3NS_instructions(instructions, prefactors, hss, 
-                                        nr_instructions, bond, is_left);
+                print_T3NS_instructions(instructions, bond, is_left);
                 break;
         default:
                 fprintf(stderr, "%s@%s: Unknown option (%c)\n", __FILE__, __func__, kind);
         }
-}
-
-/* ========================================================================== */
-/* ===================== DEFINITION STATIC FUNCTIONS ======================== */
-/* ========================================================================== */
-
-static void sort_instructions(struct instructionset * const instructions)
-{
-        const int step = instructions->step;
-        const int nr_instr = instructions->nr_instr;
-        int max[step];
-        int *idx;
-        int (*instr_new)[3]  = safe_malloc(nr_instr, *instr_new);
-        int *array      = safe_malloc(nr_instr, int);
-        double *prefnew = instructions->pref == NULL ? 
-                NULL : safe_malloc(nr_instr, double);
-        int i, j;
-
-        for (i = 0; i < step; ++i) {
-                max[i] = -1;
-                for (j = 0; j < nr_instr; ++j)
-                        max[i] = max[i] < instructions->instr[j][i] + 1 ? 
-                                instructions->instr[j][i] + 1 : max[i];
-        }
-        for (i = step - 2; i >= 0; --i) max[i] *= max[i + 1];
-        for (i = 0; i < step - 1; ++i) max[i]  = max[i + 1];
-        max[step - 1] = 1;
-
-        for (i = 0; i < nr_instr; ++i) {
-                array[i] = 0;
-                for (j = 0; j < step; ++j)
-                        array[i] += max[j] * instructions->instr[i][j];
-        }
-
-        idx = quickSort(array, nr_instr, SORT_INT);
-        for (i = 0; i < nr_instr; i++) {
-                for (j = 0; j < step; ++j)
-                        instr_new[i][j] = instructions->instr[idx[i]][j];
-
-                if (prefnew != NULL) prefnew[i] = instructions->pref[idx[i]];
-        }
-        safe_free(instructions->instr);
-        safe_free(instructions->pref);
-        safe_free(array);
-        safe_free(idx);
-        instructions->instr      = instr_new;
-        instructions->pref       = prefnew;
-}
-
-static void print_DMRG_instructions(int (*instructions)[3],
-                                    double * const prefactors, 
-                                    int * const hss, const int nr_instructions, 
-                                    const int bond, const int is_left)
-{
-        const int site = netw.sitetoorb[netw.bonds[bond][is_left]];
-        int bonds[3];
-        int i;
-        struct symsecs MPO;
-        get_symsecs(&MPO, -1);
-
-        get_bonds_of_site(netw.bonds[bond][is_left], bonds);
-        assert(bond == bonds[2 * !is_left]);
-
-        printf("================================================================================\n" 
-               "Printing DMRG instructions for bond %d going %s.\n", bond, is_left ? "left" : "right");
-
-        for (i = 0; i < nr_instructions; ++i)
-        {
-                char buffer[MY_STRING_LEN];
-                get_string_of_rops(buffer, instructions[i][0], bond, is_left, 'e');
-                printf("%14.8g * %-16s + ", prefactors[i], buffer);
-                get_string_of_siteops(buffer, instructions[i][1], site);
-                printf("%-32s --> ", buffer);
-                get_sectorstring(&MPO, hss[instructions[i][2]], buffer);
-                printf("(%s)", buffer);
-                get_string_of_rops(buffer, instructions[i][2], bonds[2 * is_left], is_left, 'c');
-                printf("\t%s\n", buffer);
-        }
-
-        printf("================================================================================\n");
-        clean_symsecs(&MPO, -1);
-}
-
-static void print_T3NS_instructions(int (*instructions)[3],
-                                    double * const prefactors, int * const hss, 
-                                    const int nr_instructions, const int bond, 
-                                    const int is_left)
-{
-        int bonds[3];
-        int i;
-        int bond1, bond2, left1, left2;
-        struct symsecs MPO;
-        get_symsecs(&MPO, -1);
-
-        assert(!is_psite(netw.bonds[bond][!is_left]));
-        get_bonds_of_site(netw.bonds[bond][!is_left], bonds);
-        assert((bonds[0] == bond && !is_left) || (bonds[1] == bond && !is_left) || 
-               (bonds[2] == bond && is_left));
-
-        if (bonds[0] == bond && !is_left) {
-                bond1 = bonds[1];
-                bond2 = bonds[2];
-                left1 = 1;
-                left2 = 0;
-        } else if (bonds[1] == bond && !is_left) {
-                bond1 = bonds[0];
-                bond2 = bonds[2];
-                left1 = 1;
-                left2 = 0;
-        } else {
-                bond1 = bonds[0];
-                bond2 = bonds[1];
-                left1 = 1;
-                left2 = 1;
-        }
-
-        printf("================================================================================\n" 
-               "Printing T3NS update  instructions for bond %d going %s.\n", bond, 
-               is_left ? "left" : "right");
-
-        for (i = 0; i < nr_instructions; ++i) {
-                char buffer[255];
-                get_string_of_rops(buffer, instructions[i][0], bond1, left1, 'e');
-                printf("%14.8g * %-16s + ", prefactors[i], buffer);
-                get_string_of_rops(buffer, instructions[i][1], bond2, left2, 'e');
-                printf("%-32s --> ", buffer);
-                get_sectorstring(&MPO, hss[instructions[i][2]], buffer);
-                printf("(%s)", buffer);
-                get_string_of_rops(buffer, instructions[i][2], bond, is_left, 'c');
-                printf("\t%s\n", buffer);
-        }
-
-        clean_symsecs(&MPO, -1);
-}
-
-static void print_merge_instructions(int (*instructions)[3], 
-                                     double * prefactors, int nr_instructions, 
-                                     int bond, int isdmrg)
-{
-        int i;
-        const int step = 2 + !isdmrg;
-        int bonds[step];
-        int isleft[step];
-        struct symsecs MPO;
-        get_symsecs(&MPO, -1);
-
-        if (isdmrg)
-        {
-                bonds[0] = bond;
-                bonds[1] = bond;
-                isleft[0] = 1;
-                isleft[1] = 0;
-        }
-        else
-        {
-                int branching_site = netw.bonds[bond][is_psite(netw.bonds[bond][0])];
-                assert(!is_psite(branching_site));
-                get_bonds_of_site(branching_site, bonds);
-
-                isleft[0] = 1;
-                isleft[1] = 1;
-                isleft[2] = 0;
-        }
-
-        printf("================================================================================\n" 
-               "Printing merge instructions for bond %d.\n", bond);
-
-        for (i = 0; i < nr_instructions; ++i)
-        {
-                char buffer[255];
-                int j;
-                printf("%14.8g * ", prefactors[i]);
-                for (j = 0; j < step; ++ j)
-                {
-                        get_string_of_rops(buffer, instructions[i][j], bonds[j], isleft[j], 'e');
-                        printf("%-16s%s", buffer, j == step - 1 ? "\n" : " + ");
-                }
-        }
-        clean_symsecs(&MPO, -1);
 }
 
 static int insrno;

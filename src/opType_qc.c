@@ -160,10 +160,11 @@ int interactval(const int ids[3], const struct opType ops[3], const char t,
                 double * const val)
 {
         assert(t == 't' || t == 'd' || t == '1' || t == '2' || t == '3');
-        if (t == 't' || t == 'd')
+        if (t == 't' || t == 'd') {
                 return interactval_merge(ids, ops, val, t);
-        else
+        } else {
                 return interactval_update(ids, ops, t, val);
+        }
 }
 
 /* ========================================================================== */
