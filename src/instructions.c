@@ -80,6 +80,237 @@ static void sort_instructions(struct instructionset * const instructions)
         instructions->pref       = prefnew;
 }
 
+void clear_instructions(void)
+{
+        struct instructionset (**instr[3])[2] = {
+                &iset_pUpdate, 
+                &iset_bUpdate,
+                &iset_merge
+        };
+
+        for (int i = 0; i < 3; ++i) {
+                if (*instr[i] == NULL) { continue; }
+                for (int j = 0; j < netw.nr_bonds; ++j) {
+                        destroy_instructionset(&(*instr[i])[j][0]);
+                        destroy_instructionset(&(*instr[i])[j][1]);
+                }
+                safe_free(*instr[i]);
+        }
+}
+
+void destroy_instructionset(struct instructionset * const instructions)
+{
+        safe_free(instructions->instr);
+        safe_free(instructions->pref);
+        safe_free(instructions->hss_of_new);
+}
+
+void fetch_pUpdate(int (**instructions)[3], double ** prefactors, 
+                   int ** const hamsymsecs_of_new, int * const nr_instructions, 
+                   const int bond, const int is_left)
+{
+        if (iset_pUpdate == NULL) {
+                iset_pUpdate = safe_malloc(netw.nr_bonds, *iset_pUpdate);
+                const struct instructionset invalid_instr = {.nr_instr = -1};
+                for (int i = 0; i < netw.nr_bonds; ++i) {
+                        iset_pUpdate[i][0] = invalid_instr;
+                        iset_pUpdate[i][1] = invalid_instr;
+                }
+        } 
+        if (iset_pUpdate[bond][is_left].nr_instr == -1) {
+                struct instructionset * instr = &iset_pUpdate[bond][is_left];
+                switch(ham) {
+                case QC :
+                        QC_fetch_pUpdate(instr, bond, is_left);
+                        break;
+                case NN_HUBBARD :
+                        NN_H_fetch_pUpdate(instr, bond, is_left);
+                        break;
+                case DOCI :
+                        DOCI_fetch_pUpdate(instr, bond, is_left);
+                        break;
+                default:
+                        fprintf(stderr, "%s@%s: Unrecognized Hamiltonian.\n", 
+                                __FILE__, __func__);
+                        exit(EXIT_FAILURE);
+                }
+                sort_instructions(instr);
+        }
+
+        *instructions = iset_pUpdate[bond][is_left].instr;
+        *prefactors = iset_pUpdate[bond][is_left].pref;
+        *hamsymsecs_of_new = iset_pUpdate[bond][is_left].hss_of_new;
+        *nr_instructions = iset_pUpdate[bond][is_left].nr_instr;
+
+#ifdef PRINT_INSTRUCTIONS
+        print_instructions(&iset_pUpdate[bond][is_left], bond, is_left, 'd', 0);
+#endif
+}
+
+void fetch_bUpdate(struct instructionset * instructions, int bond, int is_left)
+{
+        if (iset_bUpdate == NULL) {
+                iset_bUpdate = safe_malloc(netw.nr_bonds, *iset_bUpdate);
+                const struct instructionset invalid_instr = {.nr_instr = -1};
+                for (int i = 0; i < netw.nr_bonds; ++i) {
+                        iset_bUpdate[i][0] = invalid_instr;
+                        iset_bUpdate[i][1] = invalid_instr;
+                }
+        }
+        if (iset_bUpdate[bond][is_left].nr_instr == -1) {
+                struct instructionset * instr = &iset_bUpdate[bond][is_left];
+                switch(ham) {
+                case QC :
+                        QC_fetch_bUpdate(instr, bond, is_left);
+                        break;
+                case NN_HUBBARD :
+                        NN_H_fetch_bUpdate(instr, bond, is_left);
+                        break;
+                case DOCI :
+                        DOCI_fetch_bUpdate(instr, bond, is_left);
+                        break;
+                default:
+                        fprintf(stderr, "%s@%s: Unrecognized Hamiltonian.\n", 
+                                __FILE__, __func__);
+                        exit(EXIT_FAILURE);
+                }
+                sort_instructions(instr);
+        }
+        *instructions = iset_bUpdate[bond][is_left];
+
+#ifdef PRINT_INSTRUCTIONS
+        print_instructions(&iset_bUpdate[bond][is_left], bond, is_left, 't', 0);
+#endif
+}
+
+void fetch_merge(int (**instructions)[3], int * const nr_instructions, 
+                 double** const prefactors, const int bond, int isdmrg)
+{
+        if (iset_merge == NULL) {
+                iset_merge = safe_malloc(netw.nr_bonds, *iset_merge);
+                const struct instructionset invalid_instr = {.nr_instr = -1};
+                for (int i = 0; i < netw.nr_bonds; ++i) {
+                        iset_merge[i][0] = invalid_instr;
+                        iset_merge[i][1] = invalid_instr;
+                }
+        } 
+        if (iset_merge[bond][isdmrg].nr_instr == -1) {
+                struct instructionset * instr = &iset_merge[bond][isdmrg];
+                switch(ham) {
+                case QC :
+                        QC_fetch_merge(instr, bond, isdmrg);
+                        break;
+                case NN_HUBBARD :
+                        NN_H_fetch_merge(instr, bond);
+                        break;
+                case DOCI :
+                        DOCI_fetch_merge(instr, bond, isdmrg);
+                        break;
+                default:
+                        fprintf(stderr, "%s@%s: Unrecognized Hamiltonian.\n", 
+                                __FILE__, __func__);
+                        exit(EXIT_FAILURE);
+                }
+                instr->hss_of_new = NULL;
+        }
+        *instructions = iset_merge[bond][isdmrg].instr;
+        *prefactors = iset_merge[bond][isdmrg].pref;
+        *nr_instructions = iset_merge[bond][isdmrg].nr_instr;
+
+#ifdef PRINT_INSTRUCTIONS
+        print_instructions(&iset_merge[bond][isdmrg], bond, 0, 'm', isdmrg);
+#endif
+}
+
+void sortinstructions_toMPOcombos(int (**instructions)[3], 
+                                  int ** const instrbegin, 
+                                  double ** const prefactors, 
+                                  const int nr_instructions, const int step, 
+                                  int * const hss_of_Ops[step], 
+                                  int ** const MPOinstr, int * const nrMPOinstr)
+{
+        int * temp = safe_malloc(nr_instructions, int); 
+        int (*newinstructions)[3] = safe_malloc(nr_instructions, **instructions);
+        double * newpref = safe_malloc(nr_instructions, double);
+        int * idx;
+        int i;
+        const int hssdim = get_nr_hamsymsec();
+
+        for (i = 0; i < nr_instructions; ++i)
+        {
+                int j;
+                temp[i] = 0;
+                for (j = step - 1; j >= 0; --j)
+                        temp[i] = hss_of_Ops[j][(*instructions)[i][j]] + 
+                                temp[i] * hssdim;
+        }
+
+        idx = quickSort(temp, nr_instructions, SORT_INT);
+
+        *instrbegin = safe_malloc(nr_instructions + 1, int);
+        *MPOinstr   = safe_malloc(nr_instructions, int);
+        *nrMPOinstr = 0;
+
+        (*instrbegin)[(*nrMPOinstr)] = 0;
+        (*MPOinstr)  [(*nrMPOinstr)] = temp[idx[0]];
+        ++(*nrMPOinstr);
+        newpref[0] = (*prefactors)[idx[0]];
+        for (i = 0; i < step; ++i)
+                newinstructions[0][i] = (*instructions)[idx[0]][i];
+        for (i = 1; i < nr_instructions; ++i) {
+                int j;
+                assert((*MPOinstr)[(*nrMPOinstr) - 1] <= temp[idx[i]]);
+
+                newpref[i] = (*prefactors)[idx[i]];
+                for (j = 0; j < step; ++j)
+                        newinstructions[i][j] = (*instructions)[idx[i]][j];
+
+                if ((*MPOinstr)[(*nrMPOinstr) - 1] != temp[idx[i]]) {
+                        (*instrbegin)[(*nrMPOinstr)] = i;
+                        (*MPOinstr)  [(*nrMPOinstr)] = temp[idx[i]];
+                        ++(*nrMPOinstr);
+                }
+        }
+        (*instrbegin)[(*nrMPOinstr)] = i;
+        *instrbegin = realloc(*instrbegin, (*nrMPOinstr + 1) * sizeof(int));
+        *MPOinstr   = realloc(*MPOinstr, *nrMPOinstr * sizeof(int));
+        //safe_free(*instructions);
+        //safe_free(*prefactors);
+        safe_free(idx);
+        safe_free(temp);
+        *instructions = newinstructions;
+        *prefactors = newpref;
+}
+
+int get_next_unique_instr(int * const curr_instr, 
+                          const struct instructionset * const instructions)
+{
+        /* instructions->instr is of the form:
+         *   old1, old2, new
+         * old1 and old2 should be different from prev instruction.
+         * instructions->hss_of_new should also be different from prev
+         * instruction. */
+        if (*curr_instr == -1) {
+                ++*curr_instr;
+                return 1;
+        } else {
+                const int old1 = instructions->instr[*curr_instr][0];
+                const int old2 = instructions->instr[*curr_instr][1];
+                const int old3 = instructions->instr[*curr_instr][2];
+                const int hss_old = instructions->hss_of_new[old3];
+
+                for (++*curr_instr; *curr_instr < instructions->nr_instr; ++*curr_instr) {
+                        const int new1 = instructions->instr[*curr_instr][0];
+                        const int new2 = instructions->instr[*curr_instr][1];
+                        const int new3 = instructions->instr[*curr_instr][2];
+                        const int hss_new = instructions->hss_of_new[new3];
+                        if (old1 != new1 || old2 != new2 || hss_old != hss_new)
+                                return 1;
+                }
+                return 0;
+        }
+}
+
 static void print_DMRG_instructions(struct instructionset * instructions, 
                                     const int bond, const int is_left)
 {
@@ -207,241 +438,10 @@ static void print_merge_instructions(struct instructionset * instructions,
         clean_symsecs(&MPO, -1);
 }
 
-void clear_instructions(void)
-{
-        struct instructionset (**instr[3])[2] = {
-                &iset_pUpdate, 
-                &iset_bUpdate,
-                &iset_merge
-        };
-
-        for (int i = 0; i < 3; ++i) {
-                if (*instr[i] == NULL) { continue; }
-                for (int j = 0; j < netw.nr_bonds; ++j) {
-                        destroy_instructionset(&(*instr[i])[j][0]);
-                        destroy_instructionset(&(*instr[i])[j][1]);
-                }
-                safe_free(*instr[i]);
-        }
-}
-
-void destroy_instructionset(struct instructionset * const instructions)
-{
-        safe_free(instructions->instr);
-        safe_free(instructions->pref);
-        safe_free(instructions->hss_of_new);
-}
-
-void fetch_pUpdate(int (**instructions)[3], double ** prefactors, 
-                   int ** const hamsymsecs_of_new, int * const nr_instructions, 
-                   const int bond, const int is_left)
-{
-        if (iset_pUpdate == NULL) {
-                iset_pUpdate = safe_malloc(netw.nr_bonds, *iset_pUpdate);
-                const struct instructionset invalid_instr = {.nr_instr = -1};
-                for (int i = 0; i < netw.nr_bonds; ++i) {
-                        iset_pUpdate[i][0] = invalid_instr;
-                        iset_pUpdate[i][1] = invalid_instr;
-                }
-        } 
-        if (iset_pUpdate[bond][is_left].nr_instr == -1) {
-                struct instructionset * instr = &iset_pUpdate[bond][is_left];
-                switch(ham) {
-                case QC :
-                        QC_fetch_pUpdate(instr, bond, is_left);
-                        break;
-                case NN_HUBBARD :
-                        NN_H_fetch_pUpdate(instr, bond, is_left);
-                        break;
-                case DOCI :
-                        DOCI_fetch_pUpdate(instr, bond, is_left);
-                        break;
-                default:
-                        fprintf(stderr, "%s@%s: Unrecognized Hamiltonian.\n", 
-                                __FILE__, __func__);
-                        exit(EXIT_FAILURE);
-                }
-                sort_instructions(instr);
-        }
-
-        *instructions = iset_pUpdate[bond][is_left].instr;
-        *prefactors = iset_pUpdate[bond][is_left].pref;
-        *hamsymsecs_of_new = iset_pUpdate[bond][is_left].hss_of_new;
-        *nr_instructions = iset_pUpdate[bond][is_left].nr_instr;
-
-#ifdef PRINT_INSTRUCTIONS
-        print_DMRG_instructions(&iset_pUpdate[bond][is_left], bond, is_left);
-#endif
-}
-
-void fetch_bUpdate(struct instructionset * instructions, int bond, int is_left)
-{
-        if (iset_bUpdate == NULL) {
-                iset_bUpdate = safe_malloc(netw.nr_bonds, *iset_bUpdate);
-                const struct instructionset invalid_instr = {.nr_instr = -1};
-                for (int i = 0; i < netw.nr_bonds; ++i) {
-                        iset_bUpdate[i][0] = invalid_instr;
-                        iset_bUpdate[i][1] = invalid_instr;
-                }
-        }
-        if (iset_bUpdate[bond][is_left].nr_instr == -1) {
-                struct instructionset * instr = &iset_bUpdate[bond][is_left];
-                switch(ham) {
-                case QC :
-                        QC_fetch_bUpdate(instr, bond, is_left);
-                        break;
-                case NN_HUBBARD :
-                        NN_H_fetch_bUpdate(instr, bond, is_left);
-                        break;
-                case DOCI :
-                        DOCI_fetch_bUpdate(instr, bond, is_left);
-                        break;
-                default:
-                        fprintf(stderr, "%s@%s: Unrecognized Hamiltonian.\n", 
-                                __FILE__, __func__);
-                        exit(EXIT_FAILURE);
-                }
-                sort_instructions(instr);
-        }
-        *instructions = iset_bUpdate[bond][is_left];
-
-#ifdef PRINT_INSTRUCTIONS
-        print_T3NS_instructions(&iset_bUpdate[bond][is_left], bond, is_left);
-#endif
-}
-
-void fetch_merge(int (**instructions)[3], int * const nr_instructions, 
-                 double** const prefactors, const int bond, int isdmrg)
-{
-        if (iset_merge == NULL) {
-                iset_merge = safe_malloc(netw.nr_bonds, *iset_merge);
-                const struct instructionset invalid_instr = {.nr_instr = -1};
-                for (int i = 0; i < netw.nr_bonds; ++i) {
-                        iset_merge[i][0] = invalid_instr;
-                        iset_merge[i][1] = invalid_instr;
-                }
-        } 
-        if (iset_merge[bond][isdmrg].nr_instr == -1) {
-                struct instructionset * instr = &iset_merge[bond][isdmrg];
-                switch(ham) {
-                case QC :
-                        QC_fetch_merge(instr, bond, isdmrg);
-                        break;
-                case NN_HUBBARD :
-                        NN_H_fetch_merge(instr, bond);
-                        break;
-                case DOCI :
-                        DOCI_fetch_merge(instr, bond, isdmrg);
-                        break;
-                default:
-                        fprintf(stderr, "%s@%s: Unrecognized Hamiltonian.\n", 
-                                __FILE__, __func__);
-                        exit(EXIT_FAILURE);
-                }
-                instr->hss_of_new = NULL;
-        }
-        *instructions = iset_merge[bond][isdmrg].instr;
-        *prefactors = iset_merge[bond][isdmrg].pref;
-        *nr_instructions = iset_merge[bond][isdmrg].nr_instr;
-
-#ifdef PRINT_INSTRUCTIONS
-        print_merge_instructions(&iset_merge[bond][isdmrg], bond, isdmrg);
-#endif
-}
-
-void sortinstructions_toMPOcombos(int (**instructions)[3], 
-                                  int ** const instrbegin, 
-                                  double ** const prefactors, 
-                                  const int nr_instructions, const int step, 
-                                  int * const hss_of_Ops[step], 
-                                  int ** const MPOinstr, int * const nrMPOinstr)
-{
-        int * temp = safe_malloc(nr_instructions, int); 
-        int (*newinstructions)[3] = safe_malloc(nr_instructions, **instructions);
-        double * newpref = safe_malloc(nr_instructions, double);
-        int * idx;
-        int i;
-        const int hssdim = get_nr_hamsymsec();
-
-        for (i = 0; i < nr_instructions; ++i)
-        {
-                int j;
-                temp[i] = 0;
-                for (j = step - 1; j >= 0; --j)
-                        temp[i] = hss_of_Ops[j][(*instructions)[i][j]] + 
-                                temp[i] * hssdim;
-        }
-
-        idx = quickSort(temp, nr_instructions, SORT_INT);
-
-        *instrbegin = safe_malloc(nr_instructions + 1, int);
-        *MPOinstr   = safe_malloc(nr_instructions, int);
-        *nrMPOinstr = 0;
-
-        (*instrbegin)[(*nrMPOinstr)] = 0;
-        (*MPOinstr)  [(*nrMPOinstr)] = temp[idx[0]];
-        ++(*nrMPOinstr);
-        newpref[0] = (*prefactors)[idx[0]];
-        for (i = 0; i < step; ++i)
-                newinstructions[0][i] = (*instructions)[idx[0]][i];
-        for (i = 1; i < nr_instructions; ++i) {
-                int j;
-                assert((*MPOinstr)[(*nrMPOinstr) - 1] <= temp[idx[i]]);
-
-                newpref[i] = (*prefactors)[idx[i]];
-                for (j = 0; j < step; ++j)
-                        newinstructions[i][j] = (*instructions)[idx[i]][j];
-
-                if ((*MPOinstr)[(*nrMPOinstr) - 1] != temp[idx[i]]) {
-                        (*instrbegin)[(*nrMPOinstr)] = i;
-                        (*MPOinstr)  [(*nrMPOinstr)] = temp[idx[i]];
-                        ++(*nrMPOinstr);
-                }
-        }
-        (*instrbegin)[(*nrMPOinstr)] = i;
-        *instrbegin = realloc(*instrbegin, (*nrMPOinstr + 1) * sizeof(int));
-        *MPOinstr   = realloc(*MPOinstr, *nrMPOinstr * sizeof(int));
-        //safe_free(*instructions);
-        //safe_free(*prefactors);
-        safe_free(idx);
-        safe_free(temp);
-        *instructions = newinstructions;
-        *prefactors = newpref;
-}
-
-int get_next_unique_instr(int * const curr_instr, 
-                          const struct instructionset * const instructions)
-{
-        /* instructions->instr is of the form:
-         *   old1, old2, new
-         * old1 and old2 should be different from prev instruction.
-         * instructions->hss_of_new should also be different from prev
-         * instruction. */
-        if (*curr_instr == -1) {
-                ++*curr_instr;
-                return 1;
-        } else {
-                const int old1 = instructions->instr[*curr_instr][0];
-                const int old2 = instructions->instr[*curr_instr][1];
-                const int old3 = instructions->instr[*curr_instr][2];
-                const int hss_old = instructions->hss_of_new[old3];
-
-                for (++*curr_instr; *curr_instr < instructions->nr_instr; ++*curr_instr) {
-                        const int new1 = instructions->instr[*curr_instr][0];
-                        const int new2 = instructions->instr[*curr_instr][1];
-                        const int new3 = instructions->instr[*curr_instr][2];
-                        const int hss_new = instructions->hss_of_new[new3];
-                        if (old1 != new1 || old2 != new2 || hss_old != hss_new)
-                                return 1;
-                }
-                return 0;
-        }
-}
-
 void print_instructions(struct instructionset * instructions, int bond, 
                         int is_left, char kind, int isdmrg)
 {
-        printf("#START INSTRUCTIONS\n");
+        printf("#START INSTR\n");
         switch(kind) {
         case 'd':
                 print_DMRG_instructions(instructions, bond, is_left);
@@ -455,7 +455,7 @@ void print_instructions(struct instructionset * instructions, int bond,
         default:
                 fprintf(stderr, "%s@%s: Unknown option (%c)\n", __FILE__, __func__, kind);
         }
-        printf("#END INSTRUCTIONS\n");
+        printf("#END INSTR\n");
 }
 
 static int insrno;
