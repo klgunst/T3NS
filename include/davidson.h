@@ -25,6 +25,20 @@
  */
 
 /**
+ * @brief diagonal preconditioner for davidson algorithm.
+ *
+ * @param [in] result The current eigenvector.
+ * @param [in] theta The current eigenvalue.
+ * @param [in] size The size of the eigenvector.
+ * @param [in] diagonal The diagonal of the matrix.
+ * @param [in,out] vec_t The residual vector.
+ */
+void davidson_diagonal_preconditioner(const double * const result, 
+                                      const double theta, const int size, 
+                                      const double * const diagonal,
+                                      double * const vec_t);
+
+/**
  * @brief main function for Davidson algorithm.
  *
  * @param [in,out] result Initial guess as input, converged vector as output.

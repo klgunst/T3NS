@@ -38,6 +38,7 @@ else()
     include_directories(${LAPACKE_INCLUDE_DIRS})
     set(LAPACK_LIBRARIES "cblas ${LAPACKE_LIBRARIES}")
 endif()
+set(PRIMME_LIBRARIES "/usr/local/lib/libprimme.so")
 
 # Find OpenMP
 find_package(OpenMP)

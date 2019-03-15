@@ -701,7 +701,6 @@ int QC_consistent_state(int * ts)
         }
         if (seniority != -1) {
                 if (parity != seniority % 2) { return 0; }
-                if (SU2val != -1 && (SU2val > seniority)) { return 0; }
         }
         return 1;
 }

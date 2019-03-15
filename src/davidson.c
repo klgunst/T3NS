@@ -201,39 +201,6 @@ static double calculate_residue(double * result)
         return sqrt(norm2);
 }
 
-static void create_new_vec_t(const double * result)
-{
-        double uKr = 0;
-        double uKu = 0;
-        const double theta = david_dat.eigvalues[0];
-#pragma omp parallel for default(none) shared(david_dat,result) reduction(+:uKr,uKu)
-        for (int i = 0; i < david_dat.size; ++i) {
-                const double diff     = david_dat.diagonal[i] - theta;
-                const double fabsdiff = fabs(diff);
-                double uK = 0;
-                if (fabsdiff > DIAG_CUTOFF) {
-                        uK = result[i] / diff;
-                } else {
-                        uK = (diff < 0 ? -1 : 1) * result[i] / DIAG_CUTOFF;
-                }
-                uKr += uK * david_dat.vec_t[i];
-                uKu += uK * result[i];
-        }
-        const double alpha = -uKr / uKu;
-        cblas_daxpy(david_dat.size, alpha, result, 1, david_dat.vec_t, 1);
-
-#pragma omp parallel for default(none) shared(david_dat)
-        for (int i = 0; i < david_dat.size; ++i) {
-                const double diff     = david_dat.diagonal[i] - theta;
-                const double fabsdiff = fabs(diff);
-                if (fabsdiff > DIAG_CUTOFF) {
-                        david_dat.vec_t[i] = - david_dat.vec_t[i] / diff;
-                } else {
-                        david_dat.vec_t[i] = -(diff < 0 ? -1 : 1) * david_dat.vec_t[i] / DIAG_CUTOFF;
-                }
-        }
-}
-
 static void clean_david_dat(void)
 {
         safe_free(david_dat.V);
@@ -244,7 +211,50 @@ static void clean_david_dat(void)
         safe_free(david_dat.eigvalues);
 }
 
+static void create_new_vec_t(const double * result)
+{
+        davidson_diagonal_preconditioner(result, david_dat.eigvalues[0],
+                                         david_dat.size, david_dat.diagonal,
+                                         david_dat.vec_t);
+}
+
 /* ========================================================================== */
+
+void davidson_diagonal_preconditioner(const double * const result, 
+                                      const double theta, const int size, 
+                                      const double * const diagonal,
+                                      double * const vec_t)
+{
+        double uKr = 0;
+        double uKu = 0;
+#pragma omp parallel for default(none) reduction(+:uKr,uKu)
+        for (int i = 0; i < size; ++i) {
+                const double diff     = diagonal[i] - theta;
+                const double fabsdiff = fabs(diff);
+                double uK = 0;
+                if (fabsdiff > DIAG_CUTOFF) {
+                        uK = result[i] / diff;
+                } else {
+                        uK = (diff < 0 ? -1 : 1) * result[i] / DIAG_CUTOFF;
+                }
+                uKr += uK * vec_t[i];
+                uKu += uK * result[i];
+        }
+        const double alpha = -uKr / uKu;
+        cblas_daxpy(size, alpha, result, 1, vec_t, 1);
+
+#pragma omp parallel for default(none)
+        for (int i = 0; i < size; ++i) {
+                const double diff     = diagonal[i] - theta;
+                const double fabsdiff = fabs(diff);
+                if (fabsdiff > DIAG_CUTOFF) {
+                        vec_t[i] = - vec_t[i] / diff;
+                } else {
+                        vec_t[i] = -(diff < 0 ? -1 : 1) * 
+                                vec_t[i] / DIAG_CUTOFF;
+                }
+        }
+}
 
 int davidson(double * result, double * energy, int size, int max_vecs, 
              int keep_deflate, double davidson_tol, int max_its, 

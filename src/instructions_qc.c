@@ -51,7 +51,7 @@ struct instruction_data {
         int size;
         int (*offset)[3];
         int (*amount)[3];
-        int *start_combine;
+        long long * start_combine;
 };
 
 static struct instruction_data get_instruction_data(const struct opType * ops, 
@@ -68,7 +68,7 @@ static struct instruction_data get_instruction_data(const struct opType * ops,
         // Get the maximal number of instructions. Really worst case scenario.
         result.start_combine[0] = 0;
         for (int i = 0; i < result.size; ++i) {
-                int nr = 1;
+                long long nr = 1;
                 int opn[3] = {
                         operator_array[i][0],
                         operator_array[i][1],
@@ -96,7 +96,7 @@ static void free_instruction_data(struct instruction_data * dat)
         safe_free(dat->start_combine);
 }
 
-static void id_to_curr_instr(int id, int * curr_instr, 
+static void id_to_curr_instr(long long id, int * curr_instr, 
                              const struct instruction_data * data)
 {
         int i;
@@ -187,7 +187,7 @@ static void combine_all_operators(const struct opType * const ops, const char c,
         instructions->nr_instr = 0;
         instructions->instr = NULL;
         instructions->pref = NULL;
-        const int max_instr = data.start_combine[data.size];
+        const long long max_instr = data.start_combine[data.size];
 
 #pragma omp parallel default(none) shared(data)
         {
@@ -200,7 +200,7 @@ static void combine_all_operators(const struct opType * const ops, const char c,
                 int t_nr = 0;
 
 #pragma omp for schedule(guided)
-                for (int i = 0; i < max_instr; ++i) {
+                for (long long i = 0; i < max_instr; ++i) {
                         int curr_instr[3];
                         double val;
                         id_to_curr_instr(i, curr_instr, &data);
