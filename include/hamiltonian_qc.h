@@ -69,3 +69,5 @@ int fuse_value(const int * tags[3], const int nr_tags[3], const int base_tag,
 void QC_write_hamiltonian_to_disk(const hid_t id);
 
 void QC_read_hamiltonian_from_disk(const hid_t id);
+
+int QC_consistent_state(int * ts);

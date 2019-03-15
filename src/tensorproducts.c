@@ -16,10 +16,12 @@
 */
 #include <stdlib.h>
 #include <stdio.h>
+#include <assert.h>
 
 #include "tensorproducts.h"
 #include "macros.h"
-#include <assert.h>
+#include "symmetries.h"
+#include "bookkeeper.h"
 #include "hamiltonian.h"
 
 /* Builds a naive sectors list, just a direct product of the different ranges
@@ -28,60 +30,59 @@ static void build_all_sectors(struct symsecs * res,
                               const struct symsecs * sectors1, 
                               const struct symsecs * sectors2)
 {
-  int max_irrep[bookie.nrSyms];
-  int indices[bookie.nrSyms];
-  int i;
-  int cnt;
-  int cnt2;
-  int nrSecs = 1;
-  res->irreps    = NULL;
-  res->dims      = NULL;
-  res->fcidims   = NULL;
-  res->totaldims = 0;
+        int max_irrep[MAX_SYMMETRIES];
+        int indices[MAX_SYMMETRIES];
+        int nrSecs = 1;
+        res->irreps    = NULL;
+        res->dims      = NULL;
+        res->fcidims   = NULL;
+        res->totaldims = 0;
 
-  for (i = 0; i < bookie.nrSyms; i++) {
-    indices[i] = 0;
-    max_irrep[i] = get_max_irrep(sectors1->irreps, sectors1->nrSecs, sectors2->irreps, 
-        sectors2->nrSecs, bookie.sgs[i], i);
+        for (int i = 0; i < bookie.nrSyms; ++i) {
+                indices[i] = 0;
+                max_irrep[i] = get_max_irrep(sectors1->irreps, 
+                                             sectors1->nrSecs, sectors2->irreps, 
+                                             sectors2->nrSecs, bookie.sgs[i], i);
+                nrSecs *= max_irrep[i];
+        }
 
-    nrSecs *= max_irrep[i];
-  }
+        res->nrSecs = 0;
+        int cnt = 0;
+        while (cnt != nrSecs) {
+                res->nrSecs += consistent_state(indices);
 
-  res->nrSecs = 0;
-  cnt = 0;
-  while (cnt != nrSecs) {
-    res->nrSecs += consistent_state(bookie.sgs, indices, bookie.nrSyms);
+                for (int i = 0; i < bookie.nrSyms; ++i) {
+                        ++indices[i];
+                        if (indices[i] == max_irrep[i]) { 
+                                indices[i] = 0; 
+                        } else {
+                                break;
+                        }
+                }
+                ++cnt;
+        }
+        res->irreps = safe_malloc(res->nrSecs, *res->irreps);
 
-    for (i = 0; i < bookie.nrSyms; i++) {
-      indices[i]++;
-      if (indices[i] == max_irrep[i])
-        indices[i] = 0;
-      else
-        break;
-    }
-    cnt++;
-  }
-  res->irreps = safe_malloc(res->nrSecs, *res->irreps);
+        cnt = 0;
+        int cnt2 = 0;
+        while (cnt != nrSecs) {
+                if (consistent_state(indices)) {
+                        for (int i = 0; i < bookie.nrSyms; ++i) {
+                                res->irreps[cnt2][i] = indices[i];
+                        }
+                        ++cnt2;
+                }
 
-  cnt = 0;
-  cnt2 = 0;
-  while (cnt != nrSecs) {
-    if (consistent_state(bookie.sgs, indices, bookie.nrSyms)) {
-      for (i = 0; i < bookie.nrSyms; i++)
-        res->irreps[cnt2][i] = indices[i];
-      cnt2++;
-    }
-
-    for (i = 0; i < bookie.nrSyms; i++) {
-      indices[i]++;
-      if (indices[i] == max_irrep[i])
-        indices[i] = 0;
-      else
-        break;
-    }
-    cnt++;
-  }
-  assert((i == bookie.nrSyms) && (indices[i - 1] == 0) && "Not all symmsecs looped");
+                for (int i = 0; i < bookie.nrSyms; ++i) {
+                        ++indices[i];
+                        if (indices[i] == max_irrep[i]) { 
+                                indices[i] = 0; 
+                        } else {
+                                break;
+                        }
+                }
+                ++cnt;
+        }
 }
 
 /* ========================================================================== */

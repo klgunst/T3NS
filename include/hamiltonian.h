@@ -108,3 +108,11 @@ int MPO_couples_to_singlet(const int n, const int MPO[n]);
 void write_hamiltonian_to_disk(const hid_t id);
 
 void read_hamiltonian_from_disk(const hid_t id);
+
+/**
+ * @brief Checks if the inputted state is consistent.
+ *
+ * @param [in] ts The targetstate.
+ * @return 1 if successful, 0 otherwise.
+ */
+int consistent_state(int * ts);

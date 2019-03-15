@@ -129,16 +129,6 @@ int which_irrep(char * buffer, enum symmetrygroup sg, int * irr);
  */
 int find_str_in_array(char * buffer, const char ** arr, int length, int * ind);
 
-/**
- * \brief Checks if the inputted state is consistent.
- *
- * \param [in] sgs The symmetrygroups.
- * \param [in] ts The targetstate.
- * \param [in] nr_symmetries The number of symmetries in sgs and ts.
- * \return 1 if successful, 0 otherwise.
- */
-int consistent_state(enum symmetrygroup * sgs, int * ts, int nrsy);
-
 double prefactor_pAppend(const int * symv, int is_left, enum symmetrygroup sg);
 
 /**

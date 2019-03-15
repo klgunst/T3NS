@@ -196,31 +196,6 @@ int find_str_in_array(char * buffer, const char ** arr, int length, int * ind)
         return 0;
 }
 
-int consistent_state(enum symmetrygroup * sgs, int * ts, int nrsy)
-{
-        int nrU1 = 0;
-        int hasU1 = 0;
-        int nrSU2 = 0;
-        int hasSU2 = 0;
-
-        for (int i = 1; i < nrsy; ++i) {
-                switch(sgs[i]) {
-                case U1:
-                        nrU1 += ts[i];
-                        hasU1 = 1;
-                        break;
-                case SU2:
-                        nrSU2 += ts[i];
-                        hasSU2 = 1;
-                        break;
-                default:
-                        /* do nothing */
-                        ;
-                }
-        }
-        return 1;
-}
-
 double prefactor_pAppend(const int * symvalues, int is_left, 
                          enum symmetrygroup sg)
 {

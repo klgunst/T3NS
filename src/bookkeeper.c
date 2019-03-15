@@ -192,7 +192,6 @@ static void make_symsec(struct symsecs *symsec, int bond, int is_left, char o)
         struct symsecs * sectors2p = &sectors2;
         const int site = netw.bonds[bond][!is_left];
         int i;
-        int flag;
 
         for (i = 0; i < netw.nr_bonds; ++i) {
                 if (netw.bonds[i][is_left] == site)
@@ -201,6 +200,7 @@ static void make_symsec(struct symsecs *symsec, int bond, int is_left, char o)
         assert(is_left ? i < bond : i != netw.nr_bonds);
         sectors1 = bookie.list_of_symsecs[i];
 
+        int flag;
         if ((flag = is_psite(site))) {
                 get_physsymsecs(sectors2p, site);
         } else {
@@ -359,8 +359,9 @@ void free_symsecs_from_bookie(int n, const int * bonds)
 void deep_copy_symsecs_to_bookie(int n, const struct symsecs * symarr, 
                                  const int * bonds)
 {
-        for (int i = 0; i < n; ++i)
+        for (int i = 0; i < n; ++i) {
                 deep_copy_symsecs(&bookie.list_of_symsecs[bonds[i]], &symarr[i]);
+        }
 }
 
 void print_bookkeeper(int fci)

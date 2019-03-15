@@ -133,7 +133,7 @@ void DOCI_tprods_ham(int * nr_of_prods, int (**possible_prods)[2],
  * @param MPO [in] The MPO's.
  * @return 1 if MPO's combine to the singlet, 0 otherwise.
  */
-int DOCI_MPO_couples_to_singlet(int n, const int * MPO);
+int DOCI_MPO_couples_to_singlet(const int * MPO);
 
 /**
  * @brief Gives the value of the interaction.
@@ -189,3 +189,11 @@ void DOCI_get_string_of_rops(char * buffer, int ropsindex, int bond, int isleft)
  * @param site [in] The site.
  */
 void DOCI_get_string_of_siteops(char * buffer, int siteop, int site);
+
+/**
+ * @brief Checks if the inputted state is consistent for DOCI.
+ *
+ * @param [in] ts The targetstate.
+ * @return 1 if successful, 0 otherwise.
+ */
+int DOCI_consistent_state(int * ts);

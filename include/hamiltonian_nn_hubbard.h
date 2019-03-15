@@ -51,3 +51,5 @@ void NN_H_get_string_of_rops(char buffer[], const int ropsindex);
 void NN_H_write_hamiltonian_to_disk(const hid_t id);
 
 void NN_H_read_hamiltonian_from_disk(const hid_t id);
+
+int NN_H_consistent_state(int * ts);

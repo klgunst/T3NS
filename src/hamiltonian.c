@@ -302,7 +302,7 @@ int MPO_couples_to_singlet(const int n, const int MPO[n])
         case NN_HUBBARD :
                 return NN_H_MPO_couples_to_singlet(n, MPO);
         case DOCI :
-                return DOCI_MPO_couples_to_singlet(n, MPO);
+                return DOCI_MPO_couples_to_singlet(MPO);
         default:
                 fprintf(stderr, "%s@%s: Not defined for the given hamiltonian.\n",
                         __FILE__, __func__);
@@ -359,6 +359,22 @@ void read_hamiltonian_from_disk(const hid_t id)
         }
 
         H5Gclose(group_id);
+}
+
+int consistent_state(int * ts)
+{
+        switch(ham) {
+        case QC :
+                return QC_consistent_state(ts);
+        case NN_HUBBARD :
+                return NN_H_consistent_state(ts);
+        case DOCI :
+                return DOCI_consistent_state(ts);
+        default:
+                fprintf(stderr, "%s@%s: Not defined for the given hamiltonian.\n",
+                        __FILE__, __func__);
+                exit(EXIT_FAILURE);
+        }
 }
 
 /* ========================================================================== */

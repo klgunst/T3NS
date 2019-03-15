@@ -279,6 +279,39 @@ void NN_H_read_hamiltonian_from_disk(const hid_t id)
         H5Gclose(group_id);
 }
 
+int NN_H_consistent_state(int * ts)
+{
+        int parity;
+        int SU2val = -1;
+        int particles = 0;
+        int totalparticles = 0;
+
+        for (int i = 0; i < bookie.nrSyms; ++i) {
+                switch (bookie.sgs[i]) {
+                case Z2:
+                        parity = ts[i];
+                        break;
+                case U1:
+                        particles += ts[i];
+                        if (ts[i] > bookie.target_state[i]) { return 0; }
+                        totalparticles += bookie.target_state[i];
+                        break;
+                case SU2:
+                        SU2val = ts[i];
+                        break;
+                default:
+                        fprintf(stderr, "Error: invalid symmetry %s for NN_HUBBARD.\n",
+                                get_symstring(bookie.sgs[i]));
+                }
+        }
+
+        if (parity != particles % 2) { return 0; }
+        if (SU2val != -1) {
+                if (particles % 2 != SU2val % 2) { return 0; }
+        }
+        return 1;
+}
+
 /* ========================================================================== */
 /* ===================== DEFINITION STATIC FUNCTIONS ======================== */
 /* ========================================================================== */

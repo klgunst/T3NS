@@ -664,6 +664,48 @@ void QC_read_hamiltonian_from_disk(const hid_t id)
         init_opType_array(hdat.su2);
 }
 
+int QC_consistent_state(int * ts)
+{
+        int parity;
+        int SU2val = -1;
+        int particles = 0;
+        int totalparticles = 0;
+        int seniority = -1;
+
+        for (int i = 0; i < bookie.nrSyms; ++i) {
+                switch (bookie.sgs[i]) {
+                case Z2:
+                        parity = ts[i];
+                        break;
+                case U1:
+                        particles += ts[i];
+                        if (ts[i] > bookie.target_state[i]) { return 0; }
+                        totalparticles += bookie.target_state[i];
+                        break;
+                case SU2:
+                        SU2val = ts[i];
+                        break;
+                case SENIORITY:
+                        seniority = ts[i];
+                        if (ts[i] > abs(bookie.target_state[i])) { return 0; }
+                        break;
+                default:
+                        // do nothing
+                        break;
+                }
+        }
+
+        if (parity % 2 != particles % 2) { return 0; }
+        if (SU2val != -1) {
+                if (particles % 2 != SU2val % 2) { return 0; }
+        }
+        if (seniority != -1) {
+                if (parity != seniority % 2) { return 0; }
+                if (SU2val != -1 && (SU2val > seniority)) { return 0; }
+        }
+        return 1;
+}
+
 /* ========================================================================== */
 /* ===================== DEFINITION STATIC FUNCTIONS ======================== */
 /* ========================================================================== */

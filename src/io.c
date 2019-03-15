@@ -18,11 +18,11 @@
 #include <stdio.h>
 #include <string.h>
 #include <ctype.h>
+#include <assert.h>
 
 #include "io.h"
 #include "options.h"
 #include "macros.h"
-#include <assert.h>
 #include "network.h"
 #include "bookkeeper.h"
 #include "symmetries.h"
@@ -92,19 +92,6 @@ void read_sg_and_ts(const char * inputfile)
         }
 
         if (!read_targetstate(buffer, permarray, ro, sg)) {
-                exit(EXIT_FAILURE);
-        }
-
-        if (!consistent_state(bookie.sgs, bookie.target_state, bookie.nrSyms)) {
-                char buffer2[MY_STRING_LEN];
-                get_sgsstring(bookie.sgs, bookie.nrSyms, buffer);
-                get_tsstring(buffer2);
-                fprintf(stderr, 
-                        "Error in reading input : Invalid combination of irreps of the target state.\n"
-                        "                         Following symmetries are in the system:\n"
-                        "                         %s\n"
-                        "                         Following irreps were specified:\n"
-                        "                         %s\n", buffer, buffer2);
                 exit(EXIT_FAILURE);
         }
         safe_free(permarray);
@@ -243,7 +230,9 @@ static char* find_option(const char option[], char line[])
         char *l = line;
 
         while (*o) {
-                if (tolower(*o) == tolower(*l)) {
+                const int lowo = tolower(*o);
+                const int lowl = tolower(*l);
+                if (lowo == lowl) {
                         ++o;
                         ++l;
                 }

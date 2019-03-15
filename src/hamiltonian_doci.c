@@ -27,6 +27,7 @@
 #include "symsecs.h"
 #include "macros.h"
 #include "io_to_disk.h"
+#include "instructions_doci.h"
 #include "io.h"
 
 static struct hamdata {
@@ -337,9 +338,8 @@ void DOCI_tprods_ham(int * nr_of_prods, int (**possible_prods)[2],
         }
 }
 
-int DOCI_MPO_couples_to_singlet(int n, const int * MPO)
+int DOCI_MPO_couples_to_singlet(const int * MPO)
 {
-        assert(n == 3);
         return irreps_DOCI[MPO[0]] + irreps_DOCI[MPO[1]] == irreps_DOCI[MPO[2]];
 }
 
@@ -450,4 +450,10 @@ void DOCI_get_string_of_siteops(char * buffer, int siteop, int site)
                         __FILE__, __func__, siteop);
                 exit(EXIT_FAILURE);
         }
+}
+
+int DOCI_consistent_state(int * ts)
+{
+        assert(bookie.nrSyms == 1);
+        return ts[0] <= bookie.target_state[0];
 }
