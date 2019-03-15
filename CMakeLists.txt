@@ -10,6 +10,7 @@ set(CMAKE_MODULE_PATH "${PROJECT_SOURCE_DIR}/cmake/Modules")
 
 option(DEBUG 		"Debug symbols used" 			  OFF)
 option(MKL 		"Compile using MKL" 			  OFF)
+option(PRIMME 		"Compile using PRIMME" 			  OFF)
 option(ENABLE_XHOST     "Enable processor-specific optimizations" ON)
 option(DAVID_INFO     	"Print intermediate results for the Davidson algorithm" OFF)
 option(BUILD_TESTING 	"Compile the tests" 			  ON)
@@ -38,7 +39,11 @@ else()
     include_directories(${LAPACKE_INCLUDE_DIRS})
     set(LAPACK_LIBRARIES "cblas ${LAPACKE_LIBRARIES}")
 endif()
-set(PRIMME_LIBRARIES "/usr/local/lib/libprimme.so")
+
+if(PRIMME)
+    set(PRIMME_LIBRARIES "/usr/local/lib/libprimme.so")
+    add_definitions(-DT3NS_WITH_PRIMME)
+endif()
 
 # Find OpenMP
 find_package(OpenMP)

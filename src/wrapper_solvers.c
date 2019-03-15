@@ -19,7 +19,6 @@
 #include <assert.h>
 #include <math.h>
 
-#define T3NS_WITH_PRIMME
 #ifdef T3NS_WITH_PRIMME
 #include "primme.h"
 #endif
