@@ -42,9 +42,9 @@ for i in $(seq 0 $(($NR_INSTR-1))); do
 	    # terminate tail, and sort can be started.
 	    #
 	    # If doing first head, then tail, this is not possible.
-	    tail -n+${begin1[$i]} $1 | head -n$difference1 | sort > /tmp/diff1
-	    tail -n+${begin2[$i]} $2 | head -n$difference2 | sort > /tmp/diff2
-	    diff /tmp/diff1 /tmp/diff2
+	    instr1=$(tail -n+${begin1[$i]} $1 | head -n$difference1 | sort)
+	    instr2=$(tail -n+${begin2[$i]} $2 | head -n$difference2 | sort)
+	    diff <(echo "$instr1") <(echo "$instr2")
 	    if [ $? -ne 0 ]; then
 		differences=$(($differences+1))
 	    fi

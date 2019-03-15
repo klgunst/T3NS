@@ -35,7 +35,7 @@ static struct instructionset (*iset_bUpdate)[2] = NULL;
 // instruction set for the merging
 static struct instructionset (*iset_merge)[2] = NULL;
 
-#define PRINT_INSTRUCTIONS
+//#define PRINT_INSTRUCTIONS
 
 static void sort_instructions(struct instructionset * const instructions)
 {

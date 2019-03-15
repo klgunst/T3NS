@@ -293,7 +293,6 @@ void QC_fetch_merge(struct instructionset * instructions, int bond, int isdmrg)
         int order[3] = {0, 1, 2};
 
         if (isdmrg) {
-                printf("%d %d\n", bond, isdmrg);
                 get_opType(&ops[0], bond, 1);
                 get_unity_opType(&ops[1]);
                 get_opType(&ops[2], bond, 0);
