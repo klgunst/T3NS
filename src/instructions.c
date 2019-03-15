@@ -35,7 +35,7 @@ static struct instructionset (*iset_bUpdate)[2] = NULL;
 // instruction set for the merging
 static struct instructionset (*iset_merge)[2] = NULL;
 
-//#define PRINT_INSTRUCTIONS
+#define PRINT_INSTRUCTIONS
 
 static void sort_instructions(struct instructionset * const instructions)
 {
@@ -441,6 +441,7 @@ int get_next_unique_instr(int * const curr_instr,
 void print_instructions(struct instructionset * instructions, int bond, 
                         int is_left, char kind, int isdmrg)
 {
+        printf("#START INSTRUCTIONS\n");
         switch(kind) {
         case 'd':
                 print_DMRG_instructions(instructions, bond, is_left);
@@ -454,6 +455,7 @@ void print_instructions(struct instructionset * instructions, int bond,
         default:
                 fprintf(stderr, "%s@%s: Unknown option (%c)\n", __FILE__, __func__, kind);
         }
+        printf("#END INSTRUCTIONS\n");
 }
 
 static int insrno;
