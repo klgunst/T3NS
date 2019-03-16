@@ -341,9 +341,14 @@ void create_v_symsecs(int max_dim, int interm_scale, int minocc)
 
 void destroy_bookkeeper(void)
 {
-        for (int cnt = 0; cnt < bookie.nr_bonds; ++cnt)
+        for (int cnt = 0; cnt < bookie.nr_bonds; ++cnt) {
                 destroy_symsecs(&bookie.v_symsecs[cnt]);
+        }
         safe_free(bookie.v_symsecs);
+        for (int cnt = 0; cnt < bookie.psites; ++cnt) {
+                destroy_symsecs(&bookie.p_symsecs[cnt]);
+        }
+        safe_free(bookie.p_symsecs);
 }
 
 void deep_copy_symsecs_from_bookie(int n, struct symsecs  * symarr, 

@@ -33,10 +33,10 @@
 #include "hamiltonian.h"
 
 static void write_symsec_to_disk(const hid_t id, const struct symsecs * const 
-                                 ssec, const int nmbr)
+                                 ssec, const int nmbr, char kind)
 {
         char buffer[255];
-        sprintf(buffer, "./symsec_%d", nmbr);
+        sprintf(buffer, "./%c_symsec_%d", kind, nmbr);
         hid_t group_id = H5Gcreate(id, buffer, H5P_DEFAULT, 
                                    H5P_DEFAULT, H5P_DEFAULT);
 
@@ -51,10 +51,11 @@ static void write_symsec_to_disk(const hid_t id, const struct symsecs * const
 }
 
 static void read_symsec_from_disk(const hid_t id, struct symsecs * const ssec, 
-                                  const int nmbr, int offset, int nrSyms)
+                                  const int nmbr, int offset, int nrSyms,
+                                  char kind)
 {
         char buffer[255];
-        sprintf(buffer, "./symsec_%d", nmbr);
+        sprintf(buffer, "./%c_symsec_%d", kind, nmbr);
         const hid_t group_id = H5Gopen(id, buffer, H5P_DEFAULT);
 
         read_attribute(group_id, "nrSecs", &ssec->nrSecs);
@@ -94,7 +95,12 @@ static void write_bookkeeper_to_disk(const hid_t file_id)
         write_attribute(group_id, "nr_bonds", &bookie.nr_bonds, 1, THDF5_INT);
 
         for (int i = 0 ; i < bookie.nr_bonds; ++i) 
-                write_symsec_to_disk(group_id, &bookie.v_symsecs[i], i);
+                write_symsec_to_disk(group_id, &bookie.v_symsecs[i], i, 'v');
+
+        write_attribute(group_id, "psites", &bookie.psites, 1, THDF5_INT);
+
+        for (int i = 0 ; i < bookie.psites; ++i) 
+                write_symsec_to_disk(group_id, &bookie.p_symsecs[i], i, 'p');
 
         H5Gclose(group_id);
 }
@@ -124,12 +130,17 @@ static void read_bookkeeper_from_disk(const hid_t file_id,
         read_attribute(group_id, "nr_bonds", &bookie.nr_bonds);
 
         bookie.v_symsecs = safe_malloc(bookie.nr_bonds, struct symsecs);
-
         for (int i = 0 ; i < bookie.nr_bonds; ++i) {
                 read_symsec_from_disk(group_id, &bookie.v_symsecs[i], i, 
-                                      offset, *nrSyms);
+                                      offset, *nrSyms, 'v');
         }
 
+        read_attribute(group_id, "psites", &bookie.psites);
+        bookie.p_symsecs = safe_malloc(bookie.psites, struct symsecs);
+        for (int i = 0 ; i < bookie.psites; ++i) {
+                read_symsec_from_disk(group_id, &bookie.p_symsecs[i], i, 
+                                      offset, *nrSyms, 'p');
+        }
         H5Gclose(group_id);
 }
 
