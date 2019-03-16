@@ -40,9 +40,14 @@ struct bookkeeper {
         int target_state[MAX_SYMMETRIES];
         /// The number of TNSd, TNSu bonds in the network.
         int nr_bonds;
-        /** List with the different symsecs for the different bonds.  
+        /** List with the different symsecs for the different virtual bonds.  
          *  Total length is @ref nr_bonds. */
         struct symsecs *v_symsecs;
+
+        /// Number of physical sites in network
+        int psites;
+        /// List of the symsecs of each physical bond.
+        struct symsecs * p_symsecs;
 };
 
 /// The global bookkeeper

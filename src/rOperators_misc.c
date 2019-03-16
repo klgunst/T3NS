@@ -331,7 +331,6 @@ static void print_qnumber(const struct rOperators * const rops, const int op, co
     }
     assert(ind == 0);
   }
-  clean_symsecs_arr(nrcoup * 3, symarr, qnumberbonds);
 }
 
 static void rOperators_give_coupling_to_qnumberbonds(const struct rOperators * const rops, 

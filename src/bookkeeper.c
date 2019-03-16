@@ -188,8 +188,7 @@ static void make_symsec(struct symsecs *symsec, int bond, int is_left, char o)
         assert(o == 'f' || o == 'd');
         assert(!(o == 'd') || is_left);
 
-        struct symsecs sectors1, sectors2;
-        struct symsecs * sectors2p = &sectors2;
+        struct symsecs sectors1, *sectors2p;
         const int site = netw.bonds[bond][!is_left];
         int i;
 
@@ -202,7 +201,7 @@ static void make_symsec(struct symsecs *symsec, int bond, int is_left, char o)
 
         int flag;
         if ((flag = is_psite(site))) {
-                get_physsymsecs(sectors2p, site);
+                sectors2p = &bookie.p_symsecs[netw.sitetoorb[site]];
         } else {
                 for (i = is_left ? i + 1: 0; i < netw.nr_bonds; ++i)
                         if (netw.bonds[i][1] == site && i != bond)
@@ -215,7 +214,6 @@ static void make_symsec(struct symsecs *symsec, int bond, int is_left, char o)
 
         if (flag && is_left) {
                 tensprod_symsecs(symsec, &sectors1, sectors2p, +1, o);
-                destroy_symsecs(sectors2p); 
                 kick_impossibles(symsec);
                 return;
         }
@@ -224,7 +222,6 @@ static void make_symsec(struct symsecs *symsec, int bond, int is_left, char o)
                 tensprod_symsecs(&temp, &sectors1, sectors2p, -1, o);
                 select_lowest(symsec, &temp);
                 destroy_symsecs(&temp);
-                destroy_symsecs(sectors2p); 
                 return;
         }
         if(!flag && is_left) {
@@ -326,7 +323,13 @@ static void calc_dims(int max_dim, int minocc)
 void create_v_symsecs(int max_dim, int interm_scale, int minocc)
 {
         bookie.nr_bonds = netw.nr_bonds;
-        bookie.v_symsecs = safe_malloc(bookie.nr_bonds, struct symsecs);
+        bookie.v_symsecs = safe_malloc(bookie.nr_bonds, *bookie.v_symsecs);
+
+        bookie.psites = netw.psites;
+        bookie.p_symsecs = safe_malloc(bookie.psites, *bookie.p_symsecs);
+        for (int i = 0; i < bookie.psites; ++i) {
+                get_physsymsecs(&bookie.p_symsecs[i], i);
+        }
         calc_fcidims();
 
         if (interm_scale) {

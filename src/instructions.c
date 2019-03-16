@@ -342,7 +342,6 @@ static void print_DMRG_instructions(struct instructionset * instructions,
         }
 
         printf("================================================================================\n");
-        clean_symsecs(&MPO, -1);
 }
 
 static void print_T3NS_instructions(struct instructionset * instructions, 
@@ -395,7 +394,6 @@ static void print_T3NS_instructions(struct instructionset * instructions,
                 printf("\t%s\n", buffer);
         }
 
-        clean_symsecs(&MPO, -1);
 }
 
 static void print_merge_instructions(struct instructionset * instructions,
@@ -435,7 +433,6 @@ static void print_merge_instructions(struct instructionset * instructions,
                                ? "\n" : " + ");
                 }
         }
-        clean_symsecs(&MPO, -1);
 }
 
 void print_instructions(struct instructionset * instructions, int bond, 

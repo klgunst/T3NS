@@ -323,8 +323,6 @@ void update_rOperators_physical(struct rOperators * const rops, const struct sit
     }
   }
 
-  clean_symsecs_arr(3, symarr, indices);
-  clean_symsecs(&symarr[3], get_hamiltonianbond(rops->bond_of_operator));
   safe_free(oldtonew);
   destroy_rOperators(rops);
   *rops = updated_rops;
@@ -508,7 +506,6 @@ static void unique_rOperators_append_phys(struct rOperators * uniquerops,
     safe_free(possible_prods);
   }
 
-  clean_symsecs_arr(9, symarr, tmpbond);
   safe_free(compr_instr);
   safe_free(compr_hss);
 }
@@ -727,7 +724,6 @@ static int * make_oldtonew(const struct symsecs * const internalss, const int bo
   for (; cnt < internalss->nrSecs; ++cnt)
     result[cnt] = -1;
 
-  clean_symsecs(&newss, bond);
   return result;
 }
 

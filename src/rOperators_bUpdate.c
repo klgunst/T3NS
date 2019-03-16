@@ -586,7 +586,6 @@ static void clean_indexhelper(const int site)
                 bonds[BRA] = get_braT3NSbond(tmpbonds[i]);
                 bonds[KET] = get_ketT3NSbond(tmpbonds[i]);
                 bonds[MPO] = get_hamiltonianbond(tmpbonds[i]);
-                clean_symsecs_arr(3, idh.symarr[i], bonds);
         }
         safe_free(idh.qnumbertens);
         for (int i = 0; i < idh.nrqnumbertens; ++i) {

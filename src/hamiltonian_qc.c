@@ -162,7 +162,7 @@ void QC_make_hamiltonian(char hamiltonianfile[], int su2, int has_seniority)
         init_opType_array(su2);
 }
 
-void QC_get_physsymsecs(struct symsecs *res, int site)
+void QC_get_physsymsecs(struct symsecs *res, int psite)
 {
         int irrep[4][3]     = {{0,0,0}, {1,1,0}, {1,0,1}, {0,1,1}};
         int irrep_su2[3][3] = {{0,0,0}, {1,1,1}, {0,2,0}};
@@ -186,7 +186,7 @@ void QC_get_physsymsecs(struct symsecs *res, int site)
                 /* trivial if even parity, otherwise irrep of orbital */
                 if (get_pg_symmetry() != -1) {
                         res->irreps[i][j] = res->irreps[i][0] ?  
-                                hdat.orbirrep[netw.sitetoorb[site]] : 0;
+                                hdat.orbirrep[psite] : 0;
                         ++j;
                 }
                 if (hdat.has_seniority) {

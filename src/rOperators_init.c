@@ -242,8 +242,6 @@ static void make_unitOperator(struct rOperators * const ops, const int op)
                 unitOperator->beginblock[block + 1] = unitOperator->beginblock[block] + D * D;
         }
 
-        clean_symsecs_arr(halfindexes, symarr, indexbonds);
-        clean_symsecs(&symMPO, indexbonds[nr_indices - 1]);
 }
 
 static void init_nP_rOperators(struct rOperators * const rops, int ***tmp_nkappa_begin, const int 
@@ -337,7 +335,6 @@ static void init_nP_rOperators(struct rOperators * const rops, int ***tmp_nkappa
     safe_free(idx);
   }
 
-  clean_symsecs_arr(3, symarr, indexes);
   safe_free(qnumbersarray);
   safe_free(dimarray);
 }
@@ -540,7 +537,6 @@ static void init_P_rOperators(struct rOperators * const rops, int ***nkappa_begi
   }
   safe_free(qnumbersarray);
   safe_free(dimarray);
-  clean_symsecs_arr(3, symarr, qnumberbonds);
 
   for (i = 0; i < symarr_internal[0].nrSecs; ++i)
   {
@@ -555,7 +551,6 @@ static void init_P_rOperators(struct rOperators * const rops, int ***nkappa_begi
   }
   safe_free(qnumbersarray_internal);
   safe_free(dimarray_internal);
-  clean_symsecs_arr(3, symarr_internal, bonds);
 }
 
 static void initialize_sum_unique_rOperators(struct rOperators * const newrops, const struct 

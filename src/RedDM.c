@@ -286,7 +286,6 @@ static int make1siteRDM(struct siteTensor * rdm, struct siteTensor * orthoc)
                 }
                 safe_free(temptel);
         }
-        clean_symsecs_arr(3, symarr, bonds);
         return 0;
 }
 
@@ -453,7 +452,6 @@ int get_1siteEntanglement(const struct RedDM * rdm, double ** result)
                         flag = 1;
                 }
 #endif
-                clean_symsecs(&ss, bonds[1]);
         }
         return flag;
 }

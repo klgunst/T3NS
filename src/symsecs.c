@@ -64,15 +64,10 @@ void print_symsecs(struct symsecs *currsymsec, int fci)
 void get_symsecs(struct symsecs *res, int bond)
 {
         if (bond >= 2 * bookie.nr_bonds) {
-                /* Its a physical bond, retrieve the site position out of the bond
-                 * ket bonds are from 2 * bookie.nr_bonds ----- 2 * bookie.nr_bonds + netw.psites - 1
-                 *
-                 * bra bonds are from 
-                 *      2 * bookie.nr_bonds + netw.psites ----- 2 * bookie.nr_bonds + 2 * netw.psites - 1
-                 */
+                // Its a physical bond.
                 bond -= 2 * bookie.nr_bonds;
-                bond %= netw.sites;
-                get_physsymsecs(res, bond);
+                bond %= bookie.psites;
+                *res = bookie.p_symsecs[bond];
         } else if (bond >= 0) {
                 /* its a bond of the tensor network, its stored in our bookkeeper
                  * ket bonds are               0 ---- bookie.nr_bonds - 1,
@@ -102,19 +97,6 @@ void destroy_symsecs(struct symsecs *sectors)
         safe_free(sectors->dims);
 }
 
-void clean_symsecs(struct symsecs *symarr, int bond)
-{
-        if (bond >= 2 * bookie.nr_bonds)
-                destroy_symsecs(symarr);
-        init_null_symsecs(symarr);
-}
-
-void clean_symsecs_arr(int n, struct symsecs symarr[n], int bonds[n])
-{
-        for (int i = 0; i < n; ++i)
-                clean_symsecs(&symarr[i], bonds[i]);
-}
-
 void get_sectorstring(const struct symsecs* const symsec, int id, char buffer[])
 {
         int i;
@@ -137,7 +119,6 @@ void get_maxdims_of_bonds(int maxdims[], int bonds[], const int nr)
         get_symsecs_arr(nr, symarr, bonds);
         for (i = 0; i < nr; ++i)
                 maxdims[i] = symarr[i].nrSecs;
-        clean_symsecs_arr(nr, symarr, bonds);
 }
 
 int is_set_to_internal_symsec(const int bond)
@@ -148,11 +129,9 @@ int is_set_to_internal_symsec(const int bond)
 
         for (i = 0; i < symsec.nrSecs; ++i) {
                 if (symsec.dims[i] != 1) {
-                        clean_symsecs(&symsec, get_ketT3NSbond(bond));
                         return 0;
                 }
         }
-        clean_symsecs(&symsec, get_ketT3NSbond(bond));
         return 1;
 }
 

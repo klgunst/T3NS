@@ -218,7 +218,6 @@ static struct qrdata init_qrdata(struct siteTensor * A, struct siteTensor * Q,
 
 static void destroy_qrdata(struct qrdata * dat)
 {
-        clean_symsecs_arr(3, dat->symarr, dat->legs);
         safe_free(dat->indices);
         safe_free(dat->idperm);
         safe_free(dat->idstart);
@@ -419,7 +418,6 @@ static void makeB(const struct siteTensor * const A, const int bondA,
         }
         B->blocks.tel = safe_malloc(B->blocks.beginblock[B->nrblocks],
                                     *B->blocks.tel);
-        clean_symsecs_arr(3, symarr, legs);
 }
 
 // It is possible to do this bit more efficient by using DTRMM instead of DGEMM
@@ -495,7 +493,6 @@ int multiplyR(struct siteTensor * A, const int bondA,
                        get_size_block(&B->blocks, block));
                 do_contract(&cinfo, tels, 1, 0);
         }
-        clean_symsecs_arr(3, symarr, legs);
         return 0;
 }
 

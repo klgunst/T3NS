@@ -554,7 +554,6 @@ void print_target_state_coeff(const struct siteTensor * T3NS)
         assert(R.nrblocks == ss.nrSecs);
         if (R.nrblocks == 1) {
                 destroy_Rmatrix(&R);
-                clean_symsecs(&ss, R.bond);
                 return;
         }
         printf(" >> |c_i|^2 of target states:\n");
@@ -578,5 +577,4 @@ void print_target_state_coeff(const struct siteTensor * T3NS)
                 printf("%g\n", value);
         }
         destroy_Rmatrix(&R);
-        clean_symsecs(&ss, R.bond);
 }

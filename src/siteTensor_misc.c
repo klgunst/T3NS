@@ -225,7 +225,6 @@ void change_sectors_tensor(struct siteTensor * oldtens,
         }
 
 
-        clean_symsecs(&ss_new, bonds[bondid]);
         destroy_siteTensor(oldtens);
         *oldtens = newtens;
 }
@@ -314,7 +313,6 @@ static void print_qnumber(const struct siteTensor * const tens, const int block)
       printf("%14s %c", buffer,  bond != 2  ? '-' : '\n');
     }
   }
-  clean_symsecs_arr(nrcoup * 3, symarr, qnumberbonds);
 }
 
 static void siteTensor_give_coupling_to_qnumberbonds(const struct siteTensor * const tens, 

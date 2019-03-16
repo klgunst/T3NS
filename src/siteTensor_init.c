@@ -55,9 +55,6 @@ static void make_multisitetensor(struct siteTensor * tens, const struct symsecs 
 static void get_ss_with_internal(struct symsecs symsec[], const struct symsecs internalsymsec[],
     const int interalbonds[], const int nr_internal, const int bonds[]);
 
-static void destroy_ss_with_internal(struct symsecs symsec[], const int internalbonds[], 
-    const int nr_internal, const int bonds[]);
-
 static void get_sites_to_use(const struct siteTensor * const tens, const int internalbonds[], 
     int sites_to_use[], const int nr_internal, int * const innersite);
 
@@ -109,7 +106,6 @@ void init_1siteTensor(struct siteTensor * const tens, const int site, const char
   make_1sblocks(tens, dimarray, qnumbersarray, symarr);
 
   /* Clean the symarr array. And destroy appropriate symsecs (e.g. the ones linked to a physical) */
-  clean_symsecs_arr(nrind, symarr, couplings);
 
   /* initialization of the tel array */
   switch(o)
@@ -286,9 +282,6 @@ static void make_new_internalsymsecs_and_tensor(struct siteTensor * const tens,
     assert(cnt == 2);
     tensprod_symsecs(&internalsymsec[i], &symsec[0], &symsec[1], sign, 'n');
 
-    cnt = 0;
-    for (j = 0; j < 3; ++j)
-      if (bonds[j] != internalbonds[i]) clean_symsecs(&symsec[cnt++], bonds[j]);
   }
 
   { /* inner site */
@@ -323,7 +316,6 @@ static void make_new_internalsymsecs_and_tensor(struct siteTensor * const tens,
     }
 
     destroy_dim_and_qnumbersarray(&dimarray, &qnumbersarray, symsec);
-    destroy_ss_with_internal(symsec, internalbonds, nr_internal, bonds);
   }
 
   make_multisitetensor(tens, internalsymsec, internalbonds, nr_internal);
@@ -358,11 +350,8 @@ static void make_multisitetensor(struct siteTensor * tens, const struct symsecs 
 
   for (i = 0; i < tens->nrsites; ++i)
   {
-    int * bonds = &all_bonds[3 * i];
     struct symsecs * symarr = &all_symarr[3 * i];
-    
     destroy_dim_and_qnumbersarray(&dimarray[i], &qnumbersarray[i], symarr);
-    destroy_ss_with_internal(symarr, internalbonds, nr_internal, bonds);
   }
 
   sort_and_make(tens, &dim_of_blocks);
@@ -397,20 +386,6 @@ static void get_ss_with_internal(struct symsecs symsec[], const struct symsecs i
       symsec[i] = internalsymsec[j];
     else
       get_symsecs(&symsec[i], bonds[i]);
-  }
-}
-
-static void destroy_ss_with_internal(struct symsecs symsec[], const int internalbonds[], 
-    const int nr_internal, const int bonds[])
-{
-  int i;
-  for (i = 0; i < 3; ++i)
-  {
-    int j;
-    for (j = 0; j < nr_internal; ++j)
-      if (bonds[i] == internalbonds[j]) break;
-    if (j == nr_internal)
-      clean_symsecs(&symsec[i], bonds[i]);
   }
 }
 
@@ -692,7 +667,6 @@ static void contractsiteTensors(struct siteTensor * const tens, struct siteTenso
   }
 
   safe_free(newtoold);
-  clean_symsecs_arr(nrbonds, symarr, bonds);
 }
 
 static QN_TYPE change_newtooldqnumber(QN_TYPE new, int * newtoold, int * maxdims, const int newdim,
@@ -750,6 +724,5 @@ static int * make_newtoold(const struct symsecs * const internalss, const int bo
       }
     }
   }
-  clean_symsecs(&newss, bond);
   return result;
 }

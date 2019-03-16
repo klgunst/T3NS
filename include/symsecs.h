@@ -88,25 +88,6 @@ void get_symsecs_arr(int n, struct symsecs res[n], int bonds[n]);
 void destroy_symsecs(struct symsecs *sectors);
 
 /**
- * Cleans the symsecs, puts everything on 0 or NULL! if memory should be deallocated (e.g. for 
- * physical symsecs) this will also happen.
- *
- * \param [in,out] res The symsecs that should be cleaned.
- * \param [in] bond The bond of which the symsec is.
- */
-void clean_symsecs(struct symsecs *res, int bond);
-
-/**
- * Cleans the symsecs, puts everything on 0 or NULL! if memory should be deallocated (e.g. for 
- * physical symsecs) this will also happen.
- *
- * \param [in] n The number of bonds.
- * \param [in,out] res The symsecs array that should be cleaned.
- * \param [in] bond The bonds of which the symsec are.
- */
-void clean_symsecs_arr(int n, struct symsecs symarr[n], int bonds[n]);
-
-/**
  * \brief Searches a symmsec in a symsecs struct (naively atm)
  *
  * \param[in] symmsec The symmetry sector to search.

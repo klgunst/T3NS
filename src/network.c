@@ -547,7 +547,7 @@ void get_bonds_of_site(int site, int * bonds)
         assert(i != netw.nr_bonds);
 
         if (is_psite(site)) {
-                bonds[1] = 2 * netw.nr_bonds + site;
+                bonds[1] = 2 * netw.nr_bonds + netw.sitetoorb[site];
         } else {
                 for (++i; i < netw.nr_bonds; ++i) {
                         if (netw.bonds[i][1] == site) {
@@ -572,8 +572,8 @@ int get_braT3NSbond(int bond)
         if (bond < netw.nr_bonds) /* virtual bond */
                 return bond + netw.nr_bonds;
         else if (bond >= netw.nr_bonds * 2 && 
-                 bond < netw.nr_bonds * 2 + netw.sites)
-                return bond + netw.sites;
+                 bond < netw.nr_bonds * 2 + netw.psites)
+                return bond + netw.psites;
 
         fprintf(stderr, "Error @%s: asked a braT3NSbond for bond=%d.\n", 
                 __func__, bond);
@@ -585,7 +585,7 @@ int get_ketT3NSbond(int bond)
         if (bond < netw.nr_bonds) /* virtual bond */
                 return bond;
         else if (bond >= netw.nr_bonds * 2 && 
-                 bond < netw.nr_bonds * 2 + netw.sites)
+                 bond < netw.nr_bonds * 2 + netw.psites)
                 return bond;
 
         fprintf(stderr, "Error @%s: asked a ketT3NSbond for bond=%d.\n", 
@@ -612,8 +612,8 @@ int are_bra_and_ket_bonds(int bra, int ket)
 {
         if (ket < netw.nr_bonds)
                 return ket == bra - netw.nr_bonds;
-        if (ket >= netw.nr_bonds * 2 && ket < netw.nr_bonds * 2 + netw.sites)
-                return ket == bra - netw.sites;
+        if (ket >= netw.nr_bonds * 2 && ket < netw.nr_bonds * 2 + netw.psites)
+                return ket == bra - netw.psites;
         return 0;
 }
 
@@ -625,11 +625,11 @@ void get_string_of_bond(char * buffer, int bond)
                 sprintf(buffer, "ket(T3NS_%d)", bond);
         } else if (bond < 2 * netw.nr_bonds) {
                 sprintf(buffer, "bra(T3NS_%d)", bond - netw.nr_bonds);
-        } else if (bond < 2 * netw.nr_bonds + netw.sites) {
+        } else if (bond < 2 * netw.nr_bonds + netw.psites) {
                 sprintf(buffer, "ket(site_%d)", bond - 2 * netw.nr_bonds);
-        } else if (bond < 2 * netw.nr_bonds + 2 * netw.sites) {
+        } else if (bond < 2 * netw.nr_bonds + 2 * netw.psites) {
                 sprintf(buffer, "bra(site_%d)", 
-                        bond - 2 * netw.nr_bonds - netw.sites);
+                        bond - 2 * netw.nr_bonds - netw.psites);
         }
 }
 

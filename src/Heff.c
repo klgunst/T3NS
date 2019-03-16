@@ -1277,9 +1277,7 @@ void destroy_Heffdata(struct Heffdata * const data)
         for (int i = 0; i < data->siteObject.nrsites; ++i) {
                 int bonds[3];
                 get_bonds_of_site(data->siteObject.sites[i], bonds);
-                clean_symsecs_arr(3, data->symarr[i], bonds);
         }
-        clean_symsecs(&data->MPOsymsec, -1);
 
         for (int i = 0; i < data->nr_qnB; ++i) {
                 for (int j = 0; j < data->nr_qnBtoqnB[i]; ++j) {

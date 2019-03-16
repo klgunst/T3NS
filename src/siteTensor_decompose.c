@@ -429,7 +429,6 @@ static double splitOfSite(const int siteToSplit, const int splittedBond, struct 
     newSymsec->totaldims += newSymsec->dims[ss];
     safe_free(mem);
   }
-  clean_symsecs_arr(3 * original.nrsites, symarr, bonds);
   destroy_siteTensor(&original);
 
   truncerr = truncateBond(S, newSymsec, mind, maxd, maxtrunc);
@@ -1097,5 +1096,4 @@ static void make_tensor(struct siteTensor * tens, int * perm, const struct symse
   }
   assert(cnt == tens->nrblocks);
 
-  clean_symsecs_arr(tens->nrsites * 3, symarr, bonds);
 }
