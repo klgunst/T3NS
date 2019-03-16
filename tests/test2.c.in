@@ -49,7 +49,7 @@ static void initialize_program(struct siteTensor **T3NS,
 
         make_network("${CMAKE_SOURCE_DIR}/tests/networks/10_DMRG.netw");
         readinteraction("${CMAKE_SOURCE_DIR}/tests/fcidumps/N2.STO3G.FCIDUMP");
-        create_list_of_symsecs(scheme->regimes[0].minD, 1, DEFAULT_MINSTATES);
+        create_v_symsecs(scheme->regimes[0].minD, 1, DEFAULT_MINSTATES);
         init_calculation(T3NS, rops, '${TEST_INIT_OPTION}');
 }
 

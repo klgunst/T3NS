@@ -94,7 +94,7 @@ static void write_bookkeeper_to_disk(const hid_t file_id)
         write_attribute(group_id, "nr_bonds", &bookie.nr_bonds, 1, THDF5_INT);
 
         for (int i = 0 ; i < bookie.nr_bonds; ++i) 
-                write_symsec_to_disk(group_id, &bookie.list_of_symsecs[i], i);
+                write_symsec_to_disk(group_id, &bookie.v_symsecs[i], i);
 
         H5Gclose(group_id);
 }
@@ -123,10 +123,10 @@ static void read_bookkeeper_from_disk(const hid_t file_id,
 
         read_attribute(group_id, "nr_bonds", &bookie.nr_bonds);
 
-        bookie.list_of_symsecs = safe_malloc(bookie.nr_bonds, struct symsecs);
+        bookie.v_symsecs = safe_malloc(bookie.nr_bonds, struct symsecs);
 
         for (int i = 0 ; i < bookie.nr_bonds; ++i) {
-                read_symsec_from_disk(group_id, &bookie.list_of_symsecs[i], i, 
+                read_symsec_from_disk(group_id, &bookie.v_symsecs[i], i, 
                                       offset, *nrSyms);
         }
 
@@ -472,9 +472,9 @@ static int change_seniority(struct siteTensor * T3NS,
                 fprintf(stderr, "No conversion for fixed seniorities allowed (except seniority zero).\n");
                 return 1;
         }
-        struct symsecs oldtarget = bookie.list_of_symsecs[endbond];
+        struct symsecs oldtarget = bookie.v_symsecs[endbond];
         // Change the symsec
-        init_targetstate(&bookie.list_of_symsecs[endbond], 'd');
+        init_targetstate(&bookie.v_symsecs[endbond], 'd');
         /* Change the renormalized operators at the end.
            This is just reinitializing the unitary at the end.
         */

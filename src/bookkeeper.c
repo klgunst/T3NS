@@ -198,7 +198,7 @@ static void make_symsec(struct symsecs *symsec, int bond, int is_left, char o)
                         break;
         }
         assert(is_left ? i < bond : i != netw.nr_bonds);
-        sectors1 = bookie.list_of_symsecs[i];
+        sectors1 = bookie.v_symsecs[i];
 
         int flag;
         if ((flag = is_psite(site))) {
@@ -208,7 +208,7 @@ static void make_symsec(struct symsecs *symsec, int bond, int is_left, char o)
                         if (netw.bonds[i][1] == site && i != bond)
                                 break;
                 assert(is_left ? i < bond : i != netw.nr_bonds);
-                sectors2p = &bookie.list_of_symsecs[i];
+                sectors2p = &bookie.v_symsecs[i];
         }
         assert(sectors1.nrSecs != 0);
         assert(sectors2p->nrSecs != 0);
@@ -248,20 +248,20 @@ static void make_symsec(struct symsecs *symsec, int bond, int is_left, char o)
 static void calc_fcidims(void)
 {
         for (int bond = 0; bond < bookie.nr_bonds; ++bond)
-                init_null_symsecs(&bookie.list_of_symsecs[bond]);
+                init_null_symsecs(&bookie.v_symsecs[bond]);
 
         for (int bond = 0; bond < bookie.nr_bonds; ++bond)
-                make_symsec(&bookie.list_of_symsecs[bond], bond, 1, 'f');
+                make_symsec(&bookie.v_symsecs[bond], bond, 1, 'f');
 
         for (int bond = bookie.nr_bonds - 1; bond >= 0; --bond)
-                make_symsec(&bookie.list_of_symsecs[bond], bond, 0, 'f');
+                make_symsec(&bookie.v_symsecs[bond], bond, 0, 'f');
 }
 
 static void scale_dims(int max_dim, int minocc)
 {
         for (int bnd = 0; bnd < bookie.nr_bonds; ++bnd) {
                 double ratio, totalfcidims = 0;
-                struct symsecs * const sectors = &bookie.list_of_symsecs[bnd];
+                struct symsecs * const sectors = &bookie.v_symsecs[bnd];
 
                 for (int i = 0; i < sectors->nrSecs; ++i) 
                         totalfcidims += sectors->fcidims[i];
@@ -284,7 +284,7 @@ static void calc_dims(int max_dim, int minocc)
 {
         for (int bond = 0; bond < bookie.nr_bonds; ++bond) {
                 struct symsecs newSymsec;
-                struct symsecs * bookiess = &bookie.list_of_symsecs[bond];
+                struct symsecs * bookiess = &bookie.v_symsecs[bond];
                 init_null_symsecs(&newSymsec);
                 make_symsec(&newSymsec, bond, 1, 'd');
                 bookiess->dims = safe_malloc(bookiess->nrSecs, int);
@@ -323,10 +323,10 @@ static void calc_dims(int max_dim, int minocc)
 
 /* ========================================================================== */
 
-void create_list_of_symsecs(int max_dim, int interm_scale, int minocc)
+void create_v_symsecs(int max_dim, int interm_scale, int minocc)
 {
         bookie.nr_bonds = netw.nr_bonds;
-        bookie.list_of_symsecs = safe_malloc(bookie.nr_bonds, struct symsecs);
+        bookie.v_symsecs = safe_malloc(bookie.nr_bonds, struct symsecs);
         calc_fcidims();
 
         if (interm_scale) {
@@ -339,28 +339,28 @@ void create_list_of_symsecs(int max_dim, int interm_scale, int minocc)
 void destroy_bookkeeper(void)
 {
         for (int cnt = 0; cnt < bookie.nr_bonds; ++cnt)
-                destroy_symsecs(&bookie.list_of_symsecs[cnt]);
-        safe_free(bookie.list_of_symsecs);
+                destroy_symsecs(&bookie.v_symsecs[cnt]);
+        safe_free(bookie.v_symsecs);
 }
 
 void deep_copy_symsecs_from_bookie(int n, struct symsecs  * symarr, 
                                    const int * bonds)
 {
         for (int i = 0; i < n; ++i)
-                deep_copy_symsecs(&symarr[i], &bookie.list_of_symsecs[bonds[i]]);
+                deep_copy_symsecs(&symarr[i], &bookie.v_symsecs[bonds[i]]);
 }
 
 void free_symsecs_from_bookie(int n, const int * bonds)
 {
         for (int i = 0; i < n; ++i) 
-                destroy_symsecs(&bookie.list_of_symsecs[bonds[i]]);
+                destroy_symsecs(&bookie.v_symsecs[bonds[i]]);
 }
 
 void deep_copy_symsecs_to_bookie(int n, const struct symsecs * symarr, 
                                  const int * bonds)
 {
         for (int i = 0; i < n; ++i) {
-                deep_copy_symsecs(&bookie.list_of_symsecs[bonds[i]], &symarr[i]);
+                deep_copy_symsecs(&bookie.v_symsecs[bonds[i]], &symarr[i]);
         }
 }
 
@@ -378,7 +378,7 @@ void print_bookkeeper(int fci)
         for (int i = 0; i < bookie.nr_bonds; ++i) {
                 int site_one = netw.bonds[i][0];
                 int site_two = netw.bonds[i][1];
-                struct symsecs currsymsecs = bookie.list_of_symsecs[i];
+                struct symsecs currsymsecs = bookie.v_symsecs[i];
 
                 if (site_one == -1) {
                         strncpy(str_one, "vacuum", MY_STRING_LEN - 1);
@@ -439,7 +439,7 @@ void get_tsstring(char * buffer)
 void print_bondinfo(int bond)
 {
         printf("bond %d : ", bond);
-        print_symsecinfo(&bookie.list_of_symsecs[bond]);
+        print_symsecinfo(&bookie.v_symsecs[bond]);
 }
 
 int find_Z2(void)

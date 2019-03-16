@@ -79,7 +79,7 @@ void get_symsecs(struct symsecs *res, int bond)
                  * bra bonds are bookie.nr_bonds ---- 2 * bookie.nr_bonds - 1
                  */
                 bond %= bookie.nr_bonds;
-                *res = bookie.list_of_symsecs[bond];
+                *res = bookie.v_symsecs[bond];
         } else if (bond  == -1) {
                 get_hamiltoniansymsecs(res, bond);
         } else {

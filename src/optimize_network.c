@@ -130,7 +130,7 @@ static void preprocess_rOperators(const struct rOperators * rops)
                 const int bond = o_dat.specs.bonds_opt[internalbond];
                 const int otherbond = o_dat.specs.bonds_opt[!internalbond];
 
-                struct symsecs * ss = &bookie.list_of_symsecs[bond];
+                struct symsecs * ss = &bookie.v_symsecs[bond];
                 
                 int * tempdim = ss->dims;
                 ss->dims = safe_malloc(ss->nrSecs, *ss->dims);
@@ -443,21 +443,21 @@ static void init_rops(struct rOperators * const rops,
         } else if (is_psite(siteL)) { /* physical tensor, DMRG update needed */
                 assert(tens != NULL);
                 int bonds[3];
-                int * tempdim = bookie.list_of_symsecs[bond].dims;
+                int * tempdim = bookie.v_symsecs[bond].dims;
                 int i;
-                bookie.list_of_symsecs[bond].dims = safe_malloc(bookie.list_of_symsecs[bond].nrSecs, int);
-                for (i = 0; i < bookie.list_of_symsecs[bond].nrSecs; ++i)
-                        bookie.list_of_symsecs[bond].dims[i] = 1;
+                bookie.v_symsecs[bond].dims = safe_malloc(bookie.v_symsecs[bond].nrSecs, int);
+                for (i = 0; i < bookie.v_symsecs[bond].nrSecs; ++i)
+                        bookie.v_symsecs[bond].dims[i] = 1;
 
                 get_bonds_of_site(siteL, bonds);
                 assert(bonds[2] == bond);
                 rOperators_append_phys(curr_rops, &rops[bonds[0]]); 
-                safe_free(bookie.list_of_symsecs[bond].dims);
-                bookie.list_of_symsecs[bond].dims = tempdim;
+                safe_free(bookie.v_symsecs[bond].dims);
+                bookie.v_symsecs[bond].dims = tempdim;
                 /* Just pass the same symsecs as internal one. Doesnt really matter that dims != 1.
                  * What matters is that both have the same symsecs and this way a correct array can be made
                  * in update_rOperators_physical */
-                update_rOperators_physical(curr_rops, tens, &bookie.list_of_symsecs[bond]);
+                update_rOperators_physical(curr_rops, tens, &bookie.v_symsecs[bond]);
         } else { /* branching tensor, T3NS update needed */
                 int bonds[3];
                 get_bonds_of_site(siteL, bonds);

@@ -163,7 +163,7 @@ void decomposesiteObject(struct siteTensor * const siteObject, struct siteTensor
           maxd, maxtrunc);
 
       /* copy the adapted symsec in te bookkeeper to the array symsec */
-      deep_copy_symsecs(&symsec[j], &bookie.list_of_symsecs[bond[j]]);
+      deep_copy_symsecs(&symsec[j], &bookie.v_symsecs[bond[j]]);
       printf("     * splitting of site %d through bond %d: trunc: %.4e, dimension: %d\n", 
           order[j], bond[j], truncerr[j], symsec[j].totaldims);
     }
@@ -296,8 +296,8 @@ static void change_symsecs_to_best(const int selection, const int nr_of_orders,
     else
       for (j = 0; j < nr_of_SVDs; ++j)
       {
-        destroy_symsecs(&bookie.list_of_symsecs[bond[j]]);
-        bookie.list_of_symsecs[bond[j]] = symsec[j];
+        destroy_symsecs(&bookie.v_symsecs[bond[j]]);
+        bookie.v_symsecs[bond[j]] = symsec[j];
       }
   }
 }
@@ -388,7 +388,7 @@ static double splitOfSite(const int siteToSplit, const int splittedBond, struct 
   int maxdims[3 * original.nrsites];
   int bonds[3 * original.nrsites];
   int * ss_array;
-  struct symsecs * newSymsec = &bookie.list_of_symsecs[splittedBond];
+  struct symsecs * newSymsec = &bookie.v_symsecs[splittedBond];
   const int nrss = newSymsec->nrSecs;
 
   const int tensnr = check_correct_input_splitOfSite(siteToSplit, splittedBond, &original);

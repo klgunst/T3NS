@@ -260,7 +260,7 @@ static void initialize_program(int argc, char *argv[], struct siteTensor **T3NS,
                 read_inputfile(arguments.args[0], scheme, &minocc);
                 assert(scheme->nrRegimes != 0);
                 printf(" >> Preparing bookkeeper...\n");
-                create_list_of_symsecs(scheme->regimes[0].minD, 1, minocc);
+                create_v_symsecs(scheme->regimes[0].minD, 1, minocc);
                 init_calculation(T3NS, rops, 'r');
                 print_input(scheme);
         } else {

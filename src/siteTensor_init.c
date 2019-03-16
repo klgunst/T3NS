@@ -378,7 +378,7 @@ static void change_internals_in_bookkeeper(struct symsecs internalsymsec[],
   siteTensor_give_internalbonds(tens, internalbonds);
   for (i = 0; i < nr_internal; ++i )
   {
-    struct symsecs * const psymsec = &bookie.list_of_symsecs[internalbonds[i]];
+    struct symsecs * const psymsec = &bookie.v_symsecs[internalbonds[i]];
     destroy_symsecs(psymsec);
     *psymsec = internalsymsec[i];
   }

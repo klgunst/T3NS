@@ -42,14 +42,14 @@ struct bookkeeper {
         int nr_bonds;
         /** List with the different symsecs for the different bonds.  
          *  Total length is @ref nr_bonds. */
-        struct symsecs *list_of_symsecs;
+        struct symsecs *v_symsecs;
 };
 
 /// The global bookkeeper
 extern struct bookkeeper bookie;
 
 /**
- * @brief Initializes the @ref bookkeeper.list_of_symsecs limiting the maximal 
+ * @brief Initializes the @ref bookkeeper.v_symsecs limiting the maximal 
  * dimension.
  *
  * The @ref bookkeeper is stored in a global variable @ref bookie.
@@ -58,7 +58,7 @@ extern struct bookkeeper bookie;
  * @param [in] interm_scale Scale intermediately or scale the complete fci dims.
  * @param [in] minocc The minimal bond dimension to put in each symmetry sector.
  */
-void create_list_of_symsecs(int max_dim, int interm_scale, int minocc);
+void create_v_symsecs(int max_dim, int interm_scale, int minocc);
 
 /**
  * \brief Frees the memory allocated to the global bookie variable.

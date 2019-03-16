@@ -79,7 +79,7 @@ static struct RDMbackup backup(struct siteTensor * T3NS)
         }
 
         for (int i = 0; i < netw.nr_bonds; ++i) {
-                deep_copy_symsecs(&backupv.ss[i], &bookie.list_of_symsecs[i]);
+                deep_copy_symsecs(&backupv.ss[i], &bookie.v_symsecs[i]);
         }
         return backupv;
 }
@@ -93,8 +93,8 @@ static void putback_backup(struct siteTensor * T3NS, struct RDMbackup * backupv)
         safe_free(backupv->tels);
 
         for (int i = 0; i < netw.nr_bonds; ++i) {
-                destroy_symsecs(&bookie.list_of_symsecs[i]);
-                bookie.list_of_symsecs[i] = backupv->ss[i];
+                destroy_symsecs(&bookie.v_symsecs[i]);
+                bookie.v_symsecs[i] = backupv->ss[i];
         }
         safe_free(backupv->ss);
 }
