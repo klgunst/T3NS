@@ -49,7 +49,8 @@ static void initialize_program(struct siteTensor **T3NS,
 
         make_network("${CMAKE_SOURCE_DIR}/tests/networks/10_DMRG.netw");
         readinteraction("${CMAKE_SOURCE_DIR}/tests/fcidumps/N2.STO3G.FCIDUMP");
-        create_v_symsecs(scheme->regimes[0].minD, 1, DEFAULT_MINSTATES);
+        preparebookkeeper(NULL, scheme->regimes[0].minD, 1, DEFAULT_MINSTATES,
+                          NULL);
         init_calculation(T3NS, rops, '${TEST_INIT_OPTION}');
 }
 
@@ -72,7 +73,7 @@ static void destroy_all_rops(struct rOperators **rops)
 static void cleanup_before_exit(struct siteTensor **T3NS, 
                                 struct rOperators **rops)
 {
-        destroy_bookkeeper();
+        destroy_bookkeeper(&bookie);
         destroy_network();
         destroy_T3NS(T3NS);
         destroy_all_rops(rops);
@@ -88,8 +89,8 @@ int main(int argc, char *argv[])
         };
         static struct optScheme scheme = {2, reg};
 
-        struct siteTensor *T3NS;
-        struct rOperators *rops;
+        struct siteTensor *T3NS = NULL;
+        struct rOperators *rops = NULL;
 
         int OK = 1;
         for (int i = 0; i < 4; ++i) {

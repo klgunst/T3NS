@@ -55,18 +55,7 @@ struct symsecs {
 void init_null_symsecs(struct symsecs * symsec);
 
 /**
- * \brief Prints the symmetry sector with fci dims or truncated dims.
- *
- * \param [in] sector The symsec.
- * \param [in] fci Boolean if fcidim should be printed or truncated dims.
- */
-void print_symsecs(struct symsecs *currymsec, int fci);
-
-/**
  * \brief Fetches the symmsecs of the inputted bond.
- *
- * NOTE: If the symmsecs asked is of a physical bond, this physical bond will be freshly allocated
- * and should thus be freed also!
  *
  * \param [out] res The resulting symmsecs.
  * \param [in] bond The bond of which we want the symmsecs.
@@ -76,25 +65,24 @@ void get_symsecs(struct symsecs *res, int bond);
 /**
  * \brief Fetches the symmsecs of the inputted bond array.
  *
- * NOTE: If the symmsecs asked is of a physical bond, this physical bond will
- * be freshly allocated and should thus be freed also!
- *
  * \param [in] n The number of bonds.
  * \param [out] res The resulting symmsecs.
  * \param [in] bonds The bond array of which we want the symmsecs.
  */
-void get_symsecs_arr(int n, struct symsecs res[n], int bonds[n]);
+void get_symsecs_arr(int n, struct symsecs * res, int * bonds);
 
 void destroy_symsecs(struct symsecs *sectors);
 
 /**
- * \brief Searches a symmsec in a symsecs struct (naively atm)
+ * \brief Searches a symmsec in a symsecs struct.
  *
  * \param[in] symmsec The symmetry sector to search.
- * \param[in] The array to search in.
+ * \param[in] sectors The array to search in.
+ * \param[in] b Specifies if it is a symmetry sector for virtual or physical 
+ * bonds.
  * \return -1 if not found, otherwise the index.
  */
-int search_symsec(int * symmsec, const struct symsecs * sectors);
+int search_symsec(int * symmsec, const struct symsecs * sectors, char b);
 
 /**
  * \brief Gives you a string of the specified sector.

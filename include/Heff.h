@@ -160,6 +160,7 @@ struct Heffdata {
         int (*instructions)[3];
         /// The beginning of the instructions for every @ref MPOs combination.
         int * instrbegin;
+        int nr_instr;
         /// The prefactors for the instructions.
         double * prefactors;
 

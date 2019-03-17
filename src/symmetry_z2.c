@@ -262,6 +262,6 @@ double Z2_prefactor_RDMinterm(int * symvalues, int bond)
         if (bond == 0) {
                 return (symvalues[1] || symvalues[4]) && symvalues[0] ? -1 : 1;
         } else {
-                return symvalues[1] && symvalues[4] || symvalues[5] ? -1 : 1;
+                return (symvalues[1] && symvalues[4]) || symvalues[5] ? -1 : 1;
         }
 }

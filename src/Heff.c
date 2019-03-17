@@ -45,7 +45,7 @@
 
 static void printMPO(const struct Heffdata * const data)
 {
-        print_siteTensor(&data->siteObject);
+        print_siteTensor(&bookie, &data->siteObject);
 
         const int dimhss = data->MPOsymsec.nrSecs;
         for (int newqnB_id = 0; newqnB_id < data->nr_qnB; ++newqnB_id) {
@@ -1190,7 +1190,7 @@ static void make_sb_with_qnBid(struct Heffdata * data)
 void init_Heffdata(struct Heffdata * data, const struct rOperators * Operators, 
                    const struct siteTensor * siteObject, int isdmrg)
 {
-        int nrinstr, *MPOinstr, nrMPOinstr;
+        int *MPOinstr, nrMPOinstr;
 
         data->isdmrg = isdmrg;
         data->siteObject = *siteObject;
@@ -1237,11 +1237,11 @@ void init_Heffdata(struct Heffdata * data, const struct rOperators * Operators,
         if (isdmrg) { data->posB = siteObject->nrsites == 1 ? 0 : 1; }
 
         make_qnBdatas(data);
-        fetch_merge(&data->instructions, &nrinstr, &data->prefactors, 
+        fetch_merge(&data->instructions, &data->nr_instr, &data->prefactors, 
                     Operators[0].bond_of_operator, isdmrg);
 
         sortinstructions_toMPOcombos(&data->instructions, &data->instrbegin, 
-                                     &data->prefactors, nrinstr, 
+                                     &data->prefactors, data->nr_instr, 
                                      data->isdmrg ? 2 : 3, hss_of_Ops, 
                                      &MPOinstr, &nrMPOinstr);
 

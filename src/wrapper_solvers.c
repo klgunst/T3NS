@@ -110,13 +110,14 @@ int sparse_eigensolve(double * result, double * energy, int size, int max_vecs,
                       void (*matvec)(const double*, double*, void*), 
                       void * vdat, const char solver[])
 {
-#ifdef T3NS_WITH_PRIMME
-        return primme_solve(result, energy, size, tol, max_its, vdat,
-                            diagonal, matvec);
-#else
         if (strcmp(solver, "D") == 0) {
                 return davidson(result, energy, size, max_vecs, keep_deflate, 
                                 tol, max_its, diagonal, matvec, vdat);
+#ifdef T3NS_WITH_PRIMME
+        } else if (strcmp(solver, "PRIMME") == 0) {
+                return primme_solve(result, energy, size, tol, max_its, vdat,
+                                    diagonal, matvec);
+#endif
         } else {
                 fprintf(stderr, "Error @%s: Undefined solver %s.\n"
                         "Will continue with the default davidson solver.\n", 
@@ -124,5 +125,4 @@ int sparse_eigensolve(double * result, double * energy, int size, int max_vecs,
                 return davidson(result, energy, size, max_vecs, keep_deflate, 
                                 tol, max_its, diagonal, matvec, vdat);
         }
-#endif
 }

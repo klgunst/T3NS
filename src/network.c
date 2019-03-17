@@ -18,11 +18,11 @@
 #include <stdio.h>
 #include <ctype.h>
 #include <string.h>
+#include <assert.h>
 
 #include "network.h"
 #include "io.h"
 #include "macros.h"
-#include <assert.h>
 
 struct network netw;
 
@@ -763,4 +763,14 @@ int make_simplesweep(int inclborder, int ** sweep, int * swlength)
 
         *sweep = realloc(*sweep, *swlength * sizeof **sweep);
         return 0;
+}
+
+int get_outgoing_bond(void)
+{
+        for (int i = 0; i < netw.nr_bonds; ++i) {
+                if (netw.bonds[i][1] == -1) {
+                        return i;
+                }
+        }
+        return -1;
 }

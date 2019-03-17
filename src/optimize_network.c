@@ -34,6 +34,13 @@
 #define MAX_NR_INTERNALS 3
 #define NR_TIMERS 12
 #define NR_PARALLEL_TIMERS 2
+
+#ifdef T3NS_WITH_PRIMME
+#define SOLVER_STRING "PRIMME"
+#else
+#define SOLVER_STRING "D"
+#endif
+
 static const char *timernames[] = {"rOperators: append physical", 
         "rOperators: update physical", "rOperators: update branching", 
         "Heff T3NS: prepare data", "Heff T3NS: diagonal", "Heff T3NS: matvec", 
@@ -156,15 +163,14 @@ static void preprocess_rOperators(const struct rOperators * rops)
         }
 }
 
-static void add_noise(double noiseLevel)
+static void add_noise(struct siteTensor * tens, double noiseLevel)
 {
-        const int N = siteTensor_get_size(&o_dat.msiteObj);
-        srand(time(NULL));
+        const int N = siteTensor_get_size(tens);
+        srand(time(NULL) * N);
         for(int i = 0; i < N; ++i) {
                 const double random_nr = rand() / RAND_MAX - 0.5;
-                o_dat.msiteObj.blocks.tel[i] += random_nr * noiseLevel;
+                tens->blocks.tel[i] += random_nr * noiseLevel;
         }
-        norm_tensor(&o_dat.msiteObj);
 }
 
 struct optimize_info {
@@ -192,13 +198,13 @@ static struct optimize_info optimize_siteTensor(struct siteTensor * T3NS,
         init_Heffdata(&mv_dat, o_dat.operators, &o_dat.msiteObj, isdmrg);
         timings[prep_heff] += stop_timing(0);
 
-        printf("**\tOptimize sites");
+        printf("**\tOptimize site%s", o_dat.specs.nr_sites_opt == 1 ? "" : "s");
         for (int i = 0; i < o_dat.specs.nr_sites_opt; ++i) {
                 printf(" %d %s", o_dat.specs.sites_opt[i], 
                        i == o_dat.specs.nr_sites_opt - 1 ? ": " : "&");
         }
-        printf("(blocks : %d, qns : %d, dim : %d)\n", o_dat.msiteObj.nrblocks, 
-               mv_dat.nr_qnB, size);
+        printf("(blocks : %d, qns : %d, dim : %d, instr : %d)\n", 
+               o_dat.msiteObj.nrblocks, mv_dat.nr_qnB, size, mv_dat.nr_instr);
 
         start_timing(0);
         EL_TYPE * diagonal = make_diagonal(&mv_dat);
@@ -208,14 +214,15 @@ static struct optimize_info optimize_siteTensor(struct siteTensor * T3NS,
         sparse_eigensolve(o_dat.msiteObj.blocks.tel, &info.energy, size, 
                           DAVIDSON_MAX_VECS, DAVIDSON_KEEP_DEFLATE, 
                           reg->davidson_rtl, reg->davidson_max_its, 
-                          diagonal, matvecT3NS, &mv_dat, "D");
+                          diagonal, matvecT3NS, &mv_dat, SOLVER_STRING);
         timings[heff] += stop_timing(0);
         destroy_Heffdata(&mv_dat);
         safe_free(diagonal);
 
         start_timing(0);
         /* same noise as CheMPS2 */
-        add_noise(reg->noise * trunc_err);
+        add_noise(&o_dat.msiteObj, reg->noise * trunc_err);
+        norm_tensor(&o_dat.msiteObj);
         if (o_dat.specs.nr_sites_opt == 1) {
                 const int bondcommon = o_dat.specs.bonds_opt[o_dat.specs.common_next[0]];
                 const int fsite = netw.bonds[bondcommon][0];
@@ -433,7 +440,7 @@ static double execute_regime(struct siteTensor * T3NS, struct rOperators * rops,
 
 static void init_rops(struct rOperators * const rops, 
                       const struct siteTensor * const tens, const int bond)
-{
+{ 
         const int siteL = netw.bonds[bond][0];
         const int siteR = netw.bonds[bond][1];
         struct rOperators * const curr_rops = &rops[bond];
@@ -469,35 +476,11 @@ static void init_rops(struct rOperators * const rops,
 
 /* ========================================================================== */
 
-void init_calculation(struct siteTensor ** T3NS, struct rOperators ** rOps, 
-                      char option)
-{
-        init_null_T3NS(T3NS);
+int init_operators(struct rOperators ** rOps, struct siteTensor ** T3NS)
+{ 
+        if (*rOps) { return 0; }
+        printf(">> Preparing renormalized operators...\n");
         init_null_rops(rOps);
-
-        printf(" >> Preparing siteTensors...\n");
-
-        for (int i = 0; i < netw.nr_bonds; ++i) {
-                const int siteL = netw.bonds[i][0];
-                const int siteR = netw.bonds[i][1];
-
-                if (siteL == -1) /* No left site to initialize */
-                        continue;
-
-                struct siteTensor A;
-                struct siteTensor * Q = &(*T3NS)[siteL];
-                init_1siteTensor(&A, siteL, option);
-
-                if (qr(&A, 2, Q, NULL) != 0) { exit(EXIT_FAILURE); }
-                destroy_siteTensor(&A);
-
-                if (siteR != -1) /* If the last site, then normalize wavefunc */
-                        continue;
-
-                norm_tensor(Q);
-        }
-
-        printf(" >> Preparing renormalized operators...\n");
         for (int i = 0; i < netw.nr_bonds; ++i) {
                 const int siteL = netw.bonds[i][0];
                 if (siteL == -1) {
@@ -506,6 +489,134 @@ void init_calculation(struct siteTensor ** T3NS, struct rOperators ** rOps,
                         init_rops(*rOps, &(*T3NS)[siteL], i);
                 }
         }
+        return 0;
+}
+
+static int make_new_T3NS(struct siteTensor ** T3NS, char option)
+{
+        assert(*T3NS == NULL);
+        init_null_T3NS(T3NS);
+        for (int i = 0; i < netw.nr_bonds; ++i) {
+                const int siteL = netw.bonds[i][0];
+                const int siteR = netw.bonds[i][1];
+                // No left site to initialize
+                if (siteL == -1) { continue; }
+
+                struct siteTensor A;
+                struct siteTensor * Q = &(*T3NS)[siteL];
+                init_1siteTensor(&A, siteL, option);
+
+                if (qr(&A, 2, Q, NULL) != 0) { return 1; }
+                destroy_siteTensor(&A);
+                // If the last site, then normalize wavefunc.
+                if (siteR != -1) { continue; }
+
+                norm_tensor(Q);
+        }
+        return 0;
+}
+
+static int recanonicalize_T3NS(struct siteTensor * T3NS, int centersite)
+{
+        // The amount of R matrices absorbed by every site
+        int * canonicalized = safe_calloc(netw.sites, *canonicalized);
+        int nrcanon = 0;
+
+        while (nrcanon < netw.sites - 1) {
+                for (int site = 0; site < netw.sites; ++site) {
+                        // Don't do anything with the center site
+                        // Or an already canonicalized site
+                        if (site == centersite || canonicalized[site]) { 
+                                continue; 
+                        }
+                        int bonds[3];
+                        get_bonds_of_site(site, bonds);
+                        if (is_psite(site)) {
+                                const int lsite = netw.bonds[bonds[0]][0];
+                                const int rsite = netw.bonds[bonds[2]][1];
+                                const int lcan = lsite == -1 ? 1 : 
+                                        canonicalized[lsite];
+                                const int rcan = rsite == -1 ? 1 : 
+                                        canonicalized[rsite];
+                                assert(!(lcan && rcan));
+                                if (lcan == rcan) { continue; }
+
+                                const int uncansite = lcan ? rsite : lsite;
+                                if (qr_step(&T3NS[site], &T3NS[uncansite])) {
+                                        return 1;
+                                }
+
+                                canonicalized[site] = 1;
+                                ++nrcanon;
+                        } else {
+                                const int nsites[3] = {
+                                        netw.bonds[bonds[0]][0],
+                                        netw.bonds[bonds[1]][0],
+                                        netw.bonds[bonds[2]][1]
+                                };
+                                const int ncan[3] = {
+                                        canonicalized[nsites[0]],
+                                        canonicalized[nsites[1]],
+                                        canonicalized[nsites[2]]
+                                };
+                                const int nrcan = ncan[0] + ncan[1] + ncan[2];
+                                assert(nrcan != 3);
+                                if (nrcan != 2) { continue; }
+                                /* 0 if ncan[0] is 0
+                                   1 if ncan[1] is 0 and rest 1
+                                   2 if ncan[1] and ncan[0] are 1 */
+                                const int uncansite = 
+                                        nsites[ncan[0] * (1 + ncan[1])];
+                                if (qr_step(&T3NS[site], &T3NS[uncansite])) {
+                                        return 1;
+                                }
+
+                                canonicalized[site] = 1;
+                                ++nrcanon;
+                        }
+                }
+        }
+        safe_free(canonicalized);
+        return 0;
+}
+
+int init_wave_function(struct siteTensor ** T3NS, int changedSS, 
+                       struct bookkeeper * prevbookie, char option)
+{
+        printf(">> Preparing siteTensors...\n");
+        // Case no previous T3NS read.
+        if (*T3NS == NULL) { return make_new_T3NS(T3NS, option); } 
+        // Case nothing has changed.
+        assert(prevbookie->nr_bonds == bookie.nr_bonds);
+        assert(prevbookie->psites == bookie.psites);
+        if (!changedSS) { return 0; }
+
+        for (int i = 0 ; i < netw.sites; ++i) {
+                struct siteTensor newtens;
+                assert((*T3NS)[i].nrsites == 1);
+                // Initialize the new site tensor to zero
+                init_1siteTensor(&newtens, (*T3NS)[i].sites[0], '0');
+                // Add some noise
+                add_noise(&newtens, 0.1);
+                // Fill in the sectors (so the unfilled sectors are filled with
+                // some noise).
+                change_sectors_tensor(&(*T3NS)[i], prevbookie, &newtens);
+                destroy_siteTensor(&(*T3NS)[i]);
+                (*T3NS)[i] = newtens;
+        }
+
+        const int lastsite = netw.bonds[get_outgoing_bond()][0];
+        if (recanonicalize_T3NS(*T3NS, lastsite)) { return 1; }
+        norm_tensor(&(*T3NS)[lastsite]);
+        print_target_state_coeff(*T3NS);
+        return 0;
+}
+
+void init_calculation(struct siteTensor ** T3NS, struct rOperators ** rOps, 
+                      char option)
+{
+        if (make_new_T3NS(T3NS, option)) { exit(EXIT_FAILURE); }
+        if (init_operators(rOps, T3NS)) { exit(EXIT_FAILURE); }
 }
 
 double execute_optScheme(struct siteTensor * const T3NS, struct rOperators * const rops, 
@@ -556,7 +667,7 @@ void print_target_state_coeff(const struct siteTensor * T3NS)
                 destroy_Rmatrix(&R);
                 return;
         }
-        printf(" >> |c_i|^2 of target states:\n");
+        printf(" > |c_i|^2 of target states:\n");
         printf("\t");
         for (int j = 0; j < bookie.nrSyms; ++j) {
                 printf("%s%s", get_symstring(bookie.sgs[j]), 

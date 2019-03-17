@@ -57,30 +57,26 @@ static void relative_path(const int buflen, char relpath[buflen],
 
 /* ========================================================================== */
 
-void read_sg_and_ts(const char * inputfile)
+static int read_sg_and_ts(const char * inputfile)
 {
         char buffer[MY_STRING_LEN];
-        char relpath[MY_STRING_LEN];
-        relative_path(MY_STRING_LEN, relpath, inputfile);
 
         int sg;
         int *permarray = NULL;
         if ((sg = read_option("symmetries", inputfile, buffer)) == -1) {
                 sg = read_option("symm", inputfile, buffer);
         }
-        if (sg == -1) {
-                bookie.nrSyms = -1;
-                return;
-        }
-        permarray = read_symmetries(buffer, sg);
-        if (permarray == NULL) { exit(EXIT_FAILURE); }
-
-        if (bookie.nrSyms > MAX_SYMMETRIES) {
+        // No symmetry found
+        if (sg == -1) { return 0; }
+        if (sg > MAX_SYMMETRIES) {
                 fprintf(stderr, "Error: program was compiled for a maximum of %d symmetries.\n"
                         "Recompile with a DMAX_SYMMETRIES flag set at least to %d to do the calculation.\n",
-                        MAX_SYMMETRIES, bookie.nrSyms);
-                exit(EXIT_FAILURE);
+                        MAX_SYMMETRIES, sg);
+                return 1;
         }
+
+        permarray = read_symmetries(buffer, sg);
+        if (permarray == NULL) { return 1; }
 
         int ro;
         if ((ro = read_option("target state", inputfile, buffer)) == -1) {
@@ -88,65 +84,61 @@ void read_sg_and_ts(const char * inputfile)
         }
         if (ro == -1) {
                 fprintf(stderr, "Error in reading %s : Target state should be specified.\n", inputfile);
-                exit(EXIT_FAILURE);
+                return 1;
         }
 
-        if (!read_targetstate(buffer, permarray, ro, sg)) {
-                exit(EXIT_FAILURE);
-        }
+        if (!read_targetstate(buffer, permarray, ro, sg)) { return 1; }
         safe_free(permarray);
+        return 0;
 }
 
-void read_inputfile(const char inputfile[], struct optScheme * const scheme,
-                    int * minocc)
+int read_inputfile(const char inputfile[], struct optScheme * scheme, 
+                   int * minocc, int firstCalc)
 {
+        assert(!(firstCalc && ham != INVALID_HAM));
         char buffer[MY_STRING_LEN];
         char relpath[MY_STRING_LEN];
         relative_path(MY_STRING_LEN, relpath, inputfile);
 
-        read_sg_and_ts(inputfile);
-        if (bookie.nrSyms == -1) {
-                fprintf(stderr, "Symmetries should be specified in the input file.\n");
-                exit(EXIT_FAILURE);
+        if (firstCalc) {
+                // Network not previously inputted
+                read_network(inputfile, relpath);
         }
 
-        int ro;
-        if ((ro = read_option("minimal states", inputfile, buffer)) == -1) {
-                *minocc = DEFAULT_MINSTATES;
-        } else {
+        // Reading target state and symmetry group.
+        read_sg_and_ts(inputfile);
+        if (bookie.nrSyms == -1 && firstCalc) {
+                fprintf(stderr, "Symmetries should be specified in the input file.\n");
+                return 1;
+        }
+
+        if (read_option("minimal states", inputfile, buffer) != -1) {
                 char * pt;
                 *minocc = strtol(buffer, &pt, 10);
                 if (*pt != '\0') {
                         fprintf(stderr, "Error reading minimal states.\n");
-                        exit(EXIT_FAILURE);
-                }
-                if( *minocc == 0) {
-                        *minocc = DEFAULT_MINSTATES;
+                        return 1;
                 }
         }
-
-        read_network(inputfile, relpath);
 
         char buffer2[MY_STRING_LEN];
-        ro = read_option("interaction", inputfile, buffer);
+        int ro = read_option("interaction", inputfile, buffer);
         strncpy(buffer2, relpath, MY_STRING_LEN);
         strncat(buffer2, buffer, MY_STRING_LEN - strlen(buffer2));
-        if (ro == 0) {
+        if (ro == 0 && ham == INVALID_HAM) {
                 fprintf(stderr, "No valid interaction specified in %s.\n", inputfile);
-                exit(EXIT_FAILURE);
+                return 1;
         }
-        readinteraction(buffer2);
-
+        if (ro) { readinteraction(buffer2); }
         read_optScheme(inputfile, scheme);
+        if (!consistencynetworkinteraction()) { return 1; }
 
-        if (!consistencynetworkinteraction()) {
-                exit(EXIT_FAILURE);
-        }
+        return 0;
 }
 
 void print_input(const struct optScheme * scheme)
 {
-        char buffer[255];
+        char buffer[MY_STRING_LEN];
         get_sgsstring(bookie.sgs, bookie.nrSyms, buffer);
         printf("Symmetries  = %s\n", buffer);
 
@@ -330,8 +322,7 @@ static int read_targetstate(char line[], int *permarray, int no_irr, int sg)
         return 1;
 }
 
-static void relative_path(const int buflen, char relpath[buflen], 
-                          const char inp[])
+static void relative_path(const int buflen, char relpath[], const char inp[])
 {
         strncpy(relpath, inp, buflen - 1);
         for (int i = strlen(relpath); i >= 0 ; --i) {

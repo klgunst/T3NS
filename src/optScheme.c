@@ -18,12 +18,12 @@
 #include <stdio.h>
 #include <string.h>
 #include <errno.h>
+#include <assert.h>
 
 #include "optScheme.h"
 #include "macros.h"
 #include "options.h"
 #include "io.h"
-#include <assert.h>
 
 #define STRTOKSEP " ,\t\n"
 
@@ -127,7 +127,7 @@ static void fill_regimeoptions(char buffer[], struct optScheme * const scheme,
         }
 }
 
-static void read_bonddim(const char inputfile[], struct optScheme* const scheme)
+static void read_bonddim(const char inputfile[], struct optScheme * scheme)
 {
         const char errormessage[] = {
                 "Error while reading the file %s.\n"
@@ -135,7 +135,7 @@ static void read_bonddim(const char inputfile[], struct optScheme* const scheme)
                 "This by specifying the option D.\n"
                 "Or by specifying the options minD, maxD and trunc_err.\n"
         };
-        char buffer[255];
+        char buffer[MY_STRING_LEN];
         if ((scheme->nrRegimes = read_option(optionnames[D], inputfile, buffer)) == -1) {
                 if ((scheme->nrRegimes = read_option(optionnames[MIN_D], inputfile, buffer)) == -1) {
                         fprintf(stderr, errormessage, inputfile);
@@ -175,7 +175,7 @@ static void read_bonddim(const char inputfile[], struct optScheme* const scheme)
 
 /* ========================================================================== */
 
-void read_optScheme(const char inputfile[], struct optScheme * const scheme)
+void read_optScheme(const char inputfile[], struct optScheme * scheme)
 {
         char buffer[255];
         read_bonddim(inputfile, scheme);

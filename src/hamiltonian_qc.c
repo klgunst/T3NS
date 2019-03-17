@@ -143,11 +143,11 @@ void QC_make_hamiltonian(char hamiltonianfile[], int su2, int has_seniority)
 
         hdat.su2 = su2;
         hdat.has_seniority = has_seniority;
-        printf(" >> Reading FCIDUMP %s\n", hamiltonianfile);
+        printf(">> Reading FCIDUMP %s\n", hamiltonianfile);
         read_header(hamiltonianfile);
         read_integrals(&one_p_int, hamiltonianfile);
 
-        printf(" >> Preparing hamiltonian...\n");
+        printf(">> Preparing hamiltonian...\n");
         form_integrals(one_p_int);
 
 
@@ -636,7 +636,7 @@ void QC_write_hamiltonian_to_disk(const hid_t id)
         write_attribute(group_id, "norb", &hdat.norb, 1, THDF5_INT);
         write_dataset(group_id, "./orbirrep", hdat.orbirrep, hdat.norb, THDF5_INT);
         write_dataset(group_id, "./Vijkl", hdat.Vijkl, p4, THDF5_EL_TYPE);
-        write_attribute(group_id, "core_energy", &hdat.core_energy, 1, THDF5_INT);
+        write_attribute(group_id, "core_energy", &hdat.core_energy, 1, THDF5_DOUBLE);
         write_attribute(group_id, "su2", &hdat.su2, 1, THDF5_INT);
         write_attribute(group_id, "has_seniority", &hdat.has_seniority, 1, THDF5_INT);
         H5Gclose(group_id);

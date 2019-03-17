@@ -33,61 +33,14 @@ void init_null_symsecs(struct symsecs * symsec)
         *symsec = nullsymsec;
 }
 
-void print_symsecs(struct symsecs *currsymsec, int fci)
-{
-        char buffer[255];
-        for (int i = 0; i < currsymsec->nrSecs; ++i) {
-                int * irrep = currsymsec->irreps[i];
-                printf("(");
-                for (int j = 0; j < bookie.nrSyms; ++j) {
-                        get_irrstring(buffer, bookie.sgs[j], irrep[j]);
-                        printf("%s%s", buffer, j == bookie.nrSyms - 1 ? ": " : ",");
-                }
-                if (fci) {
-                        if (currsymsec->fcidims[i] > 1000) {
-                                printf("%.2e)%s", currsymsec->fcidims[i], 
-                                       i == currsymsec->nrSecs - 1 ? " " : ", ");
-                        } else {
-                                printf("%.0f)%s", currsymsec->fcidims[i],
-                                       i == currsymsec->nrSecs - 1 ? " " : ", ");
-                        }
-                }
-                else {
-                        printf("%d)%s", currsymsec->dims[i],
-                               i == currsymsec->nrSecs - 1 ? "" : ", ");
-                }
-        }
-        printf("\n");
-        //printf("\ntotal dims: %d\n", currsymsec->totaldims);
-}
-
 void get_symsecs(struct symsecs *res, int bond)
 {
-        if (bond >= 2 * bookie.nr_bonds) {
-                // Its a physical bond.
-                bond -= 2 * bookie.nr_bonds;
-                bond %= bookie.psites;
-                *res = bookie.p_symsecs[bond];
-        } else if (bond >= 0) {
-                /* its a bond of the tensor network, its stored in our bookkeeper
-                 * ket bonds are               0 ---- bookie.nr_bonds - 1,
-                 * bra bonds are bookie.nr_bonds ---- 2 * bookie.nr_bonds - 1
-                 */
-                bond %= bookie.nr_bonds;
-                *res = bookie.v_symsecs[bond];
-        } else if (bond  == -1) {
-                get_hamiltoniansymsecs(res, bond);
-        } else {
-                fprintf(stderr, "Error @%s: asked symsec of bond %d.\n", 
-                        __func__, bond);
-                exit(EXIT_FAILURE);
-        }
+        bookkeeper_get_symsecs(&bookie, res, bond);
 }
 
-void get_symsecs_arr(int n, struct symsecs symarr[n], int bonds[n])
+void get_symsecs_arr(int n, struct symsecs * symarr, int * bonds)
 {
-        for (int i = 0; i < n; ++i)
-                get_symsecs(&symarr[i], bonds[i]);
+        bookkeeper_get_symsecs_arr(&bookie, n, symarr, bonds);
 }
 
 void destroy_symsecs(struct symsecs *sectors)
@@ -197,10 +150,19 @@ int full_dimension(const struct symsecs * const sym)
         return result;
 }
 
-int search_symsec(int * symmsec, const struct symsecs * sectors)
+int search_symsec(int * symmsec, const struct symsecs * sectors, char b)
 {
-        return binSearch(symmsec, sectors->irreps, sectors->nrSecs, 
-                         sort_int[bookie.nrSyms], sizeof *sectors->irreps);
+        if (b == 'v') {
+                return binSearch(symmsec, sectors->irreps, sectors->nrSecs, 
+                                 sort_int[bookie.nrSyms], 
+                                 sizeof *sectors->irreps);
+        } else if (b == 'p'){
+                return linSearch(symmsec, sectors->irreps, sectors->nrSecs,
+                                 sort_int[bookie.nrSyms],
+                                 sizeof *sectors->irreps);
+        }
+        fprintf(stderr, "Invalid option in %s.\n", __func__);
+        return -1;
 }
 
 void print_symsecinfo(struct symsecs * ss)

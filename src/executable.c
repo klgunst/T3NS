@@ -23,6 +23,7 @@
 #include <unistd.h>
 #include <sys/stat.h>
 #include <sys/types.h>
+#include <assert.h> 
 
 #include "T3NSConfig.h"
 #include "io.h"
@@ -36,13 +37,12 @@
 #include "optimize_network.h"
 #include "symmetries.h"
 #include "options.h"
-#include <assert.h>
 #include "RedDM.h"
 
 const char *argp_program_version     = "T3NS " T3NS_VERSION;
 const char *argp_program_bug_address = "<" T3NS_MAIL ">";
 
-/* A description of the program */
+// A description of the program.
 static char doc[] =
 T3NS_DESCRIPTION
 "\n\n"
@@ -114,10 +114,10 @@ T3NS_DESCRIPTION
 "\n"
 "##############################################################################\n";
 
-/* A description of the arguments we accept. */
+// A description of the arguments we accept.
 static char args_doc[] = "INPUT_FILE";
 
-/* The options we understand. */
+// The options we understand.
 static struct argp_option options[] = {
         {"continue", 'c', "HDF5_FILE", 0, "Continue the calculation from a saved hdf5-file. "
                 "If specified, only the optimization scheme in INPUTFILE is read."},
@@ -127,14 +127,14 @@ static struct argp_option options[] = {
         {0} /* options struct needs to be closed by a { 0 } option */
 };
 
-/* Used by main to communicate with parse_opt. */
+// Used by main to communicate with parse_opt.
 struct arguments {
         char *h5file;
         char *saveloc;
         char *args[1];                /* inputfile */
 };
 
-/* Parse a single option. */
+// Parse a single option.
 static error_t parse_opt(int key, char *arg, struct argp_state *state)
 {
         /* Get the input argument from argp_parse, which we
@@ -214,11 +214,44 @@ static int recursive_mkdir(const char * pathname, const mode_t mode)
         return 1;
 }
 
-static void initialize_program(int argc, char *argv[], struct siteTensor **T3NS, 
-                               struct rOperators **rops, struct optScheme * scheme, 
-                               char ** saveloc)
+static void destroy_all_rops(struct rOperators **rops)
+{
+        if (*rops == NULL) { return; }
+        for (int i = 0; i < netw.nr_bonds; ++i)
+                destroy_rOperators(&(*rops)[i]);
+        safe_free(*rops);
+}
+
+static void destroy_T3NS(struct siteTensor **T3NS)
+{
+        if (*T3NS == NULL) { return; }
+        for (int i = 0; i < netw.sites; ++i)
+                destroy_siteTensor(&(*T3NS)[i]);
+        safe_free(*T3NS);
+}
+
+static void cleanup_before_exit(struct siteTensor **T3NS, 
+                                struct rOperators **rops, 
+                                struct optScheme * const scheme)
+{
+        destroy_network();
+        destroy_bookkeeper(&bookie);
+        destroy_T3NS(T3NS);
+        destroy_all_rops(rops);
+        destroy_hamiltonian();
+        destroy_optScheme(scheme);
+}
+
+
+static int initialize_program(int argc, char *argv[], 
+                              struct siteTensor **T3NS, 
+                              struct rOperators **rops, 
+                              struct optScheme * scheme, 
+                              char ** saveloc)
 {
         struct timeval t_start, t_end;
+        gettimeofday(&t_start, NULL);
+
         char buffer_symm[MY_STRING_LEN];
         int buffersize = sizeof doc / sizeof doc[0] + MY_STRING_LEN + 100;
         char buffer[buffersize];
@@ -231,17 +264,16 @@ static void initialize_program(int argc, char *argv[], struct siteTensor **T3NS,
 
         struct argp argp = {options, parse_opt, args_doc, buffer};
 
+        // Defaults:
         struct arguments arguments;
-
-        gettimeofday(&t_start, NULL);
-
-        /* Defaults: */
         arguments.saveloc = H5_DEFAULT_LOCATION;
         arguments.h5file  = NULL;
 
-        /* Parse our arguments; every option seen by parse_opt will be
-         * reflected in arguments. */
+        /* Parse our arguments.
+         * Every option seen by parse_opt will be reflected in arguments. */
         argp_parse(&argp, argc, argv, 0, 0, &arguments);
+
+        // Location for saving results.
         if (arguments.saveloc == NULL) {
                 *saveloc = NULL;
         } else {
@@ -255,65 +287,55 @@ static void initialize_program(int argc, char *argv[], struct siteTensor **T3NS,
                 }
         }
 
-        if (arguments.h5file == NULL) {
-                int minocc;
-                read_inputfile(arguments.args[0], scheme, &minocc);
-                assert(scheme->nrRegimes != 0);
-                printf(" >> Preparing bookkeeper...\n");
-                create_v_symsecs(scheme->regimes[0].minD, 1, minocc);
-                init_calculation(T3NS, rops, 'r');
-                print_input(scheme);
-        } else {
-                read_optScheme(arguments.args[0], scheme);
-                read_sg_and_ts(arguments.args[0]);
-                assert(scheme->nrRegimes != 0);
-                if (read_from_disk(arguments.h5file, T3NS, rops)) {
-                        exit(EXIT_FAILURE);
-                }
-                print_input(scheme);
+        int minocc = DEFAULT_MINSTATES;
+        // Read and continue previous calculation.
+        if (arguments.h5file) {
+                printf(">> Reading %s...\n", arguments.h5file);
+                if(read_from_disk(arguments.h5file, T3NS, rops)) { return 1; }
+                minocc = 0;
         }
 
-        gettimeofday(&t_end, NULL);
+        // Read the input file.
+        struct bookkeeper prevbookie = shallow_copy_bookkeeper(&bookie);
 
+        if (read_inputfile(arguments.args[0], scheme, &minocc, 
+                           arguments.h5file == NULL)) {
+                return 1;
+        }
+        if (scheme->nrRegimes < 1) {
+                fprintf(stderr, "At least one optimization regime should be defined in the input file.\n");
+                return 1;
+        }
+
+        printf(">> Preparing bookkeeper...\n");
+        int changedSS = 0;
+        if (preparebookkeeper(arguments.h5file ? &prevbookie : NULL, 
+                              scheme->regimes[0].minD, 1, minocc, &changedSS)) {
+                return 1;
+        }
+
+        if (init_wave_function(T3NS, changedSS, &prevbookie, 'r')) { return 1; } 
+        if (changedSS) { 
+                destroy_all_rops(rops);
+                destroy_bookkeeper(&prevbookie);
+        }
+        // Need to initialize operators still.
+        if (init_operators(rops, T3NS)) { return 1; }
+
+        print_input(scheme);
+
+        gettimeofday(&t_end, NULL);
         long long t_elapsed = (t_end.tv_sec - t_start.tv_sec) * 1000000LL + 
                 t_end.tv_usec - t_start.tv_usec;
         double d_elapsed = t_elapsed * 1e-6;
-        printf("elapsed time for preparing calculation: %lf sec\n", d_elapsed);
-}
-
-static void destroy_T3NS(struct siteTensor **T3NS)
-{
-        for (int i = 0; i < netw.sites; ++i)
-                destroy_siteTensor(&(*T3NS)[i]);
-        safe_free(*T3NS);
-}
-
-static void destroy_all_rops(struct rOperators **rops)
-{
-        for (int i = 0; i < netw.nr_bonds; ++i)
-                destroy_rOperators(&(*rops)[i]);
-        safe_free(*rops);
-}
-
-static void cleanup_before_exit(struct siteTensor **T3NS, 
-                                struct rOperators **rops, 
-                                struct optScheme * const scheme)
-{
-        destroy_network();
-        destroy_bookkeeper();
-        destroy_T3NS(T3NS);
-        destroy_all_rops(rops);
-        destroy_hamiltonian();
-        destroy_optScheme(scheme);
+        printf("Elapsed time for preparing calculation: %lf sec\n", d_elapsed);
+        return 0;
 }
 
 /* ========================================================================== */
 
 int main(int argc, char *argv[])
 {
-        struct siteTensor *T3NS;
-        struct rOperators *rops;
-        struct optScheme scheme;
         struct timeval t_start, t_end;
         char buffer[MY_STRING_LEN];
         char * pbuffer = buffer;
@@ -323,7 +345,13 @@ int main(int argc, char *argv[])
         /* line by line write-out */
         setvbuf(stdout, NULL, _IOLBF, BUFSIZ);
 
-        initialize_program(argc, argv, &T3NS, &rops, &scheme, &pbuffer);
+        struct siteTensor *T3NS = NULL;
+        struct rOperators *rops = NULL;
+        struct optScheme scheme;
+        if (initialize_program(argc, argv, &T3NS, &rops, &scheme, &pbuffer)) {
+                cleanup_before_exit(&T3NS, &rops, &scheme);
+                return EXIT_FAILURE;
+        }
         execute_optScheme(T3NS, rops, &scheme, pbuffer);
         print_target_state_coeff(T3NS);
 

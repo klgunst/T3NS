@@ -372,7 +372,7 @@ void DOCI_write_hamiltonian_to_disk(const hid_t id)
                                          H5P_DEFAULT, H5P_DEFAULT);
 
         write_attribute(group_id, "norb", &hdat.norb, 1, THDF5_INT);
-        write_attribute(group_id, "core_energy", &hdat.core_energy, 1, THDF5_INT);
+        write_attribute(group_id, "core_energy", &hdat.core_energy, 1, THDF5_DOUBLE);
         double * Vij = safe_malloc(hdat.norb * hdat.norb, *Vij);
         for (int i = 0; i < hdat.norb; ++i) {
                 for (int j = 0; j < hdat.norb; ++j) {

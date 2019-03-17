@@ -34,26 +34,99 @@
 /* ==================== DECLARATION STATIC FUNCTIONS ======================== */
 /* ========================================================================== */
 
-static void print_bonds(const struct siteTensor * const tens);
-
-static void print_couplings(const struct siteTensor * const tens);
-
-static void print_blocks(const struct siteTensor * const tens);
-
-static void print_qnumber(const struct siteTensor * const tens, const int block);
 
 static void siteTensor_give_coupling_to_qnumberbonds(const struct siteTensor * const tens, 
     int mapping_coup_to_qnumber[]);
 
 /* ========================================================================== */
 
-void print_siteTensor(const struct siteTensor * const tens)
+static void print_bonds(const struct siteTensor * tens)
 {
-  printf("--------------------------------------------------------------------------------\n");
-  print_bonds(tens);
-  print_couplings(tens);
-  printf("\n");
-  print_blocks(tens);
+        char buffer[MY_STRING_LEN];
+        const int nrind = siteTensor_give_nr_of_indices(tens);
+        assert(nrind <= 12);
+        int indices[12];
+        siteTensor_give_indices(tens, indices);
+
+        printf("Bonds : ");
+        for (int i = 0; i < nrind; ++i) {
+                get_string_of_bond(buffer, indices[i]);
+                printf("%s%s", buffer, i == nrind - 1 ? "\n": ", ");
+        }
+}
+
+static void print_couplings(const struct siteTensor * tens)
+{
+        char buffer[MY_STRING_LEN];
+        const int nrcoup = siteTensor_give_nr_of_couplings(tens);
+        assert(nrcoup <= 4);
+        int couplings[12];
+        int is_in[12];
+        siteTensor_give_couplings(tens, couplings);
+        siteTensor_give_is_in(tens, is_in);
+
+        printf("Couplings : \n");
+        for (int i = 0; i < nrcoup * 3; ++i) {
+                get_string_of_bond(buffer, couplings[i]);
+                printf("%14s%c %c", buffer, is_in[i] ? ' ' : 
+                       '*', (i + 1) % 3 ? '-' : '\n');
+        }
+}
+
+static void print_qnumber(const struct bookkeeper * keeper, 
+                          const struct siteTensor * tens, int block)
+{
+        char buffer[MY_STRING_LEN];
+        const int nrcoup = siteTensor_give_nr_of_couplings(tens);
+        assert(nrcoup <= 4);
+        int qnumberbonds[12];
+        int mapping[12];
+        struct symsecs symarr[12];
+        siteTensor_give_qnumberbonds(tens, qnumberbonds);
+        siteTensor_give_coupling_to_qnumberbonds(tens, mapping);
+        bookkeeper_get_symsecs_arr(keeper, nrcoup * 3, symarr, qnumberbonds);
+
+        for (int coup = 0; coup < nrcoup; ++coup) {
+                QN_TYPE ind = tens->qnumbers[block * nrcoup + coup];
+                int currind[3];
+                for (int bond = 0; bond < 3; ++bond) {
+                        currind[bond] = ind % symarr[bond + 3 * coup].nrSecs;
+                        ind = ind / symarr[bond + 3 * coup].nrSecs;
+                }
+
+                assert(ind == 0);
+                for (int bond = 0; bond < 3; ++bond) {
+                        const int id = mapping[bond + 3 * coup];
+                        get_sectorstring(&symarr[id], currind[id - 3 * coup], 
+                                         buffer);
+                        printf("%14s %c", buffer,  bond != 2  ? '-' : '\n');
+                }
+        }
+}
+
+static void print_blocks(const struct bookkeeper * keeper,
+                         const struct siteTensor * tens)
+{
+        printf("Blocks : \n");
+        for (int block = 0; block < tens->nrblocks; ++block) {
+                printf("bl: %d", block);
+                for (int i = 0; i < tens->nrsites; ++i)
+                        printf(", qn: %ld", 
+                               tens->qnumbers[block * tens->nrsites + i]);
+                printf("\n");
+                print_qnumber(keeper, tens, block);
+                print_block(&tens->blocks, block);
+        }
+}
+
+void print_siteTensor(const struct bookkeeper * keeper, 
+                      const struct siteTensor * tens)
+{
+        printf("--------------------------------------------------------------------------------\n");
+        print_bonds(tens);
+        print_couplings(tens);
+        printf("\n");
+        print_blocks(keeper, tens);
 }
 
 /* HELPERS */
@@ -181,139 +254,56 @@ void norm_tensor(struct siteTensor * tens)
 }
 
 void change_sectors_tensor(struct siteTensor * oldtens, 
-                           struct symsecs * ss_old, int bond)
+                           struct bookkeeper * prevbookie,
+                           struct siteTensor * newtens)
 {
         assert(oldtens->nrsites == 1);
-        struct siteTensor newtens;
         int bonds[3];
         get_bonds_of_site(oldtens->sites[0], bonds);
-        const int bondid = linSearch(&bond, bonds, 3, SORT_INT, sizeof bond);
-        assert(bondid != -1);
-        struct symsecs ss_new;
-        get_symsecs(&ss_new, bonds[bondid]);
-        int dimsnew[3];
-        get_maxdims_of_bonds(dimsnew, bonds, 3);
-        int dimsold[3] = {dimsnew[0], dimsnew[1], dimsnew[2]};
-        dimsold[bondid] = ss_old->nrSecs;
-
-        init_1siteTensor(&newtens, oldtens->sites[0], '0');
+        struct symsecs oldss[3];
+        struct symsecs newss[3];
+        bookkeeper_get_symsecs_arr(prevbookie, 3, oldss, bonds);
+        bookkeeper_get_symsecs_arr(&bookie, 3, newss, bonds);
+        int olddims[3] = {oldss[0].nrSecs, oldss[1].nrSecs, oldss[2].nrSecs};
+        int newdims[3] = {newss[0].nrSecs, newss[1].nrSecs, newss[2].nrSecs};
 
         for (int oldblock = 0; oldblock < oldtens->nrblocks; ++oldblock) {
-                int idold[3];
-                int idnew[3];
-                QN_TYPE qn = oldtens->qnumbers[oldblock];
+                int oldid[3];
+                QN_TYPE oldqn = oldtens->qnumbers[oldblock];
                 for (int i = 0; i < 3; ++i) {
-                        idold[i] = qn % dimsold[i];
-                        idnew[i] = idold[i];
-                        qn /= dimsold[i];
+                        oldid[i] = oldqn % olddims[i];
+                        oldqn /= olddims[i];
                 }
-                assert(qn == 0);
-                idnew[bondid] =
-                        search_symsec(ss_old->irreps[idold[bondid]], &ss_new);
-                const QN_TYPE qnnew = idnew[0] + idnew[1] * dimsnew[0] +
-                        idnew[2] * dimsnew[0] * dimsnew[1];
+                assert(oldqn == 0);
 
-                const int newblock = binSearch(&qnnew, newtens.qnumbers,
-                                               newtens.nrblocks, SORT_QN_TYPE,
-                                               sizeof qnnew);
+                int newid[3];
+                newid[0] = search_symsec(oldss[0].irreps[oldid[0]], &newss[0], 'v');
+                if (newid[0] == -1 ) { continue; }
+                newid[1] = search_symsec(oldss[1].irreps[oldid[1]], &newss[1], 'p');
+                if (newid[0] == -1 ) { continue; }
+                newid[2] = search_symsec(oldss[2].irreps[oldid[2]], &newss[2], 'v');
+                if (newid[0] == -1 ) { continue; }
+
+                const QN_TYPE newqn = newid[0] + newid[1] * newdims[0] +
+                        newid[2] * newdims[0] * newdims[1];
+
+                const int newblock = binSearch(&newqn, newtens->qnumbers,
+                                               newtens->nrblocks, SORT_QN_TYPE,
+                                               sizeof newqn);
+
                 if (newblock == -1) { continue; }
-                const int N = get_size_block(&newtens.blocks, newblock);
+                const int N = get_size_block(&newtens->blocks, newblock);
                 assert(N == get_size_block(&oldtens->blocks, oldblock));
-                EL_TYPE * telnew = get_tel_block(&newtens.blocks, newblock);
-                EL_TYPE * telold = get_tel_block(&oldtens->blocks, oldblock);
-                for (int i = 0; i < N; ++i) { telnew[i] = telold[i]; }
+
+                EL_TYPE * newtel = get_tel_block(&newtens->blocks, newblock);
+                EL_TYPE * oldtel = get_tel_block(&oldtens->blocks, oldblock);
+                for (int i = 0; i < N; ++i) { newtel[i] = oldtel[i]; }
         }
-
-
-        destroy_siteTensor(oldtens);
-        *oldtens = newtens;
 }
 
 /* ========================================================================== */
 /* ===================== DEFINITION STATIC FUNCTIONS ======================== */
 /* ========================================================================== */
-
-static void print_bonds(const struct siteTensor * const tens)
-{
-  char buffer[50];
-  const int nrind = siteTensor_give_nr_of_indices(tens);
-  int indices[nrind];
-  int i;
-  siteTensor_give_indices(tens, indices);
-
-  printf("Bonds : ");
-  for (i = 0; i < nrind; ++i)
-  {
-    get_string_of_bond(buffer, indices[i]);
-    printf("%s%s", buffer, i == nrind - 1 ? "\n": ", ");
-  }
-}
-
-static void print_couplings(const struct siteTensor * const tens)
-{
-  char buffer[50];
-  const int nrcoup = siteTensor_give_nr_of_couplings(tens);
-  int couplings[nrcoup * 3];
-  int is_in[nrcoup * 3];
-  int i;
-  siteTensor_give_couplings(tens, couplings);
-  siteTensor_give_is_in(tens, is_in);
-
-  printf("Couplings : \n");
-  for (i = 0; i < nrcoup * 3; ++i)
-  {
-    get_string_of_bond(buffer, couplings[i]);
-    printf("%14s%c %c", buffer, is_in[i] ? ' ' : '*', (i + 1) % 3 ? '-' : '\n');
-  }
-}
-
-static void print_blocks(const struct siteTensor * const tens)
-{
-  int block;
-  printf("Blocks : \n");
-  for (block = 0; block < tens->nrblocks; ++block)
-  {
-    int i;
-    printf("bl: %d", block);
-    for (i = 0; i < tens->nrsites; ++i)
-      printf(", qn: %ld", tens->qnumbers[block * tens->nrsites + i]);
-    printf("\n");
-    print_qnumber(tens, block);
-    print_block(&tens->blocks, block);
-  }
-}
-
-static void print_qnumber(const struct siteTensor * const tens, const int block)
-{
-  char buffer[50];
-  const int nrcoup = siteTensor_give_nr_of_couplings(tens);
-  int qnumberbonds[nrcoup * 3];
-  int mapping_coup_to_qnumber[nrcoup * 3];
-  struct symsecs symarr[nrcoup * 3];
-  int coup;
-  siteTensor_give_qnumberbonds(tens, qnumberbonds);
-  siteTensor_give_coupling_to_qnumberbonds(tens, mapping_coup_to_qnumber);
-  get_symsecs_arr(nrcoup * 3, symarr, qnumberbonds);
-
-  for (coup = 0; coup < nrcoup; ++coup)
-  {
-    QN_TYPE ind = tens->qnumbers[block * nrcoup + coup];
-    int bond;
-    int currind[3];
-    for (bond = 0; bond < 3; ++bond)
-    {
-      currind[bond] = ind % symarr[bond + 3 * coup].nrSecs;
-      ind             = ind / symarr[bond + 3 * coup].nrSecs;
-    }
-    assert(ind == 0);
-    for (bond = 0; bond < 3; ++bond)
-    {
-      const int nmbr_coup = mapping_coup_to_qnumber[bond + 3 * coup];
-      get_sectorstring(&symarr[nmbr_coup], currind[nmbr_coup - 3 * coup], buffer);
-      printf("%14s %c", buffer,  bond != 2  ? '-' : '\n');
-    }
-  }
-}
 
 static void siteTensor_give_coupling_to_qnumberbonds(const struct siteTensor * const tens, 
     int mapping_coup_to_qnumber[])

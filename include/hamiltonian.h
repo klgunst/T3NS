@@ -27,7 +27,7 @@
  * At this moment only the quantum chemistry hamiltonian.
  */
 
-extern enum hamtypes {QC, NN_HUBBARD, DOCI} ham;
+extern enum hamtypes {INVALID_HAM, QC, NN_HUBBARD, DOCI} ham;
 
 void destroy_hamiltonian(void);
 

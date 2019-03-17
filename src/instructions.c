@@ -274,8 +274,6 @@ void sortinstructions_toMPOcombos(int (**instructions)[3],
         (*instrbegin)[(*nrMPOinstr)] = i;
         *instrbegin = realloc(*instrbegin, (*nrMPOinstr + 1) * sizeof(int));
         *MPOinstr   = realloc(*MPOinstr, *nrMPOinstr * sizeof(int));
-        //safe_free(*instructions);
-        //safe_free(*prefactors);
         safe_free(idx);
         safe_free(temp);
         *instructions = newinstructions;

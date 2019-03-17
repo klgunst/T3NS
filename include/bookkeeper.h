@@ -54,28 +54,16 @@ struct bookkeeper {
 extern struct bookkeeper bookie;
 
 /**
- * @brief Initializes the @ref bookkeeper.v_symsecs limiting the maximal 
- * dimension.
- *
- * The @ref bookkeeper is stored in a global variable @ref bookie.
- *
- * @param [in] max_dim The maximal dimension of the bonds that is allowed.
- * @param [in] interm_scale Scale intermediately or scale the complete fci dims.
- * @param [in] minocc The minimal bond dimension to put in each symmetry sector.
- */
-void create_v_symsecs(int max_dim, int interm_scale, int minocc);
-
-/**
  * \brief Frees the memory allocated to the global bookie variable.
  */
-void destroy_bookkeeper(void);
+void destroy_bookkeeper(struct bookkeeper * keeper);
 
 /**
  * \brief Prints the network and the bond dimensions.
  *
  * \param [in] fci Boolean if the fcidims or the current dims should be printed.
  */
-void print_bookkeeper(int fci);
+void print_bookkeeper(struct bookkeeper * keeper, int fci);
 
 /**
  * \brief Returns the total number of particles in the target state.
@@ -148,3 +136,35 @@ int find_Z2(void);
  * @brief Adds the Z2 symmetry in the bookkeeper if not added.
  */
 int include_Z2(void);
+
+/**
+ * @brief Translates a bookkeeper from a doci calculation to a bookkeeper 
+ * for a qchem calculation (with or without seniority).
+ *
+ * @param [in,out] keeper The bookkeeper to transform.
+ * @param [in] sgs The new symmetries.
+ * @param [in] nrSyms The number of symmetries.
+ * @return 0 on success, 1 on failure.
+ */
+int translate_DOCI_to_qchem(struct bookkeeper * keeper, 
+                                enum symmetrygroup * sgs, int nrSyms);
+
+struct bookkeeper shallow_copy_bookkeeper(struct bookkeeper * tocopy);
+
+int preparebookkeeper(struct bookkeeper * prevbookie, int max_dim,
+                      int interm_scale, int minocc, int * changedSS);
+
+
+/**
+ * \brief Prints the symmetry sector with fci dims or truncated dims.
+ *
+ * \param [in] sector The symsec.
+ * \param [in] fci Boolean if fcidim should be printed or truncated dims.
+ */
+void print_symsecs(struct bookkeeper * keeper, struct symsecs *currymsec, int fci);
+
+void bookkeeper_get_symsecs(const struct bookkeeper * keeper, 
+                            struct symsecs *res, int bond);
+
+void bookkeeper_get_symsecs_arr(const struct bookkeeper * keeper, int n, 
+                                struct symsecs * symarr, int * bonds);

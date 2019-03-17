@@ -17,6 +17,7 @@
 #pragma once
 #include "sparseblocks.h"
 #include "macros.h"
+#include "bookkeeper.h"
 #include "symsecs.h"
 
 /** 
@@ -148,7 +149,8 @@ void deep_copy_siteTensor(struct siteTensor * const copy, const struct siteTenso
  *
  * \param [in] tens The tensor to print.
  */
-void print_siteTensor(const struct siteTensor * const tens);
+void print_siteTensor(const struct bookkeeper * keeper, 
+                      const struct siteTensor * tens);
 
 /* HELPERS */
 /**
@@ -261,18 +263,18 @@ int siteTensor_give_bondid(const struct siteTensor * tens, int bond);
 void norm_tensor(struct siteTensor * tens);
 
 /**
- * @brief Changes a siteTensor appropriately when a symsec of the siteTensor 
- * has been changed.
+ * @brief Changes a siteTensor appropriately when the bookkeeper of the
+ * siteTensor has been changed.
  *
  * The siteTensor has to be a one-site tensor.
  *
- * @param [in,out] oldtens The siteTensor to change.
- * @param [in] ss_old The old symmetry sector. The new one should be stored
- * in the bookkeeper already.
- * @param [in] bond The bond where the changed symmetry sector belongs.
+ * @param [in] oldtens The siteTensor to change.
+ * @param [in] prevbookie The previous bookkeeper linked with @ref oldtens.
+ * @param [out] newtens The new siteTensor.
  */
 void change_sectors_tensor(struct siteTensor * oldtens, 
-                           struct symsecs * ss_old, int bond);
+                           struct bookkeeper * prevbookie,
+                           struct siteTensor * newtens);
 
 /* ============================ DECOMPOSE =================================== */
 

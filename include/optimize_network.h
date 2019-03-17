@@ -18,6 +18,7 @@
 #include "siteTensor.h"
 #include "rOperators.h"
 #include "optScheme.h"
+#include "bookkeeper.h"
 
 /** 
  * @file optimize_network.h
@@ -60,3 +61,36 @@ double execute_optScheme(struct siteTensor * T3NS, struct rOperators * rops,
  * @param [in] T3NS The wave function.
  */
 void print_target_state_coeff(const struct siteTensor * T3NS);
+
+/**
+ * @brief Initializes the renormalized operators. 
+ *
+ * Is skipped if @ref rOps is already populated.
+ *
+ * @param [in,out] rOps The calculated renormalized operators.
+ * @param [in] T3NS The wave function.
+ * @return 0 on success, 1 on failure.
+ */
+int init_operators(struct rOperators ** rOps, struct siteTensor ** T3NS);
+
+/*
+ * @brief Initializes the wave function.
+ *
+ * If you restart a calculation, @ref T3NS is already populated.
+ * According to what happened, the T3NS is *possibly changed*.
+ *
+ * If the symmetries or target state is changed by the new input file,
+ * the bookkeeper is changed and the T3NS should also be changed.
+ *
+ * If previously discarded symmetry sectors are again populated, then
+ * the T3NS will populate these symmetry sectors with small random values.
+ *
+ * @param [in,out] T3NS The wave function.
+ * @param [in] changedSS The symmetry sectors in the bookkeeper were changed
+ * in comparison with the previous calculation.
+ * @param [in] prevbookie The bookkeeper of the previous calculation.
+ * @param [in] option How to fill the new T3NS.
+ * @return 0 on success, 1 on failure.
+ */
+int init_wave_function(struct siteTensor ** T3NS, int changedSS, 
+                       struct bookkeeper * prevbookie, char option);

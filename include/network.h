@@ -183,3 +183,5 @@ void create_order_psites(void);
  * @return 0 if successful, 1 if not.
  */
 int  make_simplesweep(int inclborder, int ** sweep, int * swlength);
+
+int get_outgoing_bond(void);

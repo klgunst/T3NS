@@ -50,8 +50,18 @@ void readinteraction(char interactionstring[])
 
         int hassu2 = 0;
         int hasseniority = 0;
+        const int previousham = (int) ham;
         if (!set_hamiltonian(interactionstring, &hassu2, &hasseniority))
                 exit(EXIT_FAILURE);
+
+        if (previousham == (int) ham) { 
+                return; 
+        } else {
+                const int tempham = (int) ham;
+                ham = (enum hamtypes) previousham;
+                destroy_hamiltonian();
+                ham = (enum hamtypes) tempham;
+        }
 
         switch(ham) {
         case QC :
@@ -278,6 +288,8 @@ void get_string_of_siteops(char buffer[], const int siteindex, const int site)
 void destroy_hamiltonian(void)
 {
         switch(ham) {
+        case INVALID_HAM:
+                break;
         case QC :
                 QC_destroy_hamiltonian();
                 break;
@@ -292,6 +304,7 @@ void destroy_hamiltonian(void)
                         __FILE__, __func__);
                 exit(EXIT_FAILURE);
         }
+        ham = INVALID_HAM;
 }
 
 int MPO_couples_to_singlet(const int n, const int MPO[n])

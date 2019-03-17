@@ -17,13 +17,6 @@
 #pragma once
 
 #include "optScheme.h"
-/**
- * @brief Reads the symmetry groups needed and the target state of the 
- * inputfile and stores it in the global bookkeeper.
- *
- * @param [in] inputfile The inputfile.
- */
-void read_sg_and_ts(const char * inputfile);
 
 /**
  * @brief Reads the inputfile.
@@ -32,9 +25,11 @@ void read_sg_and_ts(const char * inputfile);
  * @param [out] scheme The optimization scheme is stored here.
  * @param [out] minocc The minimal occupation of the states for initialization
  * is stored here.
+ * @param [in] firstCalc 1 if not continued from previous calculation.
+ * @return 0 for success, 1 for error.
  */
-void read_inputfile(const char inputfile[], struct optScheme * const scheme,
-                    int * minocc);
+int read_inputfile(const char inputfile[], struct optScheme * scheme, 
+                   int * minocc, int firstCalc);
 
 /**
  * \brief Searches for an option in the inputfile and stores the set option 
