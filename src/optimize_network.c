@@ -167,7 +167,7 @@ static void add_noise(struct siteTensor * tens, double noiseLevel)
 {
         const int N = siteTensor_get_size(tens);
         for(int i = 0; i < N; ++i) {
-                const double random_nr = rand() / RAND_MAX - 0.5;
+                const double random_nr = rand() * 1. / RAND_MAX - 0.5;
                 tens->blocks.tel[i] += random_nr * noiseLevel;
         }
 }
@@ -421,8 +421,7 @@ static double execute_regime(struct siteTensor * T3NS, struct rOperators * rops,
 
                 int flag = sweepnrs != 0 && 
                         fabs(energy - info.sw_energy) < reg->energy_conv;
-                if (sweepnrs == 0 || info.sw_energy < energy) 
-                        energy = info.sw_energy;
+                energy = info.sw_energy;
                 ++sweepnrs;
                 if (flag) { break; }
         }
