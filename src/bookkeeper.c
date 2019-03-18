@@ -717,8 +717,7 @@ static void select_highest_ss_dim(struct symsecs * oss, struct symsecs * nss)
         for (int i = 0; i < oss->nrSecs; ++i) {
                 const int id = search_symsec(oss->irreps[i], nss, 'v');
                 if (id == -1) { continue; }
-                nss->dims[id] = nss->dims[id] > oss->dims[i] ? 
-                        nss->dims[id] : oss->dims[i];
+                nss->dims[id] = oss->dims[i] == 0 ? nss->dims[id] : oss->dims[i];
         }
 }
 

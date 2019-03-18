@@ -246,11 +246,12 @@ int siteTensor_give_bondid(const struct siteTensor * tens, int bond)
         return -1;
 }
 
-void norm_tensor(struct siteTensor * tens)
+double norm_tensor(struct siteTensor * tens)
 {
         const int N = siteTensor_get_size(tens);
         const double norm = cblas_dnrm2(N, tens->blocks.tel, 1);
         cblas_dscal(N, 1. / norm, tens->blocks.tel, 1);
+        return norm;
 }
 
 void change_sectors_tensor(struct siteTensor * oldtens, 

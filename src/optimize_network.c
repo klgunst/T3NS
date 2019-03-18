@@ -166,7 +166,6 @@ static void preprocess_rOperators(const struct rOperators * rops)
 static void add_noise(struct siteTensor * tens, double noiseLevel)
 {
         const int N = siteTensor_get_size(tens);
-        srand(time(NULL) * N);
         for(int i = 0; i < N; ++i) {
                 const double random_nr = rand() / RAND_MAX - 0.5;
                 tens->blocks.tel[i] += random_nr * noiseLevel;
@@ -584,6 +583,7 @@ int init_wave_function(struct siteTensor ** T3NS, int changedSS,
                        struct bookkeeper * prevbookie, char option)
 {
         printf(">> Preparing siteTensors...\n");
+        srand(time(NULL));
         // Case no previous T3NS read.
         if (*T3NS == NULL) { return make_new_T3NS(T3NS, option); } 
         // Case nothing has changed.
@@ -591,24 +591,40 @@ int init_wave_function(struct siteTensor ** T3NS, int changedSS,
         assert(prevbookie->psites == bookie.psites);
         if (!changedSS) { return 0; }
 
-        for (int i = 0 ; i < netw.sites; ++i) {
-                struct siteTensor newtens;
-                assert((*T3NS)[i].nrsites == 1);
-                // Initialize the new site tensor to zero
-                init_1siteTensor(&newtens, (*T3NS)[i].sites[0], '0');
-                // Add some noise
-                add_noise(&newtens, 0.1);
-                // Fill in the sectors (so the unfilled sectors are filled with
-                // some noise).
-                change_sectors_tensor(&(*T3NS)[i], prevbookie, &newtens);
-                destroy_siteTensor(&(*T3NS)[i]);
-                (*T3NS)[i] = newtens;
-        }
+        double norm = 10;
+        double noise = 1;
+        while (norm > 0.05) {
+                struct siteTensor * newT3NS = safe_malloc(netw.sites, *newT3NS);
+                for (int i = 0 ; i < netw.sites; ++i) {
+                        assert((*T3NS)[i].nrsites == 1);
+                        // Initialize the new site tensor to zero
+                        init_1siteTensor(&newT3NS[i], (*T3NS)[i].sites[0], '0');
+                        // Add some noise
+                        add_noise(&newT3NS[i], noise);
+                        // Fill in the sectors (so the unfilled sectors are filled with
+                        // some noise).
+                        change_sectors_tensor(&(*T3NS)[i], prevbookie, &newT3NS[i]);
+                }
 
-        const int lastsite = netw.bonds[get_outgoing_bond()][0];
-        if (recanonicalize_T3NS(*T3NS, lastsite)) { return 1; }
-        norm_tensor(&(*T3NS)[lastsite]);
-        print_target_state_coeff(*T3NS);
+                const int lastsite = netw.bonds[get_outgoing_bond()][0];
+                if (recanonicalize_T3NS(newT3NS, lastsite)) { return 1; }
+                norm = 2 - 2 / norm_tensor(&newT3NS[lastsite]);
+                printf(" > (noise %g) ||Psi_new - Psi_orig||^2 = %g\n", noise, norm);
+                print_target_state_coeff(newT3NS);
+                noise /= 2;
+                if (norm > 0.05) {
+                        for (int i = 0 ; i < netw.sites; ++i) {
+                                destroy_siteTensor(&newT3NS[i]);
+                        }
+                        safe_free(newT3NS);
+                } else {
+                        for (int i = 0 ; i < netw.sites; ++i) {
+                                destroy_siteTensor(&(*T3NS)[i]);
+                        }
+                        safe_free((*T3NS));
+                        *T3NS = newT3NS;
+                }
+        }
         return 0;
 }
 
@@ -623,6 +639,7 @@ double execute_optScheme(struct siteTensor * const T3NS, struct rOperators * con
                          const struct optScheme * const  scheme, const char * saveloc)
 {
         double timings[NR_TIMERS] = {0};
+        srand(time(NULL));
 
         double energy = 3000;
         double trunc_err = scheme->regimes[0].truncerror;

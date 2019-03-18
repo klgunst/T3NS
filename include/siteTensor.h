@@ -259,8 +259,9 @@ int siteTensor_give_bondid(const struct siteTensor * tens, int bond);
  * becomes 1.
  *
  * @param [in,out] tens The tensor to norm.
+ * @return The norm of the tensor.
  */
-void norm_tensor(struct siteTensor * tens);
+double norm_tensor(struct siteTensor * tens);
 
 /**
  * @brief Changes a siteTensor appropriately when the bookkeeper of the
