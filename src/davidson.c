@@ -269,14 +269,12 @@ int davidson(double * result, double * energy, int size, int max_vecs,
 
         init_david_dat(result, diagonal, size, max_vecs, keep_deflate);
 
-#ifdef DAVID_INFO
         struct timeval t_start, t_end;
+        gettimeofday(&t_start, NULL);
+#ifdef DAVID_INFO
         struct timeval t_start2, t_end2;
-        long long t_elapsed;
-        double d_elapsed;
 
         int cnt_matvecs = 0;
-        gettimeofday(&t_start, NULL);
         gettimeofday(&t_start2, NULL);
         printf("Dimension of davidson : %d\n", size);
         printf("IT    RESIDUE         ENERGY\n");
@@ -305,10 +303,10 @@ int davidson(double * result, double * energy, int size, int max_vecs,
                 ++its;
 #ifdef DAVID_INFO
                 gettimeofday(&t_end2, NULL);
-                t_elapsed = (t_end2.tv_sec - t_start2.tv_sec) * 1000000LL + 
-                        t_end2.tv_usec - t_start2.tv_usec;
+                long long t_elapsed = (t_end2.tv_sec - t_start2.tv_sec) * 
+                        1000000LL + t_end2.tv_usec - t_start2.tv_usec;
                 gettimeofday(&t_start2, NULL);
-                d_elapsed = t_elapsed * 1e-6;
+                double d_elapsed = t_elapsed * 1e-6;
                 ++cnt_matvecs;
                 printf("%-4d  %e    %lf\t(%lf s)\n", its, residue_norm, 
                        david_dat.eigvalues[0], d_elapsed);
@@ -316,20 +314,15 @@ int davidson(double * result, double * energy, int size, int max_vecs,
                 create_new_vec_t(result);
         }
 
-        printf("   * Davidson: (iterations : %d), (d_energy : %.1e), (trunc : %.1e)\n",
-               its, d_energy, residue_norm);
-#ifdef DAVID_INFO
+        gettimeofday(&t_end, NULL);
+        long long t_elapsed = (t_end.tv_sec - t_start.tv_sec) * 1000000LL + 
+                t_end.tv_usec - t_start.tv_usec;
+        double d_elapsed = t_elapsed * 1e-6;
+        printf("   * Davidson: (iter : %d), (d_eig: %.1e), (trunc : %.1e), (time : %.2g sec)\n",
+               its, d_energy, residue_norm, d_elapsed);
         if (residue_norm > davidson_tol) {
                 printf("     - Davidson stopped before converging.\n");
         }
-        gettimeofday(&t_end, NULL);
-        t_elapsed = (t_end.tv_sec - t_start.tv_sec) * 1000000LL + 
-                t_end.tv_usec - t_start.tv_usec;
-        d_elapsed = t_elapsed * 1e-6;
-        printf("     - Elapsed time : %lf sec (%lf sec / matvec)\n", 
-               d_elapsed, d_elapsed / cnt_matvecs);
-#endif
-
         clean_david_dat();
         return its >= max_its;
 }
