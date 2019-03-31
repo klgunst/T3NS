@@ -76,31 +76,26 @@ struct stepSpecs {
 extern struct network netw;
 
 /**
- * \brief Searches a definition of a network file in the inputfile and reads 
+ * @brief Searches a definition of a network file in the inputfile and reads 
  * the network file.
  *
- * \param [in] inputfile The path to the inputfile to read in.
+ * @param [in] inputfile The path to the inputfile to read in.
  */
 void read_network(const char * inputfile, const char * relpath);
 
 void make_network(const char * netwfile);
 
 /**
- * \brief Destroys the network object.
+ * @brief Destroys the network object.
  */
 void destroy_network(void);
 
 /**
- * \brief Prints the network.
+ * @brief Prints the network.
  */
 void print_network(void);
 
-/**
- * \brief returns boolean if the given site is a physical site or not.
- *
- * \param [in] site The site of which to figure it out.
- * \return The boolean.
- */
+/// @brief returns 1 if the given site is a physical site, otherwise 0.
 int is_psite(int site);
 
 int get_left_psites(int bond);
@@ -110,11 +105,23 @@ int * get_order_psites(int bond, int is_left);
 int site_is_left_of_bond(int site, int bond);
 
 /**
- * \brief Gives the bonds of a certain site in the network.
+ * @brief Gives the bonds of a certain site in the network.
  *
- * \param [in] site The site.
- * \param [out] bonds This should be a 3-element array which is already initialized.
- * The bonds are stored here.
+ * For a **branching** site this returns
+ * `[first_incoming, second_incoming, outgoing]`.
+ *
+ * For a **physical** site this returns `[incoming, physical bond, outgoing]`.
+ *
+ * For virtual bonds (i.e. the first and last bond of a physical site and all
+ * of a branching site), the value of the bond corresponds with the index in
+ * the network.bonds array.
+ *
+ * For physical bonds, the value corresponds with `2 * network.nr_bonds +
+ * network.sitetoorb[site]`.
+ *
+ * @param [in] site The site.
+ * @param [out] bonds This should be a 3-element array which is already 
+ * initialized. The bonds are stored here.
  */
 void get_bonds_of_site(int site, int * bonds);
 
@@ -131,28 +138,28 @@ int are_bra_and_ket_bonds(int bra, int ket);
 void get_string_of_bond(char * buffer, int bond);
 
 /**
- * \brief Returns the information for the next optimization step.
+ * @brief Returns the information for the next optimization step.
  *
  * This function has an internal state, and is thus not threadsafe, but you won't use this in a
  * thread normally.
  *
- * \param [in] maxsites The maximal number of sites updated this step, if larger than 4,
+ * @param [in] maxsites The maximal number of sites updated this step, if larger than 4,
  * 4 is assumed.
- * \param [out] bonds_involved The outward bonds of the siteTensor to be optimized.
- * \param [out] sites_opt The sites to optimize this step.
+ * @param [out] bonds_involved The outward bonds of the siteTensor to be optimized.
+ * @param [out] sites_opt The sites to optimize this step.
  * This is always a 4-element array, if less than 4 sites should be optimized, the surpluss is 
  * filled with -1.
- * \param [out] common_nxt The sites that are common with the next step to be executed.
+ * @param [out] common_nxt The sites that are common with the next step to be executed.
  *
  * \return Returns 1 if sweep is not finished yet, 0 if sweep is finished.
  */
 int next_opt_step(int maxsites, struct stepSpecs * specs);
 
 /**
- * \brief Gives the common bond between the two sites.
+ * @brief Gives the common bond between the two sites.
  *
- * \param [in] site1 The first site.
- * \param [in] site2 The second site.
+ * @param [in] site1 The first site.
+ * @param [in] site2 The second site.
  * \return Returns the bond that is common between the two sites, or -1 if no common bond is found.
  */
 int get_common_bond(int site1 , int site2);

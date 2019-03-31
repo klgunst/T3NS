@@ -55,104 +55,176 @@ struct sparseblocks {
 };
 
 /**
- * \brief Initializes a sparseblocks structure on NULL.
+ * @brief Initializes a sparseblocks structure on NULL.
  *
- * \param [out] blocks The pointer to the null-struct.
+ * @param [out] blocks The pointer to the null-struct.
  */
 void init_null_sparseblocks(struct sparseblocks * blocks);
 
 /** 
- * \brief Makes a sparseblocks instance with malloc or calloc
+ * @brief Makes a sparseblocks instance with malloc or calloc
  *
- * \param [out] The sparseblocks struct
- * \param [in] beginblock the beginblock array, gets hard copied.
- * \param [in] nr_blocks The number of blocks.
- * \param [in] o o is 'c' if calloc, 'm' if malloc for tel.
+ * @param [out] The sparseblocks struct
+ * @param [in] beginblock the beginblock array, gets hard copied.
+ * @param [in] nr_blocks The number of blocks.
+ * @param [in] o o is 'c' if calloc, 'm' if malloc for tel.
  */
 void init_sparseblocks(struct sparseblocks * blocks, const int * beginblock, 
                        int nr_blocks, char o);
 
 /**
- * \brief Makes a deep copy of a sparseblock.
+ * @brief Makes a deep copy of a sparseblock.
  *
- * \param [out] copy The copy.
- * \param [in] tocopy The sparseblocks to copy
- * \param [in] nrblocks The number of sparse blocks.
+ * @param [out] copy The copy.
+ * @param [in] tocopy The sparseblocks to copy
+ * @param [in] nrblocks The number of sparse blocks.
  */
 void deep_copy_sparseblocks(struct sparseblocks * copy, 
                             const struct sparseblocks * tocopy, int nrblocks);
 
 /**
- * \brief Destroys a sparseblocks struct.
+ * @brief Destroys a sparseblocks struct.
  *
- * \param [in] blocks The sparseblocks to destroy.
+ * @param [in] blocks The sparseblocks to destroy.
  */
 void destroy_sparseblocks(struct sparseblocks * blocks);
 
 /**
- * \brief Kicks the zero-element blocks from the sparseblocks structure.
+ * @brief Kicks the zero-element blocks from the sparseblocks structure.
  *
- * \param [in,out] blocks The sparseblocks structure to kick zero-elements out of.
- * \param [in] nr_blocks The number of blocks in the sparseblocks object.
+ * @param [in,out] blocks The sparseblocks structure to kick zero-elements out of.
+ * @param [in] nr_blocks The number of blocks in the sparseblocks object.
  */
 void kick_zero_blocks(struct sparseblocks * blocks, int nr_blocks);
 
 /**
- * \brief Returns the size of the given block.
+ * @brief Returns the size of the given block.
  *
  * This function does NOT check if id is out of bounds!!
  *
- * \param [in] blocks The sparseblocks structure.
- * \param [in] id The block index.
+ * @param [in] blocks The sparseblocks structure.
+ * @param [in] id The block index.
  * \return The size of the block.
  */
 int get_size_block(const struct sparseblocks * blocks, int id);
 
 /**
- * \brief Returns the pointer of the start of the tensor elements of a given block.
+ * @brief Returns the pointer of the start of the tensor elements of a given 
+ * block.
  *
- * \param [in] blocks The sparseblocks structure.
- * \param [in] id The block-id of which to return the tensor elements.
+ * @param [in] blocks The sparseblocks structure.
+ * @param [in] id The block-id of which to return the tensor elements.
  * \return The pointer to the tensor elements of the asked block.
  */
 EL_TYPE * get_tel_block(const struct sparseblocks * blocks, int id);
 
 /**
- * \brief Prints the given block.
+ * @brief Prints the given block.
  *
  * This function does NOT check if id is out of bounds!!
  *
- * \param [in] blocks The sparseblocks structure.
- * \param [in] id The block index.
+ * @param [in] blocks The sparseblocks structure.
+ * @param [in] id The block index.
  */
 void print_block(const struct sparseblocks * blocks, int id);
 
+/**
+ * Structure with information for the contraction of tensor blocks.
+ *
+ * This structure is used in do_contract().
+ */
 struct contractinfo {
+        /** Array which maps tensors inputted in do_contract() to A, B, C.
+         *
+         * See do_contract() for more info.
+         */
         int tensneeded[3];
+        /** For A and B, is set to CblasTrans if the matrix needs to be
+         * transposed, else set to CblasNoTrans.
+         *
+         * This thus contains transa, transb.
+         */
         CBLAS_TRANSPOSE trans[2];
+        /// Number of rows of A.transa.
         int M;
+        /// Number of columns of B.transb.
         int N;
+        /// Contracted dimension.
         int K;
+        /** If you are doing a batch dgemm, this is the number of dgemms to do.
+         *
+         * This can be used to perform tensor contractions not performed over
+         * the first or last index. See do_contract() for more info.
+         */
         int L;
 
+        /// Leading order dimension of matrix A.
         int lda;
+        /// Leading order dimension of matrix B.
         int ldb;
+        /// Leading order dimension of matrix C.
         int ldc;
+        /** Gives the strides for A, B, C between each dgemm.
+         *
+         * This is only applicable when doing batch dgemm (`L > 1`).
+         * When the previous dgemm was
+         *
+         * > C = β C + α A * B
+         *
+         * the next will be
+         *
+         * > C' = β C' + α A' * B'
+         *
+         * with
+         *
+         * > &A'[0] = &A[0] + stride[0]<br>
+         * > &B'[0] = &B[0] + stride[1]<br>
+         * > &C'[0] = &C[0] + stride[2]<br>
+         */
         int stride[3];
 };
 
 /**
- * \brief makes a QR decomposition of the blocks running from start to finish.
+ * @brief Performs a (batched) dgemm for the inputted tensors.
  *
- * R is forgotten.
- * These should all have the same third index and the blocks should be consecutive.
+ * The given parameters (`M, N, K, L, transa, transb, lda, ldb, ldc, strides`)
+ * are defined in @ref cinfo.
  *
- * \param [in, out] blocks The sparseblocks structure, Q is stored here.
- * \param [in] start The first block.
- * \param [in] finish The last block.
- * \param [in] total The total amount of blocks in the sparseblocks structure.
- * \param [in, out] N The size of the third dimension of the blocks. N can change if Q has 
- * zero-columns that should be kicked out.
+ * This function performs
+ *
+ * > C_l = β C_l + α A_l.transa * B_l.transb, ∀ l < L
+ *
+ * With `A_l.transa` equal to `A_l` if `transa` is `CblasNoTrans` or equal to
+ * `A_l.T` if `transa` is `ClblasTrans`. The same holds for `B_l.transb`.
+ *
+ * `A_l.transa` is a `M x K` matrix, `B_l.transB` is a `K x N` matrix.
+ *
+ * `A_l, B_l, C_l` are stored with a leading order dimension `lda, ldb, ldc`.
+ *
+ * The strides define the location of `A_l, B_l, C_l` with respect to `A, B, C`
+ *
+ * > &A'[0] = &A[0] + stride[0]<br>
+ * > &B'[0] = &B[0] + stride[1]<br>
+ * > &C'[0] = &C[0] + stride[2]<br>
+ *
+ * All tensors are assumed to be stored column major.
+ *
+ * This batched dgemm can be used for doing for example a tensor contraction 
+ * over their middle indices. For example
+ *
+ * > C_ijl = A_ki * B_jkl
+ *
+ * can be done by setting `M=i, N=j, K=k, L=l, transa=CblasTrans,
+ * transb=CblasTrans, stride = [0, j*k, ij], lda=k, ldb=j, ldc=i`.
+ *
+ * `A` is given by `tel[tensneeded[0]]`<br>
+ * `B` is given by `tel[tensneeded[1]]`<br>
+ * `C` is given by `tel[tensneeded[2]]`<br>
+ *
+ * @param [in] cinfo Structure with the contract info.
+ * @param [in] tel Pointer to the different tensors.
+ * @param [in] alpha α Parameter for dgemm.
+ * @param [in] beta β Parameter for dgemm.
  */
 void do_contract(const struct contractinfo * cinfo, EL_TYPE ** tel, 
                  double alpha, double beta);
