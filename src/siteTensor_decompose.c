@@ -16,1084 +16,1648 @@
 */
 #include <stdlib.h>
 #include <stdio.h>
+#include <omp.h>
+#include <assert.h>
+#include <math.h>
 
 #include "siteTensor.h"
-#include "sort.h"
+#include "sparseblocks.h"
 #include "network.h"
+#include "sort.h"
 #include "macros.h"
-#include <assert.h>
 #include "bookkeeper.h"
-#include "lapack.h"
 
-/* ========================================================================== */
-/* ==================== DECLARATION STATIC FUNCTIONS ======================== */
-/* ========================================================================== */
-
-/* This function gives you the different orders in which the sites can be split of the multiSite
- * tensor. */
-static void get_orders(const int nr_of_orders, const int nr_of_SVDs, const int nr_of_sites, 
-    int order[nr_of_orders][nr_of_SVDs], int bonds[nr_of_orders][nr_of_SVDs], 
-    const int sitelist[], const int common_nxt[]);
-
-/* This function selects the best SVD through the truncation errors, 
- * first selects the minimal maximal D, if all the SVDs have reached the threshold D we look at
- * the truncerror. */
-static int select_best_decompose(const int nr_of_orders, const int nr_of_SVDs, 
-    const double truncerrlist[nr_of_orders][nr_of_SVDs], 
-    const struct symsecs symseclist[nr_of_orders][nr_of_SVDs], 
-    double * const minimalmxtruncerr, int * const mxrD, int * const mxD);
-      
-/* This function changes the tensors in T3NS to the best SVD selected and delete all others. */
-static void change_tensors_to_best(const int selection, const int nr_of_orders, const int nrsites, 
-    struct siteTensor * const T3NS, struct siteTensor tensorlist[nr_of_orders][nrsites]);
-
-/* This function changes the symsecs in the bookkeeper tot the best SVD selected 
- * and delete all others */
-static void change_symsecs_to_best(const int selection, const int nr_of_orders, 
-    const int nr_of_SVDs, struct symsecs symseclist[nr_of_orders][nr_of_SVDs], 
-    const int bonds[nr_of_orders][nr_of_SVDs]);
-
-static int check_correct_input_splitOfSite(const int siteToSplit, const int splittedBond,
-    struct siteTensor * const tens);
-
-static void getMappingsForSPlitof(const struct siteTensor * const ortho, const struct siteTensor * 
-    const center, const int splittedBond, int * const posbond1, int * const posbond2);
-
-static double splitOfSite(const int siteToSplit, const int splittedBond, struct siteTensor * const
-    ortho, struct siteTensor * const center, const int mind, const int maxd, const double maxtrunc);
-
-static int * make_ss_array(const struct siteTensor * const tens, const int tensnr, const int bond,
-    const int maxdims[]);
-
-static void get_metadata_of_block(int ** centerdims, QN_TYPE ** centerqn, int * centernrqn, 
-    int ** orthodims, QN_TYPE ** orthoqn, int * orthonrqn, const struct siteTensor * const original,
-    const int tensnr, const int bondnr, const int ss, const int * const ss_array, 
-    const struct symsecs symarr[], const int maxdims[]);
-
-static void get_block_for_svd(double ** mem, const int * const centerdims, const QN_TYPE * const 
-    centerqn, const int centernrqn, const int * const orthodims, const QN_TYPE * const orthoqn, 
-    const int orthonrqn, const struct siteTensor * const original, const int tensnr, 
-    const int bondnr, const int ss, const int * const ss_array, const struct symsecs symarr[], 
-    const int maxdims[]);
-
-static void do_svd(double * mem, double **U, double **S, double **V, const int * const centerdims,
-    const int centernrqn, const int * const orthodims, const int orthonrqn, int * const dimS);
-
-static double truncateBond(double **S, struct symsecs * const newSymsec, const int mind, 
-    const int maxd, const double maxtrunc);
-
-static void adapt_symsec_and_others(double ***U, double ***S, double ***V, 
-    struct symsecs * const newSymsec, int *** centerdims, QN_TYPE *** centerqn, int ** centernrqn, 
-    int *** orthodims, QN_TYPE *** orthoqn, int ** orthonrqn, const int orthomd[], 
-    const int centermd[], const int orthobondcut, const int centerbondcut, 
-    const int centersitenr, const int cnrsites);
-
-static void make_ortho_and_center(double ***U, double ***S, double ***V, struct symsecs * const 
-    newSymsec, int *** centerdims, QN_TYPE *** centerqn, int ** centernrqn, int *** orthodims, 
-    QN_TYPE *** orthoqn, int ** orthonrqn, struct siteTensor * const center,
-    struct siteTensor * const ortho, const int pos1, const int pos2);
-
-static void create_ortho_and_center(const struct symsecs * const newSymsec, struct siteTensor * 
-    const ortho, struct siteTensor * const center, double **U, double **S, double **V, 
-    int **centerdims, QN_TYPE **centerqn, int *centernrqn, int **orthodims, QN_TYPE **orthoqn, 
-    int *orthonrqn, const int pos1, const int pos2);
-
-static int * make_and_sort(struct siteTensor * tens, int **dim, QN_TYPE **qn, int * nrqn, 
-    const struct symsecs * const newSymsec);
-
-static void multiplySV(const struct symsecs * const newSymsec, double **U, double **S, double **V, 
-    int ** centerdim, int ** orthodim, int * centernrqn, int * orthonrqn);
-
-static void make_tensor(struct siteTensor * tens, int * perm, const struct symsecs * const 
-    newSymsec, double **els, int **dim, QN_TYPE **qn, int *nrqn, const int gotoindex, const char c);
-
-static void clean_splitOfSite(double **U, double **S, double **V, int **centerdims, 
-    QN_TYPE **centerqn, int *centernrqn, int **orthodims, QN_TYPE **orthoqn, int *orthonrqn, 
-    const int nrss, int * ss_array);
-
-/* ========================================================================== */
-
-void decomposesiteObject(struct siteTensor * const siteObject, struct siteTensor * const T3NS, 
-    const int sitelist[], const int common_nxt[],  const int mind, const int maxd,
-    const double maxtrunc, double * trunc_err_sweep, int * max_bonddim)
-{
-  const int factorial[] = { 0, 1, 2, 6 };
-  const int nr_of_SVDs = siteObject->nrsites - 1;
-  const int nr_of_orders = factorial[nr_of_SVDs]; /* nr_of_SVDs! */
-
-  struct siteTensor tensorlist[nr_of_orders][siteObject->nrsites];
-  int orders[nr_of_orders][nr_of_SVDs];
-
-  struct symsecs symseclist[nr_of_orders][nr_of_SVDs];
-  double truncerrlist[nr_of_orders][nr_of_SVDs];
-  int bonds[nr_of_orders][nr_of_SVDs];
-
-  struct symsecs originalsymsecs[nr_of_SVDs]; //ordered according to bonds[0][]
-
-  int i;
-  int selection = 0;
-  int mxD = 0;
-  int mxrD = 0;
-  double mxtr = 0;
-
-  get_orders(nr_of_orders, nr_of_SVDs, siteObject->nrsites, orders, bonds, sitelist, common_nxt);
-  deep_copy_symsecs_from_bookie(nr_of_SVDs, originalsymsecs, bonds[0]);
-
-  /* loop over all the sites to split off. You can also loop over the different orders to do the 
-   * SVD */
-  for (i = 0; i < nr_of_orders; ++i)
-  {
-    int * order = orders[i];
-    int * bond = bonds[i];
-    double * truncerr = truncerrlist[i];
-    struct siteTensor * tensors = tensorlist[i];
-    struct symsecs * symsec = symseclist[i];
-    int j;
-
-    /* puts the original symsecs back in the bookie. because they are possibly chqnged during the
-     * previous SVDs */
-    free_symsecs_from_bookie(nr_of_SVDs, bonds[0]);
-    deep_copy_symsecs_to_bookie(nr_of_SVDs, originalsymsecs, bonds[0]);
-
-    deep_copy_siteTensor(&tensors[0], siteObject);
-    printf(  "   * SVD sequence no. %d:\n", i + 1);
-    for (j = 0; j < nr_of_SVDs; ++j)
-    {
-      truncerr[j] = splitOfSite(order[j], bond[j], &tensors[j], &tensors[j + 1], mind, 
-          maxd, maxtrunc);
-
-      /* copy the adapted symsec in te bookkeeper to the array symsec */
-      deep_copy_symsecs(&symsec[j], &bookie.v_symsecs[bond[j]]);
-      printf("     * splitting of site %d through bond %d: trunc: %.4e, dimension: %d\n", 
-          order[j], bond[j], truncerr[j], symsec[j].totaldims);
-    }
-  }
-  for (i = 0; i < nr_of_SVDs; ++i) destroy_symsecs(&originalsymsecs[i]);
-
-  selection = select_best_decompose(nr_of_orders, nr_of_SVDs, truncerrlist, symseclist, &mxtr, &mxrD, &mxD);
-  printf("   * SVD sequence no. %d selected with\n", selection + 1);
-  if (mxD != -1)
-          printf("          - maximal dimension %d (%d)\n", mxrD, mxD);
-  else
-          printf("          - maximal dimension %d\n", mxrD);
-  printf("          - maximal truncation error %.4e\n", mxtr);
-
-  change_symsecs_to_best(selection, nr_of_orders, nr_of_SVDs, symseclist, bonds);
-  change_tensors_to_best(selection, nr_of_orders, siteObject->nrsites, T3NS, tensorlist);
-  for (int i = 0; i < nr_of_SVDs; ++i) {
-          printf("**\t");
-          print_bondinfo(bonds[0][i]);
-  }
-  if (*max_bonddim < mxrD) {
-          *max_bonddim = mxrD;
-  }
-  if (*trunc_err_sweep < mxtr) {
-          *trunc_err_sweep = mxtr;
-  }
-}
-
-/* ========================================================================== */
-/* ===================== DEFINITION STATIC FUNCTIONS ======================== */
-/* ========================================================================== */
-
-static void get_orders(const int nr_of_orders, const int nr_of_SVDs, const int nr_of_sites, 
-    int order[nr_of_orders][nr_of_SVDs], int bonds[nr_of_orders][nr_of_SVDs], 
-    const int sitelist[], const int common_nxt[])
-{
-  int i;
-
-  assert( nr_of_sites == 2 && "Only defined for two site optimizations at the moment");
-  for (i = 0; i < nr_of_sites; ++i)
-    if (common_nxt[i] == 0)
-      break;
-  order[0][0] = sitelist[i];
-  bonds[0][0] = get_common_bond(sitelist[0], sitelist[1]);
-  assert(bonds[0][0] != -1);
-}
-
-static int select_best_decompose(const int nr_of_orders, const int nr_of_SVDs, 
-    const double truncerrlist[nr_of_orders][nr_of_SVDs], 
-    const struct symsecs symseclist[nr_of_orders][nr_of_SVDs], 
-    double * const minimalmxtruncerr, int * const mxrD, int * const mxDim)
-{
-  int mxD[nr_of_orders];
-  int selection = 0;
-  int i;
-
-  for (i = 0; i < nr_of_orders; ++i) {
-    int j;
-    int currfmxD = 0;;
-    mxD[i] = 0;
-    for (j = 0; j < nr_of_SVDs; ++j)
-      if (mxD[i] < symseclist[i][j].totaldims) {
-              mxD[i] = symseclist[i][j].totaldims;
-              currfmxD = full_dimension(&symseclist[i][j]);
-        }
-    if (i == 0 || *mxrD > mxD[i]) {
-            *mxrD = mxD[i];
-            *mxDim = currfmxD;
-        }
-  }
-
-  for (i = 0; i < nr_of_orders; ++i) {
-    int flag = 1;
-    if (mxD[i] == *mxrD) {
-      int j;
-      double currmxtruncerr = 0;
-      for (j = 0; j < nr_of_SVDs; ++j)
-        if (currmxtruncerr < truncerrlist[i][j]) currmxtruncerr = truncerrlist[i][j];
-
-      if (flag || *minimalmxtruncerr > currmxtruncerr) {
-        flag = 0;
-        selection = i;
-        *minimalmxtruncerr = currmxtruncerr;
-      }
-    }
-  }
-
-  return selection;
-}
-
-static void change_tensors_to_best(const int selection, const int nr_of_orders, const int nrsites, 
-    struct siteTensor * const T3NS, struct siteTensor tensorlist[nr_of_orders][nrsites])
-{
-  int i;
-  assert(selection < nr_of_orders);
-
-  for (i = 0; i < nr_of_orders; ++i)
-  {
-    struct siteTensor * tensors = tensorlist[i];
-    int j;
-
-    if (i != selection)
-      for (j = 0; j < nrsites; ++j)
-        destroy_siteTensor(&tensors[j]);
-    else
-      for (j = 0; j < nrsites; ++j)
-      {
-        destroy_siteTensor(&T3NS[tensors[j].sites[0]]);
-        T3NS[tensors[j].sites[0]] = tensors[j];
-      }
-  }
-}
-
-static void change_symsecs_to_best(const int selection, const int nr_of_orders, 
-    const int nr_of_SVDs, struct symsecs symseclist[nr_of_orders][nr_of_SVDs], 
-    const int bonds[nr_of_orders][nr_of_SVDs])
-{
-  int i;
-  assert(selection < nr_of_orders);
-
-  for (i = 0; i < nr_of_orders; ++i)
-  {
-    struct symsecs * symsec = symseclist[i];
-    const int * bond = bonds[i];
-    int j;
-
-    if (i != selection)
-      for (j = 0; j < nr_of_SVDs; ++j)
-        destroy_symsecs(&symsec[j]);
-    else
-      for (j = 0; j < nr_of_SVDs; ++j)
-      {
-        destroy_symsecs(&bookie.v_symsecs[bond[j]]);
-        bookie.v_symsecs[bond[j]] = symsec[j];
-      }
-  }
-}
-
-static int check_correct_input_splitOfSite(const int siteToSplit, const int splittedBond,
-    struct siteTensor * const tens)
-{
-  int tensnr, i;
-  int nr_internalbonds = siteTensor_give_nr_internalbonds(tens);
-  int internalbonds[nr_internalbonds];
-  siteTensor_give_internalbonds(tens, internalbonds);
-
-  for (i = 0; i < nr_internalbonds; ++i)
-    if (internalbonds[i] == splittedBond) break;
-  if (i == nr_internalbonds)
-  {
-    fprintf(stderr, "%s@%s: Invalid bond to split specified (%d).\n",
-        __FILE__, __func__, splittedBond);
-    exit(EXIT_FAILURE);
-  }
-
-  for (tensnr = 0; tensnr < tens->nrsites; ++tensnr) 
-    if (siteToSplit == tens->sites[tensnr]) break;
-
-  if (tensnr == tens->nrsites)
-  {
-    fprintf(stderr, "%s@%s: invalid tensor to specified to split of (%d).\n",
-        __FILE__, __func__, siteToSplit);
-    exit(EXIT_FAILURE);
-  }
-
-  return tensnr;
-}
-
-static void init_ortho_and_center(const struct siteTensor * const original, const int siteToSplit,
-    struct siteTensor * const ortho, struct siteTensor * const orthocenter)
-{
-  int i;
-
-  init_null_siteTensor(ortho);
-  init_null_siteTensor(orthocenter);
-  ortho->nrsites = 1;
-  ortho->sites = safe_malloc(ortho->nrsites, int);
-  ortho->sites[0] = siteToSplit;
-  orthocenter->nrsites = 0;
-  orthocenter->sites = safe_malloc(original->nrsites - 1, int);
-  for (i = 0; i < original->nrsites; ++i)
-    if (original->sites[i] != siteToSplit)
-      orthocenter->sites[orthocenter->nrsites++] = original->sites[i];
-  assert(orthocenter->nrsites == original->nrsites - 1);
-}
-
-static void getMappingsForSPlitof(const struct siteTensor * const ortho, const struct siteTensor * 
-    const center, const int splittedBond, int * const posbond1, int * const posbond2)
-{
-  const int ortho_nrbonds  = 3 * ortho->nrsites;
-  const int center_nrbonds = 3 * center->nrsites;
-
-  int ortho_bonds [ortho_nrbonds];
-  int center_bonds[center_nrbonds];
-
-  siteTensor_give_qnumberbonds(ortho , ortho_bonds);
-  siteTensor_give_qnumberbonds(center, center_bonds);
-
-  for (*posbond1 = 0; *posbond1 < ortho_nrbonds; ++(*posbond1))
-    if (ortho_bonds[*posbond1] == splittedBond)
-      break;
-  assert(*posbond1 != ortho_nrbonds);
-
-  for (*posbond2 = 0; *posbond2 < center_nrbonds; ++(*posbond2))
-    if (center_bonds[*posbond2] == splittedBond)
-      break;
-  assert(*posbond2 != center_nrbonds);
-}
-
-static double splitOfSite(const int siteToSplit, const int splittedBond, struct siteTensor * const
-    ortho, struct siteTensor * const center, const int mind, const int maxd, const double maxtrunc)
-{
-  struct siteTensor original = *ortho;
-  int posbond1, posbond2;
-  int ss;
-  int **centerdims, **orthodims;
-  QN_TYPE **centerqn, **orthoqn;
-  int *centernrqn, *orthonrqn;
-  double **U, **S, **V;
-  double truncerr;
-  struct symsecs symarr[3 * original.nrsites];
-  int maxdims[3 * original.nrsites];
-  int bonds[3 * original.nrsites];
-  int * ss_array;
-  struct symsecs * newSymsec = &bookie.v_symsecs[splittedBond];
-  const int nrss = newSymsec->nrSecs;
-
-  const int tensnr = check_correct_input_splitOfSite(siteToSplit, splittedBond, &original);
-
-  siteTensor_give_qnumberbonds(&original, bonds);
-  get_symsecs_arr(3 * original.nrsites, symarr, bonds);
-  get_maxdims_of_bonds(maxdims, bonds, 3 * original.nrsites);
-
-  init_ortho_and_center(&original, siteToSplit, ortho, center);
-  getMappingsForSPlitof(ortho, center, splittedBond, &posbond1, &posbond2);
-  ss_array = make_ss_array(&original, tensnr, posbond1, &maxdims[3 * tensnr]);
-
-  centerdims = safe_malloc(nrss, int *);
-  orthodims  = safe_malloc(nrss, int *);
-  centerqn   = safe_malloc(nrss, QN_TYPE *);
-  orthoqn    = safe_malloc(nrss, QN_TYPE *);
-  centernrqn = safe_malloc(nrss, int);
-  orthonrqn  = safe_malloc(nrss, int);
-
-  U = safe_malloc(nrss, double *);
-  S = safe_malloc(nrss, double *);
-  V = safe_malloc(nrss, double *);
-
-  // parallelize this
-  newSymsec->totaldims = 0;
-  for (ss = 0; ss < nrss; ++ss)
-  {
-    double *mem;
-    get_metadata_of_block(&centerdims[ss], &centerqn[ss], &centernrqn[ss], &orthodims[ss],
-        &orthoqn[ss], &orthonrqn[ss], &original, tensnr, posbond1, ss, ss_array, 
-        &symarr[3 * tensnr], &maxdims[3 * tensnr]);
-
-    get_block_for_svd(&mem, centerdims[ss], centerqn[ss], centernrqn[ss], orthodims[ss],
-        orthoqn[ss], orthonrqn[ss], &original, tensnr, posbond1, ss, ss_array,symarr, maxdims);
-
-    do_svd(mem, &U[ss], &S[ss], &V[ss], centerdims[ss], centernrqn[ss], 
-        orthodims[ss], orthonrqn[ss], &newSymsec->dims[ss]);
-    newSymsec->totaldims += newSymsec->dims[ss];
-    safe_free(mem);
-  }
-  destroy_siteTensor(&original);
-
-  truncerr = truncateBond(S, newSymsec, mind, maxd, maxtrunc);
-  make_ortho_and_center(&U, &S, &V, newSymsec, &centerdims, &centerqn, &centernrqn, &orthodims, 
-      &orthoqn, &orthonrqn, center, ortho, posbond1, posbond2);
-
-  clean_splitOfSite(U, S, V, centerdims, centerqn, centernrqn, orthodims, orthoqn, orthonrqn, 
-      newSymsec->nrSecs, ss_array);
-
-  return truncerr;
-}
-
-static int * make_ss_array(const struct siteTensor * const tens, const int tensnr, const int bond,
-    const int maxdims[])
-{
-  int * ss_array = safe_malloc(tens->nrblocks, int);
-  int block;
-  for (block = 0; block < tens->nrblocks; ++block)
-  {
-    QN_TYPE qnmbr = tens->qnumbers[tens->nrsites * block + tensnr];
-    int indices[3];
-    int i;
-    for (i = 0; i < 3; ++i)
-    {
-      indices[i] = qnmbr % maxdims[i];
-      qnmbr /= maxdims[i];
-    }
-    assert(qnmbr == 0);
-    ss_array[block] = indices[bond];
-  }
-  return ss_array;
-}
-
-static void get_metadata_of_block(int ** centerdims, QN_TYPE ** centerqn, int * centernrqn, 
-    int ** orthodims, QN_TYPE ** orthoqn, int * orthonrqn, const struct siteTensor * const original,
-    const int tensnr, const int bondnr, const int ss, const int * const ss_array, 
-    const struct symsecs symarr[], const int maxdims[])
-{
-  int block, i;
-  int maxnrs = 0;
-  for (block = 0; block < original->nrblocks; ++block)
-    maxnrs += (ss == ss_array[block]);
-
-  assert(bondnr < 3 && bondnr >= 0);
-  *orthonrqn  = 0;
-  *centernrqn = 0;
-  *orthoqn    = safe_malloc(maxnrs, QN_TYPE);
-  *centerqn   = safe_malloc(maxnrs * (original->nrsites - 1), QN_TYPE);
-  *orthodims  = safe_malloc(maxnrs, int);
-  *centerdims = safe_malloc(maxnrs, int);
-
-  for (block = 0; block < original->nrblocks; ++block)
-  {
-    QN_TYPE * qnmbr = &original->qnumbers[original->nrsites * block];
-    QN_TYPE qnb = qnmbr[tensnr];
-    int indices[3];
-    int dimortho;
-
-    if (ss != ss_array[block])
-      continue;
-
-    for (i = 0; i < 3; ++i)
-    {
-      indices[i] = qnb % maxdims[i];
-      qnb /= maxdims[i];
-    }
-    assert(qnb == 0);
-    assert(indices[bondnr] == ss);
-
-    dimortho = symarr[0].dims[indices[0]] * symarr[1].dims[indices[1]] *
-      symarr[2].dims[indices[2]];
-
-    assert(symarr[bondnr].dims[indices[bondnr]] == 1);
-
-    /* if so, check if the qnumbers of ortho and center were already added, if not add them */
-    for (i = 0; i < *orthonrqn; ++i)
-      if ((*orthoqn)[i] == qnmbr[tensnr])
-        break;
-    if (i == *orthonrqn)
-    {
-      (*orthoqn)[*orthonrqn] = qnmbr[tensnr];
-      (*orthodims)[*orthonrqn] = dimortho;
-      ++(*orthonrqn);
-    }
-
-    for (i = 0; i < *centernrqn; ++i)
-    {
-      int j;
-      int cnt = 0;
-      for (j = 0; j < original->nrsites; ++j)
-      {
-        if (j == tensnr)
-          continue;
-        if (qnmbr[j] != (*centerqn)[i * (original->nrsites - 1) + cnt++])
-          break;
-      }
-      if (j == original->nrsites)
-        break;
-    }
-    if (i == *centernrqn)
-    {
-      int j;
-      int cnt = 0;
-      for (j = 0; j < original->nrsites; ++j)
-      {
-        if (j == tensnr)
-          continue;
-        (*centerqn)[*centernrqn * (original->nrsites - 1) + cnt++] = qnmbr[j];
-      }
-      (*centerdims)[*centernrqn] = get_size_block(&original->blocks, block) / dimortho;
-      assert(get_size_block(&original->blocks, block) % dimortho == 0);
-      ++(*centernrqn);
-    }
-  }
-
-  *centerqn = realloc(*centerqn, (*centernrqn) * (original->nrsites - 1) * sizeof(QN_TYPE));
-  *orthoqn  = realloc(*orthoqn , (*orthonrqn)  * sizeof(QN_TYPE));
-  *centerdims = realloc(*centerdims, (*centernrqn) * sizeof(int));
-  *orthodims  = realloc(*orthodims , (*orthonrqn)  * sizeof(int));
-}
-
-static void get_block_for_svd(double ** mem, const int * const centerdims, const QN_TYPE * const 
-    centerqn, const int centernrqn, const int * const orthodims, const QN_TYPE * const orthoqn, 
-    const int orthonrqn, const struct siteTensor * const original, const int tensnr, 
-    const int bondnr, const int ss, const int * const ss_array, const struct symsecs symarr[], 
-    const int maxdims[])
-{
-  int block, i;
-  int N, M;
-
-  N = 0;
-  for (i = 0; i < orthonrqn; ++i)
-    N += orthodims[i];
-  M = 0;
-  for (i = 0; i < centernrqn; ++i)
-    M += centerdims[i];
-  *mem = safe_calloc(N * M, double);
-
-  for (block = 0; block < original->nrblocks; ++block)
-  {
-    QN_TYPE * qnmbr = &original->qnumbers[original->nrsites * block];
-    int orthostart = 0;
-    int centerstart = 0;
-#ifndef NDEBUG
-    int orthocnt, centercnt;
+#ifdef T3NS_MKL
+#include "mkl.h"
+#else
+#include <lapacke.h>
 #endif
 
+//#define T3NS_SITETENSOR_DECOMPOSE_DEBUG
 
-    int P, Q, R;
-    double *currmem;
-    double *blocktel = get_tel_block(&original->blocks, block);
-    int indexes[original->nrsites * 3];
+static int * sort_indices(int (*indices)[3], int n, int b)
+{
+        assert(b < 3 && b >= 0);
+        int * relid = safe_malloc(n, *relid);
+        for (int i = 0; i < n; ++i) { relid[i] = indices[i][b]; }
+        int * idx = quickSort(relid, n, SORT_INT);
+        safe_free(relid);
+        return idx;
+}
 
-    /* Check if the current block has the right symsec for the bond to cut */
-    if (ss != ss_array[block])
-      continue;
+struct qrdata {
+        // The leg-indices of Q
+        int legs[3];
+        // The symsecs corresponding to legs
+        struct symsecs symarr[3];
+        // The nmbr of bond which is the bond of R (should be 0,1,2)
+        int bond;
 
-    for (i = 0; i < orthonrqn; ++i)
-      if (orthoqn[i] == qnmbr[tensnr])
-        break;
-      else
-        orthostart += orthodims[i];
-    assert(i != orthonrqn);
-#ifndef NDEBUG
-    orthocnt = orthodims[i];
+        // Pointer to the tensor to QR (A = QR)
+        struct siteTensor * A;
+        // Pointer to the tensor to the Q tensor
+        struct siteTensor * Q;
+        // Pointer to the Rmatrix, can be NULL
+        struct Rmatrix * R;
+
+        // Number of blocks in R
+        int nrRblocks;
+        // Indices of every block in Q (in order of the blocks of Q)
+        int (*indices)[3];
+        // Permutation array for a sorted indices[.][bond]
+        int * idperm;
+        // idperm[idstart[block]] is the first block with Rindex == block
+        int * idstart;
+};
+
+static void makestart(struct qrdata * dat)
+{
+        const int size = dat->symarr[dat->bond].nrSecs;
+        dat->idstart = safe_malloc(size + 1, *dat->idstart);
+
+        dat->idstart[0] = 0;
+        for (int block = 0; block < size; ++block) {
+                dat->idstart[block + 1] = dat->idstart[block];
+                if (dat->idstart[block] == dat->A->nrblocks) { continue; }
+                const int currid = dat->indices[dat->idperm[
+                        dat->idstart[block]]][dat->bond];
+                if (currid > block) { continue; }
+
+                int * const lid = &dat->idstart[block + 1];
+                // The indices[.][bond] are sorted with respect to indsort[.]
+                while (dat->idstart[block + 1] < dat->A->nrblocks && 
+                       dat->indices[dat->idperm[*lid]][dat->bond] == currid) { 
+                        ++*lid;
+                }
+        }
+}
+
+static int getQRdimensions(struct qrdata * dat, int * M, int * N, int * minMN,
+                            int Rblock)
+{
+        const int n = dat->idstart[Rblock + 1] - dat->idstart[Rblock];
+        if (n == 0) {
+                *M = 0;
+                *N = 0;
+                *minMN = 0;
+                return 0; 
+        }
+
+        *N = dat->symarr[dat->bond].dims[Rblock];
+        int memsize = 0;
+        // calculate size fo all blocks needed
+        for (int * id = &dat->idperm[dat->idstart[Rblock]]; 
+             id != &dat->idperm[dat->idstart[Rblock + 1]]; ++id) {
+                memsize += get_size_block(&dat->A->blocks, *id);
+        }
+        *M = memsize / *N;
+        assert(memsize % *N == 0);
+
+        *minMN = *M < *N ? *M : *N;
+        return 1;
+}
+
+static void make_Q(struct qrdata * dat)
+{
+        assert(dat->A->nrsites == 1);
+        if (dat->Q == NULL) { return; }
+
+        dat->Q->nrsites = dat->A->nrsites;
+        dat->Q->sites = safe_malloc(dat->Q->nrsites, *dat->Q->sites);
+        for (int i = 0; i < dat->Q->nrsites; ++i) {
+                dat->Q->sites[i] = dat->A->sites[i]; 
+        }
+        dat->Q->nrblocks = dat->A->nrblocks;
+        dat->Q->qnumbers = safe_malloc(dat->Q->nrblocks * dat->Q->nrsites, 
+                                       *dat->Q->qnumbers);
+        for (int i = 0; i < dat->Q->nrsites * dat->Q->nrblocks; ++i) {
+                dat->Q->qnumbers[i] = dat->A->qnumbers[i];
+        }
+
+        // Initialize the sparseblocks of Q
+        dat->Q->blocks.beginblock = safe_calloc(dat->Q->nrblocks + 1,
+                                                *dat->Q->blocks.beginblock);
+
+#pragma omp parallel for schedule(dynamic) shared(dat)
+        for (int block = 0; block < dat->nrRblocks; ++block) {
+                int M, N, minMN;
+                getQRdimensions(dat, &M, &N, &minMN, block);
+                int checkM = 0;
+                for (int * id = &dat->idperm[dat->idstart[block]]; 
+                     id != &dat->idperm[dat->idstart[block + 1]]; ++id) {
+                        const int blsize = get_size_block(&dat->A->blocks, *id);
+                        if (blsize == 0) { continue; }
+
+                        assert(N != 0 && M != 0);
+                        const int currM = blsize / N;
+                        assert(blsize % N == 0);
+                        checkM += currM;
+                        dat->Q->blocks.beginblock[*id + 1] = currM * minMN;
+                }
+                assert(checkM == M);
+        }
+
+        for (int i = 0; i < dat->Q->nrblocks; ++i) {
+                dat->Q->blocks.beginblock[i + 1] += dat->Q->blocks.beginblock[i];
+        }
+        dat->Q->blocks.tel = 
+                safe_malloc(dat->Q->blocks.beginblock[dat->Q->nrblocks],
+                            *dat->Q->blocks.tel);
+}
+
+static struct qrdata init_qrdata(struct siteTensor * A, struct siteTensor * Q, 
+                                 struct Rmatrix * R, int bond)
+{
+        struct qrdata dat;
+
+        dat.A = A;
+        dat.Q = Q;
+        dat.R = R;
+        dat.bond = bond;
+        siteTensor_give_indices(dat.A, dat.legs);
+        get_symsecs_arr(3, dat.symarr, dat.legs);
+
+        dat.nrRblocks = dat.symarr[dat.bond].nrSecs;
+        if (dat.R != NULL) {
+                dat.R->bond = dat.legs[dat.bond];
+                dat.R->nrblocks = dat.nrRblocks;
+                dat.R->dims = safe_malloc(dat.R->nrblocks, *dat.R->dims);
+                dat.R->Rels = safe_malloc(dat.R->nrblocks, *dat.R->Rels);
+                for (int i = 0; i < dat.R->nrblocks; ++i) { 
+                        dat.R->dims[i][0] = 0;
+                        dat.R->dims[i][1] = 0;
+                        dat.R->Rels[i] = NULL; 
+                }
+        }
+
+        dat.indices = qn_to_indices_1s(dat.A);
+        dat.idperm = sort_indices(dat.indices, dat.A->nrblocks, dat.bond);
+        makestart(&dat);
+        make_Q(&dat);
+
+        return dat;
+}
+
+static void destroy_qrdata(struct qrdata * dat)
+{
+        safe_free(dat->indices);
+        safe_free(dat->idperm);
+        safe_free(dat->idstart);
+}
+
+static void copy_to_R(struct Rmatrix * R, EL_TYPE * mem,
+                      int M, int N, int Rblock)
+{
+        if (R == NULL) { return; }
+
+        const int minMN = M < N ? M : N;
+
+        R->dims[Rblock][0] = minMN;
+        R->dims[Rblock][1] = N;
+        R->Rels[Rblock] = safe_calloc(minMN * N, *R->Rels[Rblock]);
+        // Copy only upper triangular part
+        for (int j = 0; j < N; ++j) {
+                const int maxi = (j + 1 < minMN) ?  j + 1 : minMN;
+                for (int i = 0; i < maxi; ++i)
+                        R->Rels[Rblock][i + j * minMN] = mem[i + j * M];
+        }
+}
+
+#define TO_MEMORY 1
+#define FROM_MEMORY 0
+static void QR_copy_fromto_mem(struct qrdata * dat, EL_TYPE * mem, int Rblock, 
+                               int ldmem, int N, int copy_type)
+{
+        assert(copy_type == TO_MEMORY || copy_type == FROM_MEMORY);
+        struct sparseblocks * T = copy_type == FROM_MEMORY ? 
+                &dat->Q->blocks : &dat->A->blocks;
+
+        // Copy the different blocks
+        EL_TYPE * cmem = mem;
+        for (int * id = &dat->idperm[dat->idstart[Rblock]]; 
+             id != &dat->idperm[dat->idstart[Rblock + 1]]; ++id) {
+                EL_TYPE * bl_p   = get_tel_block(T, *id);
+
+                int (*indic)[3] = &dat->indices[*id];
+                int M = 1;
+                for (int i = 0; i < dat->bond; ++i) {
+                        M *= dat->symarr[i].dims[(*indic)[i]];
+                }
+                int O = 1;
+                for (int i = dat->bond + 1; i < 3; ++i) {
+                        O *= dat->symarr[i].dims[(*indic)[i]];
+                }
+                assert( M * N * O == get_size_block(T, *id));
+
+                if (copy_type == TO_MEMORY) {
+                        for (int m = 0; m < M; ++m) 
+                                for (int n = 0; n < N; ++n)
+                                        for (int o = 0; o < O; ++o)
+                                                cmem[m + o * M + ldmem * n] = 
+                                                        bl_p[m + n * M + o * M * N];
+                } else {
+                        for (int m = 0; m < M; ++m) 
+                                for (int n = 0; n < N; ++n)
+                                        for (int o = 0; o < O; ++o)
+                                                bl_p[m + n * M + o * M * N] =
+                                                        cmem[m + o * M + ldmem * n];
+                }
+                cmem += M * O;
+        }
+        assert(cmem - mem == ldmem);
+}
+
+static int qrblocks(struct qrdata * dat, int Rblock)
+{
+        int M, N, minMN;
+        if (!getQRdimensions(dat, &M, &N, &minMN, Rblock)) { return 0; }
+        assert(dat->symarr[dat->bond].dims[Rblock] == N);
+
+        const int memsize = M * N;
+        EL_TYPE * mem = safe_malloc(memsize, *mem);
+        QR_copy_fromto_mem(dat, mem, Rblock, M, N, TO_MEMORY);
+
+        EL_TYPE * tau  = safe_malloc(minMN, *tau);
+        int info = LAPACKE_dgeqrf(LAPACK_COL_MAJOR, M, N, mem, M, tau);
+        if (info) {
+                fprintf(stderr, "dgeqrf exited with %d.\n", info);
+                safe_free(mem);
+                safe_free(tau);
+                return 1;
+        }
+        copy_to_R(dat->R, mem, M, N, Rblock);
+
+        info = LAPACKE_dorgqr(LAPACK_COL_MAJOR, M, minMN, minMN, mem, M, tau);
+        if (info) {
+                fprintf(stderr, "dorgqr exited with %d.\n", info);
+                safe_free(mem);
+                safe_free(tau);
+                return 1;
+        }
+        QR_copy_fromto_mem(dat, mem, Rblock, M, minMN, FROM_MEMORY);
+
+        // change the dimension in the bookkeeper
+        assert(M >= minMN);
+        dat->symarr[dat->bond].dims[Rblock] = minMN;
+
+        safe_free(mem);
+        safe_free(tau);
+        return 0;
+}
+
+int qr(struct siteTensor * A, int bond, 
+       struct siteTensor * Q, struct Rmatrix * R)
+{
+        assert(A->nrsites == 1 && "QR only for one-site tensors");
+        assert(bond >= 0 && bond < 3 && "Bond for QR should be 0,1 or 2");
+
+        struct qrdata dat = init_qrdata(A, Q, R, bond);
+
+        int erflag = 0;
+#pragma omp parallel for schedule(dynamic) default(none) shared(erflag, dat)
+        for (int block = 0; block < dat.nrRblocks; ++block) {
+                if (!erflag && qrblocks(&dat, block) != 0) { erflag = 1; }
+        }
+
+        if (erflag) {
+                fprintf(stderr, "QR failed.\n");
+                destroy_Rmatrix(R);
+                destroy_siteTensor(Q);
+        }
+
+        destroy_qrdata(&dat);
+#ifdef T3NS_SITETENSOR_DECOMPOSE_DEBUG
+        struct siteTensor B;
+        if (!is_orthogonal(Q, bond)) {
+                fprintf(stderr, "Q result from QR-decomposition is not orthogonal.\n");
+                erflag = 1;
+        }
+        if(R != NULL && !multiplyR(Q, bond, R, 0, &B)) {
+                double ero = 0;
+                const int N = siteTensor_get_size(Q);
+                for (int i = 0; i < N; ++i) { 
+                        ero += (A->blocks.tel[i] - B.blocks.tel[i]) * 
+                                (A->blocks.tel[i] - B.blocks.tel[i]);
+                }
+                if (ero > 1e-16) {
+                        fprintf(stderr, "Error on QR: %e\n", ero);
+                        erflag = 1;
+                }
+                destroy_siteTensor(&B);
+        }
 #endif
+        return erflag;
+}
 
-    for (i = 0; i < centernrqn; ++i)
-    {
-      int j;
-      int cnt = 0;
-      for (j = 0; j < original->nrsites; ++j)
-      {
-        if (j == tensnr)
-          continue;
-        if (qnmbr[j] != centerqn[i * (original->nrsites - 1) + cnt++])
-          break;
-      }
-      if (j == original->nrsites)
-        break;
-      else
-        centerstart += centerdims[i];
-    }
-    assert(i != centernrqn);
-#ifndef NDEBUG
-    centercnt = centerdims[i];
+void destroy_Rmatrix(struct Rmatrix * R)
+{
+        if (R == NULL) { return; }
+
+        for (int i = 0; i < R->nrblocks; ++i) { safe_free(R->Rels[i]); }
+        safe_free(R->Rels);
+        safe_free(R->dims);
+        R->bond = -1;
+        R->nrblocks = -1;
+}
+
+static void makeB(const struct siteTensor * const A, const int bondA,
+                  const struct Rmatrix * const R, const int bondR, 
+                  struct siteTensor * B)
+{
+        int legs[3];
+        struct symsecs symarr[3];
+        siteTensor_give_indices(A, legs);
+        get_symsecs_arr(3, symarr, legs);
+        QN_TYPE divide = 1;
+        for (int i = 0; i < bondA; ++i) { divide *= symarr[i].nrSecs; }
+        const int modulo = symarr[bondA].nrSecs;
+
+        assert(A->nrsites == 1);
+        B->nrsites = A->nrsites;
+        B->sites = safe_malloc(B->nrsites, *B->sites);
+        for (int i = 0; i < B->nrsites; ++i) { B->sites[i] = A->sites[i]; }
+        B->nrblocks = A->nrblocks;
+        B->qnumbers = safe_malloc(B->nrblocks * B->nrsites, *B->qnumbers);
+        for (int i = 0; i < B->nrblocks * B->nrsites; ++i) {
+                B->qnumbers[i] = A->qnumbers[i];
+        }
+        B->blocks.beginblock = safe_malloc(B->nrblocks + 1, *B->blocks.beginblock);
+        B->blocks.beginblock[0] = 0;
+#pragma omp parallel for schedule(static) shared(divide,B,symarr)
+        for (int i = 0; i < B->nrblocks; ++i) {
+                const int sizeA = get_size_block(&A->blocks, i);
+                QN_TYPE id = B->qnumbers[i];
+                id /= divide;
+                id %= modulo;
+                assert(sizeA % R->dims[id][bondR] == 0);
+                assert(R->dims[id][0] == symarr[bondA].dims[id]);
+                B->blocks.beginblock[i + 1] = sizeA / R->dims[id][bondR] *
+                        R->dims[id][!bondR];
+        }
+
+        for (int i = 0; i < B->nrblocks; ++i) {
+                B->blocks.beginblock[i + 1] += B->blocks.beginblock[i];
+        }
+        B->blocks.tel = safe_malloc(B->blocks.beginblock[B->nrblocks],
+                                    *B->blocks.tel);
+}
+
+// It is possible to do this bit more efficient by using dtrmm instead of dgemm
+// If I keep it with dgemm is should asure that the lower triangle is indeed 0
+// This efficiency is probably not needed. Don't see this being a bottleneck
+int multiplyR(struct siteTensor * A, const int bondA, 
+              struct Rmatrix * R, const int bondR, 
+              struct siteTensor * B)
+{
+        if (R == NULL || A == NULL || B == NULL) {
+                fprintf(stderr, "Error in input : NULL pointer to tensor.\n");
+                return 1;
+        }
+        assert(A->nrsites == 1 && "QR only for one-site tensors");
+        assert(bondA >= 0 && bondA < 3 && "BondA for contract should be 0,1 or 2");
+        assert(bondR >= 0 && bondR < 3 && "BondR for contract should be 0,1");
+
+        struct symsecs symarr[3];
+        int legs[3];
+        int dims[3];
+        siteTensor_give_indices(A, legs);
+        get_symsecs_arr(3, symarr, legs);
+        get_maxdims_of_bonds(dims, legs, 3);
+
+        makeB(A, bondA, R, bondR, B);
+
+#pragma omp parallel for schedule(dynamic) shared(A,B,R,symarr,legs,dims)
+        for (int block = 0; block < B->nrblocks; ++block) {
+                struct contractinfo cinfo;
+
+                // get of symsecs of block
+                QN_TYPE qn = B->qnumbers[block];
+                int id[3];
+                id[0] = qn % dims[0];
+                qn /= dims[0];
+                id[1] = qn % dims[1];
+                id[2] = qn / dims[1];
+                assert(id[2] < dims[2]);
+
+                EL_TYPE * tels[] = {
+                        get_tel_block(&A->blocks, block),
+                        R->Rels[id[bondA]],
+                        get_tel_block(&B->blocks, block)
+                };
+                cinfo.tensneeded[bondA == 0] = 0;
+                cinfo.tensneeded[bondA != 0] = 1;
+                cinfo.tensneeded[2] = 2;
+                cinfo.trans[bondA == 0] = CblasNoTrans;
+                cinfo.trans[bondA != 0] = (bondR == 0) == (bondA != 0) ? 
+                        CblasNoTrans : CblasTrans;
+
+                const int otherdimR = R->dims[id[bondA]][!bondR];
+                const int dim1A = symarr[0].dims[id[0]] * 
+                        (bondA == 1 ? 1 : symarr[1].dims[id[1]]);
+                const int dim2A = symarr[2].dims[id[2]] * 
+                        (bondA == 1 ? 1 : symarr[1].dims[id[1]]);
+
+                cinfo.M = bondA == 0 ? otherdimR : dim1A;
+                cinfo.N = bondA == 0 ? dim2A : otherdimR;
+                cinfo.K = R->dims[id[bondA]][bondR];
+                cinfo.L = bondA == 1 ? dim2A : 1;
+
+                cinfo.lda = cinfo.trans[0] == CblasNoTrans ?  cinfo.M : cinfo.K;
+                cinfo.ldb = cinfo.trans[1] == CblasNoTrans ?  cinfo.K : cinfo.N;
+                cinfo.ldc = cinfo.M;
+
+                cinfo.stride[0] = cinfo.M * cinfo.K;
+                cinfo.stride[1] = 0;
+                cinfo.stride[2] = cinfo.M * cinfo.N;
+                assert((bondA == 0 ? cinfo.N : cinfo.M) * cinfo.L * cinfo.K == 
+                       get_size_block(&A->blocks, block));
+                assert(cinfo.M * cinfo.L * cinfo.N == 
+                       get_size_block(&B->blocks, block));
+                do_contract(&cinfo, tels, 1, 0);
+        }
+        return 0;
+}
+
+static int orthoblock(struct qrdata * dat, int Rblock)
+{
+        int M, N, minMN;
+        double tolerance = 1e-12;
+
+        if (!getQRdimensions(dat, &M, &N, &minMN, Rblock)) { return 0; }
+        assert(dat->symarr[dat->bond].dims[Rblock] == N);
+
+        const int memsize = M * N;
+        EL_TYPE * mem = safe_malloc(memsize, *mem);
+        QR_copy_fromto_mem(dat, mem, Rblock, M, N, TO_MEMORY);
+        EL_TYPE * isunit = safe_malloc(N *N, *isunit);
+        cblas_dsyrk(CblasColMajor, CblasUpper, CblasTrans, N, M, 
+                    1, mem, M, 0, isunit, N);
+        // Only upper triangle of unit should be stored in isunit.
+        int flag = 1;
+        for (int i = 0; i < N; ++i) {
+                if (fabs(isunit[i + N * i] - 1) > tolerance) {
+                        flag = 0;
+                        fprintf(stderr, "Element (%d,%d) is %e.\n", 
+                                i, i, isunit[i + N * i]);
+                        break;
+                }
+                for (int j = 0; j < i; ++j) {
+                        if (fabs(isunit[j + N * i]) > tolerance) {
+                                flag = 0;
+                                fprintf(stderr, "Element (%d,%d) is %e.\n", 
+                                        j, i, isunit[i + N * i]);
+                                break;
+                        }
+                }
+                if (!flag) { break; }
+        }
+
+        safe_free(mem);
+        safe_free(isunit);
+        return flag;
+}
+
+int is_orthogonal(struct siteTensor * Q, const int bond)
+{
+        assert(Q->nrsites == 1 && "Orthogonalitycheck only for one-site tensors");
+        assert(bond >= 0 && bond < 3 && "Bond for orthocheck should be 0,1 or 2");
+
+        struct qrdata dat = init_qrdata(Q, NULL, NULL, bond);
+
+        int orthoflag = 1;
+#pragma omp parallel for schedule(dynamic) default(none) shared(orthoflag, dat)
+        for (int block = 0; block < dat.nrRblocks; ++block) {
+                if (orthoflag && !orthoblock(&dat, block)) { orthoflag = 0; }
+        }
+
+        destroy_qrdata(&dat);
+        return orthoflag;
+}
+
+// Destructive on the R matrix
+static struct Sval R_svd(struct Rmatrix * R)
+{
+        struct Sval S = {
+                .bond = R->bond,
+                .nrblocks = R->nrblocks,
+                .dimS = safe_malloc(R->nrblocks, *S.dimS),
+                .sing = safe_malloc(R->nrblocks, *S.sing),
+        };
+
+
+        for (int ss = 0; ss < S.nrblocks; ++ss) {
+                const int M = R->dims[ss][0];
+                const int N = R->dims[ss][1];
+                S.dimS[ss][0] = M > N ?  N : M;
+                S.dimS[ss][1] = S.dimS[ss][0];
+                S.sing[ss] = safe_malloc(S.dimS[ss][0], *S.sing[ss]);
+                int info = LAPACKE_dgesdd(LAPACK_COL_MAJOR, 'N', M, N, 
+                                          R->Rels[ss], M, S.sing[ss], NULL, M,
+                                          NULL, S.dimS[ss][0]);
+                if (info) { fprintf(stderr, "dgesdd exited with %d.\n", info); }
+        }
+
+        return S;
+}
+
+/*****************************************************************************/
+/******************** Singular Value Decomposition ***************************/
+/*****************************************************************************/
+
+// Structure with global info for svd's
+struct svddata {
+        // The id in the sites-array of the site to split off.
+        int id_siteV;
+        // The id of the bond that will be cut.
+        // i.e. legs[id_siteV][id_bond] is the bond that will be cut.
+        int id_bond;
+        // The id of the site to which it is connected.
+        int id_csite;
+        // The id of the bond to which it is connected.
+        int id_cbond;
+
+        // The leg-indices of A for each of its sites.
+        int legs[STEPSPECS_MSITES][3];
+        // The symsecs corresponding to legs.
+        struct symsecs symarr[STEPSPECS_MSITES][3];
+
+        // Pointer to the tensor to decompose.
+        const struct siteTensor * A;
+        // U-tensor from SVD.
+        struct siteTensor * U;
+        // Singular values from SVD.
+        struct Sval * S;
+        // V-tensor from SVD.
+        struct siteTensor * V;
+
+        // number of symmetry sectors in the bond.
+        int nrSss;
+        // Information for each symmetry sector in the cutted bond.
+        struct svd_bond_info * ss_info;
+};
+
+struct svd_bond_info {
+        /* Permutation array which groups the blocks in A with the same 
+         * symmetry sector for the cutted bond. */
+        int * idpermA;
+        // Number of elements in idpermA
+        int idpermAsize;
+        
+        /* Permutation array which groups the blocks in U with the same 
+         * symmetry sector for the cutted bond. */
+        int * idpermU;
+        // Number of elements in idpermU
+        int Msecs;
+        /* Each block of idpermU is dimension m * dat->S->dimS[ssid][0].
+         * The sum of all m's is M needed in svdblocks.
+         * This array is given by :
+         *
+         * > [0, m[0], m[0] + m[1], m[0] + m[1] + m[2],...] */
+        int * Mstart;
+        // Allocated memory for U
+        EL_TYPE * memU;
+
+        /* Permutation array which groups the blocks in VT with the same 
+         * symmetry sector for the cutted bond. */
+        int * idpermV;
+        // Number of elements in idpermV
+        int Nsecs;
+        /* Each block of idpermV is dimension dat->S->dimS[ssid][0] * n
+         * The sum of all n's is N needed in svdblocks.
+         * This array is given by :
+         *
+         * > [0, n[0], n[0] + n[1], n[0] + n[1] + n[2],...] */
+        int * Nstart;
+        // Allocated memory for VT
+        EL_TYPE * memVT;
+};
+
+static void destroy_svd_bond_info(struct svd_bond_info * info)
+{
+        safe_free(info->idpermA);
+        safe_free(info->idpermU);
+        safe_free(info->idpermV);
+        safe_free(info->Mstart);
+        safe_free(info->Nstart);
+        safe_free(info->memU);
+        safe_free(info->memVT);
+}
+
+static void destroy_svddata(struct svddata * dat)
+{
+        for (int i = 0; i < dat->nrSss; ++i) { 
+                destroy_svd_bond_info(&dat->ss_info[i]);
+
+        }
+        safe_free(dat->ss_info);
+}
+
+static struct siteTensor init_splitted_tens(const struct siteTensor * A, 
+                                            int * toincl, int nrsites)
+{
+        assert(nrsites <= A->nrsites);
+        struct siteTensor result;
+        result.nrsites = nrsites;
+        result.sites = safe_malloc(nrsites, *result.sites);
+        for (int i = 0; i < nrsites; ++i) { 
+                result.sites[i] = A->sites[toincl[i]];
+        }
+
+        // First worst case guess
+        result.qnumbers = safe_malloc(A->nrblocks * result.nrsites, 
+                                      *result.qnumbers);
+        result.nrblocks = A->nrblocks;
+        // Copy all
+        for (int i = 0; i < A->nrblocks; ++i) {
+                QN_TYPE * qn_o = &A->qnumbers[i * A->nrsites];
+                QN_TYPE * qn_n = &result.qnumbers[i * nrsites];
+                for (int j = 0; j < nrsites; ++j) { qn_n[j] = qn_o[toincl[j]]; }
+        }
+        // Sort all
+        const size_t sizeofel = result.nrsites * sizeof *result.qnumbers;
+        inplace_quickSort(result.qnumbers, result.nrblocks,
+                          sort_qn[result.nrsites], sizeofel);
+        // Kick out duplicates
+        rm_duplicates(result.qnumbers, &result.nrblocks, sort_qn[result.nrsites],
+                      result.nrsites * sizeof result.qnumbers);
+        return result;
+}
+
+static int calc_block_size(struct symsecs(*symarr)[3], const QN_TYPE * qnarr, 
+                           int n)
+{
+        int result = 1;
+        for (int i = 0; i < n; ++i) {
+                const int ids[] = {
+                        qnarr[i] % symarr[i][0].nrSecs,
+                        (qnarr[i] / symarr[i][0].nrSecs) % symarr[i][1].nrSecs,
+                        qnarr[i] / symarr[i][0].nrSecs / symarr[i][1].nrSecs
+                };
+                assert(ids[2] < symarr[i][2].nrSecs);
+                result *= symarr[i][0].dims[ids[0]] *
+                        symarr[i][1].dims[ids[1]] *
+                        symarr[i][2].dims[ids[2]];
+        }
+        return result;
+}
+
+static void make_r_count_svdinfos(struct svddata * dat, int make)
+{
+        QN_TYPE divide = 1;
+        int mod = dat->symarr[dat->id_siteV][dat->id_bond].nrSecs;
+        for (int i = 0; i < dat->id_bond; ++i) {
+                divide *= dat->symarr[dat->id_siteV][i].nrSecs;
+        }
+        for (int i = 0; i < dat->A->nrblocks; ++i) {
+                const QN_TYPE qn = dat->A->qnumbers[i * dat->A->nrsites +
+                        dat->id_siteV];
+                const int ssid = (qn / divide) % mod;
+                struct svd_bond_info * inf = &dat->ss_info[ssid];
+                if (!make) { 
+                        ++inf->idpermAsize;
+                        continue; 
+                }
+                inf->idpermA[inf->idpermAsize] = i;
+                ++inf->idpermAsize;
+        }
+
+        struct symsecs symarrU[STEPSPECS_MSITES][3];
+        int cnt = 0;
+        for (int i = 0; i < dat->A->nrsites; ++i) {
+                if (i == dat->id_siteV) { continue; }
+                symarrU[cnt][0] = dat->symarr[i][0];
+                symarrU[cnt][1] = dat->symarr[i][1];
+                symarrU[cnt][2] = dat->symarr[i][2];
+                ++cnt;
+        }
+        const int id_csite = dat->id_csite - (dat->id_csite > dat->id_siteV);
+        divide = 1;
+        for (int i = 0; i < dat->id_cbond; ++i) {
+                divide *= dat->symarr[dat->id_csite][i].nrSecs;
+        }
+        mod = dat->symarr[dat->id_csite][dat->id_cbond].nrSecs;
+        for (int i = 0; i < dat->U->nrblocks; ++i) {
+                const QN_TYPE * qnarr = &dat->U->qnumbers[i * dat->U->nrsites];
+                const int ssid = (qnarr[id_csite] / divide) % mod;
+                struct svd_bond_info * inf = &dat->ss_info[ssid];
+                if (!make) {
+                        ++inf->Msecs;
+                        continue;
+                }
+                inf->idpermU[inf->Msecs] = i;
+                inf->Mstart[inf->Msecs + 1] = calc_block_size(symarrU, qnarr, 
+                                                          dat->U->nrsites);
+                ++inf->Msecs;
+        }
+
+        divide = 1;
+        for (int i = 0; i < dat->id_bond; ++i) {
+                divide *= dat->symarr[dat->id_siteV][i].nrSecs;
+        }
+        mod = dat->symarr[dat->id_siteV][dat->id_bond].nrSecs;
+        for (int i = 0; i < dat->V->nrblocks; ++i) {
+                const QN_TYPE qn = dat->V->qnumbers[i];
+                const int ssid = (qn / divide) % mod;
+                struct svd_bond_info * inf = &dat->ss_info[ssid];
+                if (!make) {
+                        ++inf->Nsecs;
+                        continue;
+                }
+                inf->idpermV[inf->Nsecs] = i;
+                inf->Nstart[inf->Nsecs + 1] = 
+                        calc_block_size(&dat->symarr[dat->id_siteV], &qn, 1);
+                ++inf->Nsecs;
+        }
+}
+
+static void make_svdinfos(struct svddata * dat)
+{
+        dat->nrSss = dat->symarr[dat->id_csite][dat->id_cbond].nrSecs;
+        dat->ss_info = safe_malloc(dat->nrSss, *dat->ss_info);
+        dat->S->nrblocks = dat->nrSss;
+        dat->S->dimS = safe_calloc(dat->S->nrblocks, *dat->S->dimS);
+        dat->S->sing = safe_calloc(dat->S->nrblocks, *dat->S->sing);
+        for (int ss = 0; ss < dat->nrSss; ++ss) {
+                struct svd_bond_info * inf = &dat->ss_info[ss];
+                inf->idpermAsize = 0;
+                inf->Msecs = 0;
+                inf->Nsecs = 0;
+        }
+        make_r_count_svdinfos(dat, 0);
+        for (int ss = 0; ss < dat->nrSss; ++ss) {
+                struct svd_bond_info * inf = &dat->ss_info[ss];
+                inf->idpermA = safe_malloc(inf->idpermAsize, *inf->idpermA);
+                inf->idpermU = safe_malloc(inf->Msecs, *inf->idpermU);
+                inf->Mstart = safe_calloc(inf->Msecs + 1, *inf->Mstart);
+                inf->idpermV = safe_malloc(inf->Nsecs, *inf->idpermV);
+                inf->Nstart = safe_calloc(inf->Nsecs + 1, *inf->Nstart);
+                inf->idpermAsize = 0;
+                inf->Msecs = 0;
+                inf->Nsecs = 0;
+        }
+        make_r_count_svdinfos(dat, 1);
+        for (int ss = 0; ss < dat->nrSss; ++ss) {
+                struct svd_bond_info * inf = &dat->ss_info[ss];
+                for (int j = 0; j < inf->Msecs; ++j) {
+                        inf->Mstart[j + 1] += inf->Mstart[j];
+                }
+                for (int j = 0; j < inf->Nsecs; ++j) {
+                        inf->Nstart[j + 1] += inf->Nstart[j];
+                }
+                const int M = inf->Mstart[inf->Msecs];
+                const int N = inf->Nstart[inf->Nsecs];
+                const int dimS = M < N ? M : N;
+                dat->S->dimS[ss][0] = dimS;
+                dat->S->dimS[ss][1] = 0;
+                dat->S->sing[ss] = safe_malloc(dimS, *dat->S->sing[ss]);
+                inf->memU = safe_malloc(dimS * M, *inf->memU);
+                inf->memVT = safe_malloc(dimS * N, *inf->memVT);
+        }
+}
+
+static struct svddata init_svddata(const struct siteTensor * A, int site, 
+                                   struct siteTensor * U, struct Sval * S, 
+                                   struct siteTensor * V)
+{
+        struct svddata result;
+        result.A = A;
+        result.U = U;
+        result.V = V;
+        result.S = S;
+        int to_incl[STEPSPECS_MSITES];
+        int nrincl = 0;
+        for (int i = 0; i < A->nrsites; ++i) {
+                get_bonds_of_site(A->sites[i], result.legs[i]);
+                get_symsecs_arr(3, result.symarr[i], result.legs[i]);
+                if (A->sites[i] == site) { 
+                        result.id_siteV = i;
+                } else {
+                        to_incl[nrincl] = i;
+                        ++nrincl;
+                }
+        }
+        *result.U = init_splitted_tens(A, to_incl, nrincl);
+        *result.V = init_splitted_tens(A, &result.id_siteV, 1);
+
+        result.id_bond = -1;
+        for (int i = 0; i < A->nrsites; ++i) {
+                if (i == result.id_siteV) { continue; }
+                for (int j = 0; j < 3; ++j) {
+                        for (int k = 0; k < 3; ++k) {
+                                if (result.legs[result.id_siteV][k] == 
+                                    result.legs[i][j]) { 
+                                        // Not previously found a common bond
+                                        assert(result.id_bond == -1);
+                                        result.id_csite = i;
+                                        result.id_cbond = j;
+                                        result.id_bond = k;
+                                }
+                        }
+                }
+        }
+        result.S->bond = result.legs[result.id_siteV][result.id_bond];
+        make_svdinfos(&result);
+        return result;
+}
+
+// Finds the given qn in the blocks specified by permstart → permstop.
+// In permstart → permstop indices of blocks are given.
+// Eventually the index i is returned for the block where:
+//      qnarr[permstart[i]] = qn
+static int find_qn_in_idperm(const QN_TYPE * qn, const int * perm, int n, 
+                             const QN_TYPE * qnarr, int nr_sites)
+{
+        for (int id = 0; id < n; ++id) {
+                const int block = perm[id];
+                int i;
+                const QN_TYPE * currqn = &qnarr[nr_sites * block];
+                for (i = 0; i < nr_sites; ++i) {
+                        if (currqn[i] != qn[i]) { break; }
+                }
+                if (i == nr_sites) { return id; }
+        }
+        return -1;
+}
+
+static void get_dims(int * dims, int block, const struct siteTensor * T, 
+                     int id_s, int id_b, int * site_map, 
+                     struct symsecs (*symarr)[3])
+{
+        assert(id_s >= 0 && id_s < T->nrsites);
+        dims[0] = 1; dims[1] = 1; dims[2] = 1;
+
+        QN_TYPE * qn = &T->qnumbers[T->nrsites * block];
+        int cnt = 0;
+        for (int i = 0; i < T->nrsites; ++i) {
+                const int smap = site_map == NULL ? i : site_map[i];
+                assert(smap >= 0);
+                const int ids[3] = {
+                        qn[i] % symarr[smap][0].nrSecs,
+                        (qn[i] / symarr[smap][0].nrSecs) % 
+                                symarr[smap][1].nrSecs,
+                        (qn[i] / symarr[smap][0].nrSecs) /
+                                symarr[smap][1].nrSecs
+                };
+
+                if (id_s != i) {
+                        dims[cnt] *= symarr[smap][0].dims[ids[0]] *
+                                symarr[smap][1].dims[ids[1]] * 
+                                symarr[smap][2].dims[ids[2]];
+                } else if (id_b != -1) {
+                        for (int j = 0; j < 3; ++j) {
+                                cnt += (j == id_b);
+                                dims[cnt] *= symarr[smap][j].dims[ids[j]];
+                                cnt += (j == id_b);
+                        }
+                } else {
+                        ++cnt;
+                        dims[cnt] *= symarr[smap][0].dims[ids[0]] *
+                                symarr[smap][1].dims[ids[1]] * 
+                                symarr[smap][2].dims[ids[2]];
+                        ++cnt;
+                }
+        }
+}
+
+// Copies and permutes a block from A to the working memory
+static void SVD_copy_to_mem(struct svddata * dat, const int ssid, 
+                            EL_TYPE * memA)
+{
+        const struct svd_bond_info inf = dat->ss_info[ssid];
+
+        for (const int * block = inf.idpermA; 
+             block < &inf.idpermA[inf.idpermAsize]; ++block) {
+                EL_TYPE * telA = get_tel_block(&dat->A->blocks, *block);
+
+                QN_TYPE * currqn = &dat->A->qnumbers[dat->A->nrsites * *block];
+                QN_TYPE qnU[STEPSPECS_MSITES];
+                QN_TYPE qnV;
+                int cnt = 0;
+                for (int i = 0; i < dat->A->nrsites; ++i) {
+                        if (i != dat->id_siteV) {
+                                qnU[cnt++] = currqn[i];
+                        } else {
+                                qnV = currqn[i];
+                        }
+                }
+                assert(cnt == dat->A->nrsites - 1);
+
+                const int idU = find_qn_in_idperm(qnU, inf.idpermU, inf.Msecs, 
+                                                  dat->U->qnumbers, 
+                                                  dat->U->nrsites);
+                assert(idU >= 0 && idU < inf.Msecs);
+                assert(dat->V->nrsites == 1);
+                const int idV = find_qn_in_idperm(&qnV, inf.idpermV, inf.Nsecs, 
+                                                  dat->V->qnumbers, 
+                                                  dat->V->nrsites);
+                assert(idV >= 0 && idV < inf.Nsecs);
+
+                const int Mpos = inf.Mstart[idU];
+                const int Npos = inf.Nstart[idV];
+                EL_TYPE * mem = &memA[Mpos + inf.Mstart[inf.Msecs] * Npos];
+
+                const int pa[3] = {0, 2, 1};
+                int dims[3] = {1, 1, 1};
+                get_dims(dims, *block, dat->A, dat->id_siteV, -1, 
+                         NULL, dat->symarr);
+                const int ld[2][3] = {
+                        {1, dims[0], dims[0] * dims[1]}, 
+                        {1, dims[0], inf.Mstart[inf.Msecs]}
+                };
+                assert(dims[0] * dims[2] == inf.Mstart[idU+1]-inf.Mstart[idU]);
+                assert(dims[1] == inf.Nstart[idV + 1] - inf.Nstart[idV]);
+                assert(dims[0] * dims[1] * dims[2] == 
+                       get_size_block(&dat->A->blocks, *block));
+
+                permute_3tensor(mem, telA, &pa, &ld, &dims);
+        }
+}
+
+// Copies and permutes blocks from the working memory to U and V
+static int SVD_copy_from_mem(struct svddata * dat, const int ssid)
+{
+        const struct svd_bond_info inf = dat->ss_info[ssid];
+        const int dimS = dat->S->dimS[ssid][1];
+        const int origdimS = dat->S->dimS[ssid][0];
+        if (dimS == 0) { return 0; }
+        assert(dat->V->nrsites == 1);
+
+        for (int idV = 0; idV < inf.Nsecs; ++idV) {
+                const int block = inf.idpermV[idV];
+                EL_TYPE * telV = get_tel_block(&dat->V->blocks, block);
+
+                const EL_TYPE * mem = &inf.memVT[inf.Nstart[idV] * origdimS];
+
+                const int pa[3] = {1, 0, 2};
+                int tdims[3];
+                get_dims(tdims, block, dat->V, 0, dat->id_bond, 
+                         &dat->id_siteV, dat->symarr);
+                assert(tdims[1] == dimS);
+                int dims[3] = {dimS, tdims[0], tdims[2]};
+                const int ld[2][3] = {
+                        {1, origdimS, origdimS * dims[1]}, 
+                        {1, dims[1], dims[0] * dims[1]}
+                };
+                assert(dims[1] * dims[2] == inf.Nstart[idV+1]-inf.Nstart[idV]);
+                assert(dims[0] * dims[1] * dims[2] == 
+                       get_size_block(&dat->V->blocks, block));
+
+                permute_3tensor(telV, mem, &pa, &ld, &dims);
+        }
+
+        // Multiplying singular values in U
+        const int M = inf.Mstart[inf.Msecs];
+        for (int s = 0; s < origdimS; ++s) {
+                cblas_dscal(M, dat->S->sing[ssid][s], inf.memU + s * M, 1);
+        }
+
+        for (int idU = 0; idU < inf.Msecs; ++idU) {
+                const int block = inf.idpermU[idU];
+                EL_TYPE * telU = get_tel_block(&dat->U->blocks, block);
+
+                const EL_TYPE * mem = &inf.memU[inf.Mstart[idU]];
+
+                const int id_csite = dat->id_csite - 
+                        (dat->id_siteV < dat->id_csite);
+                int sitemap[STEPSPECS_MSITES];
+                for (int i = 0; i < dat->U->nrsites; ++i) {
+                        sitemap[i] = i + (i >= dat->id_siteV);
+                }
+
+                const int pa[3] = {0, 2, 1};
+                int tdims[3];
+                get_dims(tdims, block, dat->U, id_csite, dat->id_cbond, 
+                         sitemap, dat->symarr);
+
+                assert(tdims[1] == dimS);
+                int dims[3] = {tdims[0], tdims[2], dimS};
+                const int ld[2][3] = {
+                        {1, dims[0], M}, 
+                        {1, dims[0], dims[0] * dims[2]}
+                };
+                assert(dims[0] * dims[1] == inf.Mstart[idU+1]-inf.Mstart[idU]);
+                assert(dims[0] * dims[1] * dims[2] == 
+                       get_size_block(&dat->U->blocks, block));
+
+                permute_3tensor(telU, mem, &pa, &ld, &dims);
+        }
+        return 0;
+}
+
+static int svdblocks(struct svddata * dat, int ssid)
+{
+        const struct svd_bond_info inf = dat->ss_info[ssid];
+        const int M = inf.Mstart[inf.Msecs];
+        const int N = inf.Nstart[inf.Nsecs];
+        assert(dat->S->dimS[ssid][0] == (M < N ? M : N));
+
+        EL_TYPE * memA = safe_calloc(M * N, memA);
+        SVD_copy_to_mem(dat, ssid, memA);
+        int info = LAPACKE_dgesdd(LAPACK_COL_MAJOR, 'S', M, N, memA, M, 
+                                  dat->S->sing[ssid], inf.memU, M, 
+                                  inf.memVT, dat->S->dimS[ssid][0]);
+
+        if (info) { fprintf(stderr, "dgesdd exited with %d.\n", info); }
+        safe_free(memA);
+
+        return info != 0;
+}
+
+static bool good_site_to_split(const struct siteTensor * A, int site)
+{
+        int siteid;
+        // Check if the site belongs to the siteTensor
+        for (siteid = 0; siteid < A->nrsites; ++siteid) {
+                if (A->sites[siteid] == site) { break; }
+        }
+        if (siteid == A->nrsites) {
+                fprintf(stderr, "SVD : site %d does not belong to site tensor with sites [", site);
+                for (int i = 0; i < A->nrsites; ++i) {
+                        fprintf(stderr, "%d%s", A->sites[i], 
+                                i == A->nrsites - 1 ? "]\n": ", ");
+                }
+                return false;
+        }
+
+        int bonds[3];
+        int counter[3] = {0};
+
+        get_bonds_of_site(site, bonds);
+        // Count the number of connecting bonds in the site tensor to the site
+        for (int i = 0; i < A->nrsites; ++i) {
+                if (i == siteid) { continue; }
+
+                int currbonds[3];
+                get_bonds_of_site(A->sites[i], currbonds);
+                for (int j = 0; j < 3; ++j) {
+                        for (int k = 0; k < 3; ++k) {
+                                if (bonds[k] == currbonds[j]) { ++counter[k]; }
+                        }
+                }
+        }
+
+        // Check if the site can be completely disconnected by cutting one bond
+        int totalcons = 0;
+        for (int i = 0; i < 3; ++i) { totalcons += counter[i]; }
+        
+        if (totalcons != 1) {
+                fprintf(stderr, "SVD : site %d can not be disconnected from site tensor with sites [", site);
+                for (int i = 0; i < A->nrsites; ++i) {
+                        fprintf(stderr, "%d%s", A->sites[i], 
+                                i == A->nrsites - 1 ? "] by cutting one bond.\n": ", ");
+                }
+                return false;
+        }
+        return true;
+}
+
+// Calculates the cost function for a given array of singular values.
+static double calculateCostFunction(struct Sval * S, double (*cfunc)(double s), 
+                                    char c)
+{
+        assert(c == 'T' || c == 'A');
+        double result = 0;
+        const int dimid = c == 'T';
+        struct symsecs symm;
+        get_symsecs(&symm, S->bond);
+        assert(S->nrblocks == symm.nrSecs);
+
+        for (int block = 0; block < S->nrblocks; ++block) {
+                const double * s_arr = S->sing[block];
+                const int dim = S->dimS[block][dimid];
+                int * irreps = symm.irreps[block];
+                int multipl = multiplicity(bookie.nrSyms, bookie.sgs, irreps);
+                double multfact = 1 / sqrt(multipl);
+
+                double intermres = 0;
+                for (int i = 0; i < dim; ++i) { 
+                        intermres += cfunc(s_arr[i] * multfact); 
+                }
+                result += multipl * intermres;
+        }
+        return result;
+}
+
+/* For one singular value it calculates its contribution to the Von Neumann
+ * entanglement entropy.
+ *
+ * i.e S = -Σ_i ω_i \ln ω_i where ω_i = s_i², i.e. the eigenvalues of the
+ * density matrix. 
+ *
+ * The Von Neumann Entropy is equal the the Renyi entropy for a = 1. */
+static double VonNeumannEntropy(const double s)
+{
+        double omega = s * s;
+        return -omega * log(omega);
+}
+
+/* For one singular value it calculates its contribution to the total norm of
+ * the wave function.
+ *
+ * i.e N = Σ_i s_i². */
+static double TotalWeight(double s) { return s * s; }
+
+static int truncSatisfied(const struct SvalSelect * sel, struct SelectRes * res)
+{
+        if (sel->truncType == 'N') {
+                return res->norm[0] - res->norm[1] < sel->truncerr;
+        } else if (sel->truncType == 'E') {
+                /* In this case you have to correct for the renorming of the 
+                 * singular values.
+                 *
+                 * The truncation error is given by (with s_i² = ω_i)
+                 * Δ = S_old - S_new = - Σ_i ω_i ln ω_i + Σ_j ω'_j ln ω'_j
+                 * where i sums over all the singular values, 
+                 * and j only over those included in the truncation.
+                 *
+                 * ω'_j = ω_j / Σ_j ω_j = ω_j / N
+                 * i.e. The renormalized singular values squared.
+                 *
+                 * Δ = S_old + Σ_j (ω_j ln ω_j) / N - Σ_j (ω_j ln N) / N 
+                 * Δ = S_old - ln N + 1 / N * Σ_j ω_j ln ω_j */
+                return res->entropy[0] - res->entropy[1] / res->norm[1] - 
+                        log(res->norm[1]) < sel->truncerr;
+        }
+
+        fprintf(stderr, "Invalid option in calculateTrunc. truncType %c not recognized.\n",
+                sel->truncType);
+        return -1;
+}
+
+/*
+ * Selects the singular values that should be kept after truncation.
+ *
+ * param S [in, out] structure with the singular values. Sval.dims[.][1] is
+ * changed through this function.
+ * param sel [in] structure with the selection criteria.
+ * param res [out] structure which stores the discarded weight and loss in 
+ * entanglement entropy.
+ * return 0 for success, 1 for failure.
+ */
+static int selectS(struct Sval * S, const struct SvalSelect * sel, 
+                   struct SelectRes * res)
+{
+        assert(sel->truncType == 'E' || sel->truncType == 'W');
+        
+        res->entropy[0] = calculateCostFunction(S, VonNeumannEntropy, 'A');
+        res->norm[0] = calculateCostFunction(S, TotalWeight, 'A');
+        assert(fabs(res->norm[0] - 1) < 1e-10);
+        
+        int totalsings = 0;
+        for (int i = 0; i < S->nrblocks; ++i) { totalsings += S->dimS[i][0]; }
+        double * tempS = safe_malloc(totalsings, *tempS);
+        int * multipl = safe_malloc(totalsings, *multipl);
+        int * origblock = safe_malloc(totalsings, *origblock);
+
+        struct symsecs symm;
+        get_symsecs(&symm, S->bond);
+        assert(symm.nrSecs == S->nrblocks);
+        int cnt = 0;
+        for (int i = 0; i < S->nrblocks; ++i) {
+                int * irreps = symm.irreps[i];
+                int mult = multiplicity(bookie.nrSyms, bookie.sgs, irreps);
+                S->dimS[i][1] = 0;
+                for (int j = 0; j < S->dimS[i][0]; ++j, ++cnt) {
+                        tempS[cnt] = S->sing[i][j];
+                        multipl[cnt] = mult;
+                        origblock[cnt] = i;
+                }
+        }
+        // Sorting (but low to high)
+        int * idx = quickSort(tempS, totalsings, SORT_DOUBLE);
+
+        const int runupto   = sel->maxD < totalsings ? sel->maxD : totalsings;
+        const int minimalto = sel->minD < totalsings ? sel->minD : totalsings;
+        assert(runupto >= minimalto);
+
+        int ss;
+        res->norm[1] = 0;
+        res->entropy[1] = 0;
+        // Reach minimal dimension
+        for (ss = 0; ss < minimalto; ++ss) {
+                const int idxss = idx[totalsings - ss - 1];
+                const double s = tempS[idxss] / sqrt(multipl[idxss]);
+                res->norm[1] += multipl[idxss] * TotalWeight(s);
+                res->entropy[1] += multipl[idxss] * VonNeumannEntropy(s);
+                ++S->dimS[origblock[idxss]][1];
+        }
+
+        // Continue if truncation error not reached
+        for (; ss < runupto; ++ss) {
+                const int idxss = idx[totalsings - ss - 1];
+                const double s = tempS[idxss] / sqrt(multipl[idxss]);
+                res->norm[1] += multipl[idxss] * TotalWeight(s);
+                res->entropy[1] += multipl[idxss] * VonNeumannEntropy(s);
+                ++S->dimS[origblock[idxss]][1];
+
+                const int ts = truncSatisfied(sel, res);
+                if (ts == 1) {
+                        break;
+                } else if (ts == -1) {
+                        safe_free(tempS);
+                        safe_free(multipl);
+                        safe_free(idx);
+                        return 1;
+                }
+        }
+
+        assert(fabs(res->entropy[1] - calculateCostFunction(S, VonNeumannEntropy, 'T')) < 1e-10);
+        assert(fabs(res->norm[1] - calculateCostFunction(S, TotalWeight, 'T')) < 1e-10);
+        res->entropy[1] = res->entropy[1] / res->norm[1] + log(res->norm[1]);
+
+        safe_free(tempS);
+        safe_free(multipl);
+        safe_free(idx);
+        safe_free(origblock);
+        return 0;
+}
+
+static void init_UV_tensors_and_change_symsec(struct svddata * dat)
+{
+        dat->U->blocks.beginblock = safe_calloc(dat->U->nrblocks + 1,
+                                                *dat->U->blocks.beginblock);
+        dat->V->blocks.beginblock = safe_calloc(dat->V->nrblocks + 1,
+                                                *dat->V->blocks.beginblock);
+
+        int totaldims = 0;
+#pragma omp parallel for schedule(dynamic) default(none) shared(dat) reduction(+:totaldims)
+        for (int ssid = 0; ssid < dat->nrSss; ++ssid) {
+                const struct svd_bond_info info = dat->ss_info[ssid];
+                const int dimS = dat->S->dimS[ssid][1];
+
+                for (int m = 0; m < info.Msecs; ++m) {
+                        const int nb = info.idpermU[m];
+                        assert(dat->U->blocks.beginblock[nb + 1] == 0);
+                        dat->U->blocks.beginblock[nb + 1] = 
+                                (info.Mstart[m + 1] - info.Mstart[m]) * dimS;
+                }
+                for (int n = 0; n < info.Nsecs; ++n) {
+                        const int nb = info.idpermV[n];
+                        assert(dat->V->blocks.beginblock[nb + 1] == 0);
+                        dat->V->blocks.beginblock[nb + 1] = 
+                                (info.Nstart[n + 1] - info.Nstart[n]) * dimS;
+                }
+
+                dat->symarr[dat->id_siteV][dat->id_bond].dims[ssid] = dimS;
+                totaldims += dimS;
+        }
+        dat->symarr[dat->id_siteV][dat->id_bond].totaldims = totaldims;
+
+        for (int i = 0; i < dat->U->nrblocks; ++i) {
+                dat->U->blocks.beginblock[i+1] += dat->U->blocks.beginblock[i];
+        }
+        for (int i = 0; i < dat->V->nrblocks; ++i) {
+                dat->V->blocks.beginblock[i+1] += dat->V->blocks.beginblock[i];
+        }
+
+        dat->U->blocks.tel = safe_calloc(siteTensor_get_size(dat->U),
+                                         *dat->U->blocks.tel);
+        dat->V->blocks.tel = safe_calloc(siteTensor_get_size(dat->V),
+                                         *dat->V->blocks.tel);
+}
+
+static void reform_tensor(struct siteTensor * tens, const int * nd, 
+                          const int * od, const int * nid, int site, int bond)
+{
+        int cnt = 0;
+        for (int i = 0; i < tens->nrblocks; ++i) {
+                if (get_size_block(&tens->blocks, i) == 0) { continue; }
+                QN_TYPE * qn_arr = &tens->qnumbers[i * tens->nrsites];
+                const QN_TYPE qn = qn_arr[site];
+                int ind[3] =  {
+                        qn % od[0],
+                        (qn / od[0]) % od[1],
+                        (qn / od[0]) / od[1]
+                };
+                assert(ind[2] < od[2]);
+                ind[bond] = nid[ind[bond]];
+                assert(ind[bond] >= 0);
+
+                QN_TYPE * newqn_arr = &tens->qnumbers[cnt * tens->nrsites];
+                for (int j = 0; j < tens->nrsites; ++j) {
+                        newqn_arr[j] = qn_arr[j];
+                }
+                newqn_arr[site] = ind[0] + ind[1] * nd[0] + ind[2] * nd[0] *nd[1];
+
+                tens->blocks.beginblock[cnt + 1] = tens->blocks.beginblock[i + 1];
+                ++cnt;
+        }
+        tens->nrblocks = cnt;
+}
+
+// Kicks out empty symsecs out of the new symmetry sector and reforms U, V
+// appropriately
+static void adapt_UV_tensors_and_kick_empties(struct svddata * dat)
+{
+        const int olddimU[3] = {
+                dat->symarr[dat->id_csite][0].nrSecs,
+                dat->symarr[dat->id_csite][1].nrSecs,
+                dat->symarr[dat->id_csite][2].nrSecs
+        };
+        const int olddimV[3] = {
+                dat->symarr[dat->id_siteV][0].nrSecs,
+                dat->symarr[dat->id_siteV][1].nrSecs,
+                dat->symarr[dat->id_siteV][2].nrSecs
+        };
+        int * newid = safe_malloc(olddimU[dat->id_cbond], *newid);
+        int cnt = 0;
+        for (int i = 0; i < olddimV[dat->id_bond]; ++i) {
+                if (dat->symarr[dat->id_siteV][dat->id_bond].dims[i] == 0) {
+                        newid[i] = -1;
+                } else {
+                        newid[i] = cnt++;
+                }
+        }
+        int newdimU[3] = {olddimU[0], olddimU[1], olddimU[2]};
+        newdimU[dat->id_cbond] = cnt;
+        int newdimV[3] = {olddimV[0], olddimV[1], olddimV[2]};
+        newdimV[dat->id_bond] = cnt;
+
+        const int csite = dat->id_csite - (dat->id_csite > dat->id_siteV);
+        reform_tensor(dat->U, newdimU, olddimU, newid, csite, dat->id_cbond);
+        reform_tensor(dat->V, newdimV, olddimV, newid, 0, dat->id_bond);
+        safe_free(newid);
+
+        
+        int bonds[3];
+        get_bonds_of_site(dat->V->sites[0], bonds);
+        kick_empty_symsecs(&bookie.v_symsecs[bonds[dat->id_bond]], 'n');
+        assert(cnt == bookie.v_symsecs[bonds[dat->id_bond]].nrSecs);
+}
+
+struct SelectRes split_of_site(struct siteTensor * A, int site, 
+                               const struct SvalSelect * sel, 
+                               struct siteTensor * U, 
+                               struct Sval * S, struct siteTensor * V)
+{
+        struct SelectRes res = { .erflag = 1 };
+        if (!good_site_to_split(A, site)) { return res; }
+        struct svddata dat = init_svddata(A, site, U, S, V);
+
+        int erflag = 0;
+#pragma omp parallel for schedule(dynamic) default(none) shared(erflag, dat)
+        for (int ssid = 0; ssid < dat.nrSss; ++ssid) {
+                if (!erflag && svdblocks(&dat, ssid)) { erflag = 1; }
+        }
+
+        if (!erflag && selectS(S, sel, &res)) { erflag = 1; }
+
+        init_UV_tensors_and_change_symsec(&dat);
+#pragma omp parallel for schedule(dynamic) default(none) shared(erflag, dat)
+        for (int ssid = 0; ssid < dat.nrSss; ++ssid) {
+                if (!erflag && SVD_copy_from_mem(&dat, ssid)) { erflag = 1; }
+        }
+        adapt_UV_tensors_and_kick_empties(&dat);
+        destroy_siteTensor(A);
+
+        if (erflag) {
+                fprintf(stderr, "SVD failed.\n");
+                destroy_Sval(S);
+                destroy_siteTensor(U);
+                destroy_siteTensor(V);
+        }
+        norm_tensor(U);
+        destroy_svddata(&dat);
+#ifdef T3NS_SITETENSOR_DECOMPOSE_DEBUG
+        if (!erflag && !is_orthogonal(V, dat.id_bond)) {
+                fprintf(stderr, "SVD : V is not orthogonal.\n");
+                erflag = 1;
+        }
 #endif
-
-    assert(centercnt * orthocnt == get_size_block(&original->blocks, block));
-
-    currmem = *mem + orthostart + N * centerstart;
-
-    for (i = 0; i < original->nrsites; ++i)
-    {
-      int j;
-      QN_TYPE qnr = qnmbr[i];
-      for (j = 0; j < 3; ++j)
-      {
-        indexes[3 * i + j] = qnr % maxdims[3 * i + j];
-        qnr /= maxdims[3 * i + j];
-      }
-      assert(qnr == 0);
-    }
-
-    P = 1;
-    for (i = 0; i < tensnr * 3; ++i)
-      P *= symarr[i].dims[indexes[i]];
-    Q = 1;
-    for (; i < tensnr * 3 + 3; ++i)
-      Q *= symarr[i].dims[indexes[i]];
-    R = 1;
-    for (; i < original->nrsites * 3; ++i)
-      R *= symarr[i].dims[indexes[i]];
-
-    assert(P * Q * R == centercnt * orthocnt);
-    assert(Q == orthocnt);
-
-    for (i = 0; i < P; ++i)
-    {
-      int j;
-      for (j = 0; j < Q; ++j)
-      {
-        int k;
-        for (k = 0; k < R; ++k)
-          currmem[j + (i + k * P) * N] = blocktel[i + j * P + k * P * Q];
-      }
-    }
-  }
+        res.erflag = erflag;
+        return res;
 }
 
-static void do_svd(double * mem, double **U, double **S, double **V, const int * const centerdims,
-    const int centernrqn, const int * const orthodims, const int orthonrqn, int * const dimS)
+void destroy_Sval(struct Sval * S)
 {
-  int i;
-  int M = 0;
-  int N = 0;
-  int *IWORK;
-  double *WORK = safe_malloc(1, double);
-  int LWORK = -1;
-  int INFO  = 0;
-  char JOBZ = 'S';
-
-  for (i = 0; i < orthonrqn; ++i)  M += orthodims[i];
-  for (i = 0; i < centernrqn; ++i) N += centerdims[i];
-  *dimS = N < M ? N : M;
-
-  *U    = safe_malloc(*dimS * M, double);
-  *V    = safe_malloc(*dimS * N, double);
-  *S    = safe_malloc(*dimS    , double);
-  IWORK = safe_malloc(*dimS * 8, int);
-
-  dgesdd_(&JOBZ, &M, &N, mem, &M, *S, *U, &M, *V, dimS, WORK, &LWORK, IWORK, &INFO);
-  LWORK = WORK[0];
-  safe_free(WORK);
-  WORK = safe_malloc(LWORK, double);
-  dgesdd_(&JOBZ, &M, &N, mem, &M, *S, *U, &M, *V, dimS, WORK, &LWORK, IWORK, &INFO);
-  assert(INFO == 0);
-  safe_free(WORK);
-  safe_free(IWORK);
-}
-
-static double truncateBond(double **S, struct symsecs * const newSymsec, const int mind, 
-    const int maxd, const double maxtrunc)
-{
-  double * tempS = safe_malloc(newSymsec->totaldims, double);
-  double * currS = tempS;
-  double truncerr = 1;
-  double minimalS;
-  double rescale;
-  int ss;
-  int INFO = 1;
-  char ID = 'D';
-  const int runupto   = maxd < newSymsec->totaldims ? maxd : newSymsec->totaldims;
-  const int minimalto = mind < newSymsec->totaldims ? mind : newSymsec->totaldims;
-
-  assert(runupto >= minimalto);
-
-  for (ss = 0; ss < newSymsec->nrSecs; ++ss)
-  {
-    int i;
-    for (i = 0; i < newSymsec->dims[ss]; ++i, ++currS) {
-            *currS = S[ss][i];
-    }
-  }
-  dlasrt_(&ID, &newSymsec->totaldims, tempS, &INFO);
-  assert(INFO == 0);
-
-  for (ss = 0; ss < runupto; ++ss)
-  {
-    truncerr -= tempS[ss] * tempS[ss];
-    if (truncerr < maxtrunc) {
-      ++ss;
-      break;
-    }
-  }
-  /* minimal dimension not reached yet */
-  for (; ss < minimalto; ++ss)
-    truncerr -= tempS[ss] * tempS[ss];
-
-  rescale = 1. / sqrt(1 - truncerr);
-  if (ss < newSymsec->totaldims) {// all singular values larger than this one are included.
-          int ONE =1;
-          int nmbr = newSymsec->totaldims - ss;
-          truncerr = ddot_(&nmbr, tempS + ss, &ONE, tempS + ss, &ONE);
-          double weight = dnrm2_(&ss, tempS, &ONE);
-          rescale = 1 / weight;
-          minimalS = tempS[ss];
+        safe_free(S->dimS);
+        for (int i = 0; i < S->nrblocks; ++i) {
+                safe_free(S->sing[i]);
         }
-  else {// all bonds included.
-          minimalS = -1;
-          truncerr = 0;
-          rescale = 1;
-  }
-  safe_free(tempS);
-
-  newSymsec->totaldims = 0;
-  for (ss = 0; ss < newSymsec->nrSecs; ++ss) {
-    int i;
-    for (i = 0; i < newSymsec->dims[ss]; ++i)
-      if (S[ss][i] > minimalS)
-        S[ss][i] *= rescale;
-      else
-        break;
-    newSymsec->dims[ss] = i;
-    newSymsec->totaldims += i;
-  }
-
-  return truncerr;
+        safe_free(S->sing);
 }
 
-static void make_ortho_and_center(double ***U, double ***S, double ***V, struct symsecs * const 
-    newSymsec, int *** centerdims, QN_TYPE *** centerqn, int ** centernrqn, int *** orthodims, 
-    QN_TYPE *** orthoqn, int ** orthonrqn, struct siteTensor * const center,
-    struct siteTensor * const ortho, const int pos1, const int pos2)
+void print_decompose_info(const struct decompose_info * info,
+                          const char * prefix, int verbose)
 {
-  const int orthobondcut = pos1;
-  const int centerbondcut = pos2 % 3;
-  const int centersitenr = pos2 / 3;
-  int orthobonds[3];
-  int centerbonds[3];
-  int orthomd[3];
-  int centermd[3];
+        const char * p;
+        if (prefix == NULL) { prefix = ""; }
 
-  get_bonds_of_site(ortho->sites[0], orthobonds);
-  get_bonds_of_site(center->sites[centersitenr], centerbonds);
-  get_maxdims_of_bonds(orthomd, orthobonds, 3);
-  get_maxdims_of_bonds(centermd, centerbonds, 3);
-  assert(orthobonds[orthobondcut] == centerbonds[centerbondcut]);
-
-  adapt_symsec_and_others(U, S, V, newSymsec, centerdims, centerqn, centernrqn, orthodims, orthoqn,
-      orthonrqn, orthomd, centermd, orthobondcut, centerbondcut, centersitenr, center->nrsites);
-
-  create_ortho_and_center(newSymsec, ortho, center, *U, *S, *V, *centerdims, *centerqn, 
-      *centernrqn, *orthodims, *orthoqn, *orthonrqn, pos1, pos2);
-}
-
-static void adapt_symsec_and_others(double ***U, double ***S, double ***V, 
-    struct symsecs * const newSymsec, int *** centerdims, QN_TYPE *** centerqn, int ** centernrqn, 
-    int *** orthodims, QN_TYPE *** orthoqn, int ** orthonrqn, const int orthomd[], 
-    const int centermd[], const int orthobondcut, const int centerbondcut, 
-    const int centersitenr, const int cnrsites)
-{
-  int ss;
-  int i;
-  int cnt = 0;
-  int neworthodims[3];
-  int newcenterdims[3];
-  assert(orthomd[orthobondcut] == newSymsec->nrSecs);
-
-  newSymsec->nrSecs = 0;
-  for (ss = 0; ss < orthomd[orthobondcut]; ++ss) 
-    newSymsec->nrSecs += (newSymsec->dims[ss] != 0);
-
-  for (i = 0; i < 3; ++i) neworthodims[i]  = orthomd[i];
-  for (i = 0; i < 3; ++i) newcenterdims[i] = centermd[i];
-  neworthodims[orthobondcut]   = newSymsec->nrSecs;
-  newcenterdims[centerbondcut] = newSymsec->nrSecs;
-
-  for (ss = 0; ss < orthomd[orthobondcut]; ++ss)
-  {
-    if (newSymsec->dims[ss] == 0)
-    {
-      safe_free((*U)[ss]);
-      safe_free((*S)[ss]);
-      safe_free((*V)[ss]);
-      safe_free((*orthodims)[ss]);
-      safe_free((*orthoqn)[ss]);
-      safe_free((*centerdims)[ss]);
-      safe_free((*centerqn)[ss]);
-    }
-    else
-    {
-      (*U)[cnt]          = (*U)[ss];
-      (*S)[cnt]          = (*S)[ss];
-      (*V)[cnt]          = (*V)[ss];
-      (*orthodims)[cnt]  = (*orthodims)[ss];
-      (*orthoqn)[cnt]    = (*orthoqn)[ss];
-      (*orthonrqn)[cnt]  = (*orthonrqn)[ss];
-      (*centerdims)[cnt] = (*centerdims)[ss];
-      (*centerqn)[cnt]   = (*centerqn)[ss];
-      (*centernrqn)[cnt] = (*centernrqn)[ss];
-
-      /* adapt orthoqn */
-      for (i = 0; i < (*orthonrqn)[cnt]; ++i)
-      {
-        int indices[3];
-        QN_TYPE qnumber = (*orthoqn)[cnt][i];
-        int j;
-        for (j = 0; j < 3; ++j)
-        {
-          indices [j] = qnumber % orthomd[j];
-          qnumber /= orthomd[j];
+        if (info->erflag) {
+                fprintf(stderr, "The decomposition exited with error %d.\n",
+                        info->erflag);
+                return;
         }
-        assert(qnumber == 0);
-        assert(indices[orthobondcut] == ss);
-        indices[orthobondcut] = cnt;
 
-        (*orthoqn)[cnt][i] = indices[0] + indices[1] * neworthodims[0] + 
-          indices[2] * neworthodims[0] * neworthodims[1];
-      }
-      
-      /* adapt centerqn */
-      for (i = 0; i < (*centernrqn)[cnt]; ++i)
-      {
-        int indices[3];
-        QN_TYPE qnumber = (*centerqn)[cnt][i * cnrsites + centersitenr];
-        int j;
-        for (j = 0; j < 3; ++j)
-        {
-          indices [j] = qnumber % centermd[j];
-          qnumber /= centermd[j];
+        if (info->wasQR) {
+                assert(info->cuts == 1);
+                printf("%sQR decomposition @ bond %d (ls_sigma: %.3e), (s_sigma: %.3e):\n",
+                       prefix, info->cutted_bonds[0], info->ls_sigma[0], 
+                       info->s_sigma[0]);
+        } else {
+                printf("%s%sSVD @ bond%s ", prefix, 
+                       info->cuts == 1 ? "": "HO", info->cuts == 1 ? "" : "s");
+                for (int i = 0; i < info->cuts; ++i) {
+                        printf("%d%s", info->cutted_bonds[i], 
+                               i == info->cuts - 1 ? ":\n" : ", ");
+                }
+                p = prefix;
+                while (*p++) { putchar(' '); }
+                printf(" - Maximal truncation error %.4g", info->cut_Mtrunc);
+                if (verbose && info->cuts > 1) {
+                        printf(" (");
+                        for (int i = 0; i < info->cuts; ++i) {
+                                printf("%.4g%s", info->cut_trunc[i], 
+                                       i == info->cuts - 1 ? ")" : ", ");
+                        }
+                }
+                printf("\n");
         }
-        assert(qnumber == 0);
-        assert(indices[centerbondcut] == ss);
-        indices[centerbondcut] = cnt;
-
-        (*centerqn)[cnt][i * cnrsites + centersitenr] = indices[0] + 
-          indices[1] * newcenterdims[0] + indices[2] * newcenterdims[0]*newcenterdims[1];
-      }
-
-      /*adapt newSymsec */
-      for (i = 0; i < bookie.nrSyms; ++i)
-        newSymsec->irreps[cnt][i] = newSymsec->irreps[ss][i];
-      newSymsec->fcidims[cnt] = newSymsec->fcidims[ss];
-      newSymsec->dims[cnt]    = newSymsec->dims[ss];
-
-      ++cnt;
-    }
-  }
-  assert(cnt == newSymsec->nrSecs);
-
-  /* Do all reallocs */
-  *U = realloc(*U, newSymsec->nrSecs * sizeof(double*));
-  *S = realloc(*S, newSymsec->nrSecs * sizeof(double*));
-  *V = realloc(*V, newSymsec->nrSecs * sizeof(double*));
-
-  *orthodims  = realloc(*orthodims, newSymsec->nrSecs * sizeof(int*));
-  *orthoqn    = realloc(*orthoqn  , newSymsec->nrSecs * sizeof(int*));
-  *orthonrqn  = realloc(*orthonrqn, newSymsec->nrSecs * sizeof(int));
-  *centerdims = realloc(*centerdims, newSymsec->nrSecs * sizeof(int*));
-  *centerqn   = realloc(*centerqn  , newSymsec->nrSecs * cnrsites * sizeof(int*));
-  *centernrqn = realloc(*centernrqn, newSymsec->nrSecs * sizeof(int));
-
-  newSymsec->irreps = realloc(newSymsec->irreps, newSymsec->nrSecs * 
-                              sizeof *newSymsec->irreps);
-  newSymsec->fcidims = realloc(newSymsec->fcidims, newSymsec->nrSecs * sizeof(double));
-  newSymsec->dims    = realloc(newSymsec->dims, newSymsec->nrSecs * sizeof(int));
-}
-
-static void create_ortho_and_center(const struct symsecs * const newSymsec, struct siteTensor * 
-    const ortho, struct siteTensor * const center, double **U, double **S, double **V, 
-    int **centerdims, QN_TYPE **centerqn, int *centernrqn, int **orthodims, QN_TYPE **orthoqn, 
-    int *orthonrqn, const int pos1, const int pos2)
-{
-  int * ortho_perm  = make_and_sort(ortho, orthodims, orthoqn, orthonrqn, newSymsec);
-  int * center_perm = make_and_sort(center, centerdims, centerqn, centernrqn, newSymsec);
-
-  multiplySV(newSymsec, U, S, V, centerdims, orthodims, centernrqn, orthonrqn);
-  make_tensor(ortho, ortho_perm, newSymsec, U, orthodims, orthoqn, orthonrqn, pos1, 'U');
-  make_tensor(center, center_perm, newSymsec, V, centerdims, centerqn, centernrqn, pos2, 'V');
-  safe_free(ortho_perm);
-  safe_free(center_perm);
-}
-
-static void clean_splitOfSite(double **U, double **S, double **V, int **centerdims, 
-    QN_TYPE **centerqn, int *centernrqn, int **orthodims, QN_TYPE **orthoqn, int *orthonrqn, 
-    const int nrss, int * ss_array)
-{
-  int ss;
-  for (ss = 0; ss < nrss; ++ss)
-  {
-    safe_free(U[ss]);
-    safe_free(S[ss]);
-    safe_free(V[ss]);
-    safe_free(centerdims[ss]);
-    safe_free(centerqn[ss]);
-    safe_free(orthodims[ss]);
-    safe_free(orthoqn[ss]);
-  }
-    
-  safe_free(U);
-  safe_free(S);
-  safe_free(V);
-  safe_free(centerdims);
-  safe_free(centerqn);
-  safe_free(centernrqn);
-  safe_free(orthodims);
-  safe_free(orthoqn);
-  safe_free(orthonrqn);
-  safe_free(ss_array);
-}
-
-static int * make_and_sort(struct siteTensor * tens, int **dim, QN_TYPE **qn, int * nrqn, 
-    const struct symsecs * const newSymsec)
-{
-  int ss, i;
-  int * perm;
-  int cnt;
-  QN_TYPE *tempqn;
-  QN_TYPE *p_qn;
-  tens->nrblocks = 0;
-  for (ss = 0; ss < newSymsec->nrSecs; ++ss) 
-    tens->nrblocks += (newSymsec->dims[ss] != 0) * nrqn[ss];
-
-  tens->qnumbers = safe_malloc(tens->nrblocks * tens->nrsites, QN_TYPE);
-  tempqn         = safe_malloc(tens->nrblocks * tens->nrsites, QN_TYPE);
-  tens->blocks.beginblock  = safe_malloc(tens->nrblocks + 1, int);
-  tens->blocks.beginblock[0] = 0;
-  p_qn = tempqn;
-
-  for (ss = 0; ss < newSymsec->nrSecs; ++ss)
-    for (i = 0; i < (newSymsec->dims[ss] != 0) * nrqn[ss] * tens->nrsites; ++i, ++p_qn) 
-      *p_qn = qn[ss][i];
-  perm = quickSort(tempqn, tens->nrblocks, sort_qn[tens->nrsites]);
-  perm = inverse_permutation(perm, tens->nrblocks);
-
-  cnt = 0;
-  for (ss = 0; ss < newSymsec->nrSecs; ++ss)
-  {
-    const int dimss = newSymsec->dims[ss];
-    if (dimss == 0)
-      continue;
-    for (i = 0; i < nrqn[ss]; ++i, ++cnt) 
-    {
-      int j;
-      for (j = 0; j < tens->nrsites; ++j) 
-        tens->qnumbers[perm[cnt] * tens->nrsites + j] = tempqn[cnt * tens->nrsites + j];
-      tens->blocks.beginblock[perm[cnt] + 1] = dim[ss][i] * dimss;
-    }
-  }
-  assert(cnt == tens->nrblocks);
-  for (i = 0; i < tens->nrblocks; ++i)
-    tens->blocks.beginblock[i + 1] += tens->blocks.beginblock[i];
-  tens->blocks.tel = safe_calloc(tens->blocks.beginblock[tens->nrblocks], EL_TYPE);
-
-  safe_free(tempqn);
-  return perm;
-}
-
-static void multiplySV(const struct symsecs * const newSymsec, double **U, double **S, double **V, 
-    int ** centerdim, int ** orthodim, int * centernrqn, int * orthonrqn)
-{
-  int ss;
-  for (ss = 0; ss < newSymsec->nrSecs; ++ss)
-  {
-    const int dimss = newSymsec->dims[ss];
-    int M = 0;
-    int N = 0;
-    int oldS;
-    int qn;
-    int i, j;
-    double *pS = S[ss];
-    double *pV = V[ss];
-
-    for (qn = 0; qn < centernrqn[ss]; ++qn) M += centerdim[ss][qn];
-    for (qn = 0; qn < orthonrqn[ss]; ++qn) N += orthodim[ss][qn];
-    oldS = (M < N) ? M : N;
-
-    for (j = 0; j < M; ++j)
-      for (i = 0; i < dimss; ++i)
-        pV[i + j * dimss] = pV[i + j * oldS] * pS[i];
-
-    S[ss] = realloc(S[ss], dimss * sizeof(double));
-    V[ss] = realloc(V[ss], dimss * M * sizeof(double));
-    U[ss] = realloc(U[ss], dimss * N * sizeof(double));
-  }
-}
-
-static void make_tensor(struct siteTensor * tens, int * perm, const struct symsecs * const 
-    newSymsec, double **els, int **dim, QN_TYPE **qn, int *nrqn, const int gotoindex, const char c)
-{
-  int ss;
-  int cnt = 0;
-  int indices[tens->nrsites * 3];
-  int maxdims[tens->nrsites * 3];
-  int bonds[tens->nrsites * 3];
-  struct symsecs symarr[tens->nrsites * 3];
-  assert(c == 'U' || c == 'V');
-
-  siteTensor_give_qnumberbonds(tens, bonds);
-  get_maxdims_of_bonds(maxdims, bonds, tens->nrsites * 3);
-  get_symsecs_arr(tens->nrsites * 3, symarr, bonds);
-
-  for (ss = 0; ss < newSymsec->nrSecs; ++ss)
-  {
-    int i;
-    const int dimss = newSymsec->dims[ss];
-    double * oldel = els[ss];
-    int N = 0;
-    for (i = 0; i < nrqn[ss]; ++i) N += dim[ss][i];
-
-    if (dimss == 0)
-      continue;
-    for (i = 0; i < nrqn[ss]; ++i, ++cnt) 
-    {
-      int j;
-      int p, q, s;
-      double * const b_el = get_tel_block(&tens->blocks, perm[cnt]);
-      int P = 1;
-      int Q = 1;
-
-      for (j = 0; j < tens->nrsites; ++j) 
-      {
-        int k;
-        QN_TYPE qncurr = qn[ss][i * tens->nrsites + j];
-        assert(tens->qnumbers[perm[cnt] * tens->nrsites + j] == qncurr);
-        for (k = 0; k < 3; ++k)
-        {
-          indices[j * 3 + k] = qncurr % maxdims[j * 3 + k];
-          qncurr  /= maxdims[j * 3 + k];
+        p = prefix;
+        while (*p++) { putchar(' '); }
+        printf(" - Maximal bond dimension %d", info->cut_Mdim);
+        if (verbose && info->cuts > 1) {
+                printf(" (");
+                for (int i = 0; i < info->cuts; ++i) {
+                        printf("%d%s", info->cut_dim[i], 
+                               i == info->cuts - 1 ? ")" : ", ");
+                }
         }
-        assert(qncurr == 0);
-      }
+        printf("\n");
 
-      for (j = 0; j < gotoindex; ++j)
-        P *= symarr[j].dims[indices[j]];
-      assert(indices[gotoindex] == ss);
-      for (j = gotoindex + 1; j < tens->nrsites * 3; ++j)
-        Q *= symarr[j].dims[indices[j]];
+        if (need_multiplicity(bookie.nrSyms, bookie.sgs)) {
+                p = prefix;
+                while (*p++) { putchar(' '); }
+                if (info->cut_Mrdim != -1) {
+                        printf(" - Maximal reduced bond dimension %d",
+                               info->cut_Mrdim);
+                        if (verbose && info->cuts > 1) {
+                                printf(" (");
+                                for (int i = 0; i < info->cuts; ++i) {
+                                        printf("%d%s", info->cut_rdim[i], 
+                                               i == info->cuts - 1 ? ")" : ", ");
+                                }
+                        }
+                        printf("\n");
+                }
+        }
 
-      assert(get_size_block(&tens->blocks, perm[cnt]) == P * Q * dimss && 
-              P * Q == dim[ss][i]);
+        p = prefix;
+        while (*p++) { putchar(' '); }
+        printf(" - Sum of entanglements %.4g", info->cut_totalent);
+        if (verbose) {
+                double maxent = 0;
+                for (int i = 0; i < info->cuts; ++i) {
+                        maxent += log(info->cut_dim[i]);
+                }
+                printf(" <max: %.4g>", maxent);
+        }
+        if (verbose && info->cuts > 1) {
+                printf(" (");
+                for (int i = 0; i < info->cuts; ++i) {
+                        printf("%.4g%s", info->cut_ent[i], 
+                               i == info->cuts - 1 ? ")" : ", ");
+                }
+        }
+        printf("\n");
+}
 
-      /* Now the matrix is ordered as PQS for U and SPQ for V
-       * and should be permuted to PSQ for U and PSQ for V */
-      if (c == 'U')
-      {
-        const int PS = P * dimss;
-        for (q = 0; q < Q; ++q)
-          for (s = 0; s < dimss; ++s)
-            for (p = 0; p < P; ++p)
-              b_el[p + s * P + q * PS] = oldel[p + q * P + s * N];
-        oldel += dim[ss][i];
-      }
-      else
-      {
-        const int PS = P * dimss;
-        for (q = 0; q < Q; ++q)
-          for (s = 0; s < dimss; ++s)
-            for (p = 0; p < P; ++p)
-              b_el[p + s * P + q * PS] = oldel[s + p * dimss + q * dimss * P];
-        oldel += dim[ss][i] * dimss;
-      }
-    }
-  }
-  assert(cnt == tens->nrblocks);
+static void select_ls_sigma(struct Sval * S, struct decompose_info * info,
+                            int cut) 
+{
+        double sigma = S->sing[0][S->dimS[0][0] - 1];
+        info->ls_sigma[cut] = sigma;
+        info->s_sigma[cut] = sigma;
+        for (int ss = 1; ss < S->nrblocks; ++ss) {
+                sigma = S->sing[ss][S->dimS[ss][0] - 1];
+                info->ls_sigma[cut] = fmax(info->ls_sigma[cut], sigma);
+                info->s_sigma[cut] = fmin(info->s_sigma[cut], sigma);
+        }
+}
 
+static void fill_rdim_and_dim(struct decompose_info * info)
+{
+        struct symsecs sym;
+        get_symsecs(&sym, info->cutted_bonds[info->cuts]);
+        info->cut_rdim[0] = sym.totaldims;
+        info->cut_dim[0] = full_dimension(&sym);
+
+        if (info->cuts == 0 || info->cut_Mrdim < info->cut_rdim[info->cuts]) {
+                info->cut_Mrdim = info->cut_rdim[info->cuts];
+        }
+        if (info->cuts == 0 || info->cut_Mdim < info->cut_dim[info->cuts]) {
+                info->cut_Mdim = info->cut_dim[info->cuts];
+        }
+}
+
+struct decompose_info HOSVD(struct siteTensor * A, 
+                            int nCenter, struct siteTensor * T3NS, 
+                            const struct SvalSelect * sel)
+{
+        struct decompose_info info = {
+                .erflag = 1,
+                .wasQR = false,
+                .cuts = 0,
+                .cut_totalent = 0
+        };
+        // First split of all physical sites which are not the nCenter.
+        // Last split the possible only left site that is not the nCenter.
+        while (A->nrsites > 1) {
+                assert(info.cuts < 3);
+                int * site = A->sites;
+                for (; site < &A->sites[A->nrsites]; ++site) {
+                        if (is_psite(*site) && *site != nCenter) { break; }
+                }
+                if (A->nrsites == 2) {
+                        site = A->sites[0] == nCenter ? 
+                                &A->sites[1] : &A->sites[0];
+                }
+
+                struct Sval S;
+                struct siteTensor newA;
+                destroy_siteTensor(&T3NS[*site]);
+                //int sitelist[2] = { A->sites[0], A->sites[1] };
+                struct SelectRes res = split_of_site(A, *site, sel, &newA, 
+                                                     &S, &T3NS[*site]);
+                if (res.erflag) { return info; }
+
+                *A = newA;
+
+                info.cutted_bonds[info.cuts] = S.bond;
+                info.cut_trunc[info.cuts] = sel->truncType == 'E' ? 
+                        res.entropy[0] - res.entropy[1] :
+                        res.norm[0] - res.norm[1];
+                if (info.cut_trunc[info.cuts] < 1e-14) {
+                        info.cut_trunc[info.cuts] = 0;
+                }
+                info.cut_ent[info.cuts] = res.entropy[1];
+                info.cut_totalent += res.entropy[1];
+                select_ls_sigma(&S, &info, info.cuts);
+                fill_rdim_and_dim(&info);
+                if (info.cuts == 0 || info.cut_Mtrunc < info.cut_trunc[info.cuts]) {
+                        info.cut_Mtrunc = info.cut_trunc[info.cuts];
+                }
+                destroy_Sval(&S);
+                info.cuts += 1;
+        }
+        destroy_siteTensor(&T3NS[A->sites[0]]);
+        T3NS[A->sites[0]] = *A;
+        info.erflag = 0;
+        return info;
+}
+
+struct decompose_info qr_step(struct siteTensor * A, int nCenter, 
+                              struct siteTensor * T3NS, bool calc_ent)
+{
+        struct decompose_info info = {
+                .erflag = 1, 
+                .wasQR = true,
+                .cuts = 0,
+                .cutted_bonds = {get_common_bond(A->sites[0], nCenter)}
+        };
+        const int oc_id = siteTensor_give_bondid(A, info.cutted_bonds[0]);
+        if (oc_id == -1) { return info; }
+        const int o_id = siteTensor_give_bondid(&T3NS[nCenter], 
+                                                info.cutted_bonds[0]);
+        if (o_id == -1) { return info; }
+        const int site = A->sites[0];
+
+        // Do QR
+        struct siteTensor Q;
+        struct Rmatrix R;
+        if(qr(A, oc_id, &Q, &R)) { return info; }
+        destroy_siteTensor(A);
+        T3NS[site] = Q;
+
+        // Contract R
+        struct siteTensor B;
+        if(multiplyR(&T3NS[nCenter], o_id, &R, 1, &B)) { return info; }
+        destroy_siteTensor(&T3NS[nCenter]);
+        T3NS[nCenter] = B;
+
+        if (calc_ent) {
+                struct Sval S = R_svd(&R);
+                info.cut_ent[0] = calculateCostFunction(&S, VonNeumannEntropy, 'A');
+                info.cut_totalent = info.cut_ent[0];
+                select_ls_sigma(&S, &info, 0);
+                destroy_Sval(&S);
+        }
+
+        fill_rdim_and_dim(&info);
+        ++info.cuts;
+
+        destroy_Rmatrix(&R);
+        info.erflag = 0;
+        return info;
+}
+
+struct decompose_info decompose_siteTensor(struct siteTensor * A, int nCenter, 
+                                           struct siteTensor * T3NS,
+                                           const struct SvalSelect * sel)
+{
+        if (A->nrsites > 1) {
+                return HOSVD(A, nCenter, T3NS, sel);
+        } else {
+                return qr_step(A, nCenter, T3NS, true);
+        }
 }

@@ -49,8 +49,8 @@ static void initialize_program(struct siteTensor **T3NS,
 
         make_network("${CMAKE_SOURCE_DIR}/tests/networks/10_DMRG.netw");
         readinteraction("${CMAKE_SOURCE_DIR}/tests/fcidumps/N2.STO3G.FCIDUMP");
-        preparebookkeeper(NULL, scheme->regimes[0].minD, 1, DEFAULT_MINSTATES,
-                          NULL);
+        preparebookkeeper(NULL, scheme->regimes[0].svd_sel.minD, 1, 
+                          DEFAULT_MINSTATES, NULL);
         init_calculation(T3NS, rops, '${TEST_INIT_OPTION}');
 }
 
@@ -84,8 +84,8 @@ static void cleanup_before_exit(struct siteTensor **T3NS,
 int main(int argc, char *argv[])
 {
         static struct regime reg[2] = {
-                {1000, 1000, 1e-4, 2, 1e-6, 4, 2, 1e-8},
-                {1000, 1000, 1e-4, 2, 1e-6, 100, 10, 1e-8}
+                {{1000, 1000, 1e-4, 'E'}, 2, 1e-6, 4, 2, 1e-8},
+                {{1000, 1000, 1e-4, 'E'}, 2, 1e-6, 100, 10, 1e-8}
         };
         static struct optScheme scheme = {2, reg};
 

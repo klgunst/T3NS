@@ -297,6 +297,7 @@ static int make1siteRDMinterm(struct siteTensor * ortho, int bond,
         interm->bond_of_operator = bond;
         interm->is_left = bondid != 2;
         interm->P_operator = 0;         // Always non-P_operator.
+        return 1;
 }
 
 // Update siteRDM with a certain site. (for 1 and 2 site RDMs)
@@ -350,7 +351,7 @@ int get_RedDMs(struct siteTensor * T3NS, struct RedDM * rdm,
 
         // Not orthonormal (it is a hack fix)
         if (check_orthonormality(&T3NS[sweep[0]], &T3NS[sweep[1]])) {
-                qr_step(&T3NS[sweep[1]], &T3NS[sweep[0]]);
+                qr_step(&T3NS[sweep[1]], sweep[0], T3NS, false);
         }
 
         for (int i = 0; i < swlength; ++i) {
@@ -375,7 +376,10 @@ int get_RedDMs(struct siteTensor * T3NS, struct RedDM * rdm,
                         exitcode = 1;
                         break;
                 }
-                if (qr_step(orthocenter, ortho)) {
+                struct decompose_info info = 
+                        qr_step(&T3NS[sweep[i]], sweep[(i + 1) % swlength], 
+                                T3NS, false);
+                if (info.erflag) {
                         exitcode = 1;
                         break;
                 }

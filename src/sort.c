@@ -17,6 +17,7 @@
 #define _GNU_SOURCE
 
 #include <stdlib.h>
+#include <string.h>
 
 #include "assert.h"
 #include "sort.h"
@@ -205,16 +206,9 @@ static int (*compareSearch[])(const void * a, const void * b) = {
         comparint5search, compardoublesearch
 };
 
-int linSearch(const void * value, const void * array, int n, 
-              enum sortType st, size_t incr)
+void inplace_quickSort(void * array, int n, enum sortType st, size_t sizeofel)
 {
-        const void * el = array;
-        for (int i = 0; i < n; ++i) {
-                if (compareSearch[st](value, el) == 0) { return i; }
-                // Cast to char pointer for pointer arithmetic
-                el = (const char *) el + incr / sizeof(char);
-        }
-        return -1;
+        qsort(array, n, sizeofel, compareSearch[st]);
 }
 
 #ifdef SORT_DEBUG
@@ -228,6 +222,45 @@ static int check_sorted(const void * array, int n, enum sortType st, size_t incr
         return 1;
 }
 #endif
+
+void rm_duplicates(void * array, int * n, enum sortType st, size_t size)
+{
+#ifdef SORT_DEBUG
+        if (!check_sorted(array, *n, st, size)) {
+                fprintf(stderr, "Array not sotred in %s.\n", __func__);
+        }
+#endif
+        int cnt = 1;
+        char * el = array;
+        const int incr = size / sizeof(char);
+        char * cp_el = el + incr;
+
+        for (int i = 1; i < *n; ++i) {
+                char * pel = el;
+                el += incr;
+                // Previous is neq to current
+                if (compareSearch[st](pel, el)) {
+                        memcpy(cp_el, el, size);
+                        cp_el += incr;
+                        ++cnt;
+                }
+        }
+        *n = cnt;
+
+        assert((cp_el - (char *) array) == cnt * incr);
+}
+
+int linSearch(const void * value, const void * array, int n, 
+              enum sortType st, size_t incr)
+{
+        const void * el = array;
+        for (int i = 0; i < n; ++i) {
+                if (compareSearch[st](value, el) == 0) { return i; }
+                // Cast to char pointer for pointer arithmetic
+                el = (const char *) el + incr / sizeof(char);
+        }
+        return -1;
+}
 
 int binSearch(const void * value, const void * array, int n, 
               enum sortType st, size_t incr)

@@ -121,7 +121,7 @@ EL_TYPE * get_tel_block(const struct sparseblocks * blocks, int id);
 /**
  * @brief Prints the given block.
  *
- * This function does NOT check if id is out of bounds!!
+ * This function does **NOT check** if id is out of bounds.
  *
  * @param [in] blocks The sparseblocks structure.
  * @param [in] id The block index.
@@ -228,6 +228,25 @@ struct contractinfo {
  */
 void do_contract(const struct contractinfo * cinfo, EL_TYPE ** tel, 
                  double alpha, double beta);
+
+/**
+ * @brief General permutation of a dense 3-rank tensor block.
+ *
+ * @param [out] perm Memory for the permuted block (already allocated).
+ * @param [in] orig Memory for the original block.
+ * @param [in] pa The permutation array.<br>
+ * e.g.: `[2,0,1]` means `orig[i,j,k] = perm[k,i,j]`
+ * @param [in] ld Leading dimensions for the first indexes of the permuted and
+ * original block.<br>
+ * Both `ld[0][0]` and `ld[1][0]` should be equal to 1.<br>
+ * Thus: 
+ * * `orig[i,j,k] = orig[i + ld[0][1] * j + ld[0][2] * k]`
+ * * `perm[i,j,k] = perm[i + ld[1][1] * j + ld[1][2] * k]`
+ * @param [in] dims The dimensions of the original block.<br>
+ * `dims[pa]` are thus the the dimensions of the permuted block.
+ */
+void permute_3tensor(EL_TYPE * perm, const EL_TYPE * orig, const int (*pa)[3], 
+                     const int (*ld)[2][3], int (*dims)[3]);
 
 #ifndef NDEBUG
 /**

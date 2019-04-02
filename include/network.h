@@ -65,11 +65,13 @@ struct stepSpecs {
         /** For every site: 1 if common with next optimization step, else 0
          *
          *
-         * **Note:** for <tt>@ref nr_sites_opt = 1</tt> 
-         * (i.e. a one-site optimization), <tt>common_next[0]</tt> is the mutual 
+         * **Note:** for `stepSpecs.nr_sites_opt = 1` 
+         * (i.e. a one-site optimization), `common_next[0]` is the mutual 
          * bond-id instead (i.e. the index of the mutual bond in @ref bonds_opt).
          */
         int common_next[STEPSPECS_MSITES];
+        /// The site that will be the next orthogonality center.
+        int nCenter;
 };
 
 /// The network of the T3NS

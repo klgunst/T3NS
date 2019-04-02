@@ -649,6 +649,29 @@ void print_stepSpecs(const struct stepSpecs * specs)
 }
 #endif
 
+static void set_nCenter(struct stepSpecs * specs)
+{
+        if (specs->nr_sites_opt == 1) {
+                // One site optimization (QR)
+                const int site = specs->sites_opt[0];
+                int * mb = netw.bonds[specs->bonds_opt[specs->common_next[0]]];
+                specs->nCenter = mb[0] == site ? mb[1] : mb[0];
+                assert(specs->nCenter != site);
+        } else {
+                // (HO)SVD
+                // Pick just one of the common sites.
+                //
+                // Either the only common one or if there are more than one
+                // commons we pick one that is NOT a branching.
+                for (int i = 0; i < specs->nr_sites_opt; ++i) {
+                        if (specs->common_next[i]) {
+                                specs->nCenter = specs->sites_opt[i];
+                                if (is_psite(specs->nCenter)) { break; }
+                        }
+                }
+        }
+}
+
 int next_opt_step(int maxsites, struct stepSpecs * specs)
 {
         assert(STEPSPECS_MSITES >= maxsites);
@@ -658,6 +681,7 @@ int next_opt_step(int maxsites, struct stepSpecs * specs)
         get_bonds_involved(specs);
 
         get_common_with_next(maxsites, specs, curr_state);
+        set_nCenter(specs);
         return 1;
 }
 
@@ -768,9 +792,7 @@ int make_simplesweep(int inclborder, int ** sweep, int * swlength)
 int get_outgoing_bond(void)
 {
         for (int i = 0; i < netw.nr_bonds; ++i) {
-                if (netw.bonds[i][1] == -1) {
-                        return i;
-                }
+                if (netw.bonds[i][1] == -1) { return i; }
         }
         return -1;
 }

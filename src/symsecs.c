@@ -93,7 +93,7 @@ void kick_empty_symsecs(struct symsecs *sectors, char o)
         int cnt = 0;
         if (o == 'n') sectors->totaldims = 0;
         for (int i = 0; i < sectors->nrSecs; ++i) {
-                if (sectors->fcidims[i] < 0.5)
+                if (sectors->fcidims[i] < 0.5 || (o == 'n' && !sectors->dims[i]))
                         continue;
 
                 for (int j = 0; j < bookie.nrSyms; ++j) {
@@ -140,7 +140,7 @@ void deep_copy_symsecs(struct symsecs * copy, const struct symsecs * tocopy)
 int full_dimension(const struct symsecs * const sym)
 {
         if (!need_multiplicity(bookie.nrSyms, bookie.sgs))
-                return -1;
+                return sym->totaldims;
 
         int result = 0;
         for (int i = 0; i < sym->nrSecs; ++i) {

@@ -78,10 +78,18 @@ static void fill_regimeoptions(char buffer[], struct optScheme * const scheme,
                 struct regime * const reg = &scheme->regimes[i];
                 int * pnti;
                 double * pntd;
-                void * const towrite[] = {&reg->minD, &reg->maxD, 
-                        &reg->truncerror, &reg->minD, &reg->sitesize, 
-                        &reg->davidson_rtl, &reg->davidson_max_its, 
-                        &reg->max_sweeps, &reg->energy_conv, &reg->noise};
+                void * const towrite[] = {
+                        &reg->svd_sel.minD, 
+                        &reg->svd_sel.maxD, 
+                        &reg->svd_sel.truncerr,
+                        &reg->svd_sel.minD, 
+                        &reg->sitesize,
+                        &reg->davidson_rtl, 
+                        &reg->davidson_max_its,
+                        &reg->max_sweeps,
+                        &reg->energy_conv,
+                        &reg->noise
+                };
                 errno = 0;
                 switch (option) {
                 case MIN_D:
@@ -115,14 +123,16 @@ static void fill_regimeoptions(char buffer[], struct optScheme * const scheme,
                                 __FILE__, __func__, optionnames[option]);
                 }
                 pch = strtok(NULL, STRTOKSEP);
+                reg->svd_sel.truncType = 'E';
                 ++i;
         }
         assert(i == scheme->nrRegimes);
 
         if (option == D) {
                 for (i = 0; i < scheme->nrRegimes; ++i) {
-                        scheme->regimes[i].maxD = scheme->regimes[i].minD;
-                        scheme->regimes[i].truncerror = 0;
+                        scheme->regimes[i].svd_sel.maxD = 
+                                scheme->regimes[i].svd_sel.minD;
+                        scheme->regimes[i].svd_sel.truncerr = 0;
                 }
         }
 }
@@ -206,8 +216,8 @@ void print_optScheme(const struct optScheme * const scheme)
 {
         int useD = 1;
         for (int i = 0; i < scheme->nrRegimes; ++i)
-                if (scheme->regimes[i].minD != scheme->regimes[i].maxD || 
-                    scheme->regimes[i].truncerror != 0) {
+                if (scheme->regimes[i].svd_sel.minD != scheme->regimes[i].svd_sel.maxD || 
+                    scheme->regimes[i].svd_sel.truncerr != 0) {
                         useD = 0;
                         break;
                 }
@@ -216,23 +226,23 @@ void print_optScheme(const struct optScheme * const scheme)
         if (useD) {
                 printf("%10s", optionnames[D]);
                 for (int i = 0; i < scheme->nrRegimes; ++i) {
-                        printf("%11d", scheme->regimes[i].minD);
+                        printf("%11d", scheme->regimes[i].svd_sel.minD);
                 }
                 printf("\n");
         } else {
                 printf("%10s", optionnames[MIN_D]);
                 for (int i = 0; i < scheme->nrRegimes; ++i) {
-                        printf("%11d", scheme->regimes[i].minD);
+                        printf("%11d", scheme->regimes[i].svd_sel.minD);
                 }
                 printf("\n");
                 printf("%10s", optionnames[MAX_D]);
                 for (int i = 0; i < scheme->nrRegimes; ++i) {
-                        printf("%11d", scheme->regimes[i].maxD);
+                        printf("%11d", scheme->regimes[i].svd_sel.maxD);
                 }
                 printf("\n");
                 printf("%10s", optionnames[TRUNCERR]);
                 for (int i = 0; i < scheme->nrRegimes; ++i) {
-                        printf("%11.2e", scheme->regimes[i].truncerror);
+                        printf("%11.2e", scheme->regimes[i].svd_sel.truncerr);
                 }
                 printf("\n");
         }

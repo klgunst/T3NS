@@ -578,15 +578,6 @@ static void destroy_helper(struct nextshelper * help)
 
 static void clean_indexhelper(const int site)
 {
-        int tmpbonds[3];
-        get_bonds_of_site(site, tmpbonds);
-        /* bra(X) ket(X) MPO(X) */
-        for (int i = 0; i < 3; ++i) {
-                int bonds[3];
-                bonds[BRA] = get_braT3NSbond(tmpbonds[i]);
-                bonds[KET] = get_ketT3NSbond(tmpbonds[i]);
-                bonds[MPO] = get_hamiltonianbond(tmpbonds[i]);
-        }
         safe_free(idh.qnumbertens);
         for (int i = 0; i < idh.nrqnumbertens; ++i) {
                 safe_free(idh.sbqnumbertens[i]);
@@ -1111,13 +1102,13 @@ static int get_tels_operators(struct update_data * data, const int * ops,
 static int check_correctness(const struct rOperators * Operator, 
                              const struct siteTensor * tens)
 {
-        int bonds[3];
-        int i;
         if (Operator[0].P_operator || Operator[1].P_operator) { return 0; }
-
         if (tens->nrsites != 1 || is_psite(tens->sites[0])) { return 0; }
 
+        int bonds[3];
         get_bonds_of_site(tens->sites[0], bonds);
+
+        int i;
         for (i = 0; i < 3; ++i) {
                 if (bonds[i] == Operator[0].bond_of_operator) { break; }
         }
@@ -1175,10 +1166,13 @@ static void print_data(struct update_data * data)
         }
 
         printf("operator blocks\n");
-        printf("%d:%p %d:%p %d:%p\n", data->sb_op[0], data->tels[0], 
-               data->sb_op[1], data->tels[1], data->sb_op[2], data->tels[2]);
+        printf("%d:%p %d:%p %d:%p\n", 
+               data->sb_op[0], (void *) data->tels[0], 
+               data->sb_op[1], (void *) data->tels[1], 
+               data->sb_op[2], (void *) data->tels[2]);
 
         printf("sitetensor blocks\n");
-        printf("%p, adjoint: %p\n\n", data->tels[TENS], data->tels[ADJ]);
+        printf("%p, adjoint: %p\n\n", 
+               (void *) data->tels[TENS], (void *) data->tels[ADJ]);
 }
 #endif

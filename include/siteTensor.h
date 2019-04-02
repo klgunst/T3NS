@@ -15,6 +15,9 @@
     along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 #pragma once
+#include <stdbool.h>
+
+#include "network.h"
 #include "sparseblocks.h"
 #include "macros.h"
 #include "bookkeeper.h"
@@ -38,8 +41,8 @@
  * The structure for the sitetensors for the T3NS. 
  *
  * siteTensors can be multiple things:
- * * A physical or branching tensor if <tt>@ref nrsites = 1</tt>.
- * * A multi-site tensor if <tt>@ref nrsites > 1</tt>
+ * * A physical or branching tensor if `siteTensor.nrsites = 1`.
+ * * A multi-site tensor if `siteTensor.nrsites > 1`
  * * reduced density matrices for sites (@ref RedDM.sRDMs).
  *
  * We differ between the order in which the qnumbers are stored, the actual
@@ -58,7 +61,7 @@
  * For more sites, you just append these in the same order as they appear in
  * @ref sites, e.g. for 2 sites:
  *
- * *Order Type* | *siteTensor with <tt>nrsites = 2</tt>*                                          | *Adjoint siteTensor with <tt>nrsites = 2</tt>*
+ * *Order Type* | *siteTensor with `nrsites = 2`*                                                 | *Adjoint siteTensor with `nrsites = 2`*
  * -------------|---------------------------------------------------------------------------------|-----------------------------------------------------------------------------------
  * qnumber      | \f$(α, β, γ),(γ,δ,ε)\f$                                                         | \f$(α', β', γ'),(γ',δ',ε')\f$                            
  * coupling     | \f$(&#124; α〉, &#124; β〉, 〈γ&#124;), (&#124; γ〉, &#124; δ〉, 〈ε&#124;)\f$  | \f$(&#124; ε'〉, 〈δ'&#124;, 〈γ'&#124;), (&#124; γ'〉, 〈β'&#124;, 〈α'&#124;)\f$
@@ -144,6 +147,7 @@ void destroy_siteTensor(struct siteTensor * const tens);
 void deep_copy_siteTensor(struct siteTensor * const copy, const struct siteTensor * const tocopy);
 
 /* ====================================== MISC ================================================= */
+
 /**
  * \brief Prints a siteTensor to stdin.
  *
@@ -244,9 +248,9 @@ void siteTensor_give_externalbonds(const struct siteTensor * const tens, int ext
 int siteTensor_get_size(const struct siteTensor * const tens);
 
 /**
- * @brief Gives the bondid of a ceratain @p bond in the tensor @tens.
+ * @brief Gives the bondid of a certain @p bond in the tensor @tens.
  *
- * This function only works for <tt>tens->nrsites == 1</tt>.
+ * This function only works for `tens->nrsites == 1`.
  *
  * @param tens [in] The siteTensor.
  * @param bond [in] The bond to find.
@@ -277,11 +281,33 @@ void change_sectors_tensor(struct siteTensor * oldtens,
                            struct bookkeeper * prevbookie,
                            struct siteTensor * newtens);
 
-/* ============================ DECOMPOSE =================================== */
+/**
+ * @brief Returns an array with indices for all the blocks in tensor.
+ *
+ * This is only for one-site siteTensors.<br>
+ * Per block it returns 3 indices, corresponding with the indices of the block
+ * for each leg of the siteTensor.
+ *
+ * @param[in] tens The siteTensor of which to get the indices.
+ * @return The indices for each block.
+ */
+int (*qn_to_indices_1s(const struct siteTensor * tens))[3];
 
 /**
- * A structure for the R matrix from QR
+ * @brief Returns an array with indices for all the blocks in tensor.
+ *
+ * This is only for general siteTensors.<br>
+ * Per block it returns `siteTensor.nrsites * 3` indices, corresponding with 
+ * the indices of the block for each leg of of each site of the siteTensor.
+ *
+ * @param[in] tens The siteTensor of which to get the indices.
+ * @return The indices for each block.
  */
+int (*qn_to_indices(const struct siteTensor * tens))[STEPSPECS_MSITES][3];
+
+/* ============================ DECOMPOSE =================================== */
+
+/// A structure for the R matrix from QR
 struct Rmatrix {
         /// The bond where the R matrix lives on.
         int bond;
@@ -305,7 +331,7 @@ void destroy_Rmatrix(struct Rmatrix * R);
 /**
  * @brief Multiplies the matrix @p R to the siteTensor @A. 
  *
- * i.e. </tt> A R = B </tt>
+ * i.e. \f$A R = B\f$
  *
  * @param A [in] Tensor @p A
  * @param bondA [in] bond of @p A to contract over
@@ -335,16 +361,6 @@ int qr(struct siteTensor * A, int bond,
        struct siteTensor * Q, struct Rmatrix * R);
 
 /**
- * @brief Executes one QR decomposition for orthocenter and contracts the 
- * resulting R in ortho, making this the new orthocenter.
- *
- * @param orthocenter [in,out] orthocenter = QR is inputted, Q is outputted.
- * @param ortho [in, out] ortho = A is inputted, new orthocenter AR is outputted.
- * @return 0 on success, 1 on failure.
- */
-int qr_step(struct siteTensor * orthocenter, struct siteTensor * ortho);
-
-/**
  * @brief Destroys an Rmatrix.
  *
  * @param R [in,out] The matrix to destroy.
@@ -352,25 +368,207 @@ int qr_step(struct siteTensor * orthocenter, struct siteTensor * ortho);
 void destroy_Rmatrix(struct Rmatrix * R);
 
 /**
- * @brief Checks if the given tensor is orthogonal with respect to a certain bond.
+ * @brief Checks if the given tensor is orthogonal with respect to a certain 
+ * bond.
  *
- * @param Q [in] The tensor to check
- * @param bond [in] The bond where it has to be orthogonal to
+ * @param [in] Q The tensor to check
+ * @param [in] bond The bond where it has to be orthogonal to.
  * @return 1 if orthogonal, 0 if not.
  */
 int is_orthogonal(struct siteTensor * Q, const int bond);
 
+// From here onwards specific for SVD decomposition.
+
+/// A structure which stores the singular values resulting from SVD.
+struct Sval {
+        /// The bond where the SVD is performed.
+        int bond;
+        /** The number of symmetry sectors through this bond.
+         *
+         * Should be equal to @ref symsecs.nrSecs of the bond. */
+        int nrblocks;
+        /** Dimension of every symmetry sector.
+         *
+         * This is an [@ref nrblocks][2]-array.
+         * The first element is before truncation, the second element after.
+         */
+        int (*dimS)[2];
+        /** The singular values.
+         *
+         * This is an [@ref nrblocks][@ref dimS[.][0]]-array.
+         */
+        double ** sing;
+};
+
 /**
- * \brief Decomposes the multisite object into the different components through SVD.
+ * @brief Destroys the @ref Sval structure.
  *
- * \param [out] siteObject The multi-site siteTensor.
- * \param [in] T3NS Array of the T3NS siteTensors.
- * \param [in] sitelist The sites of which the siteObject exists.
- * \param [in] common_nxt Boolean that states for each site it will be in the next optimization.
- * \param [in] mind The mininal dimension.
- * \param [in] maxd The maximal dimension.
- * \param [in] maxtrunc The maximal truncation error.
+ * @param[in] S The structure to destroy.
  */
-void decomposesiteObject(struct siteTensor * const siteObject, struct siteTensor * const T3NS, 
-    const int sitelist[], const int common_nxt[],  const int mind, const int maxd,
-    const double maxtrunc, double * trunc_err_sweep,int * max_bonddim);
+void destroy_Sval(struct Sval * S);
+
+/// A structure specifying how to truncate the bond after SVD.
+struct SvalSelect {
+        /// The minimal bond dimension.
+        int minD;
+        /// The maximal bond dimension.
+        int maxD;
+        /// The asked truncation error on the cost function.
+        double truncerr;
+        /** Which kind of cost function that should be used for the truncation.
+         *
+         * Possibilities are:
+         * * 'E' for the Von Neumann Entanglement entropy
+         * \f$S = -Σ_i ω_i \ln ω_i\f$  where \f$ω_i = s_i²\f$, i.e. the 
+         * eigenvalues of the density matrix.
+         * * 'W' for the discarded weight i.e \f$N = Σ_i s_i²\f$.
+         */
+        char truncType;
+};
+
+/** A structure which stores several properties of the singular values and the 
+ * wave function linked to it before and after truncation.  */
+struct SelectRes {
+        /// Errorcode for the SVD.
+        int erflag;
+        /// Norm of the wavefunction before and after truncation.
+        double norm[2];
+        /// Von Neumann Entropy before and after truncation 
+        //(taking rescaling into account).
+        double entropy[2];
+};
+
+/**
+ * @brief This function splits of a given site in a multisite object through SVD.
+ *
+ * This function fails if the site that should be split of can not be separated
+ * by only cutting one bond.
+ *
+ * @param [in, out] A The tensor to split, it is destroyed.
+ * @param [in] site The site to split off.
+ * @param [in] sel Defines how to select the truncation that should be
+ * used.
+ * @param [out] U The remainder of the multisite tensor.
+ * @param [out] S The singular values.
+ * @param [out] V The siteTensor that was split off.
+ * @return res Structure with data of the resulting truncation.
+ */
+struct SelectRes split_of_site(struct siteTensor * A, int site, 
+                               const struct SvalSelect * sel, 
+                               struct siteTensor * U, struct Sval * S, 
+                               struct siteTensor * V);
+
+/// Information on the performed decomposition.
+struct decompose_info {
+        /// The error of the decomposition. 0 if successful.
+        int erflag;
+        /// True if a QR decomposition was performed, false for HOSVD.
+        bool wasQR;
+        /// The number of bonds that were cut.
+        int cuts;
+        /// The bonds that were cut.
+        int cutted_bonds[3];
+        /// The truncation error at every cut.
+        double cut_trunc[3];
+        /// The maximal truncation error found in the cuts.
+        double cut_Mtrunc;
+        /// The reduced dimension in every cut.
+        int cut_rdim[3];
+        /// The maximal reduced dimension found in the cuts.
+        int cut_Mrdim;
+        /// The dimension in every cut.
+        int cut_dim[3];
+        /// The maximal dimension found in the cuts.
+        int cut_Mdim;
+        /// The entanglement in each cut.
+        double cut_ent[3];
+        /// The sum of the entanglement in each cut.
+        double cut_totalent;
+        /** The largest of the smallest singular value of the symmetry sectors
+         * in each bond.
+         *
+         * This is especially interesting for QR as if this smallest singular
+         * value has a large discrepancy in with the overall smallest singular
+         * value in the bond, it can indicate a bad distribution of the bond
+         * dimension over the different symmetry sectors.
+         */
+        double ls_sigma[3];
+        /// The smallest singular value in each bond.
+        double s_sigma[3];
+};
+
+/**
+ * Prints the decomposition information, starting every line with a suitable
+ * prefix if provided.
+ *
+ * @param[in] verbose If set to 1, it will print some more information.
+ */
+void print_decompose_info(const struct decompose_info * info,
+                          const char * prefix, int verbose);
+
+/**
+ * @brief Performs a sequential truncated HOSVD (higher order singular value
+ * decomposition).
+ *
+ * The sequential truncated HOSVD is not the optimal lower rank tensor
+ * approximation of the original multisite tensor, it is however a good one.
+ *
+ * With \f$\mathcal{B}^*\f$ being the optimal approximation, the error made by
+ * the sequential truncated HOSVD is bounded by
+ * \f$|\mathcal{A} - \mathcal{B}_t \|_F \le \sqrt{d} \| \mathcal{A} -
+ * \mathcal{B}^* \|_F\f$ with \f$\max(d) = 3\f$ for our case.
+ * See [wikipedia](https://en.wikipedia.org/wiki/Higher-order_singular_value_decomposition#Approximation).
+ *
+ * @param [in, out] A The tensor to decompose. It is destroyed.
+ * @param [in] nCenter The next orthogonality center. This is needed to know
+ * where to absorb the singular values.
+ * @param [in,out] T3NS Array with all the siteTensors of the wavefunction.
+ * The resulting one-site siteTensors of the decomposition are stored in this
+ * array.
+ * @param [in] sel Selection criterion for the truncation for HOSVD.
+ * @return Information on the performed decomposition.
+ */
+struct decompose_info HOSVD(struct siteTensor * A, int nCenter, 
+                            struct siteTensor * T3NS, 
+                            const struct SvalSelect * sel);
+
+/**
+ * @brief Executes one QR decomposition for orthocenter and contracts the 
+ * resulting R in ortho, making this the new orthocenter.
+ *
+ * @param [in] A The tensor to decompose.
+ * @param [in] nCenter The next orthogonality center. This is needed to know
+ * how to QR and where to absorb the singular values.
+ * @param [in,out] T3NS Array with all the siteTensors of the wavefunction.
+ * The resulting one-site siteTensors of the decomposition are stored in this
+ * array.
+ * @param [in] calc_ent If set to true, the entropy through the bond will be
+ * calculated through the R matrix end info stored in the return value.
+ * @return Information on the performed decomposition.
+ */
+struct decompose_info qr_step(struct siteTensor * A, int nCenter, 
+                              struct siteTensor * T3NS, bool calc_ent);
+
+/**
+ * @brief Either a QR decomposition or a truncated HOSVD of tensor @ref A.
+ *
+ * If @ref A is a one-site tensor qr_step() is called,
+ * if @ref A is a multi-site tensor HOSVD() is called.
+ *
+ * The resulting tensors are stored in @ref T3NS on the appropriate place.
+ *
+ * In both cases the entanglement in the applicable bonds is stored in the
+ * returned decompose_info.
+ *
+ * @param [in, out] A The tensor to decompose. It is destroyed.
+ * @param [in] nCenter The next orthogonality center. This is needed to know
+ * how to QR and where to absorb the singular values.
+ * @param [in,out] T3NS Array with all the siteTensors of the wavefunction.
+ * The resulting one-site siteTensors of the decomposition are stored in this
+ * array.
+ * @param [in] sel Selection criterion for the truncation for HOSVD.
+ * @return Information on the performed decomposition.
+ */
+struct decompose_info decompose_siteTensor(struct siteTensor * A, int nCenter,
+                                           struct siteTensor * T3NS, 
+                                           const struct SvalSelect * sel);

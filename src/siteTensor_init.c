@@ -149,8 +149,7 @@ int makesiteTensor(struct siteTensor * tens, struct siteTensor * T3NS,
 
         // For 1 site-optimization.
         if (nr_sites == 1) {
-                deep_copy_siteTensor(tens, &T3NS[sitelist[0]]);
-                assert(tens->sites[0] == sitelist[0]);
+                *tens = T3NS[sitelist[0]];
                 return 0;
         }
 

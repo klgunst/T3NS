@@ -16,56 +16,60 @@
 */
 #pragma once
 
+#include "siteTensor.h"
+
 /**
- * \file optScheme.h
- * \brief Routines for the reading and making of the optimization scheme,
+ * @file optScheme.h
+ * Routines for the reading and making of the optimization scheme,
  * which is stored in the optScheme struct.
  */
 
-/**
- * \brief Struct with every regime for optimization in it.
- */
+/// Struct with every regime for optimization in it.
 struct regime {
-  int minD;                         /**< Minimal bond dimension */
-  int maxD;                         /**< Maximal bond dimension */
-  double truncerror;                /**< The maximal truncation error for SVD */
+        /// Selection criteria for the SVD truncation.
+        struct SvalSelect svd_sel;
 
-  int sitesize;                     /**< The maximal size of the siteobject to 
-                                      *  optimize each step */
-  double davidson_rtl;              /**< The davidson tolerance */
-  int davidson_max_its;             /**< Max iterations for davidson */
+        /// The maximal size of the siteobject to optimize in each step.
+        int sitesize;
+        /// The davidson tolerance.
+        double davidson_rtl;
+        /// Max iterations for davidson
+        int davidson_max_its;
 
-  int max_sweeps;                   /**< Maximum sweeps */
-  double energy_conv;               /**< The energy convergence criterion */
-  double noise;                     /**< Noise to add */
+        /// Maximum number of sweeps.
+        int max_sweeps;
+        /// The energy convergence criterion.
+        double energy_conv;
+        /// Level of noise to add after every optimization step.
+        double noise;
 };
 
-/**
- * \brief Struct with the optimization scheme stored in it.
- */
+/// Struct with the optimization scheme stored in it.
 struct optScheme {
-  int nrRegimes;             /**< The number of different regimes */
-  struct regime * regimes;   /**< The different regimes to run through */
+        /// The number of different regimes.
+        int nrRegimes;
+        /// The different regimes to run through.
+        struct regime * regimes;
 };
 
 /**
- * \brief Reads the optimization scheme from an inputfile.
+ * @brief Reads the optimization scheme from an inputfile.
  *
- * \param [in] inputfile String giving the name of the inputfile.
- * \param [out] scheme The optimization scheme is stored inhere.
+ * @param [in] inputfile String giving the name of the inputfile.
+ * @param [out] scheme The optimization scheme is stored inhere.
  */
 void read_optScheme(const char inputfile[], struct optScheme * const scheme);
 
 /**
- * \brief Destroys an optimization scheme.
+ * @brief Destroys an optimization scheme.
  *
- * \param [in,out] scheme The scheme to destroy.
+ * @param [in,out] scheme The scheme to destroy.
  */
 void destroy_optScheme(struct optScheme * const scheme);
 
 /**
- * \brief Prints the optimization scheme.
+ * @brief Prints the optimization scheme.
  *
- * \param [in] scheme The scheme to print.
+ * @param [in] scheme The scheme to print.
  */
 void print_optScheme(const struct optScheme * const scheme);

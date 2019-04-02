@@ -196,20 +196,14 @@ if __name__ == "__main__":
         printhelp()
 
     netw = network()
-    try:
-        netw.readnetworkfile(argv[1])
-    except:
-        printhelp()
+    netw.readnetworkfile(argv[1])
 
     Dij = netw.calcDistances()
     psites = [site.nr for site in netw.sites if site.kind == kind.P]
     Dij = Dij[psites, :][:, psites]
 
-    try:
-        Kij = getExchange(argv[2])
-        Irreps = getOrbsym(argv[2])
-    except:
-        printhelp()
+    Kij = getExchange(argv[2])
+    Irreps = getOrbsym(argv[2])
 
     init = [netw.sitemap[i] for i in psites]
 

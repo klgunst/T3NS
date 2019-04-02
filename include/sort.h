@@ -75,6 +75,27 @@ extern const enum sortType sort_int[];
 int * quickSort(void * array, int n, enum sortType st);
 
 /**
+ * @brief Sorts the array. Just a wrapper for qsort.
+ *
+ * @param array [in] The array which should be sorted.
+ * @param n [in] Number of elements.
+ * @param st [in] The type of elements in the array.
+ * @param size [in] The size of each element.
+ */
+void inplace_quickSort(void * array, int n, enum sortType st, size_t size);
+
+/**
+ * @brief Removes duplicates out of a sorted array.
+ *
+ * @param array [in,out] The array to unduplicate.
+ * @param n [in,out] The number of elements before and after unduplication in 
+ * the array.
+ * @param st [in] The type of elements in the array.
+ * @param size [in] The size of each element.
+ */
+void rm_duplicates(void * array, int * n, enum sortType st, size_t size);
+
+/**
  * @brief Inverts the permutation array.
  *
  * i.e. \f$\mathrm{perm}^{-1}[i] = j\f$ such that \f$\mathrm{perm}[j] = i\f$.
@@ -120,3 +141,4 @@ int binSearch(const void * value, const void * array, int n,
  * @param n [in] Number of elements in the array.
  */
 void shuffle(int * array, int n);
+

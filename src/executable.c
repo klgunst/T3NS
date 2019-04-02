@@ -310,7 +310,8 @@ static int initialize_program(int argc, char *argv[],
         printf(">> Preparing bookkeeper...\n");
         int changedSS = 0;
         if (preparebookkeeper(arguments.h5file ? &prevbookie : NULL, 
-                              scheme->regimes[0].minD, 1, minocc, &changedSS)) {
+                              scheme->regimes[0].svd_sel.minD, 1, minocc, 
+                              &changedSS)) {
                 return 1;
         }
 

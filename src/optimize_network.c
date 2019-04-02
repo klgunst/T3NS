@@ -29,8 +29,7 @@
 #include "Heff.h"
 #include "wrapper_solvers.h"
 #include "io_to_disk.h"
-#include "RedDM.h"
-
+#include "RedDM.h" 
 #define MAX_NR_INTERNALS 3
 #define NR_TIMERS 12
 #define NR_PARALLEL_TIMERS 2
@@ -124,7 +123,8 @@ static void set_internal_symsecs(void)
 }
 
 static void preprocess_rOperators(const struct rOperators * rops)
-{ // one-site optimization & DMRG
+{ 
+        // one-site optimization & DMRG
         if (o_dat.specs.nr_sites_opt == 1 && is_psite(o_dat.specs.sites_opt[0])) {
                 assert(o_dat.specs.nr_bonds_opt == 2);
 
@@ -172,16 +172,8 @@ static void add_noise(struct siteTensor * tens, double noiseLevel)
         }
 }
 
-struct optimize_info {
-        double energy;
-        double trunc;
-        int maxdim;
-};
-
-static struct optimize_info optimize_siteTensor(struct siteTensor * T3NS, 
-                                                const struct regime * reg, 
-                                                double trunc_err, 
-                                                double * timings)
+static double optimize_siteTensor(struct siteTensor * T3NS, 
+                                  const struct regime * reg, double * timings)
 {
         assert(o_dat.specs.nr_bonds_opt == 2 || o_dat.specs.nr_bonds_opt == 3);
         const int isdmrg = o_dat.specs.nr_bonds_opt == 2;
@@ -189,7 +181,6 @@ static struct optimize_info optimize_siteTensor(struct siteTensor * T3NS,
         const enum timers diag      = isdmrg ? DIAG_DMRG      : DIAG_T3NS;
         const enum timers heff      = isdmrg ? HEFF_DMRG      : HEFF_T3NS;
 
-        struct optimize_info info = {0};
         struct Heffdata mv_dat;
         const int size = siteTensor_get_size(&o_dat.msiteObj);
 
@@ -197,7 +188,7 @@ static struct optimize_info optimize_siteTensor(struct siteTensor * T3NS,
         init_Heffdata(&mv_dat, o_dat.operators, &o_dat.msiteObj, isdmrg);
         timings[prep_heff] += stop_timing(0);
 
-        printf("**\tOptimize site%s", o_dat.specs.nr_sites_opt == 1 ? "" : "s");
+        printf(">> Optimize site%s", o_dat.specs.nr_sites_opt == 1 ? "" : "s");
         for (int i = 0; i < o_dat.specs.nr_sites_opt; ++i) {
                 printf(" %d %s", o_dat.specs.sites_opt[i], 
                        i == o_dat.specs.nr_sites_opt - 1 ? ": " : "&");
@@ -210,41 +201,15 @@ static struct optimize_info optimize_siteTensor(struct siteTensor * T3NS,
         timings[diag] += stop_timing(0);
 
         start_timing(0);
-        sparse_eigensolve(o_dat.msiteObj.blocks.tel, &info.energy, size, 
+        double energy;
+        sparse_eigensolve(o_dat.msiteObj.blocks.tel, &energy, size, 
                           DAVIDSON_MAX_VECS, DAVIDSON_KEEP_DEFLATE, 
                           reg->davidson_rtl, reg->davidson_max_its, 
                           diagonal, matvecT3NS, &mv_dat, SOLVER_STRING);
         timings[heff] += stop_timing(0);
         destroy_Heffdata(&mv_dat);
         safe_free(diagonal);
-
-        start_timing(0);
-        /* same noise as CheMPS2 */
-        add_noise(&o_dat.msiteObj, reg->noise * trunc_err);
-        norm_tensor(&o_dat.msiteObj);
-        if (o_dat.specs.nr_sites_opt == 1) {
-                const int bondcommon = o_dat.specs.bonds_opt[o_dat.specs.common_next[0]];
-                const int fsite = netw.bonds[bondcommon][0];
-                const int ssite = netw.bonds[bondcommon][1];
-                const int csite = o_dat.specs.sites_opt[0];
-                const int orthoc = fsite == csite ? fsite : ssite;
-                const int ortho  = fsite == csite ? ssite : fsite;
-                assert(orthoc != ortho);
-                destroy_siteTensor(&T3NS[orthoc]);
-                T3NS[orthoc] = o_dat.msiteObj;
-                qr_step(&T3NS[orthoc], &T3NS[ortho]);
-                printf("**\t");
-                print_bondinfo(bondcommon);
-        } else {
-                decomposesiteObject(&o_dat.msiteObj, T3NS, o_dat.specs.sites_opt, 
-                                    o_dat.specs.common_next, reg->minD, reg->maxD, 
-                                    reg->truncerror, &info.trunc, &info.maxdim);
-                destroy_siteTensor(&o_dat.msiteObj);
-        }
-        timings[STENS_DECOMP] += stop_timing(0);
-
-        printf("**  \t\tEnergy : %.16lf\n\n", info.energy);
-        return info;
+        return energy;
 }
 
 static int find_in_array(const int size, const int * array, const int id)
@@ -368,17 +333,32 @@ static struct sweep_info execute_sweep(struct siteTensor * T3NS,
                 swinfo.sweeptimings[ROP_APPEND] += stop_timing(0);
                 set_internal_symsecs();
 
-                struct optimize_info info = 
-                        optimize_siteTensor(T3NS, reg, trunc_err, swinfo.sweeptimings);
+                double energy = optimize_siteTensor(T3NS, reg, swinfo.sweeptimings);
+                printf("   * Energy : %.12lf\n", energy);
+
+                start_timing(0);
+
+                /* same noise as CheMPS2 */
+                add_noise(&o_dat.msiteObj, reg->noise * trunc_err);
+                norm_tensor(&o_dat.msiteObj);
+
+                struct decompose_info d_inf = 
+                        decompose_siteTensor(&o_dat.msiteObj, 
+                                             o_dat.specs.nCenter,
+                                             T3NS, &reg->svd_sel);
+
+                if (d_inf.erflag) { exit(EXIT_FAILURE); }
+                swinfo.sweeptimings[STENS_DECOMP] += stop_timing(0);
+                print_decompose_info(&d_inf, "   * ", 1);
 
                 postprocess_rOperators(rops, T3NS, swinfo.sweeptimings);
 
-                if (first || swinfo.sw_energy > info.energy) 
-                        swinfo.sw_energy = info.energy;
-                if (first || swinfo.sw_trunc < info.trunc) 
-                        swinfo.sw_trunc = info.trunc;
-                if (first || swinfo.sw_maxdim < info.maxdim) 
-                        swinfo.sw_maxdim = info.maxdim;
+                if (first || swinfo.sw_energy > energy) 
+                        swinfo.sw_energy = energy;
+                if (first || swinfo.sw_trunc < d_inf.cut_Mtrunc) 
+                        swinfo.sw_trunc = d_inf.cut_Mtrunc;
+                if (first || swinfo.sw_maxdim < d_inf.cut_Mdim) 
+                        swinfo.sw_maxdim = d_inf.cut_Mdim;
                 first = 0;
         }
 
@@ -438,7 +418,7 @@ static double execute_regime(struct siteTensor * T3NS, struct rOperators * rops,
 
 static void init_rops(struct rOperators * const rops, 
                       const struct siteTensor * const tens, const int bond)
-{ 
+{
         const int siteL = netw.bonds[bond][0];
         const int siteR = netw.bonds[bond][1];
         struct rOperators * const curr_rops = &rops[bond];
@@ -540,9 +520,10 @@ static int recanonicalize_T3NS(struct siteTensor * T3NS, int centersite)
                                 if (lcan == rcan) { continue; }
 
                                 const int uncansite = lcan ? rsite : lsite;
-                                if (qr_step(&T3NS[site], &T3NS[uncansite])) {
-                                        return 1;
-                                }
+                                struct decompose_info info =
+                                        qr_step(&T3NS[site], uncansite, T3NS,
+                                                false);
+                                if (info.erflag) { return 1; }
 
                                 canonicalized[site] = 1;
                                 ++nrcanon;
@@ -565,9 +546,10 @@ static int recanonicalize_T3NS(struct siteTensor * T3NS, int centersite)
                                    2 if ncan[1] and ncan[0] are 1 */
                                 const int uncansite = 
                                         nsites[ncan[0] * (1 + ncan[1])];
-                                if (qr_step(&T3NS[site], &T3NS[uncansite])) {
-                                        return 1;
-                                }
+                                struct decompose_info info =
+                                        qr_step(&T3NS[site], uncansite, T3NS,
+                                                false);
+                                if (info.erflag) { return 1; }
 
                                 canonicalized[site] = 1;
                                 ++nrcanon;
@@ -641,7 +623,7 @@ double execute_optScheme(struct siteTensor * const T3NS, struct rOperators * con
         srand(time(NULL));
 
         double energy = 3000;
-        double trunc_err = scheme->regimes[0].truncerror;
+        double trunc_err = scheme->regimes[0].svd_sel.truncerr;
 
         printf("============================================================================\n");
         for (int i = 0; i < scheme->nrRegimes; ++i) {

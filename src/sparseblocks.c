@@ -155,6 +155,46 @@ void do_contract(const struct contractinfo * cinfo, EL_TYPE ** tel,
         }
 }
 
+void permute_3tensor(EL_TYPE * perm, const EL_TYPE * orig, const int (*pa)[3], 
+                     const int (*ld)[2][3], int (*dims)[3])
+{
+        assert((*ld)[0][0] == 1 && (*ld)[1][0] == 1);
+        const int ld_orig[3] = {
+                (*ld)[0][(*pa)[0]],
+                (*ld)[0][(*pa)[1]],
+                (*ld)[0][(*pa)[2]]
+        };
+        const int ld_perm[3] = {
+                (*ld)[1][0],
+                (*ld)[1][1],
+                (*ld)[1][2]
+        };
+        const int dim_perm[3] = {
+                (*dims)[(*pa)[0]],
+                (*dims)[(*pa)[1]],
+                (*dims)[(*pa)[2]]
+        };
+
+        assert((*ld)[0][1] >= (*dims)[0]);
+        assert((*ld)[0][2] >= (*dims)[0] * (*dims)[1]);
+        assert(ld_perm[1] >= dim_perm[0]);
+        assert(ld_perm[2] >= dim_perm[0] * dim_perm[1]);
+
+        for (int k = 0; k < dim_perm[2]; ++k) {
+                EL_TYPE * perm_k = perm + ld_perm[2] * k;
+                const EL_TYPE * orig_k = orig + ld_orig[2] * k;
+
+                for (int j = 0; j < dim_perm[1]; ++j) {
+                        EL_TYPE * perm_j = perm_k + ld_perm[1] * j;
+                        const EL_TYPE * orig_j = orig_k + ld_orig[1] * j;
+
+                        for (int i = 0; i < dim_perm[0]; ++i) {
+                                perm_j[i] = orig_j[ld_orig[0] * i];
+                        }
+                }
+        }
+}
+
 #ifndef NDEBUG
 void print_contractinfo(const struct contractinfo * cinfo)
 {

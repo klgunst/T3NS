@@ -302,6 +302,48 @@ void change_sectors_tensor(struct siteTensor * oldtens,
         }
 }
 
+static void get_indices_for_qn(QN_TYPE qn, int * indices, const int * dims)
+{
+        indices[0] = qn % dims[0];
+        qn /= dims[0];
+        indices[1] = qn % dims[1];
+        indices[2] = qn / dims[1];
+        assert(indices[2] < dims[2]);
+}
+
+int (*qn_to_indices_1s(const struct siteTensor * tens))[3]
+{
+        int (*indices)[3] = safe_malloc(tens->nrblocks, *indices);
+        int legs[3], dims[3];
+        get_bonds_of_site(tens->sites[0], legs);
+        get_maxdims_of_bonds(dims, legs, 3);
+
+        for (int block = 0; block < tens->nrblocks; ++block) {
+                get_indices_for_qn(tens->qnumbers[block], indices[block], dims);
+        }
+        return indices;
+}
+
+int (*qn_to_indices(const struct siteTensor * tens))[STEPSPECS_MSITES][3]
+{
+        int (*indices)[STEPSPECS_MSITES][3] = safe_malloc(tens->nrblocks, 
+                                                          *indices);
+
+        int legs[STEPSPECS_MSITES][3], dims[STEPSPECS_MSITES][3];
+        for (int i = 0; i < tens->nrsites; ++i) {
+                get_bonds_of_site(tens->sites[i], legs[i]);
+                get_maxdims_of_bonds(dims[i], legs[i], 3);
+        }
+
+        for (int i = 0; i < tens->nrblocks; ++i) {
+                const QN_TYPE * qn = &tens->qnumbers[i * tens->nrsites];
+                for (int j = 0; j < tens->nrsites; ++j) {
+                        get_indices_for_qn(qn[j], indices[i][j], dims[j]);
+                }
+        }
+        return indices;
+}
+
 /* ========================================================================== */
 /* ===================== DEFINITION STATIC FUNCTIONS ======================== */
 /* ========================================================================== */
