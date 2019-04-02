@@ -123,7 +123,6 @@ static void make_Q(struct qrdata * dat)
         if (dat->Q == NULL) { return; }
 
         dat->Q->nrsites = dat->A->nrsites;
-        dat->Q->sites = safe_malloc(dat->Q->nrsites, *dat->Q->sites);
         for (int i = 0; i < dat->Q->nrsites; ++i) {
                 dat->Q->sites[i] = dat->A->sites[i]; 
         }
@@ -174,7 +173,7 @@ static struct qrdata init_qrdata(struct siteTensor * A, struct siteTensor * Q,
         dat.Q = Q;
         dat.R = R;
         dat.bond = bond;
-        siteTensor_give_indices(dat.A, dat.legs);
+        get_bonds_of_site(dat.A->sites[0], dat.legs);
         get_symsecs_arr(3, dat.symarr, dat.legs);
 
         dat.nrRblocks = dat.symarr[dat.bond].nrSecs;
@@ -366,7 +365,7 @@ static void makeB(const struct siteTensor * const A, const int bondA,
 {
         int legs[3];
         struct symsecs symarr[3];
-        siteTensor_give_indices(A, legs);
+        get_bonds_of_site(A->sites[0], legs);
         get_symsecs_arr(3, symarr, legs);
         QN_TYPE divide = 1;
         for (int i = 0; i < bondA; ++i) { divide *= symarr[i].nrSecs; }
@@ -374,7 +373,6 @@ static void makeB(const struct siteTensor * const A, const int bondA,
 
         assert(A->nrsites == 1);
         B->nrsites = A->nrsites;
-        B->sites = safe_malloc(B->nrsites, *B->sites);
         for (int i = 0; i < B->nrsites; ++i) { B->sites[i] = A->sites[i]; }
         B->nrblocks = A->nrblocks;
         B->qnumbers = safe_malloc(B->nrblocks * B->nrsites, *B->qnumbers);
@@ -420,7 +418,7 @@ int multiplyR(struct siteTensor * A, const int bondA,
         struct symsecs symarr[3];
         int legs[3];
         int dims[3];
-        siteTensor_give_indices(A, legs);
+        get_bonds_of_site(A->sites[0], legs);
         get_symsecs_arr(3, symarr, legs);
         get_maxdims_of_bonds(dims, legs, 3);
 
@@ -658,7 +656,6 @@ static struct siteTensor init_splitted_tens(const struct siteTensor * A,
         assert(nrsites <= A->nrsites);
         struct siteTensor result;
         result.nrsites = nrsites;
-        result.sites = safe_malloc(nrsites, *result.sites);
         for (int i = 0; i < nrsites; ++i) { 
                 result.sites[i] = A->sites[toincl[i]];
         }

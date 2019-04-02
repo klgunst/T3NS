@@ -55,11 +55,6 @@ static QN_TYPE change_old_to_new_site(const QN_TYPE old, const int dimold, const
 
 static int * make_oldtonew(const struct symsecs * const internalss, const int bond);
 
-#ifndef NDEBUG
-static int consistency_check_for_update_physical(const struct rOperators * const rops, 
-    const struct siteTensor * const tens);
-#endif
-
 /* ========================================================================== */
 
 void rOperators_append_phys(struct rOperators * const newrops, const struct rOperators * 
@@ -152,14 +147,9 @@ void update_rOperators_physical(struct rOperators * const rops, const struct sit
   int * oldtonew = make_oldtonew(internalss, rops->bond_of_operator);
   int maxdims[3];
   int indices[3];
-  siteTensor_give_indices(tens, indices);
+  get_bonds_of_site(tens->sites[0], indices);
   get_symsecs_arr(3, symarr, indices);
   get_symsecs(&symarr[3], get_hamiltonianbond(rops->bond_of_operator));
-
-  /* Check if the bonds of the renormalized operators and the bonds of the tensor are 
-   * corresponding, put here an assert that checks all bonds of tens and rops if they have the
-   * right correspondence and all other weird as shit. ten should be a 1 site tensor and so on ...*/
-  assert(consistency_check_for_update_physical(rops, tens));
 
   for (i = 0; i < 3; ++i) maxdims[i] = symarr[i].nrSecs;
 
@@ -726,49 +716,3 @@ static int * make_oldtonew(const struct symsecs * const internalss, const int bo
 
   return result;
 }
-
-#ifndef NDEBUG
-static int consistency_check_for_update_physical(const struct rOperators * const rops, 
-    const struct siteTensor * const tens)
-{
-  /* I will check with this if the siteTensor is indeed a 1 site tensor and rops is a physical one. 
-   * Also that the qnumberbonds and the indices of both tens and rops correspond. */
-  int indicestens[3];
-  int qnumbertens[3];
-  int indicesrops[7];
-  int qnumberrops[9];
-  int i;
-  if (tens->nrsites != 1)
-  {
-    fprintf(stderr, "%s@%s: nrsites of tens is not equal to 1 but %d.\n", __FILE__, __func__, 
-        tens->nrsites);
-    return 0;
-  }
-  if (rops->P_operator != 1)
-  {
-    fprintf(stderr, "%s@%s: rops is not a P_operator.\n", __FILE__, __func__);
-    return 0;
-  }
-
-  siteTensor_give_indices(tens, indicestens);
-  siteTensor_give_qnumberbonds(tens, qnumbertens);
-  rOperators_give_indices(rops, indicesrops);
-  rOperators_give_qnumberbonds(rops, qnumberrops);
-  for (i = 0; i < 3; ++i)
-  {
-    if (!are_bra_and_ket_bonds(indicesrops[i], indicestens[i]) || 
-        indicestens[i] != indicesrops[i + 3]) 
-    {
-      fprintf(stderr, "%s@%s: Something wrong with the indices array.\n", __FILE__, __func__);
-      return 0;
-    }
-    if (!are_bra_and_ket_bonds(qnumberrops[i], qnumbertens[i]) || 
-        qnumbertens[i] != qnumberrops[i + 3]) 
-    {
-      fprintf(stderr, "%s@%s: Something wrong with the qnumber array.\n", __FILE__, __func__);
-      return 0;
-    }
-  }
-  return 1;
-}
-#endif

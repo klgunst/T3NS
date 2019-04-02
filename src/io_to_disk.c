@@ -225,7 +225,6 @@ static void read_siteTensor_from_disk(const hid_t id, struct siteTensor *
 
         read_attribute(group_id, "nrsites", &tens->nrsites);
 
-        tens->sites = safe_malloc(tens->nrsites, int);
         read_attribute(group_id, "sites", tens->sites);
         read_attribute(group_id, "nrblocks", &tens->nrblocks);
 

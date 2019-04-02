@@ -214,7 +214,6 @@ static int make1siteRDM(struct siteTensor * rdm, struct siteTensor * orthoc)
         // Already made
         if (crdm->nrsites != 0) { return 0; }
         crdm->nrsites = 1;
-        crdm->sites = safe_malloc(crdm->nrsites, *crdm->sites);
         crdm->sites[0] = orthoc->sites[0];
 
         int bonds[3];

@@ -32,10 +32,6 @@
 /* ================================= DECLARATION STATIC FUNCTIONS =============================== */
 /* ============================================================================================== */
 
-/* Makes the blocks out of the dimarray and qnumbersarray returned by find_goodqnumbersectors */
-static void make_1sblocks(struct siteTensor * const tens, int ***dimarray, int ***qnumbersarray, 
-    const struct symsecs symarr[]);
-
 /* This makes the new internal symsecs and the qnumbers array and the beginblock in the 
  * sparseblock structure, no internal symsecs are made for tens->nrsites = 1  */
 static void make_new_internalsymsecs_and_tensor(struct siteTensor * const tens, 
@@ -75,68 +71,6 @@ static int * make_newtoold(const struct symsecs * const internalss, const int bo
 
 /* =================================== INIT & DESTROY ========================================== */
 
-void init_null_siteTensor(struct siteTensor * const tens)
-{
-  tens->nrsites  = 0;
-  tens->sites    = NULL;
-  tens->nrblocks = 0;
-  tens->qnumbers = NULL;
-  init_null_sparseblocks(&tens->blocks);
-}
-
-void init_1siteTensor(struct siteTensor * const tens, const int site, const char o)
-{
-  /* One-site is the only type of siteTensor I should make out of thin air */
-  int i;
-  int ***dimarray      = NULL;
-  int ***qnumbersarray = NULL;
-  const int nrind = 3;
-  int couplings[nrind];
-  struct symsecs symarr[nrind];
-
-  tens->nrsites    = 1;
-  tens->sites      = safe_malloc(tens->nrsites, int);
-  tens->sites[0] = site;
-
-  siteTensor_give_couplings(tens, couplings);
-
-  get_symsecs_arr(nrind, symarr, couplings);
-  find_goodqnumbersectors(&dimarray, &qnumbersarray, &tens->nrblocks, symarr, 1);
-
-  make_1sblocks(tens, dimarray, qnumbersarray, symarr);
-
-  /* Clean the symarr array. And destroy appropriate symsecs (e.g. the ones linked to a physical) */
-
-  /* initialization of the tel array */
-  switch(o)
-  {
-    case 'r':
-      srand(time(NULL));
-      break;
-    case 'c':
-      srand(0);
-      break;
-    case '0':
-      tens->blocks.tel = safe_calloc(tens->blocks.beginblock[tens->nrblocks], EL_TYPE);
-      return;
-    default:
-      fprintf(stderr, "%s@%s: Unknown option \'%c\' was inputted.\n", __FILE__, __func__, o);
-      exit(EXIT_FAILURE);
-  }
-  tens->blocks.tel = safe_malloc(tens->blocks.beginblock[tens->nrblocks], EL_TYPE);
-  for (i = 0; i <  tens->blocks.beginblock[tens->nrblocks]; ++i)
-          tens->blocks.tel[i] = (rand() - RAND_MAX / 2.) / RAND_MAX;
-}
-
-void destroy_siteTensor(struct siteTensor * const tens)
-{
-  tens->nrsites = 0;
-  safe_free(tens->sites);
-  tens->nrblocks = 0;
-  safe_free(tens->qnumbers);
-  destroy_sparseblocks(&tens->blocks);
-}
-
 int makesiteTensor(struct siteTensor * tens, struct siteTensor * T3NS, 
                    const int * sitelist, int nr_sites)
 {
@@ -152,8 +86,6 @@ int makesiteTensor(struct siteTensor * tens, struct siteTensor * T3NS,
                 *tens = T3NS[sitelist[0]];
                 return 0;
         }
-
-        tens->sites = safe_malloc(tens->nrsites, *tens->sites);
         for (int i = 0; i < tens->nrsites; ++i) { tens->sites[i] = sitelist[i]; }
 
         /* This makes the new internal symsecs and the qnumbers array and the
@@ -170,78 +102,9 @@ int makesiteTensor(struct siteTensor * tens, struct siteTensor * T3NS,
         return 0;
 }
 
-void deep_copy_siteTensor(struct siteTensor * const copy, const struct siteTensor * const tocopy)
-{
-  int i;
-  copy->nrsites = tocopy->nrsites;
-  copy->nrblocks = tocopy->nrblocks;
-
-  copy->sites = safe_malloc(copy->nrsites, int);
-  copy->qnumbers = safe_malloc(copy->nrsites * copy->nrblocks, QN_TYPE);
-  for (i = 0; i < copy->nrsites; ++i) copy->sites[i] = tocopy->sites[i];
-  for (i = 0; i < copy->nrsites * copy->nrblocks; ++i) copy->qnumbers[i] = tocopy->qnumbers[i];
-
-  deep_copy_sparseblocks(&copy->blocks, &tocopy->blocks, tocopy->nrblocks);
-}
-
 /* ============================================================================================== */
 /* ================================== DEFINITION STATIC FUNCTIONS =============================== */
 /* ============================================================================================== */
-
-static void make_1sblocks(struct siteTensor * const tens, int ***dimarray, int ***qnumbersarray, 
-    const struct symsecs symarr[])
-{
-  int sym1, sym2, sym3;
-  int cnt = 0;
-  int i;
-  int *tempdims           = safe_malloc(tens->nrblocks, int);
-  int *idx;
-  QN_TYPE *tempqnumbers   = safe_malloc(tens->nrblocks, QN_TYPE);
-  tens->qnumbers          = safe_malloc(tens->nrblocks, QN_TYPE);
-  tens->blocks.beginblock = safe_malloc(tens->nrblocks + 1, int);
-  assert(tens->nrsites == 1 && "make_1sblocks not defined for more than 1 site");
-
-  for (sym1 = 0; sym1 < symarr[0].nrSecs; ++sym1 )
-  {
-    for (sym2 = 0; sym2 < symarr[1].nrSecs; ++sym2)
-    {
-      const QN_TYPE ind = sym1 + sym2 * symarr[0].nrSecs;
-      const QN_TYPE increment = symarr[0].nrSecs * symarr[1].nrSecs;
-
-      for (sym3 = 0; sym3 < qnumbersarray[sym1][sym2][0]; ++sym3)
-      {
-        if (dimarray[sym1][sym2][sym3] == 0)
-          continue;
-
-        tempdims[cnt]     = dimarray[sym1][sym2][sym3];
-        tempqnumbers[cnt] = ind + qnumbersarray[sym1][sym2][sym3 + 1] * increment;
-        ++cnt;
-      }
-
-      safe_free(dimarray[sym1][sym2]);
-      safe_free(qnumbersarray[sym1][sym2]);
-    }
-    safe_free(dimarray[sym1]);
-    safe_free(qnumbersarray[sym1]);
-  }
-  assert(cnt == tens->nrblocks);
-
-  safe_free(dimarray);
-  safe_free(qnumbersarray);
-
-  /* Reform leading order, and I could kick this order */
-  idx = quickSort(tempqnumbers, tens->nrblocks, sort_qn[tens->nrsites]);
-
-  tens->blocks.beginblock[0] = 0;
-  for (i = 0; i < tens->nrblocks; ++i)
-  {
-    tens->qnumbers[i] = tempqnumbers[idx[i]];
-    tens->blocks.beginblock[i + 1] = tens->blocks.beginblock[i] + tempdims[idx[i]];
-  }
-  safe_free(tempdims);
-  safe_free(tempqnumbers);
-  safe_free(idx);
-}
 
 static void make_new_internalsymsecs_and_tensor(struct siteTensor * const tens, 
     struct symsecs internalsymsec[])

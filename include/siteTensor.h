@@ -81,7 +81,7 @@ struct siteTensor {
          * For siteTensors corresponding with @ref RedDM.sRDMs these are the 
          * sites for this RDM.
          */
-        int * sites;
+        int sites[STEPSPECS_MSITES];
         /// Number of sparse blocks.
         int nrblocks;
         /** Stores the quantum numbers for every sparse block.
