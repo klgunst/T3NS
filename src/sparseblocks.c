@@ -125,7 +125,7 @@ void print_block(const struct sparseblocks * blocks, int id)
 
         printf("%d: ", N);
         for (int el = 0; el < N; ++el)
-                printf("%.6f%s", tel[el], el == N - 1 ? "" : ", ");
+                printf("%.1g%s", tel[el], el == N - 1 ? "" : ", ");
         printf("\n");
 }
 

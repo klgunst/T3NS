@@ -183,7 +183,7 @@ inline void translate_indices(const int * oids, const struct symsecs * oss,
                               const int * bonds, int n)
 {
         for (int i = 0; i < n; ++i) {
-                const char b = (char) (bonds[i] > netw.nr_bonds * 2 ?  'p' : 'v');
+                const char b = (char) (bonds[i] >= netw.nr_bonds * 2 ?  'p' : 'v');
                 nids[i] = search_symsec(oss[i].irreps[oids[i]], &nss[i], b);
         }
 }

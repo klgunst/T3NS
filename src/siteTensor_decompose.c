@@ -1260,8 +1260,16 @@ static int selectS(struct Sval * S, const struct SvalSelect * sel,
                 }
         }
 
-        assert(fabs(res->entropy[1] - calculateCostFunction(S, VonNeumannEntropy, 'T')) < 1e-10);
-        assert(fabs(res->norm[1] - calculateCostFunction(S, TotalWeight, 'T')) < 1e-10);
+#ifndef NDEBUG
+        const double diffS = fabs(res->entropy[1] - calculateCostFunction(S, VonNeumannEntropy, 'T'));
+        if (diffS > 1e-10) {
+                fprintf(stderr, "ENTROPY DIFF: %g\n", diffS);
+        }
+        const double diffN = fabs(res->norm[1] - calculateCostFunction(S, TotalWeight, 'T'));
+        if (diffN > 1e-10) {
+                fprintf(stderr, "NORM DIFF: %g\n", diffN);
+        }
+#endif
         res->entropy[1] = res->entropy[1] / res->norm[1] + log(res->norm[1]);
 
         safe_free(tempS);
