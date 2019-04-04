@@ -57,7 +57,7 @@ include_directories(${HDF5_INCLUDE_DIRS})
 
 # show all warnings
 if("${CMAKE_C_COMPILER_ID}" MATCHES "Intel")
-    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wall -Wremarks -Wchecks -w3 -wd2547 -wd10382 -wd11074 -wd11076 -wd279")
+    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wall -Wremarks -Wchecks -w3 -wd2547 -wd10382 -wd11074 -wd11076 -wd279 -wd1419")
 else()
     set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -Wall -Wpedantic")
 endif()

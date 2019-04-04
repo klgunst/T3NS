@@ -90,118 +90,6 @@ static int strcmp_ign_ws(const char * s1, const char * s2)
         return 0;
 }
 
-static int get_sites_to_opt(int maxsites, struct stepSpecs * specs, int * state)
-{
-        if (maxsites != 2 && maxsites != 1) {
-                fprintf (stderr, "ERROR: Only optimization with one and two sites are implemented.\n"
-                         "Executing calculation with two-site optimization.\n");
-                maxsites = 2;
-        }
-
-        specs->nr_sites_opt = 1;
-        if(*state >= netw.sweeplength) {
-                *state = 0;
-                return 1;
-        }
-        specs->sites_opt[0] = netw.sweep[*state];
-        ++*state;
-        if(*state > netw.sweeplength) {
-                *state = 0;
-                return 1;
-        }
-        if (maxsites == 1) { return 0; }
-
-        specs->sites_opt[1] = netw.sweep[*state % netw.sweeplength];
-        const int cbond = get_common_bond(specs->sites_opt[0], specs->sites_opt[1]);
-        specs->sites_opt[0] = netw.bonds[cbond][0];
-        specs->sites_opt[1] = netw.bonds[cbond][1];
-        specs->nr_sites_opt = 2;
-        const int nextbond = get_common_bond(specs->sites_opt[1], 
-                                             netw.sweep[(*state + 1) % netw.sweeplength]);
-        *state += (cbond == nextbond || specs->sites_opt[1] == netw.sweep[(*state + 1) % netw.sweeplength]);
-
-        assert(specs->sites_opt[0] != -1 && specs->sites_opt[1] != -1);
-        return 0;
-}
-
-static void get_common_with_next(int maxsites, struct stepSpecs * specs, 
-                                 int next_state)
-{
-        struct stepSpecs nextSpecs;
-        int nextmod = next_state % netw.sweeplength;
-        get_sites_to_opt(maxsites, &nextSpecs, &nextmod);
-        if (maxsites == 1) {
-                const int common_bond = get_common_bond(specs->sites_opt[0], 
-                                                        nextSpecs.sites_opt[0]);
-
-                for (specs->common_next[0] = 0; 
-                     specs->common_next[0] < specs->nr_bonds_opt; 
-                     specs->common_next[0]++) {
-                        if (specs->bonds_opt[specs->common_next[0]] == common_bond) {
-                                break;
-                        }
-                }
-                return;
-        }
-
-        if (next_state >= netw.sweeplength || nextmod >= netw.sweeplength) {
-                specs->common_next[0] = 0;
-                specs->common_next[1] = 1;
-                return;
-        }
-
-        for (int i = 0; i < specs->nr_sites_opt; ++i) {
-                specs->common_next[i] = 0;
-                for (int j = 0; j < nextSpecs.nr_sites_opt; ++j) {
-                        if (specs->sites_opt[i] == nextSpecs.sites_opt[j]) {
-                                specs->common_next[i] = 1;
-                                break;
-                        }
-                }
-        }
-}
-
-static inline void swap(int * a, int * b)
-{
-        const int temp = *a;
-        *a = *b;
-        *b = temp;
-}
-
-static void get_bonds_involved(struct stepSpecs * specs)
-{
-        int allbonds[STEPSPECS_MSITES * 3];
-        for (int site = 0; site < specs->nr_sites_opt; ++site)
-                get_bonds_of_site(specs->sites_opt[site], &allbonds[3 * site]);
-
-        specs->nr_bonds_opt = 0;
-        for (int i = 0; i < 3 * specs->nr_sites_opt; ++i) {
-                if (is_psite(specs->sites_opt[i / 3]) && 
-                    i % 3 == 1) /* physical bond */
-                        continue;
-
-                int j;
-                for (j = 0; j < 3 * specs->nr_sites_opt; ++j) {
-                        if (allbonds[i] == allbonds[j] && i != j)
-                                break;
-                }
-                if (j != 3 * specs->nr_sites_opt)
-                        continue;
-
-                assert(specs->nr_bonds_opt < STEPSPECS_MBONDS);
-                specs->bonds_opt[specs->nr_bonds_opt++] = allbonds[i];
-        }
-        assert(specs->nr_bonds_opt == 3 || specs->nr_bonds_opt == 2);
-        /* sort array */
-        if (specs->bonds_opt[0] > specs->bonds_opt[1]) 
-                swap(&specs->bonds_opt[0], &specs->bonds_opt[1]);
-        if (specs->nr_bonds_opt == STEPSPECS_MBONDS && 
-            specs->bonds_opt[1] > specs->bonds_opt[2])
-                swap(&specs->bonds_opt[1], &specs->bonds_opt[2]);
-        if (specs->bonds_opt[0] > specs->bonds_opt[1])
-                swap(&specs->bonds_opt[0], &specs->bonds_opt[1]);
-}
-
 void create_nr_left_psites(void)
 {
         int * temp = safe_calloc(netw.nr_bonds, int);
@@ -648,6 +536,169 @@ void print_stepSpecs(const struct stepSpecs * specs)
         printf("\n");
 }
 #endif
+
+// This moves the state forward appropriately.
+// i.e. until the `state + 1` site is not an element of specs->sites_opt.
+static void move_forward_state(struct stepSpecs * specs, int * state)
+{
+        bool flag = false;
+        while(!flag) {
+                flag = true;
+                const int next_site = netw.sweep[(*state + 1) % netw.sweeplength];
+                for (int i = 0; i < specs->nr_sites_opt; ++i) {
+                        if (specs->sites_opt[i] == next_site) {
+                                flag = false;
+                                break;
+                        }
+                }
+                // The next site is included in the sites picked.
+                // So increase state.
+                if (!flag) { ++*state; }
+        }
+}
+
+static int get_sites_to_opt(int maxsites, struct stepSpecs * specs, int * state)
+{
+        const int swl = netw.sweeplength;
+        int * const sites_opt = specs->sites_opt;
+
+        if(*state >= swl) {
+                *state = 0;
+                return 1;
+        }
+
+        specs->nr_sites_opt = 0;
+        sites_opt[specs->nr_sites_opt++] = netw.sweep[*state];
+        // 1 site optimization
+        if (maxsites == 1) { 
+                ++*state;
+                return 0;
+        }
+
+        // Add next site
+        sites_opt[specs->nr_sites_opt++] = netw.sweep[(*state + 1) % swl];
+        const int cbond = get_common_bond(sites_opt[0], sites_opt[1]);
+
+        // This case you selected all sites needed
+        if (maxsites == 2 || is_dmrg_bond(cbond)) { goto end_get_sites_to_opt; }
+
+        // Select branching site
+        const int branch = is_psite(sites_opt[0]) ? sites_opt[1] : sites_opt[2];
+        assert(!is_psite(branch));
+
+        // select all sites around branch
+        if (maxsites == 4) {
+                int bonds[3];
+                get_bonds_of_site(branch, bonds);
+                sites_opt[0] = netw.bonds[bonds[0]][0];
+                sites_opt[1] = netw.bonds[bonds[1]][0];
+                sites_opt[2] = netw.bonds[bonds[2]][1];
+                sites_opt[3] = branch;
+                specs->nr_sites_opt = 4;
+                move_forward_state(specs, state);
+        }
+
+        if (maxsites == 3) {
+                const int nextsite = netw.sweep[(*state + 2) % swl];
+                for (int i = 0; i < specs->nr_sites_opt; ++i) {
+                        // the next site is already in the list
+                        if (nextsite == sites_opt[i]) {
+                                goto end_get_sites_to_opt;
+                        }
+                }
+                // next site is not yet in the list
+                sites_opt[specs->nr_sites_opt++] = nextsite;
+        }
+
+end_get_sites_to_opt:
+        move_forward_state(specs, state);
+        return 0;
+}
+
+static inline void swap(int * a, int * b)
+{
+        const int temp = *a;
+        *a = *b;
+        *b = temp;
+}
+
+static void get_bonds_involved(struct stepSpecs * specs)
+{
+        int bonds[STEPSPECS_MSITES][3];
+        for (int i = 0; i < specs->nr_sites_opt; ++i) {
+                get_bonds_of_site(specs->sites_opt[i], bonds[i]);
+        }
+        specs->nr_bonds_opt = 0;
+        for (int i = 0; i < 3 * specs->nr_sites_opt; ++i) {
+                const int site = i / 3;
+                const int bond = i % 3;
+                const int ibon = bonds[site][bond];
+                // it is a physical bond
+                if (ibon >= 2 * netw.nr_bonds) { continue; }
+
+                int j;
+                for (j = 0; j < 3 * specs->nr_sites_opt; ++j) {
+                        const int site2 = j / 3;
+                        const int bond2 = j % 3;
+                        const int jbon = bonds[site2][bond2];
+                        if (ibon == jbon && i != j) { break; }
+                }
+                // It is an internal bond
+                if (j != 3 * specs->nr_sites_opt) { continue; }
+
+                assert(specs->nr_bonds_opt < STEPSPECS_MBONDS);
+                specs->bonds_opt[specs->nr_bonds_opt++] = ibon;
+        }
+        assert(specs->nr_bonds_opt == 3 || specs->nr_bonds_opt == 2);
+        int * bo = specs->bonds_opt;
+        /* sort array */
+        if (bo[0] > bo[1]) { swap(&bo[0], &bo[1]); }
+        if (specs->nr_bonds_opt == STEPSPECS_MBONDS && bo[1] > bo[2]) {
+                swap(&bo[1], &bo[2]);
+        }
+        if (bo[0] > bo[1]) { swap(&bo[0], &bo[1]); }
+}
+
+static void get_common_with_next(int maxsites, struct stepSpecs * specs, 
+                                 int next_state)
+{
+        struct stepSpecs nextSpecs;
+        for (int i = 0; i < specs->nr_sites_opt; ++i) {
+                specs->common_next[i] = 0;
+        }
+        if (maxsites == 1) {
+                const int nsite = netw.sweep[next_state % netw.sweeplength];
+                const int cbond = get_common_bond(specs->sites_opt[0], nsite);
+                for (int i = 0; i < specs->nr_bonds_opt; ++i) {
+                        if (specs->bonds_opt[i] == cbond) {
+                                specs->common_next[0] = i;
+                                return;
+                        }
+                }
+                assert(0);
+        }
+        if(get_sites_to_opt(maxsites, &nextSpecs, &next_state)) {
+                // Make the last site the nCenter.
+                const int last_site = netw.sweep[0];
+                int i;
+                for (i = 0; i < specs->nr_sites_opt; ++i) {
+                        if (last_site == specs->sites_opt[i]) {
+                                specs->common_next[i] = 1;
+                                break;
+                        }
+                }
+                assert(i != specs->nr_sites_opt);
+        } else {
+                for (int i = 0; i < specs->nr_sites_opt; ++i) {
+                        for (int j = 0; j < nextSpecs.nr_sites_opt; ++j) {
+                                if (specs->sites_opt[i] == nextSpecs.sites_opt[j]) {
+                                        specs->common_next[i] = 1;
+                                        break;
+                                }
+                        }
+                }
+        }
+}
 
 static void set_nCenter(struct stepSpecs * specs)
 {

@@ -19,6 +19,7 @@
 #include <stdio.h>
 #include <assert.h>
 #include <time.h>
+#include <omp.h>
 #include <stdbool.h>
 
 #include "siteTensor.h"

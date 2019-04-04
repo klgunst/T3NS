@@ -80,7 +80,7 @@ Mandatory options are:
 A selection of the optional options are:
 
 * `D` : The maximal virtual bond dimension
-* `SITE_SIZE` : currently supports 1 and 2 site optimization.
+* `SITE_SIZE` : The number of sites to optimize at once (1, 2, 3 or 4).
 * `SWEEPS` : The maximal number of sweeps to be executed.
 * `E_CONV` : If this energy difference between sweeps has been reached, the
   current optimization regime is stopped.

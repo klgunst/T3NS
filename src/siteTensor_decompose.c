@@ -19,6 +19,7 @@
 #include <omp.h>
 #include <assert.h>
 #include <math.h>
+#include <string.h>
 
 #include "siteTensor.h"
 #include "sparseblocks.h"
@@ -1260,7 +1261,6 @@ static int selectS(struct Sval * S, const struct SvalSelect * sel,
                 }
         }
 
-#ifndef NDEBUG
         const double diffS = fabs(res->entropy[1] - calculateCostFunction(S, VonNeumannEntropy, 'T'));
         if (diffS > 1e-10) {
                 fprintf(stderr, "ENTROPY DIFF: %g\n", diffS);
@@ -1269,7 +1269,7 @@ static int selectS(struct Sval * S, const struct SvalSelect * sel,
         if (diffN > 1e-10) {
                 fprintf(stderr, "NORM DIFF: %g\n", diffN);
         }
-#endif
+
         res->entropy[1] = res->entropy[1] / res->norm[1] + log(res->norm[1]);
 
         safe_free(tempS);
@@ -1444,10 +1444,18 @@ void destroy_Sval(struct Sval * S)
         safe_free(S->sing);
 }
 
-void print_decompose_info(const struct decompose_info * info,
-                          const char * prefix, int verbose)
+static void print_dimdiment(const struct decompose_info * info, int i)
 {
-        const char * p;
+        printf("(dim: %-4d", info->cut_dim[i]);
+        if (need_multiplicity(bookie.nrSyms, bookie.sgs)) {
+                printf(" <%d>", info->cut_rdim[i]);
+        }
+        printf("),\t(S: %.4g)\n", info->cut_ent[i]);
+}
+
+void print_decompose_info(const struct decompose_info * info,
+                          const char * prefix)
+{
         if (prefix == NULL) { prefix = ""; }
 
         if (info->erflag) {
@@ -1456,77 +1464,28 @@ void print_decompose_info(const struct decompose_info * info,
                 return;
         }
 
+        printf(prefix);
+        const char * type[] = {"QR @ ", "SVD @ ", "HOSVD @ "};
+        const char * ctype = type[(!info->wasQR) * ((info->cuts > 1) + 1)];
+        int length = strlen(prefix);
+        length += strlen(ctype);
         if (info->wasQR) {
                 assert(info->cuts == 1);
-                printf("%sQR decomposition @ bond %d (ls_sigma: %.3e), (s_sigma: %.3e):\n",
-                       prefix, info->cutted_bonds[0], info->ls_sigma[0], 
-                       info->s_sigma[0]);
+                printf("%sbond %-3d: (max s_min: %.3e),\t(s_min: %.3e),\t",
+                       ctype, info->cutted_bonds[0],
+                       info->ls_sigma[0], info->s_sigma[0]);
+                print_dimdiment(info, 0);
         } else {
-                printf("%s%sSVD @ bond%s ", prefix, 
-                       info->cuts == 1 ? "": "HO", info->cuts == 1 ? "" : "s");
-                for (int i = 0; i < info->cuts; ++i) {
-                        printf("%d%s", info->cutted_bonds[i], 
-                               i == info->cuts - 1 ? ":\n" : ", ");
-                }
-                p = prefix;
-                while (*p++) { putchar(' '); }
-                printf(" - Maximal truncation error %.4g", info->cut_Mtrunc);
-                if (verbose && info->cuts > 1) {
-                        printf(" (");
-                        for (int i = 0; i < info->cuts; ++i) {
-                                printf("%.4g%s", info->cut_trunc[i], 
-                                       i == info->cuts - 1 ? ")" : ", ");
-                        }
-                }
-                printf("\n");
-        }
-        p = prefix;
-        while (*p++) { putchar(' '); }
-        printf(" - Maximal bond dimension %d", info->cut_Mdim);
-        if (verbose && info->cuts > 1) {
-                printf(" (");
-                for (int i = 0; i < info->cuts; ++i) {
-                        printf("%d%s", info->cut_dim[i], 
-                               i == info->cuts - 1 ? ")" : ", ");
+                printf("%sbond %-3d: (err: %.4g),\t", 
+                       ctype, info->cutted_bonds[0], info->cut_trunc[0]);
+                print_dimdiment(info, 0);
+                for (int i = 1; i < info->cuts; ++i) {
+                        for (int j = 0; j < length; ++j) { putchar(' '); }
+                        printf("bond %-3d: (err: %.4g),\t", 
+                               info->cutted_bonds[i], info->cut_trunc[i]);
+                        print_dimdiment(info, i);
                 }
         }
-        printf("\n");
-
-        if (need_multiplicity(bookie.nrSyms, bookie.sgs)) {
-                p = prefix;
-                while (*p++) { putchar(' '); }
-                if (info->cut_Mrdim != -1) {
-                        printf(" - Maximal reduced bond dimension %d",
-                               info->cut_Mrdim);
-                        if (verbose && info->cuts > 1) {
-                                printf(" (");
-                                for (int i = 0; i < info->cuts; ++i) {
-                                        printf("%d%s", info->cut_rdim[i], 
-                                               i == info->cuts - 1 ? ")" : ", ");
-                                }
-                        }
-                        printf("\n");
-                }
-        }
-
-        p = prefix;
-        while (*p++) { putchar(' '); }
-        printf(" - Sum of entanglements %.4g", info->cut_totalent);
-        if (verbose) {
-                double maxent = 0;
-                for (int i = 0; i < info->cuts; ++i) {
-                        maxent += log(info->cut_dim[i]);
-                }
-                printf(" <max: %.4g>", maxent);
-        }
-        if (verbose && info->cuts > 1) {
-                printf(" (");
-                for (int i = 0; i < info->cuts; ++i) {
-                        printf("%.4g%s", info->cut_ent[i], 
-                               i == info->cuts - 1 ? ")" : ", ");
-                }
-        }
-        printf("\n");
 }
 
 static void select_ls_sigma(struct Sval * S, struct decompose_info * info,
@@ -1546,8 +1505,8 @@ static void fill_rdim_and_dim(struct decompose_info * info)
 {
         struct symsecs sym;
         get_symsecs(&sym, info->cutted_bonds[info->cuts]);
-        info->cut_rdim[0] = sym.totaldims;
-        info->cut_dim[0] = full_dimension(&sym);
+        info->cut_rdim[info->cuts] = sym.totaldims;
+        info->cut_dim[info->cuts] = full_dimension(&sym);
 
         if (info->cuts == 0 || info->cut_Mrdim < info->cut_rdim[info->cuts]) {
                 info->cut_Mrdim = info->cut_rdim[info->cuts];
@@ -1583,7 +1542,6 @@ struct decompose_info HOSVD(struct siteTensor * A,
                 struct Sval S;
                 struct siteTensor newA;
                 destroy_siteTensor(&T3NS[*site]);
-                //int sitelist[2] = { A->sites[0], A->sites[1] };
                 struct SelectRes res = split_of_site(A, *site, sel, &newA, 
                                                      &S, &T3NS[*site]);
                 if (res.erflag) { return info; }

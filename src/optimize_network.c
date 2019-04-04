@@ -349,7 +349,7 @@ static struct sweep_info execute_sweep(struct siteTensor * T3NS,
 
                 if (d_inf.erflag) { exit(EXIT_FAILURE); }
                 swinfo.sweeptimings[STENS_DECOMP] += stop_timing(0);
-                print_decompose_info(&d_inf, "   * ", 1);
+                print_decompose_info(&d_inf, "   * ");
 
                 postprocess_rOperators(rops, T3NS, swinfo.sweeptimings);
 
@@ -360,6 +360,7 @@ static struct sweep_info execute_sweep(struct siteTensor * T3NS,
                 if (first || swinfo.sw_maxdim < d_inf.cut_Mdim) 
                         swinfo.sw_maxdim = d_inf.cut_Mdim;
                 first = 0;
+                printf("\n");
         }
 
         start_timing(0);

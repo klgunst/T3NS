@@ -1232,9 +1232,9 @@ void init_Heffdata(struct Heffdata * data, const struct rOperators * Operators,
                 }
                 assert(j != siteObject->nrsites);
                 data->rOperators_on_site[i] = j;
-
-                //assert(Operators[i].P_operator == is_psite(site));
-                if (!is_psite(site)) { data->posB = j; }
+        }
+        for (int i = 0; i < siteObject->nrsites; ++i) {
+                if (!is_psite(siteObject->sites[i])) { data->posB = i; }
         }
         if (isdmrg) { data->posB = siteObject->nrsites == 1 ? 0 : 1; }
 

@@ -500,11 +500,9 @@ struct decompose_info {
 /**
  * Prints the decomposition information, starting every line with a suitable
  * prefix if provided.
- *
- * @param[in] verbose If set to 1, it will print some more information.
  */
 void print_decompose_info(const struct decompose_info * info,
-                          const char * prefix, int verbose);
+                          const char * prefix);
 
 /**
  * @brief Performs a sequential truncated HOSVD (higher order singular value
