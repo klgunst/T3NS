@@ -25,7 +25,6 @@ set(T3NSLIB_SOURCE_FILES
     "rOperators_pUpdate.c"
     "siteTensor_decompose.c"
     "siteTensor_init.c"
-    "siteTensor_initNEW.c"
     "siteTensor_misc.c"
     "sort.c"
     "sparseblocks.c"

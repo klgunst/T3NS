@@ -18,8 +18,8 @@
 
 #include <stdlib.h>
 #include <string.h>
+#include <assert.h>
 
-#include "assert.h"
 #include "sort.h"
 #include "macros.h"
 

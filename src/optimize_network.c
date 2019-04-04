@@ -111,9 +111,9 @@ static void set_internal_symsecs(void)
                 o_dat.nr_internals = 1;
                 o_dat.internalbonds[0] = o_dat.specs.bonds_opt[o_dat.specs.common_next[0]];
         } else {
-                o_dat.nr_internals = siteTensor_give_nr_internalbonds(&o_dat.msiteObj);
+                o_dat.nr_internals = get_nr_internalbonds(&o_dat.msiteObj);
                 assert(o_dat.nr_internals <= MAX_NR_INTERNALS);
-                siteTensor_give_internalbonds(&o_dat.msiteObj, o_dat.internalbonds);
+                get_internalbonds(&o_dat.msiteObj, o_dat.internalbonds);
         }
         deep_copy_symsecs_from_bookie(o_dat.nr_internals, o_dat.internalss, 
                                       o_dat.internalbonds);

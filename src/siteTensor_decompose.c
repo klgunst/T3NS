@@ -542,7 +542,6 @@ static struct Sval R_svd(struct Rmatrix * R)
                 .sing = safe_malloc(R->nrblocks, *S.sing),
         };
 
-
         for (int ss = 0; ss < S.nrblocks; ++ss) {
                 const int M = R->dims[ss][0];
                 const int N = R->dims[ss][1];
@@ -1054,7 +1053,10 @@ static int svdblocks(struct svddata * dat, int ssid)
                                   dat->S->sing[ssid], inf.memU, M, 
                                   inf.memVT, dat->S->dimS[ssid][0]);
 
-        if (info) { fprintf(stderr, "dgesdd exited with %d.\n", info); }
+        if (info) { 
+                printf("%d %d %d\n", M, N, dat->S->dimS[ssid][0]);
+                fprintf(stderr, "dgesdd exited with %d.\n", info);
+        }
         safe_free(memA);
 
         return info != 0;

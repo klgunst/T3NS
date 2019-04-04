@@ -220,8 +220,6 @@ static int get_tels_operators(struct update_data * const data, const int * const
 static int check_correctness(const struct rOperators Operator[2], const struct siteTensor * 
                              const tens);
 
-static void print_cinfo(const struct contractinfo * const cinfo);
-
 static void print_data(struct update_data * data);
 #endif
 
@@ -1121,29 +1119,6 @@ static int check_correctness(const struct rOperators * Operator,
 
         if (i == 3) { return 0; }
         return 1;
-}
-
-static void print_cinfo(const struct contractinfo * cinfo)
-{
-        const char * names[] = {
-                "OPS1", "OPS2", "NEWOPS", "TENS", "ADJ", "WORKBRA", "WORKKET"
-        };
-        printf("cinfo:\n");
-        for (int i = 0; i < 3; ++i) {
-                printf("\t%c %c\n", 
-                       cinfo[i].trans[0] == CblasTrans ? 'T' : 'N', 
-                       cinfo[i].trans[1] == CblasTrans ? 'T' : 'N');
-                printf("\tM: %d N: %d K: %d L: %d\n", 
-                       cinfo[i].M, cinfo[i].N, cinfo[i].K, cinfo[i].L);
-                printf("\tstrides: %d, %d, %d\n", 
-                       cinfo[i].stride[0],
-                       cinfo[i].stride[1],
-                       cinfo[i].stride[2]);
-                printf("\ttensors: %s * %s = %s\n", 
-                       names[cinfo[i].tensneeded[0]],
-                       names[cinfo[i].tensneeded[1]],
-                       names[cinfo[i].tensneeded[2]]);
-        }
 }
 
 static void print_data(struct update_data * data)

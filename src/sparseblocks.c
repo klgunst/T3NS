@@ -139,6 +139,7 @@ void do_contract(const struct contractinfo * cinfo, EL_TYPE ** tel,
         /* Maybe look at batch dgemm from mkl for this.
          * Although I am not sure this will make a difference 
          * since this is probably more for parallel dgemm */
+        //printf("%p %lf\n", B, beta);
         cblas_dgemm(CblasColMajor, cinfo->trans[0], cinfo->trans[1], 
                     cinfo->M, cinfo->N, cinfo->K, 
                     alpha, A, cinfo->lda, B, cinfo->ldb, 

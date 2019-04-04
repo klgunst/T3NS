@@ -175,3 +175,11 @@ void print_symsecinfo(struct symsecs * ss)
         for (int i = 0; i < ss->nrSecs; ++i) { counter += ss->dims[i] != 0; }
         printf("in %d non-empty sectors.\n", counter);
 }
+
+extern void indexize(int * ids, QN_TYPE qn, const struct symsecs * ss);
+
+extern QN_TYPE qntypize(const int * ids, const struct symsecs * ss);
+
+extern void translate_indices(const int * oids, const struct symsecs * oss, 
+                              int * nids, const struct symsecs * nss, 
+                              const int * bonds, int n);

@@ -705,6 +705,8 @@ static void make_map(int * map, const struct Heffdata * data)
         int cnt = 0;
         /* only for twosite! */
         for (int i = 0; i < 3; ++i) {
+                for (int j = 0; j < data->siteObject.nrsites; ++j) {
+                }
                 cnt += data->rOperators_on_site[i] == data->posB;
         }
         map[0] = data->rOperators_on_site[1] != data->posB ? 1 : 0;

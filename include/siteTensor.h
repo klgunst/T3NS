@@ -220,7 +220,7 @@ void siteTensor_give_is_in(const struct siteTensor * const tens, int is_in[]);
  *
  * \param [in] tens The siteTensor structure.
  */
-int siteTensor_give_nr_internalbonds(const struct siteTensor * const tens);
+int get_nr_internalbonds(const struct siteTensor * tens);
 
 /**
  * \brief Gives the internal bonds of the siteTensor.
@@ -228,7 +228,7 @@ int siteTensor_give_nr_internalbonds(const struct siteTensor * const tens);
  * \param [in] tens The siteTensor structure.
  * \param [out] internalbondsThe internalbonds array is stored here.
  */
-void siteTensor_give_internalbonds(const struct siteTensor * const tens, int internalbonds[]);
+void get_internalbonds(const struct siteTensor * const tens, int internalbonds[]);
 
 /**
  * \brief Gives the number of external bonds of the siteTensor.

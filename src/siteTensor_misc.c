@@ -87,14 +87,9 @@ static void print_qnumber(const struct bookkeeper * keeper,
         bookkeeper_get_symsecs_arr(keeper, nrcoup * 3, symarr, qnumberbonds);
 
         for (int coup = 0; coup < nrcoup; ++coup) {
-                QN_TYPE ind = tens->qnumbers[block * nrcoup + coup];
                 int currind[3];
-                for (int bond = 0; bond < 3; ++bond) {
-                        currind[bond] = ind % symarr[bond + 3 * coup].nrSecs;
-                        ind = ind / symarr[bond + 3 * coup].nrSecs;
-                }
+                indexize(currind, tens->qnumbers[block * nrcoup + coup], &symarr[3 * coup]);
 
-                assert(ind == 0);
                 for (int bond = 0; bond < 3; ++bond) {
                         const int id = mapping[bond + 3 * coup];
                         get_sectorstring(&symarr[id], currind[id - 3 * coup], 
@@ -144,7 +139,7 @@ void siteTensor_give_indices(const struct siteTensor * const tens, int indices[]
 {
   /* first puts the internals, after that the externals */
   siteTensor_give_externalbonds(tens, indices);
-  siteTensor_give_internalbonds(tens, &indices[siteTensor_give_nr_externalbonds(tens)]);
+  get_internalbonds(tens, &indices[siteTensor_give_nr_externalbonds(tens)]);
 }
 
 void siteTensor_give_qnumberbonds(const struct siteTensor * const tens, int qnumberbonds[])
@@ -170,12 +165,12 @@ void siteTensor_give_is_in(const struct siteTensor * const tens, int is_in[])
   }
 }
 
-int siteTensor_give_nr_internalbonds(const struct siteTensor * const tens) 
+int get_nr_internalbonds(const struct siteTensor * const tens) 
 {
   return tens->nrsites - 1;
 }
 
-void siteTensor_give_internalbonds(const struct siteTensor * const tens, int internalbonds[])
+void get_internalbonds(const struct siteTensor * const tens, int internalbonds[])
 {
   /* cnt can not become larger than nrsites - 1!! */
   int i, j;
@@ -186,7 +181,7 @@ void siteTensor_give_internalbonds(const struct siteTensor * const tens, int int
   for (i = 0; i < tens->nrsites * 3; ++i)
     for (j = i + 1; j < tens->nrsites * 3; ++j)
     {
-      if (bonds[i] == bonds[j] && cnt >= siteTensor_give_nr_internalbonds(tens))
+      if (bonds[i] == bonds[j] && cnt >= get_nr_internalbonds(tens))
       {
         fprintf(stderr, "%s@%s: More than (nrsites-1) internal bonds were found, invalid.\n", 
             __FILE__, __func__);

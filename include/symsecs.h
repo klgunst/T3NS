@@ -15,6 +15,9 @@
     along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 #pragma once
+#include <assert.h>
+#include "macros.h"
+#include "network.h"
 
 /**
  * \file symsecs.h
@@ -129,3 +132,58 @@ int full_dimension(const struct symsecs * const sym);
  * @param [in] ss The symsecs structure.
  */
 void print_symsecinfo(struct symsecs * ss);
+
+/**
+ * @brief Changes a single quantumnumber @ref qn to its appropriate indices.
+ *
+ * @param[out] ids Array of length 3 were the indices are stored. Should
+ * already be allocated.
+ * @param[in] qn The quantumnumber to indexize.
+ * @param[in] ss Array of three symsecs linked with each index.
+ */
+inline void indexize(int * ids, QN_TYPE qn, const struct symsecs * ss)
+{
+        ids[0] = qn % ss[0].nrSecs;
+        qn /= ss[0].nrSecs;
+        ids[1] = qn % ss[1].nrSecs;
+        ids[2] = qn / ss[1].nrSecs;
+        assert(ids[2] < ss[2].nrSecs);
+}
+
+/**
+ * @brief Changes 3 indexes to its appopriate quantum number (column major).
+ *
+ * @param[in] ids The indexes.
+ * @param[in] ss The symmetrysectors associated with each index.
+ * @return The quantum number.
+ */
+inline QN_TYPE qntypize(const int * ids, const struct symsecs * ss)
+{
+        assert(ids[0] < ss[0].nrSecs);
+        assert(ids[1] < ss[1].nrSecs);
+        assert(ids[2] < ss[2].nrSecs);
+
+        return ids[0] + ids[1] * ss[0].nrSecs + 
+                ids[2] * ss[0].nrSecs * ss[1].nrSecs;
+}
+
+/**
+ * @brief Changes indices associated with an old set of symmetry sectors to 
+ * indices associated with a new set of symmetry sectors.
+ *
+ * @param [in] oids The old indices.
+ * @param [in] oss The old symmetry sectors.
+ * @param [out] nids The new indices. Should already be allocated.
+ * @param [in] nss The new symmetry sectors.
+ * @param [in] bonds The bonds linked with each index/symmetry sector.
+ * @param [in] n The number of elements in oids, oss, bonds, nids and nss.
+ */
+inline void translate_indices(const int * oids, const struct symsecs * oss, 
+                              int * nids, const struct symsecs * nss, 
+                              const int * bonds, int n)
+{
+        for (int i = 0; i < n; ++i) {
+                const char b = (char) (bonds[i] > netw.nr_bonds * 2 ?  'p' : 'v');
+                nids[i] = search_symsec(oss[i].irreps[oids[i]], &nss[i], b);
+        }
+}
