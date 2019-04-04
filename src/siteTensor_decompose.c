@@ -1471,9 +1471,9 @@ void print_decompose_info(const struct decompose_info * info,
         length += strlen(ctype);
         if (info->wasQR) {
                 assert(info->cuts == 1);
-                printf("%sbond %-3d: (max s_min: %.3e),\t(s_min: %.3e),\t",
+                printf("%sbond %-3d: (s_min: %.2e <%.2e>),\t",
                        ctype, info->cutted_bonds[0],
-                       info->ls_sigma[0], info->s_sigma[0]);
+                       info->s_sigma[0], info->ls_sigma[0]);
                 print_dimdiment(info, 0);
         } else {
                 printf("%sbond %-3d: (err: %.4g),\t", 
