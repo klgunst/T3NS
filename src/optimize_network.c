@@ -190,10 +190,10 @@ static double optimize_siteTensor(struct siteTensor * T3NS,
 
         printf(">> Optimize site%s", o_dat.specs.nr_sites_opt == 1 ? "" : "s");
         for (int i = 0; i < o_dat.specs.nr_sites_opt; ++i) {
-                printf(" %d %s", o_dat.specs.sites_opt[i], 
-                       i == o_dat.specs.nr_sites_opt - 1 ? ": " : "&");
+                printf(" %d%s", o_dat.specs.sites_opt[i], 
+                       i == o_dat.specs.nr_sites_opt - 1 ? ": " : " &");
         }
-        printf("(blocks : %d, qns : %d, dim : %d, instr : %d)\n", 
+        printf("(blocks: %d, qns: %d, dim: %d, instr: %d)\n", 
                o_dat.msiteObj.nrblocks, mv_dat.nr_qnB, size, mv_dat.nr_instr);
 
         start_timing(0);

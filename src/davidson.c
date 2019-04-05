@@ -318,7 +318,7 @@ int davidson(double * result, double * energy, int size, int max_vecs,
         long long t_elapsed = (t_end.tv_sec - t_start.tv_sec) * 1000000LL + 
                 t_end.tv_usec - t_start.tv_usec;
         double d_elapsed = t_elapsed * 1e-6;
-        printf("   * Davidson: (iter : %d), (d_eig: %.1e), (trunc : %.1e), (time : %.2g sec)\n",
+        printf("   * Davidson: (iter: %d), (d_eig: %.1e), (trunc: %.1e), (time: %.3g sec)\n",
                its, d_energy, residue_norm, d_elapsed);
         if (residue_norm > davidson_tol) {
                 printf("     - Davidson stopped before converging.\n");
