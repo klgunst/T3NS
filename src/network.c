@@ -363,7 +363,7 @@ void make_network(const char * netwfile)
         create_order_psites();
 
         if (netw.sweeplength == -1) {
-                if(make_simplesweep(0, &netw.sweep, &netw.sweeplength)) {
+                if(make_simplesweep(false, &netw.sweep, &netw.sweeplength)) {
                         exit(EXIT_FAILURE);
                 }
         }
@@ -402,6 +402,11 @@ int is_psite(int site)
 {
         assert(site < netw.sites && site >= 0);
         return netw.sitetoorb[site] >= 0;
+}
+
+bool is_pbond(int bond)
+{
+        return bond >= 2 * netw.nr_bonds;
 }
 
 int get_left_psites(int bond) { return netw.nr_left_psites[bond]; }
@@ -583,7 +588,7 @@ static int get_sites_to_opt(int maxsites, struct stepSpecs * specs, int * state)
         if (maxsites == 2 || is_dmrg_bond(cbond)) { goto end_get_sites_to_opt; }
 
         // Select branching site
-        const int branch = is_psite(sites_opt[0]) ? sites_opt[1] : sites_opt[2];
+        const int branch = is_psite(sites_opt[0]) ? sites_opt[1] : sites_opt[0];
         assert(!is_psite(branch));
 
         // select all sites around branch
@@ -595,14 +600,14 @@ static int get_sites_to_opt(int maxsites, struct stepSpecs * specs, int * state)
                 sites_opt[2] = netw.bonds[bonds[2]][1];
                 sites_opt[3] = branch;
                 specs->nr_sites_opt = 4;
-                move_forward_state(specs, state);
         }
 
         if (maxsites == 3) {
                 const int nextsite = netw.sweep[(*state + 2) % swl];
                 for (int i = 0; i < specs->nr_sites_opt; ++i) {
-                        // the next site is already in the list
-                        if (nextsite == sites_opt[i]) {
+                        // the next site is already in the list or another
+                        // branch
+                        if (nextsite == sites_opt[i] || !is_psite(nextsite)) {
                                 goto end_get_sites_to_opt;
                         }
                 }
@@ -733,6 +738,7 @@ int next_opt_step(int maxsites, struct stepSpecs * specs)
 
         get_common_with_next(maxsites, specs, curr_state);
         set_nCenter(specs);
+        assert(STEPSPECS_MSITES >= specs->nr_sites_opt);
         return 1;
 }
 
@@ -755,7 +761,7 @@ int is_dmrg_bond(const int bond)
         return is_psite(netw.bonds[bond][0]) && is_psite(netw.bonds[bond][1]);
 }
 
-static int recursive_stepping(int inclborder, int * sweep, int * id)
+static int recursive_stepping(bool inclborder, int * sweep, int * id)
 {
         // Get previous site. should be a physical one.
         int site = sweep[*id - 1];
@@ -809,7 +815,7 @@ static int recursive_stepping(int inclborder, int * sweep, int * id)
         return 0;
 }
 
-int make_simplesweep(int inclborder, int ** sweep, int * swlength)
+int make_simplesweep(bool inclborder, int ** sweep, int * swlength)
 {
         // Maximal amount of sweep instructions.
         // Every bond passed twice, 2 sites per bond.

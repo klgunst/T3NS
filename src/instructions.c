@@ -41,10 +41,10 @@ static void sort_instructions(struct instructionset * const instructions)
 {
         const int step = instructions->step;
         const int nr_instr = instructions->nr_instr;
-        int max[step];
+        size_t max[step];
         int *idx;
         int (*instr_new)[3]  = safe_malloc(nr_instr, *instr_new);
-        int *array      = safe_malloc(nr_instr, int);
+        size_t * array      = safe_malloc(nr_instr, *array);
         double *prefnew = instructions->pref == NULL ? 
                 NULL : safe_malloc(nr_instr, double);
         int i, j;

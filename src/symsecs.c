@@ -156,7 +156,7 @@ int search_symsec(int * symmsec, const struct symsecs * sectors, char b)
                 return binSearch(symmsec, sectors->irreps, sectors->nrSecs, 
                                  sort_int[bookie.nrSyms], 
                                  sizeof *sectors->irreps);
-        } else if (b == 'p'){
+        } else if (b == 'p') {
                 return linSearch(symmsec, sectors->irreps, sectors->nrSecs,
                                  sort_int[bookie.nrSyms],
                                  sizeof *sectors->irreps);

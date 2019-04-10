@@ -227,7 +227,7 @@ void rm_duplicates(void * array, int * n, enum sortType st, size_t size)
 {
 #ifdef SORT_DEBUG
         if (!check_sorted(array, *n, st, size)) {
-                fprintf(stderr, "Array not sotred in %s.\n", __func__);
+                fprintf(stderr, "Array not sorted in %s.\n", __func__);
         }
 #endif
         int cnt = 1;
@@ -239,7 +239,7 @@ void rm_duplicates(void * array, int * n, enum sortType st, size_t size)
                 char * pel = el;
                 el += incr;
                 // Previous is neq to current
-                if (compareSearch[st](pel, el)) {
+                if (compareSearch[st](pel, el) != 0) {
                         memcpy(cp_el, el, size);
                         cp_el += incr;
                         ++cnt;

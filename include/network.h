@@ -16,6 +16,8 @@
 */
 #pragma once
 
+#include <stdbool.h>
+
 /**
  * @file network.h
  * Header file for the network struct and related methods.
@@ -99,6 +101,9 @@ void print_network(void);
 
 /// @brief returns 1 if the given site is a physical site, otherwise 0.
 int is_psite(int site);
+
+/// @brief Returns if the given bond is physical bond or not.
+bool is_pbond(int bond);
 
 int get_left_psites(int bond);
 
@@ -191,6 +196,6 @@ void create_order_psites(void);
  * @param swlength [out] The length of the sweep array.
  * @return 0 if successful, 1 if not.
  */
-int  make_simplesweep(int inclborder, int ** sweep, int * swlength);
+int  make_simplesweep(bool inclborder, int ** sweep, int * swlength);
 
 int get_outgoing_bond(void);

@@ -346,7 +346,7 @@ int get_RedDMs(struct siteTensor * T3NS, struct RedDM * rdm,
         int exitcode = 0;
 
         int * sweep, swlength;
-        if (make_simplesweep(1, &sweep, &swlength)) { return 1; }
+        if (make_simplesweep(true, &sweep, &swlength)) { return 1; }
 
         // Not orthonormal (it is a hack fix)
         if (check_orthonormality(&T3NS[sweep[0]], &T3NS[sweep[1]])) {
