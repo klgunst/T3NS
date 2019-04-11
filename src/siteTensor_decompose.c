@@ -1148,7 +1148,8 @@ static double calculateCostFunction(struct Sval * S, double (*cfunc)(double s),
 static double VonNeumannEntropy(const double s)
 {
         double omega = s * s;
-        return -omega * log(omega);
+        // Prevent log(0), make a small error
+        return omega < 1e-20 ? 0 : -omega * log(omega);
 }
 
 /* For one singular value it calculates its contribution to the total norm of
