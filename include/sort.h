@@ -53,7 +53,9 @@ enum sortType {
         /// For sorting integer[5] arrays.
         SORT_INT5,
         /// For sorting double arrays.
-        SORT_DOUBLE
+        SORT_DOUBLE,
+        /// For sorting instructions
+        SORT_INSTR,
 };
 
 /// Array such that sort_qn[i] will return SORT_QN_TYPEi

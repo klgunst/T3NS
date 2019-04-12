@@ -41,31 +41,12 @@ static void sort_instructions(struct instructionset * const instructions)
 {
         const int step = instructions->step;
         const int nr_instr = instructions->nr_instr;
-        size_t max[step];
-        int *idx;
         int (*instr_new)[3]  = safe_malloc(nr_instr, *instr_new);
-        size_t * array      = safe_malloc(nr_instr, *array);
         double *prefnew = instructions->pref == NULL ? 
                 NULL : safe_malloc(nr_instr, double);
         int i, j;
 
-        for (i = 0; i < step; ++i) {
-                max[i] = -1;
-                for (j = 0; j < nr_instr; ++j)
-                        max[i] = max[i] < instructions->instr[j][i] + 1 ? 
-                                instructions->instr[j][i] + 1 : max[i];
-        }
-        for (i = step - 2; i >= 0; --i) max[i] *= max[i + 1];
-        for (i = 0; i < step - 1; ++i) max[i]  = max[i + 1];
-        max[step - 1] = 1;
-
-        for (i = 0; i < nr_instr; ++i) {
-                array[i] = 0;
-                for (j = 0; j < step; ++j)
-                        array[i] += max[j] * instructions->instr[i][j];
-        }
-
-        idx = quickSort(array, nr_instr, SORT_INT);
+        int * idx = quickSort(instructions->instr, nr_instr, SORT_INSTR);
         for (i = 0; i < nr_instr; i++) {
                 for (j = 0; j < step; ++j)
                         instr_new[i][j] = instructions->instr[idx[i]][j];
@@ -74,7 +55,6 @@ static void sort_instructions(struct instructionset * const instructions)
         }
         safe_free(instructions->instr);
         safe_free(instructions->pref);
-        safe_free(array);
         safe_free(idx);
         instructions->instr      = instr_new;
         instructions->pref       = prefnew;

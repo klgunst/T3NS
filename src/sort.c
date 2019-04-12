@@ -83,6 +83,14 @@ static int compardoublesearch(const void * a, const void * b)
         return (x > 0) - (x < 0);
 }
 
+static int comparinstrucsearch(const void * a, const void * b)
+{
+        int *aa = ((int *) a), *bb = ((int *) b);
+        if (aa[0] != bb[0]) { return (aa[0] - bb[0]); }
+        if (aa[1] != bb[1]) { return (aa[1] - bb[1]); }
+        return (aa[2] - bb[2]);
+}
+
 static int comparqnsearch(const void * a, const void * b)
 {
         QN_TYPE aa = *((QN_TYPE *) a), bb = *((QN_TYPE *) b);
@@ -116,35 +124,35 @@ static int comparqn4search(const void * a, const void * b)
 static int comparintsort(const void * a, const void * b, void * base_arr)
 {
         int aa = *((int*) a), bb = *((int*) b);
-        int * arr = base_arr;
+        int *arr = base_arr;
         return comparintsearch(&arr[aa], &arr[bb]);
 }
 
 static int comparint2sort(const void * a, const void * b, void * base_arr)
 {
         int aa = *((int*) a), bb = *((int*) b);
-        int * arr = base_arr;
+        int (*arr)[2] = base_arr;
         return comparint2search(&arr[aa], &arr[bb]);
 }
 
 static int comparint3sort(const void * a, const void * b, void * base_arr)
 {
         int aa = *((int*) a), bb = *((int*) b);
-        int * arr = base_arr;
+        int (*arr)[3] = base_arr;
         return comparint3search(&arr[aa], &arr[bb]);
 }
 
 static int comparint4sort(const void * a, const void * b, void * base_arr)
 {
         int aa = *((int*) a), bb = *((int*) b);
-        int * arr = base_arr;
+        int (*arr)[4] = base_arr;
         return comparint4search(&arr[aa], &arr[bb]);
 }
 
 static int comparint5sort(const void * a, const void * b, void * base_arr)
 {
         int aa = *((int*) a), bb = *((int*) b);
-        int * arr = base_arr;
+        int (*arr)[5] = base_arr;
         return comparint5search(&arr[aa], &arr[bb]);
 }
 
@@ -153,6 +161,13 @@ static int compardoublesort(const void * a, const void * b, void * base_arr)
         int aa = *((int*) a), bb = *((int*) b);
         double * arr = base_arr;
         return compardoublesearch(&arr[aa], &arr[bb]);
+}
+
+static int comparinstrucsort(const void * a, const void * b, void * base_arr)
+{
+        int aa = *((int*) a), bb = *((int*) b);
+        int (*arr)[3] = base_arr;
+        return comparinstrucsearch(&arr[aa], &arr[bb]);
 }
 
 static int comparqnsort(const void * a, const void * b, void * base_arr)
@@ -165,29 +180,29 @@ static int comparqnsort(const void * a, const void * b, void * base_arr)
 static int comparqn2sort(const void * a, const void * b, void * base_arr)
 {
         int aa = *((int*) a), bb = *((int*) b);
-        QN_TYPE * arr = base_arr;
-        return comparqn2search(&arr[2 * aa], &arr[2 * bb]);
+        QN_TYPE (*arr)[2] = base_arr;
+        return comparqn2search(&arr[aa], &arr[bb]);
 }
 
 static int comparqn3sort(const void * a, const void * b, void * base_arr)
 {
         int aa = *((int*) a), bb = *((int*) b);
-        QN_TYPE * arr = base_arr;
-        return comparqn3search(&arr[3 * aa], &arr[3 * bb]);
+        QN_TYPE (*arr)[3] = base_arr;
+        return comparqn3search(&arr[aa], &arr[bb]);
 }
 
 static int comparqn4sort(const void * a, const void * b, void * base_arr)
 {
         int aa = *((int*) a), bb = *((int*) b);
-        QN_TYPE * arr = base_arr;
-        return comparqn4search(&arr[4 * aa], &arr[4 * bb]);
+        QN_TYPE (*arr)[4] = base_arr;
+        return comparqn4search(&arr[aa], &arr[bb]);
 }
 
 static int (*compareSort[])(const void * a, const void * b, void * base_arr) = {
         NULL,
         comparqnsort, comparqn2sort, comparqn3sort, comparqn4sort,
         comparintsort, comparint2sort, comparint3sort, comparint4sort, 
-        comparint5sort, compardoublesort
+        comparint5sort, compardoublesort, comparinstrucsort
 };
 
 int * quickSort(void * array, int n, enum sortType st)
@@ -203,7 +218,7 @@ static int (*compareSearch[])(const void * a, const void * b) = {
         NULL,
         comparqnsearch, comparqn2search, comparqn3search, comparqn4search,
         comparintsearch, comparint2search, comparint3search, comparint4search, 
-        comparint5search, compardoublesearch
+        comparint5search, compardoublesearch, comparinstrucsearch
 };
 
 void inplace_quickSort(void * array, int n, enum sortType st, size_t sizeofel)
