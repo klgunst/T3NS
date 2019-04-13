@@ -22,6 +22,7 @@
 
 #include "sort.h"
 #include "macros.h"
+#include "instructions.h"
 
 //#define SORT_DEBUG
 
@@ -85,10 +86,11 @@ static int compardoublesearch(const void * a, const void * b)
 
 static int comparinstrucsearch(const void * a, const void * b)
 {
-        int *aa = ((int *) a), *bb = ((int *) b);
-        if (aa[0] != bb[0]) { return (aa[0] - bb[0]); }
-        if (aa[1] != bb[1]) { return (aa[1] - bb[1]); }
-        return (aa[2] - bb[2]);
+        struct instruction aa = *((struct instruction * ) a);
+        struct instruction bb = *((struct instruction * ) b);
+        if (aa.instr[0] != bb.instr[0]) { return (aa.instr[0] - bb.instr[0]); }
+        if (aa.instr[1] != bb.instr[1]) { return (aa.instr[1] - bb.instr[1]); }
+        return (bb.instr[2] - bb.instr[2]);
 }
 
 static int comparqnsearch(const void * a, const void * b)
@@ -166,7 +168,7 @@ static int compardoublesort(const void * a, const void * b, void * base_arr)
 static int comparinstrucsort(const void * a, const void * b, void * base_arr)
 {
         int aa = *((int*) a), bb = *((int*) b);
-        int (*arr)[3] = base_arr;
+        struct instruction * arr = base_arr;
         return comparinstrucsearch(&arr[aa], &arr[bb]);
 }
 

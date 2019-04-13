@@ -38,13 +38,10 @@ static void add_instruction(struct instructionset * instructions,
         instructions->instr = realloc(instructions->instr,
                                       instructions->nr_instr * 
                                       sizeof *instructions->instr);
-        instructions->pref = realloc(instructions->pref,
-                                     instructions->nr_instr * 
-                                     sizeof *instructions->pref);
         for (int i = 0; i < instructions->step; ++i) {
-                instructions->instr[instructions->nr_instr - 1][i] = instr[i];
+                instructions->instr[instructions->nr_instr - 1].instr[i] = instr[i];
         }
-        instructions->pref[instructions->nr_instr - 1] = val;
+        instructions->instr[instructions->nr_instr - 1].pref = val;
 }
 
 struct instruction_data {
@@ -115,66 +112,54 @@ static void id_to_curr_instr(long long id, int * curr_instr,
         assert(id < data->amount[i][2]);
 }
 
-static void add_instruction_thread(const int * curr_instr, double val, 
+static void add_instruction_thread(int * curr_instr, double val, 
                                    const int * order,
-                                   int (**t_instructions)[3], 
-                                   double ** t_pref,
+                                   struct instruction **t_instr, 
                                    int * meml, int * t_nr)
 {
         if (COMPARE_ELEMENT_TO_ZERO(val)) { return; }
         if (*t_nr >= *meml) {
                 *meml += MEMINSTR;
-                *t_instructions = realloc(*t_instructions, *meml * 
-                                          sizeof **t_instructions);
-                *t_pref = realloc(*t_pref, *meml * sizeof **t_pref);
-                if (*t_pref == NULL || *t_instructions == NULL) {
+                *t_instr = realloc(*t_instr, *meml * sizeof **t_instr);
+                if (*t_instr == NULL) {
                         fprintf(stderr, "%s:%d; Realloc failed.\n",
                                 __FILE__, __LINE__);
                         exit(EXIT_FAILURE);
                 }
         }
-        (*t_instructions)[*t_nr][0] = curr_instr[order[0]];
-        (*t_instructions)[*t_nr][1] = curr_instr[order[1]];
-        (*t_instructions)[*t_nr][2] = curr_instr[order[2]];
-        (*t_pref)[*t_nr] = val;
+        (*t_instr)[*t_nr].instr[0] = curr_instr[order[0]];
+        (*t_instr)[*t_nr].instr[1] = curr_instr[order[1]];
+        (*t_instr)[*t_nr].instr[2] = curr_instr[order[2]];
+        (*t_instr)[*t_nr].pref = val;
         ++*t_nr;
 }
 
 static void append_instructions(struct instructionset * instructions,
-                                int (*instr)[3], double * pref, int nr)
+                                struct instruction * instr, int nr)
 {
         if (nr == 0) { 
                 safe_free(instr);
-                safe_free(pref);
                 return; 
         }
         if (instructions->nr_instr == 0) {
                 instructions->nr_instr = nr;
                 instructions->instr = instr;
-                instructions->pref = pref;
         } else {
                 int start = instructions->nr_instr;
                 instructions->nr_instr += nr;
                 instructions->instr = realloc(instructions->instr, 
                                               instructions->nr_instr * 
                                               sizeof *instructions->instr);
-                instructions->pref = realloc(instructions->pref, 
-                                             instructions->nr_instr * 
-                                             sizeof *instructions->pref);
-                if (instructions->instr == NULL || instructions->pref == NULL) {
+                if (instructions->instr == NULL) {
                         fprintf(stderr, "%s:%d; Realloc failed.\n",
                                 __FILE__, __LINE__);
                         exit(EXIT_FAILURE);
                 }
 
                 for (int i = 0; i < nr; ++i, ++start) {
-                        instructions->instr[start][0] = instr[i][0];
-                        instructions->instr[start][1] = instr[i][1];
-                        instructions->instr[start][2] = instr[i][2];
-                        instructions->pref[start] = pref[i];
+                        instructions->instr[start] = instr[i];
                 }
                 safe_free(instr);
-                safe_free(pref);
         }
 }
 
@@ -186,7 +171,6 @@ static void combine_all_operators(const struct opType * const ops, const char c,
         struct instruction_data data = get_instruction_data(ops, c);
         instructions->nr_instr = 0;
         instructions->instr = NULL;
-        instructions->pref = NULL;
         const long long max_instr = data.start_combine[data.size];
 
 #pragma omp parallel default(none) shared(data)
@@ -195,8 +179,7 @@ static void combine_all_operators(const struct opType * const ops, const char c,
                 // for the instructions.
                 int meml = max_instr > MEMINSTR ?  MEMINSTR : max_instr;
 
-                int (*t_instructions)[3] = safe_malloc(meml, *t_instructions);
-                double *t_pref = safe_malloc(meml, *t_pref);
+                struct instruction * t_instr = safe_malloc(meml, *t_instr);
                 int t_nr = 0;
 
 #pragma omp for schedule(guided)
@@ -206,13 +189,12 @@ static void combine_all_operators(const struct opType * const ops, const char c,
                         id_to_curr_instr(i, curr_instr, &data);
                         if (interactval(curr_instr, ops, c, &val)) {
                                 add_instruction_thread(curr_instr, val, order,
-                                                       &t_instructions,
-                                                       &t_pref, &meml, &t_nr);
+                                                       &t_instr, &meml, &t_nr);
                         }
                 }
 
 #pragma omp critical
-                append_instructions(instructions, t_instructions, t_pref, t_nr);
+                append_instructions(instructions, t_instr, t_nr);
         }
 
         free_instruction_data(&data);

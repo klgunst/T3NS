@@ -447,8 +447,8 @@ static void make_opType(struct opType * const ops,
         int * plist = list;
 
         for (int i = 0; i < instructions->nr_instr; ++i) {
-                if (instructions->instr[i][2] >= 0)
-                        list[instructions->instr[i][2]] = 1;
+                if (instructions->instr[i].instr[2] >= 0)
+                        list[instructions->instr[i].instr[2]] = 1;
         }
 
         ops->begin_opType = safe_calloc(NR_OPS * NR_TYP + 1, int);

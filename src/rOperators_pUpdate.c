@@ -78,6 +78,8 @@ void rOperators_append_phys(struct rOperators * const newrops, const struct rOpe
 
   sum_unique_rOperators(newrops, &uniquerops, instructions, hamsymsecs_of_new, prefactors, 
       nr_instructions);
+  safe_free(instructions);
+  safe_free(prefactors);
   destroy_rOperators(&uniquerops);
 }
 

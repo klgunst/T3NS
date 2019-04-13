@@ -37,27 +37,10 @@ static struct instructionset (*iset_merge)[2] = NULL;
 
 //#define PRINT_INSTRUCTIONS
 
-static void sort_instructions(struct instructionset * const instructions)
+static void sort_instructions(struct instructionset * instructions)
 {
-        const int step = instructions->step;
-        const int nr_instr = instructions->nr_instr;
-        int (*instr_new)[3]  = safe_malloc(nr_instr, *instr_new);
-        double *prefnew = instructions->pref == NULL ? 
-                NULL : safe_malloc(nr_instr, double);
-        int i, j;
-
-        int * idx = quickSort(instructions->instr, nr_instr, SORT_INSTR);
-        for (i = 0; i < nr_instr; i++) {
-                for (j = 0; j < step; ++j)
-                        instr_new[i][j] = instructions->instr[idx[i]][j];
-
-                if (prefnew != NULL) prefnew[i] = instructions->pref[idx[i]];
-        }
-        safe_free(instructions->instr);
-        safe_free(instructions->pref);
-        safe_free(idx);
-        instructions->instr      = instr_new;
-        instructions->pref       = prefnew;
+        inplace_quickSort(instructions->instr, instructions->nr_instr, 
+                          SORT_INSTR, sizeof *instructions->instr);
 }
 
 void clear_instructions(void)
@@ -81,7 +64,6 @@ void clear_instructions(void)
 void destroy_instructionset(struct instructionset * const instructions)
 {
         safe_free(instructions->instr);
-        safe_free(instructions->pref);
         safe_free(instructions->hss_of_new);
 }
 
@@ -117,10 +99,16 @@ void fetch_pUpdate(int (**instructions)[3], double ** prefactors,
                 sort_instructions(instr);
         }
 
-        *instructions = iset_pUpdate[bond][is_left].instr;
-        *prefactors = iset_pUpdate[bond][is_left].pref;
         *hamsymsecs_of_new = iset_pUpdate[bond][is_left].hss_of_new;
         *nr_instructions = iset_pUpdate[bond][is_left].nr_instr;
+        *instructions = safe_malloc(*nr_instructions, **instructions);
+        *prefactors = safe_malloc(*nr_instructions, **prefactors);
+        for (int i = 0; i < *nr_instructions; ++i) {
+                (*instructions)[i][0] = iset_pUpdate[bond][is_left].instr[i].instr[0];
+                (*instructions)[i][1] = iset_pUpdate[bond][is_left].instr[i].instr[1];
+                (*instructions)[i][2] = iset_pUpdate[bond][is_left].instr[i].instr[2];
+                (*prefactors)[i] = iset_pUpdate[bond][is_left].instr[i].pref;
+        }
 
 #ifdef PRINT_INSTRUCTIONS
         print_instructions(&iset_pUpdate[bond][is_left], bond, is_left, 'd', 0);
@@ -193,9 +181,15 @@ void fetch_merge(int (**instructions)[3], int * const nr_instructions,
                 }
                 instr->hss_of_new = NULL;
         }
-        *instructions = iset_merge[bond][isdmrg].instr;
-        *prefactors = iset_merge[bond][isdmrg].pref;
         *nr_instructions = iset_merge[bond][isdmrg].nr_instr;
+        *instructions = safe_malloc(*nr_instructions, **instructions);
+        *prefactors = safe_malloc(*nr_instructions, **prefactors);
+        for (int i = 0; i < *nr_instructions; ++i) {
+                (*instructions)[i][0] = iset_merge[bond][isdmrg].instr[i].instr[0];
+                (*instructions)[i][1] = iset_merge[bond][isdmrg].instr[i].instr[1];
+                (*instructions)[i][2] = iset_merge[bond][isdmrg].instr[i].instr[2];
+                (*prefactors)[i] = iset_merge[bond][isdmrg].instr[i].pref;
+        }
 
 #ifdef PRINT_INSTRUCTIONS
         print_instructions(&iset_merge[bond][isdmrg], bond, 0, 'm', isdmrg);
@@ -256,12 +250,13 @@ void sortinstructions_toMPOcombos(int (**instructions)[3],
         *MPOinstr   = realloc(*MPOinstr, *nrMPOinstr * sizeof(int));
         safe_free(idx);
         safe_free(temp);
+        safe_free(*instructions);
+        safe_free(*prefactors);
         *instructions = newinstructions;
         *prefactors = newpref;
 }
 
-int get_next_unique_instr(int * const curr_instr, 
-                          const struct instructionset * const instructions)
+int get_next_unique_instr(int * curr_instr, const struct instructionset * set)
 {
         /* instructions->instr is of the form:
          *   old1, old2, new
@@ -272,16 +267,16 @@ int get_next_unique_instr(int * const curr_instr,
                 ++*curr_instr;
                 return 1;
         } else {
-                const int old1 = instructions->instr[*curr_instr][0];
-                const int old2 = instructions->instr[*curr_instr][1];
-                const int old3 = instructions->instr[*curr_instr][2];
-                const int hss_old = instructions->hss_of_new[old3];
+                const int old1 = set->instr[*curr_instr].instr[0];
+                const int old2 = set->instr[*curr_instr].instr[1];
+                const int old3 = set->instr[*curr_instr].instr[2];
+                const int hss_old = set->hss_of_new[old3];
 
-                for (++*curr_instr; *curr_instr < instructions->nr_instr; ++*curr_instr) {
-                        const int new1 = instructions->instr[*curr_instr][0];
-                        const int new2 = instructions->instr[*curr_instr][1];
-                        const int new3 = instructions->instr[*curr_instr][2];
-                        const int hss_new = instructions->hss_of_new[new3];
+                for (++*curr_instr; *curr_instr < set->nr_instr; ++*curr_instr) {
+                        const int new1 = set->instr[*curr_instr].instr[0];
+                        const int new2 = set->instr[*curr_instr].instr[1];
+                        const int new3 = set->instr[*curr_instr].instr[2];
+                        const int hss_new = set->hss_of_new[new3];
                         if (old1 != new1 || old2 != new2 || hss_old != hss_new)
                                 return 1;
                 }
@@ -306,15 +301,15 @@ static void print_DMRG_instructions(struct instructionset * instructions,
 
         for (int i = 0; i < instructions->nr_instr; ++i) {
                 char buffer[MY_STRING_LEN];
-                get_string_of_rops(buffer, instructions->instr[i][0], 
+                get_string_of_rops(buffer, instructions->instr[i].instr[0], 
                                    bond, is_left, 'e');
-                printf("%14.8g * %-16s + ", instructions->pref[i], buffer);
-                get_string_of_siteops(buffer, instructions->instr[i][1], site);
+                printf("%14.8g * %-16s + ", instructions->instr[i].pref, buffer);
+                get_string_of_siteops(buffer, instructions->instr[i].instr[1], site);
                 printf("%-32s --> ", buffer);
                 get_sectorstring(&MPO, instructions->hss_of_new[
-                                 instructions->instr[i][2]], buffer);
+                                 instructions->instr[i].instr[2]], buffer);
                 printf("(%s)", buffer);
-                get_string_of_rops(buffer, instructions->instr[i][2], 
+                get_string_of_rops(buffer, instructions->instr[i].instr[2], 
                                    bonds[2 * is_left], is_left, 'c');
                 printf("\t%s\n", buffer);
         }
@@ -358,16 +353,16 @@ static void print_T3NS_instructions(struct instructionset * instructions,
 
         for (int i = 0; i < instructions->nr_instr; ++i) {
                 char buffer[255];
-                get_string_of_rops(buffer, instructions->instr[i][0],
+                get_string_of_rops(buffer, instructions->instr[i].instr[0],
                                    bond1, left1, 'e');
-                printf("%14.8g * %-16s + ", instructions->pref[i], buffer);
-                get_string_of_rops(buffer, instructions->instr[i][1], 
+                printf("%14.8g * %-16s + ", instructions->instr[i].pref, buffer);
+                get_string_of_rops(buffer, instructions->instr[i].instr[1], 
                                    bond2, left2, 'e');
                 printf("%-32s --> ", buffer);
                 get_sectorstring(&MPO, instructions->hss_of_new[
-                                 instructions->instr[i][2]], buffer);
+                                 instructions->instr[i].instr[2]], buffer);
                 printf("(%s)", buffer);
-                get_string_of_rops(buffer, instructions->instr[i][2], 
+                get_string_of_rops(buffer, instructions->instr[i].instr[2], 
                                    bond, is_left, 'c');
                 printf("\t%s\n", buffer);
         }
@@ -403,9 +398,9 @@ static void print_merge_instructions(struct instructionset * instructions,
 
         for (int i = 0; i < instructions->nr_instr; ++i) {
                 char buffer[MY_STRING_LEN];
-                printf("%14.8g * ", instructions->pref[i]);
+                printf("%14.8g * ", instructions->instr[i].pref);
                 for (int j = 0; j < instructions->step; ++ j) {
-                        get_string_of_rops(buffer, instructions->instr[i][j], 
+                        get_string_of_rops(buffer, instructions->instr[i].instr[j], 
                                            bonds[j], isleft[j], 'e');
                         printf("%-16s%s", buffer, j == instructions->step - 1 
                                ? "\n" : " + ");
@@ -455,10 +450,11 @@ void fill_instruction(int id1, int id2, int id3, double pref)
                 ++(instr->nr_instr);
         } else {
                 assert(insrno < instr->nr_instr);
-                instr->instr[insrno][0] = id1;
-                instr->instr[insrno][1] = id2;
-                instr->instr[insrno][2] = id3;
-                instr->pref[insrno] = pref;
+                const struct instruction newinstr = { 
+                        .instr = {id1, id2, id3},
+                        .pref = pref
+                };
+                instr->instr[insrno] = newinstr;
                 ++insrno;
         }
 }

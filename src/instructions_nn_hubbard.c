@@ -48,8 +48,6 @@ static void H_fetch_DMRG(struct instructionset * instructions,
         instructions->nr_instr = 6 + !is_border * 5;
         instructions->instr = safe_malloc(instructions->nr_instr, 
                                           *instructions->instr);
-        instructions->pref = safe_malloc(instructions->nr_instr, 
-                                         *instructions->pref);
 
         start_fill_instruction(instructions, 3);
 
@@ -79,8 +77,6 @@ static void H_fetch_merge(struct instructionset * instructions, int isdmrg)
                 instructions->nr_instr = 6;
                 instructions->instr = safe_malloc(instructions->nr_instr, 
                                                   *instructions->instr);
-                instructions->pref = safe_malloc(instructions->nr_instr, 
-                                                 *instructions->pref);
 
                 start_fill_instruction(instructions, 2);
                 fill_instruction(0, 5, 0, 1);
@@ -93,8 +89,6 @@ static void H_fetch_merge(struct instructionset * instructions, int isdmrg)
                 instructions->nr_instr = 15;
                 instructions->instr = safe_malloc(instructions->nr_instr, 
                                                   *instructions->instr);
-                instructions->pref = safe_malloc(instructions->nr_instr, 
-                                                 *instructions->pref);
 
                 start_fill_instruction(instructions, 3);
                 fill_instruction(0, 0, 5, 1);
@@ -127,8 +121,6 @@ static void H_fetch_T3NS(struct instructionset * instructions, int updateCase)
 
         instructions->instr = safe_malloc(instructions->nr_instr,
                                           *instructions->instr);
-        instructions->pref  = safe_malloc(instructions->nr_instr,
-                                          *instructions->pref);
         start_fill_instruction(instructions, 3);
 
         fill_instruction(0, 0, 0, 1);
@@ -176,8 +168,6 @@ static void H_fetch_DMRG_su2(struct instructionset * instructions,
         instructions->nr_instr = 4 + !is_border * 3;
         instructions->instr = safe_malloc(instructions->nr_instr,
                                           *instructions->instr);
-        instructions->pref  = safe_malloc(instructions->nr_instr,
-                                          *instructions->pref);
 
         start_fill_instruction(instructions, 3);
 
@@ -205,8 +195,6 @@ static void H_fetch_merge_su2(struct instructionset * instructions, int isdmrg)
                 instructions->nr_instr = 4;
                 instructions->instr = safe_malloc(instructions->nr_instr, 
                                                   *instructions->instr);
-                instructions->pref = safe_malloc(instructions->nr_instr, 
-                                                 *instructions->pref);
 
                 start_fill_instruction(instructions, 2);
                 fill_instruction(0, 3, 0, 1);
@@ -217,8 +205,6 @@ static void H_fetch_merge_su2(struct instructionset * instructions, int isdmrg)
                 instructions->nr_instr = 9;
                 instructions->instr = safe_malloc(instructions->nr_instr, 
                                                   *instructions->instr);
-                instructions->pref = safe_malloc(instructions->nr_instr, 
-                                                 *instructions->pref);
 
                 start_fill_instruction(instructions, 3);
                 fill_instruction(0, 0, 3, 1);
@@ -244,8 +230,6 @@ static void H_fetch_T3NS_su2(struct instructionset * instructions, int updateCas
         instructions->nr_instr = 9;
         instructions->instr = safe_malloc(instructions->nr_instr,
                                           *instructions->instr);
-        instructions->pref  = safe_malloc(instructions->nr_instr,
-                                          *instructions->pref);
 
         start_fill_instruction(instructions, 3);
 

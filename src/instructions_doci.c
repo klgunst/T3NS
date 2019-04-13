@@ -467,11 +467,8 @@ void DOCI_fetch_pUpdate(struct instructionset * instructions,
                              netw.sitetoorb[site], instructions);
 
         // Allocate memory
-        instructions->instr = safe_malloc(instructions->nr_instr *
-                                          instructions->step, 
+        instructions->instr = safe_malloc(instructions->nr_instr,
                                           *instructions->instr);
-        instructions->pref = safe_malloc(instructions->nr_instr, 
-                                         *instructions->pref);
         // Making the instructions
         pUpdate_make_r_count(&p_info, &s_info, &n_info, addcore,
                              netw.sitetoorb[site], instructions);
@@ -606,11 +603,8 @@ void DOCI_fetch_bUpdate(struct instructionset * instructions,
         bUpdate_make_r_count(p_info, &n_info, instructions);
 
         // Allocate memory
-        instructions->instr = safe_malloc(instructions->nr_instr *
-                                          instructions->step, 
+        instructions->instr = safe_malloc(instructions->nr_instr,
                                           *instructions->instr);
-        instructions->pref = safe_malloc(instructions->nr_instr, 
-                                         *instructions->pref);
         // Making the instructions
         bUpdate_make_r_count(p_info, &n_info, instructions);
 
@@ -650,8 +644,6 @@ void DOCI_fetch_merge(struct instructionset * instructions,
         }
         instructions->instr = safe_malloc(instructions->nr_instr, 
                                           *instructions->instr);
-        instructions->pref = safe_malloc(instructions->nr_instr, 
-                                         *instructions->pref);
         start_fill_instruction(instructions, isdmrg ? 2 : 3);
 
         if (isdmrg) {
