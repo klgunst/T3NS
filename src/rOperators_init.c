@@ -143,7 +143,7 @@ void sum_unique_rOperators(struct rOperators * const newrops, const struct rOper
     const int prev1operator = instructions[instr][0];
     const int prev2operator = instructions[instr][1];
     const int nextoperator = instructions[instr][2];
-    const int nr_blocks = rOperators_give_nr_blocks_for_operator(newrops, nextoperator);
+    const int nr_blocks = nblocks_in_operator(newrops, nextoperator);
     struct sparseblocks * const newBlock = &newrops->operators[nextoperator];
 
     const int N = newBlock->beginblock[nr_blocks];
@@ -164,7 +164,7 @@ void sum_unique_rOperators(struct rOperators * const newrops, const struct rOper
 
   /* Kick out all the symsecs that have only zero tensor elements out of each operator */
   for (i = 0; i < newrops->nrops; ++i)
-    kick_zero_blocks(&newrops->operators[i], rOperators_give_nr_blocks_for_operator(newrops,i));
+    kick_zero_blocks(&newrops->operators[i], nblocks_in_operator(newrops,i));
 }
 
 /* ========================================================================== */

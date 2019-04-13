@@ -167,7 +167,7 @@ void find_goodqnumbersectors(int ****dimarray, int ****qnumbersarray, int *total
 
       while (++count < totalirreps)
       {
-        int ind = search_symsec(irrep, &symarr[2], 'v');
+        int ind = search_symsec(irrep, &symarr[2]);
         if (ind != -1 && symarr[2].dims[ind])
         {
           (*total)++;
@@ -372,7 +372,7 @@ void tensprod_symsecs(struct symsecs * res, const struct symsecs * sectors1,
                                 int pos_symmsec = 
                                         search_symsec(resultsymmsec + 
                                                       bookie.nrSyms * 
-                                                      nr_symmsecs, res, 'v');
+                                                      nr_symmsecs, res);
 
                                 if (pos_symmsec < 0) { break; }
                                 if (o == 'f') {

@@ -273,11 +273,11 @@ void change_sectors_tensor(struct siteTensor * oldtens,
                 assert(oldqn == 0);
 
                 int newid[3];
-                newid[0] = search_symsec(oldss[0].irreps[oldid[0]], &newss[0], 'v');
+                newid[0] = search_symsec(oldss[0].irreps[oldid[0]], &newss[0]);
                 if (newid[0] == -1 ) { continue; }
-                newid[1] = search_symsec(oldss[1].irreps[oldid[1]], &newss[1], 'p');
+                newid[1] = search_symsec(oldss[1].irreps[oldid[1]], &newss[1]);
                 if (newid[0] == -1 ) { continue; }
-                newid[2] = search_symsec(oldss[2].irreps[oldid[2]], &newss[2], 'v');
+                newid[2] = search_symsec(oldss[2].irreps[oldid[2]], &newss[2]);
                 if (newid[0] == -1 ) { continue; }
 
                 const QN_TYPE newqn = newid[0] + newid[1] * newdims[0] +

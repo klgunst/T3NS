@@ -232,7 +232,7 @@ double prefactor_pAppend(const int * symvalues, int is_left,
         }
 }
 
-double prefactor_adjoint(int ** irrep_arr, char c, 
+double prefactor_adjoint(const int ** irrep_arr, char c, 
                          const enum symmetrygroup * sgs, int nrsy)
 {
         int symvalues[3];
@@ -241,8 +241,9 @@ double prefactor_adjoint(int ** irrep_arr, char c,
                 switch(sgs[i]) {
                 case Z2 :
                         /* Only Z2 needs a sign change */
-                        for (int j = 0; j < 3; ++j) 
+                        for (int j = 0; j < 3; ++j) {
                                 symvalues[j] = irrep_arr[j][i];
+                        }
                         prefactor *= Z2_prefactor_adjoint(symvalues, c);
                         break;
                 default :
@@ -252,43 +253,19 @@ double prefactor_adjoint(int ** irrep_arr, char c,
         return prefactor;
 }
 
-double prefactor_pUpdate(int ** irrep_arr, int is_left, 
+double prefactor_pUpdate(const int * (*irrep_arr)[3], int is_left, 
                          const enum symmetrygroup * sgs, int nrsy)
 {
-        /* This returns the prefactor needed for the updating of a renormalized operator with a site 
-         * operator appended by using a three-legged T3NS-tensor.
-         *
-         * We have the following couplings for the renormalized ops, for tens and for tens_hermitian:
-         *
-         * renormalized ops (LEFT): (A asterisk means it is an in-bond)
-         *   begin:
-         *      ---[bra*(alpha), bra*(i), bra(beta) ,
-         *           bra*(beta) , MPO    , ket(beta) ,
-         *           ket*(beta) , ket(i) , ket(alpha)]
-         *   end:
-         *      ---[bra*(beta), MPO, ket(beta)]
-         *
-         * renormalized ops (RIGHT):
-         *   begin:
-         *      ---[bra*(alpha), bra*(i), bra(beta)  ,
-         *           bra(alpha) , MPO    , ket*(alpha),
-         *           ket*(beta) , ket(i) , ket(alpha)]
-         *   end:
-         *      ---[bra(alpha), MPO, ket*(alpha)]
-         *
-         * tens:
-         *      ---[ket*(alpha), ket*(i), ket(beta)]
-         * tens_hermitian:
-         *      ---[bra*(beta), bra(i), bra(alpha)]
-         */
-        int i, j;
         int symvalues[7];
         double prefactor = 1;
-        for (i = 0; i < nrsy; ++i)
+        for (int i = 0; i < nrsy; ++i)
                 switch(sgs[i]) {
                 case Z2 :
-                        for (j = 0; j < 7; ++j) 
-                                symvalues[j] = irrep_arr[j][i];
+                        for (int j = 0; j < 3; ++j) {
+                                symvalues[j] = irrep_arr[0][j][i];
+                                symvalues[3 + j] = irrep_arr[1][j][i];
+                        }
+                        symvalues[6] = irrep_arr[2][1][i];
                         /* only Z2 needs a sign change for this contract */
                         prefactor *= Z2_prefactor_pUpdate(symvalues, is_left);
                         break;

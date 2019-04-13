@@ -66,7 +66,7 @@ static void kick_impossibles(struct symsecs * const sector)
 }
 
 static void init_vacuumstate(struct symsecs * sectors, char o)
-{ 
+{
         assert(o == 'f' || o == 'd');
         sectors->nrSecs     = 1;
         sectors->irreps     = safe_malloc(sectors->nrSecs, *sectors->irreps);
@@ -175,7 +175,6 @@ static void make_symsec(struct symsecs *symsec, int bond, int is_left, char o)
         if (netw.bonds[bond][!is_left] == -1) {
                 if (is_left) {
                         init_vacuumstate(symsec, o);
-
                 } else {
                         struct symsecs temp;
                         init_targetstate(&temp, o);
@@ -215,6 +214,7 @@ static void make_symsec(struct symsecs *symsec, int bond, int is_left, char o)
         if (flag && is_left) {
                 tensprod_symsecs(symsec, &sectors1, sectors2p, +1, o);
                 kick_impossibles(symsec);
+                symsec->bond = bond;
                 return;
         }
         if(flag && !is_left) {
@@ -222,11 +222,13 @@ static void make_symsec(struct symsecs *symsec, int bond, int is_left, char o)
                 tensprod_symsecs(&temp, &sectors1, sectors2p, -1, o);
                 select_lowest(symsec, &temp);
                 destroy_symsecs(&temp);
+                symsec->bond = bond;
                 return;
         }
         if(!flag && is_left) {
                 tensprod_symsecs(symsec, &sectors1, sectors2p, +1, o);
                 kick_impossibles(symsec);
+                symsec->bond = bond;
                 return;
         }
         while(!flag) {
@@ -288,7 +290,7 @@ static void calc_dims(int max_dim, int minocc)
                 bookiess->totaldims = 0;
                 for (int i = 0; i < bookiess->nrSecs; ++i) {
                         int * irrep = bookiess->irreps[i];
-                        const int pos = search_symsec(irrep, &newSymsec, 'v');
+                        const int pos = search_symsec(irrep, &newSymsec);
                         if (pos < 0) {
                                 fprintf(stderr, "Error @%s: irrep not found.\n",
                                         __func__);
@@ -326,6 +328,7 @@ static void create_p_symsecs(struct bookkeeper * keeper)
         keeper->p_symsecs = safe_malloc(keeper->psites, *keeper->p_symsecs);
         for (int i = 0; i < keeper->psites; ++i) {
                 get_physsymsecs(&keeper->p_symsecs[i], i);
+                keeper->p_symsecs[i].bond = netw.nr_bonds * 2 + i;
         }
 }
 
@@ -715,7 +718,7 @@ static int change_targetstate(struct bookkeeper * prevbookie, int * changedSS)
 static void select_highest_ss_dim(struct symsecs * oss, struct symsecs * nss)
 {
         for (int i = 0; i < oss->nrSecs; ++i) {
-                const int id = search_symsec(oss->irreps[i], nss, 'v');
+                const int id = search_symsec(oss->irreps[i], nss);
                 if (id == -1) { continue; }
                 nss->dims[id] = oss->dims[i] == 0 ? nss->dims[id] : oss->dims[i];
         }

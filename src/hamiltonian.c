@@ -91,11 +91,11 @@ void print_interaction(void)
         printf("Interaction = %s\n", interact);
 }
 
-void get_physsymsecs(struct symsecs *res, int bond)
+void get_physsymsecs(struct symsecs *res, int site)
 {
         switch(ham) {
         case QC :
-                QC_get_physsymsecs(res, bond);
+                QC_get_physsymsecs(res, site);
                 break;
         case NN_HUBBARD :
                 NN_H_get_physsymsecs(res);
@@ -125,6 +125,7 @@ void get_hamiltoniansymsecs(struct symsecs * const res, const int bond)
                 fprintf(stderr, "%s@%s: Unrecognized Hamiltonian.\n",
                         __FILE__, __func__);
         }
+        res->bond = bond;
 }
 
 int get_nr_hamsymsec(void)

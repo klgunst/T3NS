@@ -204,7 +204,7 @@ int rOperators_give_nr_blocks_for_hss(const struct rOperators * const rops, cons
  * \param [in] hss The operator index.
  * \return The number of blocks or 0 if invalid hss.
  */
-int rOperators_give_nr_blocks_for_operator(const struct rOperators * const rops, const int op);
+int nblocks_in_operator(const struct rOperators * const rops, const int op);
 
 /**
  * \brief Gives pointer to the qnumbers array for an operator belonging to a certain rOperators 

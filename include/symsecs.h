@@ -30,6 +30,8 @@
  * \brief Struct with the symmetry sectors for a bond.
  */
 struct symsecs {
+        /// The bond where the symsecs is situated.
+        int bond;
         int nrSecs;    /**< The number of different symmetry sectors possible in the bond. */
         int (*irreps)[MAX_SYMMETRIES];      
                           /**< The irreps that specify every symmetry sector
@@ -81,11 +83,9 @@ void destroy_symsecs(struct symsecs *sectors);
  *
  * \param[in] symmsec The symmetry sector to search.
  * \param[in] sectors The array to search in.
- * \param[in] b Specifies if it is a symmetry sector for virtual or physical 
- * bonds.
  * \return -1 if not found, otherwise the index.
  */
-int search_symsec(int * symmsec, const struct symsecs * sectors, char b);
+int search_symsec(int * symmsec, const struct symsecs * sectors);
 
 /**
  * \brief Gives you a string of the specified sector.
@@ -175,15 +175,24 @@ inline QN_TYPE qntypize(const int * ids, const struct symsecs * ss)
  * @param [in] oss The old symmetry sectors.
  * @param [out] nids The new indices. Should already be allocated.
  * @param [in] nss The new symmetry sectors.
- * @param [in] bonds The bonds linked with each index/symmetry sector.
  * @param [in] n The number of elements in oids, oss, bonds, nids and nss.
  */
 inline void translate_indices(const int * oids, const struct symsecs * oss, 
-                              int * nids, const struct symsecs * nss, 
-                              const int * bonds, int n)
+                              int * nids, const struct symsecs * nss, int n)
 {
         for (int i = 0; i < n; ++i) {
-                const char b = (char) (bonds[i] >= netw.nr_bonds * 2 ?  'p' : 'v');
-                nids[i] = search_symsec(oss[i].irreps[oids[i]], &nss[i], b);
+                nids[i] = search_symsec(oss[i].irreps[oids[i]], &nss[i]);
         }
 }
+
+/**
+ * @brief Translates a quantum number linked with one set of symmetry sectors
+ * to a quantum number of an other set.
+ *
+ * @param [in] qn The original quantum number
+ * @param [in] oss The original set of symmsecs (array of 3 elements)
+ * @param [in] nss The new set of symmsecs (array of 3 elements)
+ * @return The translated quantum number
+ */
+QN_TYPE translate_qn(QN_TYPE qn, const struct symsecs * oss,
+                  const struct symsecs * nss);

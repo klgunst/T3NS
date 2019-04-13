@@ -29,13 +29,14 @@
 
 void init_null_symsecs(struct symsecs * symsec)
 {
-        const struct symsecs nullsymsec = {0, NULL, NULL, NULL, 0};
+        const struct symsecs nullsymsec = {0, 0, NULL, NULL, NULL, 0};
         *symsec = nullsymsec;
 }
 
 void get_symsecs(struct symsecs *res, int bond)
 {
         bookkeeper_get_symsecs(&bookie, res, bond);
+        assert(res->bond == bond);
 }
 
 void get_symsecs_arr(int n, struct symsecs * symarr, int * bonds)
@@ -81,9 +82,7 @@ int is_set_to_internal_symsec(const int bond)
         get_symsecs(&symsec, get_ketT3NSbond(bond));
 
         for (i = 0; i < symsec.nrSecs; ++i) {
-                if (symsec.dims[i] != 1) {
-                        return 0;
-                }
+                if (symsec.dims[i] != 1) { return 0; }
         }
         return 1;
 }
@@ -121,6 +120,7 @@ void kick_empty_symsecs(struct symsecs *sectors, char o)
 void deep_copy_symsecs(struct symsecs * copy, const struct symsecs * tocopy)
 {
         copy->nrSecs = tocopy->nrSecs;
+        copy->bond = tocopy->bond;
         copy->dims = safe_malloc(copy->nrSecs, int);
 
         copy->irreps = safe_malloc(copy->nrSecs, copy->irreps[0]);
@@ -150,13 +150,16 @@ int full_dimension(const struct symsecs * const sym)
         return result;
 }
 
-int search_symsec(int * symmsec, const struct symsecs * sectors, char b)
+int search_symsec(int * symmsec, const struct symsecs * sectors)
 {
-        if (b == 'v') {
+        // For virtuals you can do a binary search
+        if (!is_pbond(sectors->bond) && sectors->bond >= 0) {
                 return binSearch(symmsec, sectors->irreps, sectors->nrSecs, 
                                  sort_int[bookie.nrSyms], 
                                  sizeof *sectors->irreps);
-        } else if (b == 'p') {
+        } else {
+                // I am not sure if physical bonds and MPO bonds are always
+                // sorted
                 return linSearch(symmsec, sectors->irreps, sectors->nrSecs,
                                  sort_int[bookie.nrSyms],
                                  sizeof *sectors->irreps);
@@ -181,5 +184,14 @@ extern void indexize(int * ids, QN_TYPE qn, const struct symsecs * ss);
 extern QN_TYPE qntypize(const int * ids, const struct symsecs * ss);
 
 extern void translate_indices(const int * oids, const struct symsecs * oss, 
-                              int * nids, const struct symsecs * nss, 
-                              const int * bonds, int n);
+                              int * nids, const struct symsecs * nss, int n);
+
+QN_TYPE translate_qn(QN_TYPE qn, const struct symsecs * oss,
+                  const struct symsecs * nss)
+{
+        int oids[3], nids[3];
+        indexize(oids, qn, oss);
+        translate_indices(oids, oss, nids, nss, 3);
+        if (oids[0] < 0 || oids[1] < 0 || oids[2] < 0) { return -1; }
+        return qntypize(nids, nss);
+}

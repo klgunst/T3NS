@@ -80,7 +80,7 @@ int rOperators_give_nr_blocks_for_hss(const struct rOperators * const rops, cons
   }
 }
 
-int rOperators_give_nr_blocks_for_operator(const struct rOperators * const rops, const int op)
+int nblocks_in_operator(const struct rOperators * const rops, const int op)
 {
   return rOperators_give_nr_blocks_for_hss(rops, rops->hss_of_ops[op]);
 }

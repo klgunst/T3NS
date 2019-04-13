@@ -136,21 +136,33 @@ double prefactor_pAppend(const int * symv, int is_left, enum symmetrygroup sg);
  *
  * For the coupling of the tensor, see @ref siteTensor.
  *
- * @param irreps [in] The different irreps of the symmetries of the current 
+ * @param [in] irreps The different irreps of the symmetries of the current 
  * symmetry sector.<br>
  * The order is given by: \f$α, β, γ\f$.
- * @param c [in] The type of orthogonalized tensor. Options are:
+ * @param [in] c The type of orthogonalized tensor. Options are:
  * * 'c' for an orthogonality center.
  * * '1' for orthogonalized tensors with respect of contraction over β and γ.
  * * '2' for orthogonalized tensors with respect of contraction over α and γ.
  * * '3' for orthogonalized tensors with respect of contraction over α and β.
- * @param sgs [in] The symmetrygroups.
- * @param nrsy [in] The number of symmetrygroups.
+ * @param [in] sgs The symmetrygroups.
+ * @param [in] nrsy The number of symmetrygroups.
  */
-double prefactor_adjoint(int ** irreps, char c, const enum symmetrygroup * sgs, 
-                         int nrsy);
+double prefactor_adjoint(const int ** irreps, char c, 
+                         const enum symmetrygroup * sgs, int nrsy);
 
-double prefactor_pUpdate(int ** irrep_arr, int is_left, 
+/**
+ * @brief The prefactor when updating a physical rOperators by contracting with
+ * a physical siteTensor and its adjoint.
+ *
+ * @param [in] irreps The different irreps of the symmetries for the current
+ * symmetry sector.<br>
+ * The order is the same as the qnumbers order for a physical @ref rOperators.
+ * (See table in documentation for @ref rOperators.)
+ * @param [in] is_left 1 if updating a left rOperators, otherwise 0.
+ * @param [in] sgs The symmetrygroups.
+ * @param [in] nrsy The number of symmetrygroups.
+ */
+double prefactor_pUpdate(const int * (*irrep_arr)[3], int is_left, 
                          const enum symmetrygroup * sgs, int nrsy);
 
 double prefactor_mirror_coupling(int ** irrep_arr, 

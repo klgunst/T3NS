@@ -278,6 +278,7 @@ static void initialize_inner_symsecs(void)
                 assert(cnt == 2);
                 tensprod_symsecs(&make_dat.intss[i], &symsec[0],
                                  &symsec[1], sign, 'n');
+                make_dat.intss[i].bond = make_dat.internals[i];
         }
 }
 
@@ -618,11 +619,10 @@ static struct makeinfo init_makeinfo(int sb)
         for (int i = 0; i < ns; ++i) {
                 struct symsecs * nsym = make_dat.ssarr[i];
                 struct symsecs * osym = make_dat.ssarr_old[i];
-                int * bonds = make_dat.bonds[i];
 
                 int nids[3], oids[3];
                 indexize(nids, qn[i], nsym);
-                translate_indices(nids, nsym, oids, osym, bonds, 3);
+                translate_indices(nids, nsym, oids, osym, 3);
                 const QN_TYPE old_qn = qntypize(oids, osym);
 
                 const int csb = binSearch(&old_qn, make_dat.oT[i].qnumbers,
@@ -630,7 +630,10 @@ static struct makeinfo init_makeinfo(int sb)
                                           sort_qn[1], sizeof old_qn);
                 
                 minfo.tel[origmap[i]] = get_tel_block(&make_dat.oT[i].blocks, csb);
-                if (minfo.tel[origmap[i]] == NULL) { minfo.is_valid = false; }
+                if (minfo.tel[origmap[i]] == NULL) { 
+                        minfo.is_valid = false;
+                        return minfo;
+                }
 
                 minfo.odim[i][0] = osym[0].dims[oids[0]];
                 minfo.odim[i][1] = osym[1].dims[oids[1]];

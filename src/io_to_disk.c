@@ -41,6 +41,7 @@ static void write_symsec_to_disk(const hid_t id, const struct symsecs * const
                                    H5P_DEFAULT, H5P_DEFAULT);
 
         write_attribute(group_id, "nrSecs", &ssec->nrSecs, 1, THDF5_INT);
+        write_attribute(group_id, "bond", &ssec->bond, 1, THDF5_INT);
         write_attribute(group_id, "totaldims", &ssec->totaldims, 1, THDF5_INT);
         write_dataset(group_id, "./dims", ssec->dims, ssec->nrSecs, THDF5_INT);
         write_dataset(group_id, "./irreps", ssec->irreps, 
@@ -59,6 +60,7 @@ static void read_symsec_from_disk(const hid_t id, struct symsecs * const ssec,
         const hid_t group_id = H5Gopen(id, buffer, H5P_DEFAULT);
 
         read_attribute(group_id, "nrSecs", &ssec->nrSecs);
+        read_attribute(group_id, "bond", &ssec->bond);
         read_attribute(group_id, "totaldims", &ssec->totaldims);
 
         ssec->dims = safe_malloc(ssec->nrSecs, int);
@@ -294,7 +296,7 @@ static void write_rOperator_to_disk(const hid_t id,
                       rOp->nrops, THDF5_INT);
 
         for (int i = 0; i < rOp->nrops; ++i) {
-                const int nr_blocks = rOperators_give_nr_blocks_for_operator(rOp, i);
+                const int nr_blocks = nblocks_in_operator(rOp, i);
                 write_sparseblocks_to_disk(group_id, &rOp->operators[i], nr_blocks, i);
         }
         H5Gclose(group_id);
@@ -328,7 +330,7 @@ static void read_rOperator_from_disk(const hid_t id,
 
         rOp->operators = safe_malloc(rOp->nrops, struct sparseblocks);
         for (int i = 0; i < rOp->nrops; ++i) {
-                const int nr_blocks = rOperators_give_nr_blocks_for_operator(rOp, i);
+                const int nr_blocks = nblocks_in_operator(rOp, i);
                 if (nr_blocks == 0) {
                         rOp->operators[i].beginblock = NULL;
                         rOp->operators[i].tel = NULL;
