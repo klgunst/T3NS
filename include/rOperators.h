@@ -120,40 +120,25 @@ struct rOperators {
         struct sparseblocks * operators;
 };
 
-/* =========================== INIT & DESTROY =============================== */
-/**
- * \brief Initializes a null-rOperators.
- *
- * \param [out] rops Pointer to the null-rOperators.
- */
-void init_null_rOperators(struct rOperators * const rops);
+/*************************** Init & Destroy **********************************/
+/// @brief returns a null initialized rOperators.
+struct rOperators null_rOperators(void);
+
+/// Destroys a rOperators and sets it to a null initialized rOperators.
+void destroy_rOperators(struct rOperators* rops);
+
+/// Initializes a vacuum rOperators at the given bond
+struct rOperators vacuum_rOperators(int bond, int is_left);
 
 /**
- * \brief Destroys a rOperators struct passed and sets it to a null-rOperators.
- * 
- * \param [in,out] rops The rOperators struct to destroy.
- */
-void destroy_rOperators(struct rOperators* const rops);
-
-/**
- * \brief Initiaizes a vacuum rOperators.
+ * @brief Initializes a rOperators structure.
  *
- * \param [out] rops Pointer to the vacuum rOperators.
- * \param [in] bond The bond of which rOperators belongs to. 
- * \param [in] is_left The boolean stating if the operator is a left operator.
- */
-void init_vacuum_rOperators(struct rOperators * const rops, const int bond, const int
-    is_left);
-
-/**
- * \brief Initializes a rOperators structure.
- *
- * \param [out] rops Pointer to the initialized structure.
- * \param [out] tmp_beginblock 2D array where tmp_beginblock[hss][i] gives the start of the
+ * @param [out] rops Pointer to the initialized structure.
+ * @param [out] tmp_beginblock 2D array where tmp_beginblock[hss][i] gives the start of the
  * i'th block for an operator with MPO-symsec == hss.
- * \param [in] bond The bond of which rOperators belongs to. 
- * \param [in] is_left The boolean stating if the operator is a left operator.
- * \param [in] P_operator The boolean stating if the operator is a physical one or not.
+ * @param [in] bond The bond of which rOperators belongs to. 
+ * @param [in] is_left The boolean stating if the operator is a left operator.
+ * @param [in] P_operator The boolean stating if the operator is a physical one or not.
  */
 void init_rOperators(struct rOperators * const rops, int ***tmp_nkappa_begin, 
     const int bond, const int is_left, const int P_operator);
@@ -162,132 +147,136 @@ void sum_unique_rOperators(struct rOperators * newrops,
                            const struct rOperators * uniquerops, 
                            struct instructionset * instr);
 
-/* ====================================== MISC ================================================= */
+/******************************** MISC ***************************************/
 /**
- * \brief Prints a rOperators to stdin.
+ * @brief Prints a rOperators to stdin.
  *
- * \param [in] rops The rOperators to print.
+ * @param [in] rops The rOperators to print.
  */
 void print_rOperators(const struct rOperators * const rops, const int givename);
 
 /* HELPERS */
 /**
- * \brief Gives the number of couplings in the rOperators.
+ * @brief Gives the number of couplings in the rOperators.
  *
- * \param [in] rops The rOperators structure.
- * \return The number of couplings.
+ * @param [in] rops The rOperators structure.
+ * @return The number of couplings.
  */
 int rOperators_give_nr_of_couplings(const struct rOperators * const rops);
 
 /**
- * \brief Gives the number of indices in the rOperators.
+ * @brief Gives the number of indices in the rOperators.
  * This is the number of unique bonds involved in the renormalized operator.
  *
- * \param [in] rops The rOperators structure.
- * \return The number of indices.
+ * @param [in] rops The rOperators structure.
+ * @return The number of indices.
  */
 int rOperators_give_nr_of_indices(const struct rOperators * const rops);
 
 /**
- * \brief Gives the number of blocks that the give renormalized operators can have for the given 
+ * @brief Gives the number of blocks that the give renormalized operators can have for the given 
  * hamiltonian symmetry sector.
  *
- * \param [in] rops The rOperators structure.
- * \param [in] hss The hamiltonian symmetry sector.
- * \return The number of blocks or 0 if invalid hss.
+ * @param [in] rops The rOperators structure.
+ * @param [in] hss The hamiltonian symmetry sector.
+ * @return The number of blocks or 0 if invalid hss.
  */
 int rOperators_give_nr_blocks_for_hss(const struct rOperators * const rops, const int hss);
 
 /**
- * \brief Gives the number of blocks that a certain operator in rOperators has.
+ * @brief Gives the number of blocks that a certain operator in rOperators has.
  *
- * \param [in] rops The rOperators structure.
- * \param [in] hss The operator index.
- * \return The number of blocks or 0 if invalid hss.
+ * @param [in] rops The rOperators structure.
+ * @param [in] hss The operator index.
+ * @return The number of blocks or 0 if invalid hss.
  */
-int nblocks_in_operator(const struct rOperators * const rops, const int op);
+int nblocks_in_operator(const struct rOperators * rops, int op);
 
 /**
- * \brief Gives pointer to the qnumbers array for an operator belonging to a certain rOperators 
+ * @brief Gives pointer to the qnumbers array for an operator belonging to a certain rOperators 
  * struct and a certain hamiltonian symmetry sector.
  *
- * \param [in] rops The rOperators structure.
- * \param [in] hss The hamiltonian symmetry sector.
- * \return The pointer to the qnumbers array or a null pointer if hss is invalid.
+ * @param [in] rops The rOperators structure.
+ * @param [in] hss The hamiltonian symmetry sector.
+ * @return The pointer to the qnumbers array or a null pointer if hss is invalid.
  */
 QN_TYPE * rOperators_give_qnumbers_for_hss(const struct rOperators * const rops, const int hss);
 
 /**
- * \brief Gives the indices in the rOperators.
+ * @brief Gives the indices in the rOperators.
  * The order of different dimensions of the blocks in the sparseblocks structure are fixed by this.
  *
- * \param [in] rops The rOperators structure.
- * \param [out] indices The indices are stored here.
+ * @param [in] rops The rOperators structure.
+ * @param [out] indices The indices are stored here.
  */
 void rOperators_give_indices(const struct rOperators * const rops, int indices[]);
 
 /**
- * \brief Gives the qnumberbonds in the rOperators.
+ * @brief Gives the qnumberbonds in the rOperators.
  * The order how the qnumbers-array is defined, is fixed by this.
  * qnumbersbonds is size couplings * 3 and has as structure
  * a b c | d e f | g h i | ...
  * so that elements in the qnumbers-array are given by:
  * a + b * dim_a + c * dim_a * dim_b | d + e * dim_d + f * dim_d * dim_e | ...
  *
- * \param [in] rops The rOperators structure.
- * \param [out] qnumberbonds The qnumberbonds are stored here.
+ * @param [in] rops The rOperators structure.
+ * @param [out] qnumberbonds The qnumberbonds are stored here.
  */
 void rOperators_give_qnumberbonds(const struct rOperators * const rops, int qnumberbonds[]);
 
 /**
- * \brief Gives the couplings in the rOperators.
+ * @brief Gives the couplings in the rOperators.
  * This is important for the calculation of the different prefactors when doing manipulations.
  *
- * \param [in] rops The rOperators structure.
- * \param [out] couplings The couplings are stored here.
+ * @param [in] rops The rOperators structure.
+ * @param [out] couplings The couplings are stored here.
  */
 void rOperators_give_couplings(const struct rOperators * const rops, int couplings[]);
 
 /**
- * \brief Gives the is_in of the rOperators.
+ * @brief Gives the is_in of the rOperators.
  * With every index in the couplings a is_in element corresponds, saying for the given coupling
  * if the bond goes in or out.
  *
- * \param [in] rops The rOperators structure.
- * \param [out] is_in The is_in is stored here.
+ * @param [in] rops The rOperators structure.
+ * @param [out] is_in The is_in is stored here.
  */
 void rOperators_give_is_in(const struct rOperators * const rops, int is_in[]);
 
 int rOperators_site_to_attach(const struct rOperators * const operator);
 
-/* ============================== MANIPULATION OF ROPERATORS =================================== */
+/******************** Manipulation of rOperators *****************************/
 
 /**
- * \brief Appends site-operators to a rOperators.
+ * @brief Appends site-operators to a rOperators.
  *
- * \param [out] newrops The resulting rOperators.
- * \param [in] oldrops The original rOperators.
+ * @param [out] newrops The resulting rOperators.
+ * @param [in] oldrops The original rOperators.
  */
-void rOperators_append_phys(struct rOperators * const newrops, const struct rOperators * 
-    const oldrops);
+void rOperators_append_phys(struct rOperators * newrops,
+                            const struct rOperators * oldrops);
 
 /**
- * \brief Updates a physical rOperators to a non-physical rOperators by contracting with a 
- * siteTensor.
+ * @brief Updates a physical rOperators to a non-physical rOperators by
+ * contracting with a siteTensor.
  *
- * \param [in,out] rops The original rOperators is inputted, the new rOperators is stored here.
- * \param [in] tens The siteTensor to use for the update.
+ * @param [in,out] rops The original rOperators is inputted, the new rOperators
+ * is stored here.
+ * @param [in] tens The siteTensor to use for the update.
  */
-void update_rOperators_physical(struct rOperators * const rops, const struct siteTensor * 
-    const tens, const struct symsecs * const internalss);
+void update_rOperators_physical(struct rOperators * rops,
+                                const struct siteTensor * tens,
+                                const struct symsecs * internalss);
 
 /**
- * \brief Updates two rOperators to a new rOperator through the use of a branching tensor.
+ * @brief Updates two rOperators to a new rOperator through the use of a
+ * branching tensor.
  *
- * \param [out] newops The new rOperators struct.
- * \param [in] Operator1 The first rOperators.
- * \param [in] Operator2 The second rOperators.
- * \param [in] tens The branching tensor.
+ * @param [out] newops The new rOperators struct.
+ * @param [in] Operator1 The first rOperators.
+ * @param [in] Operator2 The second rOperators.
+ * @param [in] tens The branching tensor.
  */
-void update_rOperators_branching(struct rOperators * const newops, const struct rOperators
-    Operator[2], const struct siteTensor * const tens);
+void update_rOperators_branching(struct rOperators * newops,
+                                 const struct rOperators * Operator,
+                                 const struct siteTensor * tens);

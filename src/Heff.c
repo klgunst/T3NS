@@ -1200,7 +1200,7 @@ void init_Heffdata(struct Heffdata * data, const struct rOperators * Operators,
         data->Operators[1] = Operators[1];
 
         if (isdmrg) {
-                init_null_rOperators(&data->Operators[2]);
+                data->Operators[2] = null_rOperators();
                 data->Operators[2].P_operator = 0;
         } else {
                 data->Operators[2] = Operators[2];

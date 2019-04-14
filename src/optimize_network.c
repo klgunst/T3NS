@@ -92,7 +92,9 @@ static void init_null_T3NS(struct siteTensor ** T3NS)
 static void init_null_rops(struct rOperators ** rops)
 {
         *rops = safe_malloc(netw.nr_bonds, struct rOperators);
-        for (int i = 0; i < netw.nr_bonds; ++i) init_null_rOperators(&(*rops)[i]);
+        for (int i = 0; i < netw.nr_bonds; ++i) {
+                (*rops)[i] = null_rOperators();
+        }
 }
 
 static struct optimize_data {
@@ -172,8 +174,7 @@ static void add_noise(struct siteTensor * tens, double noiseLevel)
         }
 }
 
-static double optimize_siteTensor(struct siteTensor * T3NS, 
-                                  const struct regime * reg, double * timings)
+static double optimize_siteTensor(const struct regime * reg, double * timings)
 {
         assert(o_dat.specs.nr_bonds_opt == 2 || o_dat.specs.nr_bonds_opt == 3);
         const int isdmrg = o_dat.specs.nr_bonds_opt == 2;
@@ -333,7 +334,7 @@ static struct sweep_info execute_sweep(struct siteTensor * T3NS,
                 swinfo.sweeptimings[ROP_APPEND] += stop_timing(0);
                 set_internal_symsecs();
 
-                double energy = optimize_siteTensor(T3NS, reg, swinfo.sweeptimings);
+                double energy = optimize_siteTensor(reg, swinfo.sweeptimings);
                 printf("   * Energy : %.12lf\n", energy);
 
                 start_timing(0);
@@ -425,7 +426,7 @@ static void init_rops(struct rOperators * const rops,
         struct rOperators * const curr_rops = &rops[bond];
 
         if (siteL == -1 || siteR == -1) {
-                init_vacuum_rOperators(curr_rops, bond, siteL == -1);
+                *curr_rops = vacuum_rOperators(bond, siteL == -1);
         } else if (is_psite(siteL)) { /* physical tensor, DMRG update needed */
                 assert(tens != NULL);
                 int bonds[3];

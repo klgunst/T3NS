@@ -380,7 +380,7 @@ void update_rOperators_physical(struct rOperators * rops,
         struct udata dat = make_update_data(&urops, rops, tens, internalss);
 
         // Loop over the different symmetryblocks of the new rOperators.
-#pragma omp parallel for schedule(static) default(none) shared(urops, dat)
+#pragma omp parallel for schedule(dynamic) default(none) shared(urops, dat)
         for (int usb = 0; usb < urops.begin_blocks_of_hss[urops.nrhss]; ++usb) {
                 pUpdate_block(&dat, usb);
         }
@@ -428,8 +428,8 @@ static void init_unique_rOperators(struct rOperators * ur, int bond, bool il,
         safe_free(tmpbb);
 }
 
-struct instructionset compress_instructions(const struct instructionset * set, 
-                                            int site, const int * phss)
+static struct instructionset compress_instructions(const struct instructionset * set, 
+                                                   int site, const int * phss)
 {
         struct instructionset n_set = {
                 .instr = safe_malloc(set->nr_instr, *n_set.instr),
@@ -547,10 +547,10 @@ static void pAppend_block(const struct append_data * dat, int usb)
          *
          * (same as in the order of the qnumbers of physical rOperators)
          */
-        const QN_TYPE * qnarr = &dat->ur.qnumbers[usb * 3];
+        const QN_TYPE * uqn_arr = &dat->ur.qnumbers[usb * 3];
         int ids[3][3];
-        indexize(ids[0], qnarr[0], dat->uss[0]);
-        indexize(ids[1], qnarr[1], dat->uss[1]);
+        indexize(ids[0], uqn_arr[0], dat->uss[0]);
+        indexize(ids[1], uqn_arr[1], dat->uss[1]);
         /* Tis is not [MPO(α), MPO(i), MPO(β)] but
          *
          * For left:
@@ -559,7 +559,7 @@ static void pAppend_block(const struct append_data * dat, int usb)
          *      [bra(α), ket(α), MPO(α)]
          *
          * So need to correct this. */
-        indexize(ids[2], qnarr[2], dat->uss[2]);
+        indexize(ids[2], uqn_arr[2], dat->uss[2]);
         const int hssn = ids[2][2];
         ids[2][dat->pbond == 0 ? 2 : 0] = hssn;
         const int ublock = usb - dat->ur.begin_blocks_of_hss[hssn];
@@ -599,9 +599,9 @@ static void pAppend_block(const struct append_data * dat, int usb)
                 const double pref = prefactor_pAppend(irr, dat->ur.is_left,
                                                       bookie.sgs, bookie.nrSyms);
 
-                const QN_TYPE * qnarr = rOperators_give_qnumbers_for_hss(&dat->or, hsso);
-                const int N = rOperators_give_nr_blocks_for_hss(&dat->or, hsso);
-                const int oblock = binSearch(&oqn, qnarr, N, SORT_QN_TYPE, sizeof oqn);
+                const QN_TYPE * oqn_arr = rOperators_give_qnumbers_for_hss(&dat->or, hsso);
+                const int nbl = rOperators_give_nr_blocks_for_hss(&dat->or, hsso);
+                const int oblock = binSearch(&oqn, oqn_arr, nbl, SORT_QN_TYPE, sizeof oqn);
 
                 /* symsec not found */
                 if (oblock == -1 || COMPARE_ELEMENT_TO_ZERO(pref)) { continue; }
@@ -656,7 +656,7 @@ static struct rOperators unique_rOperators_ap(const struct rOperators * or,
         struct append_data ad = init_append_data(or, set);
 
         // Loop over different symsecs of uniquerops.
-#pragma omp parallel for schedule(static) default(none) shared(ad)
+#pragma omp parallel for schedule(dynamic) default(none) shared(ad)
         for (int usb = 0; usb < ad.ur.begin_blocks_of_hss[ad.ur.nrhss]; ++usb) {
                 pAppend_block(&ad, usb);
         }
