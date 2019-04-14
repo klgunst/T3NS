@@ -72,23 +72,23 @@ double SU2_prefactor_mirror_coupling(const int * symv)
         return bracket(symv[0]);
 }
 
-double SU2_prefactor_pAppend(const int * symv, int is_left)
+double SU2_prefactor_pAppend(int (*sv)[3], int is_left)
 {
         if (is_left) {
-                double result =  bracket(symv[2]);
-                result *=  bracket(symv[5]);
-                result *=  bracket(symv[8]);
-                return result * wigner9j(symv[0], symv[3], symv[6],
-                                         symv[1], symv[4], symv[7],
-                                         symv[2], symv[5], symv[8]);
+                double result =  bracket(sv[0][2]);
+                result *=  bracket(sv[1][2]);
+                result *=  bracket(sv[2][2]);
+                return result * wigner9j(sv[0][0], sv[1][0], sv[2][0],
+                                         sv[0][1], sv[1][1], sv[2][1],
+                                         sv[0][2], sv[1][2], sv[2][2]);
         } else {
-                double result =  bracket(symv[0]);
-                result *=  bracket(symv[3]);
-                result *=  bracket(symv[8]);
-                return ((symv[1] + symv[4] + symv[7]) % 4 ? -1 : 1) * 
-                        result * wigner9j(symv[0], symv[3], symv[6],
-                                          symv[2], symv[5], symv[8],
-                                          symv[1], symv[4], symv[7]);
+                double result =  bracket(sv[0][0]);
+                result *=  bracket(sv[1][0]);
+                result *=  bracket(sv[2][2]);
+                return ((sv[0][1] + sv[1][1] + sv[2][1]) % 4 ? -1 : 1) * 
+                        result * wigner9j(sv[0][0], sv[1][0], sv[2][0],
+                                          sv[0][2], sv[1][2], sv[2][2],
+                                          sv[0][1], sv[1][1], sv[2][1]);
         }
 }
 

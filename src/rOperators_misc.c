@@ -48,7 +48,7 @@ void print_rOperators(const struct rOperators * const rops, const int givename)
 {
   printf("--------------------------------------------------------------------------------\n");
   printf("%srOperators @ bond %d to the %s\n", rops->P_operator ? "Physical " : "",  
-      rops->bond_of_operator, rops->is_left ? "left" : "right");
+      rops->bond, rops->is_left ? "left" : "right");
   print_bonds(rops);
   print_couplings(rops);
   printf("\n");
@@ -101,7 +101,7 @@ void rOperators_give_indices(const struct rOperators * const rops, int indices[]
 {
   if (rops->P_operator)
   { /* bra bra bra | ket ket ket | MPO of the site left of bond_of_rops for is_left, else right. */
-    const int site = netw.bonds[rops->bond_of_operator][!rops->is_left];
+    const int site = netw.bonds[rops->bond][!rops->is_left];
     int bonds_of_site[3];
     get_bonds_of_site(site, bonds_of_site);
 
@@ -113,13 +113,13 @@ void rOperators_give_indices(const struct rOperators * const rops, int indices[]
     indices[4] = get_ketT3NSbond(bonds_of_site[1]);
     indices[5] = get_ketT3NSbond(bonds_of_site[2]);
 
-    indices[6] = get_hamiltonianbond(rops->bond_of_operator);
+    indices[6] = get_hamiltonianbond(rops->bond);
   }
   else
-  { /* bra, ket, MPO of bond_of_operator */
-    indices[0] = get_braT3NSbond(rops->bond_of_operator);
-    indices[1] = get_ketT3NSbond(rops->bond_of_operator);
-    indices[2] = get_hamiltonianbond(rops->bond_of_operator);
+  { /* bra, ket, MPO of bond */
+    indices[0] = get_braT3NSbond(rops->bond);
+    indices[1] = get_ketT3NSbond(rops->bond);
+    indices[2] = get_hamiltonianbond(rops->bond);
   }
 }
 
@@ -127,7 +127,7 @@ void rOperators_give_qnumberbonds(const struct rOperators * const rops, int qnum
 {
   if (rops->P_operator)
   {
-    const int site = netw.bonds[rops->bond_of_operator][!rops->is_left];
+    const int site = netw.bonds[rops->bond][!rops->is_left];
     int bonds_of_site[3];
     get_bonds_of_site(site, bonds_of_site);
 
@@ -139,15 +139,15 @@ void rOperators_give_qnumberbonds(const struct rOperators * const rops, int qnum
     qnumberbonds[4] = get_ketT3NSbond(bonds_of_site[1]);
     qnumberbonds[5] = get_ketT3NSbond(bonds_of_site[2]);
 
-    qnumberbonds[6] = get_braT3NSbond(rops->bond_of_operator);
-    qnumberbonds[7] = get_ketT3NSbond(rops->bond_of_operator);
-    qnumberbonds[8] = get_hamiltonianbond(rops->bond_of_operator);
+    qnumberbonds[6] = get_braT3NSbond(rops->bond);
+    qnumberbonds[7] = get_ketT3NSbond(rops->bond);
+    qnumberbonds[8] = get_hamiltonianbond(rops->bond);
   }
   else
   {
-    qnumberbonds[0] = get_braT3NSbond(rops->bond_of_operator);
-    qnumberbonds[1] = get_ketT3NSbond(rops->bond_of_operator);
-    qnumberbonds[2] = get_hamiltonianbond(rops->bond_of_operator);
+    qnumberbonds[0] = get_braT3NSbond(rops->bond);
+    qnumberbonds[1] = get_ketT3NSbond(rops->bond);
+    qnumberbonds[2] = get_hamiltonianbond(rops->bond);
   }
 }
 
@@ -155,7 +155,7 @@ void rOperators_give_couplings(const struct rOperators * const rops, int couplin
 {
   if (rops->P_operator)
   {
-    const int site = netw.bonds[rops->bond_of_operator][!rops->is_left];
+    const int site = netw.bonds[rops->bond][!rops->is_left];
     int bonds_of_site[3];
     get_bonds_of_site(site, bonds_of_site);
 
@@ -163,9 +163,9 @@ void rOperators_give_couplings(const struct rOperators * const rops, int couplin
     couplings[1] = get_braT3NSbond(bonds_of_site[1]);
     couplings[2] = get_braT3NSbond(bonds_of_site[2]);
 
-    couplings[3] = get_braT3NSbond(rops->bond_of_operator);
-    couplings[4] = get_hamiltonianbond(rops->bond_of_operator);
-    couplings[5] = get_ketT3NSbond(rops->bond_of_operator);
+    couplings[3] = get_braT3NSbond(rops->bond);
+    couplings[4] = get_hamiltonianbond(rops->bond);
+    couplings[5] = get_ketT3NSbond(rops->bond);
 
     couplings[6] = get_ketT3NSbond(bonds_of_site[2]);
     couplings[7] = get_ketT3NSbond(bonds_of_site[1]);
@@ -173,9 +173,9 @@ void rOperators_give_couplings(const struct rOperators * const rops, int couplin
   }
   else
   {
-    couplings[0] = get_braT3NSbond(rops->bond_of_operator);
-    couplings[1] = get_hamiltonianbond(rops->bond_of_operator);
-    couplings[2] = get_ketT3NSbond(rops->bond_of_operator);
+    couplings[0] = get_braT3NSbond(rops->bond);
+    couplings[1] = get_hamiltonianbond(rops->bond);
+    couplings[2] = get_ketT3NSbond(rops->bond);
   }
 }
 
@@ -206,9 +206,9 @@ void rOperators_give_is_in(const struct rOperators * const rops, int is_in[])
 int rOperators_site_to_attach(const struct rOperators * const operator)
 {
   if (operator->P_operator)
-    return netw.bonds[operator->bond_of_operator][!operator->is_left];
+    return netw.bonds[operator->bond][!operator->is_left];
   else
-    return netw.bonds[operator->bond_of_operator][operator->is_left];
+    return netw.bonds[operator->bond][operator->is_left];
 }
 
 /* ========================================================================== */
@@ -273,7 +273,7 @@ static void print_operators(const struct rOperators * const rops, const int give
   for (op = 0; op < rops->nrops; ++op)
   {
     if (givename) {
-      get_string_of_rops(buffer, op, rops->bond_of_operator, rops->is_left, 'e');
+      get_string_of_rops(buffer, op, rops->bond, rops->is_left, 'e');
     }
     printf("Operator %d :%s\n", op, givename ? buffer : "");
     print_blocks(rops, op);

@@ -67,9 +67,7 @@ void destroy_instructionset(struct instructionset * const instructions)
         safe_free(instructions->hss_of_new);
 }
 
-void fetch_pUpdate(int (**instructions)[3], double ** prefactors, 
-                   int ** const hamsymsecs_of_new, int * const nr_instructions, 
-                   const int bond, const int is_left)
+struct instructionset fetch_pUpdate(int bond, int is_left)
 {
         if (iset_pUpdate == NULL) {
                 iset_pUpdate = safe_malloc(netw.nr_bonds, *iset_pUpdate);
@@ -98,24 +96,13 @@ void fetch_pUpdate(int (**instructions)[3], double ** prefactors,
                 }
                 sort_instructions(instr);
         }
-
-        *hamsymsecs_of_new = iset_pUpdate[bond][is_left].hss_of_new;
-        *nr_instructions = iset_pUpdate[bond][is_left].nr_instr;
-        *instructions = safe_malloc(*nr_instructions, **instructions);
-        *prefactors = safe_malloc(*nr_instructions, **prefactors);
-        for (int i = 0; i < *nr_instructions; ++i) {
-                (*instructions)[i][0] = iset_pUpdate[bond][is_left].instr[i].instr[0];
-                (*instructions)[i][1] = iset_pUpdate[bond][is_left].instr[i].instr[1];
-                (*instructions)[i][2] = iset_pUpdate[bond][is_left].instr[i].instr[2];
-                (*prefactors)[i] = iset_pUpdate[bond][is_left].instr[i].pref;
-        }
-
 #ifdef PRINT_INSTRUCTIONS
         print_instructions(&iset_pUpdate[bond][is_left], bond, is_left, 'd', 0);
 #endif
+        return iset_pUpdate[bond][is_left];
 }
 
-void fetch_bUpdate(struct instructionset * instructions, int bond, int is_left)
+struct instructionset fetch_bUpdate(int bond, int is_left)
 {
         if (iset_bUpdate == NULL) {
                 iset_bUpdate = safe_malloc(netw.nr_bonds, *iset_bUpdate);
@@ -144,11 +131,10 @@ void fetch_bUpdate(struct instructionset * instructions, int bond, int is_left)
                 }
                 sort_instructions(instr);
         }
-        *instructions = iset_bUpdate[bond][is_left];
-
 #ifdef PRINT_INSTRUCTIONS
         print_instructions(&iset_bUpdate[bond][is_left], bond, is_left, 't', 0);
 #endif
+        return iset_bUpdate[bond][is_left];
 }
 
 void fetch_merge(int (**instructions)[3], int * const nr_instructions, 
@@ -277,8 +263,9 @@ int get_next_unique_instr(int * curr_instr, const struct instructionset * set)
                         const int new2 = set->instr[*curr_instr].instr[1];
                         const int new3 = set->instr[*curr_instr].instr[2];
                         const int hss_new = set->hss_of_new[new3];
-                        if (old1 != new1 || old2 != new2 || hss_old != hss_new)
+                        if (old1 != new1 || old2 != new2 || hss_old != hss_new) {
                                 return 1;
+                        }
                 }
                 return 0;
         }

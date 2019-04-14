@@ -51,42 +51,12 @@ int Z2_which_irrep(char * buffer, int *irr)
         return find_str_in_array(buffer, irrstring, length, irr);
 }
 
-double Z2_prefactor_pAppend(const int * symv, int is_left)
+double Z2_prefactor_pAppend(int (*symv)[3], int is_left)
 {
-        /** 
-         * Notations: bra means it belongs to the bra T3NS (not that it is an outward bond!!)
-         *            ket means it belongs to the ket T3NS (not that it is an inward bond!!)
-         *            * depicts an outward, no * an inward bond.
-         * appending the site-operator:
-         *        for Left renormalized operators:
-         *        bra(alpha) MPO(alpha*) ket(alpha*) ==>
-         *        bra(alpha) MPO(alpha*) ket(alpha*), MPO(alpha) MPO(i) MPO(beta*), bra(i) MPO(i*) ket(i*)
-         * (is the site operator correct?)
-         *        After this we should permute too :
-         *    bra(alpha) bra(i) bra(beta*), bra(beta) MPO(beta*) ket(beta*), ket(beta) ket(i*) ket(alpha*)
-         *
-         *        This is for Z2 a factor
-         *           |MPO(i)||MPO(i)| + |MPO(i)||MPO(beta)| + |MPO(i)||bra(i)| + |MPO(beta)||bra(i)|
-         *           = |ket(i)||MPO(alpha)|
-         *           = |symv[4]||symv[6]|
-         *
-         *        for Right renormalized operators:
-         *        bra(beta*) MPO(beta) ket(beta) ==>
-         *        bra(beta*) MPO(beta) ket(beta), MPO(alpha) MPO(i) MPO(beta*), bra(i) MPO(i*) ket(i*)
-         * (is the site operator correct?)
-         *        After this we should permute too :
-         * bra(alpha) bra(i) bra(beta*), bra(alpha*) MPO(alpha) ket(alpha), ket(beta) ket(i*) ket(alpha*)
-         *
-         *        This is for Z2 a factor
-         *           |ket(beta)||MPO(i)| + |MPO(1)|
-         *           = |symv[5]||symv[7]| + |symv[7]|
-         *
-         *           symv = 1 for odd, 0 for even
-         */
         if (is_left)
-                return symv[4] && symv[6] ? -1 : 1;
+                return symv[1][1] && symv[2][0] ? -1 : 1;
         else
-                return (symv[7] * symv[5]  + symv[7]) % 2 ? -1 : 1;
+                return (symv[2][1] * symv[1][2]  + symv[2][1]) % 2 ? -1 : 1;
 }
 
 double Z2_prefactor_adjoint(const int * symv, char c)

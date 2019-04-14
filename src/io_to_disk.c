@@ -272,7 +272,7 @@ static void write_rOperator_to_disk(const hid_t id,
                                     const int nmbr)
 {
         char buffer[255];
-        if (rOp->is_left == -1 || rOp->bond_of_operator == -1)
+        if (rOp->is_left == -1 || rOp->bond == -1)
                 return;
 
         sprintf(buffer, "./rOperator_%d", nmbr);
@@ -280,7 +280,7 @@ static void write_rOperator_to_disk(const hid_t id,
         hid_t group_id = H5Gcreate(id, buffer, H5P_DEFAULT, 
                                    H5P_DEFAULT, H5P_DEFAULT);
 
-        write_attribute(group_id, "bond_of_operator", &rOp->bond_of_operator, 1, THDF5_INT);
+        write_attribute(group_id, "bond", &rOp->bond, 1, THDF5_INT);
         write_attribute(group_id, "is_left", &rOp->is_left, 1, THDF5_INT);
         write_attribute(group_id, "P_operator", &rOp->P_operator, 1, THDF5_INT);
         write_attribute(group_id, "nrhss", &rOp->nrhss, 1, THDF5_INT);
@@ -311,7 +311,7 @@ static void read_rOperator_from_disk(const hid_t id,
 
         const hid_t group_id = H5Gopen(id, buffer, H5P_DEFAULT);
 
-        read_attribute(group_id, "bond_of_operator", &rOp->bond_of_operator);
+        read_attribute(group_id, "bond", &rOp->bond);
         read_attribute(group_id, "is_left", &rOp->is_left);
         read_attribute(group_id, "P_operator", &rOp->P_operator);
         read_attribute(group_id, "nrhss", &rOp->nrhss);

@@ -23,7 +23,6 @@ set(T3NSLIB_SOURCE_FILES
     "rOperators_init.c"
     "rOperators_misc.c"
     "rOperators_pUpdate.c"
-    "rOperators_pUpdateNEW.c"
     "siteTensor_decompose.c"
     "siteTensor_init.c"
     "siteTensor_misc.c"

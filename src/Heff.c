@@ -1212,9 +1212,9 @@ void init_Heffdata(struct Heffdata * data, const struct rOperators * Operators,
                 Operators[2].hss_of_ops
         };
 
-        assert(Operators[0].bond_of_operator < Operators[1].bond_of_operator || 
-               (isdmrg && Operators[0].bond_of_operator == Operators[1].bond_of_operator));
-        assert(Operators[1].bond_of_operator < Operators[2].bond_of_operator || isdmrg);
+        assert(Operators[0].bond < Operators[1].bond || 
+               (isdmrg && Operators[0].bond == Operators[1].bond));
+        assert(Operators[1].bond < Operators[2].bond || isdmrg);
 
         for (int i = 0; i < siteObject->nrsites; ++i) {
                 int bonds[3];
@@ -1240,7 +1240,7 @@ void init_Heffdata(struct Heffdata * data, const struct rOperators * Operators,
 
         make_qnBdatas(data);
         fetch_merge(&data->instructions, &data->nr_instr, &data->prefactors, 
-                    Operators[0].bond_of_operator, isdmrg);
+                    Operators[0].bond, isdmrg);
 
         sortinstructions_toMPOcombos(&data->instructions, &data->instrbegin, 
                                      &data->prefactors, data->nr_instr, 

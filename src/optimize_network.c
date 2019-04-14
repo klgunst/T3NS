@@ -233,7 +233,7 @@ static void postprocess_rOperators(struct rOperators * rops,
                 if (!currOp->P_operator)
                         continue;
 
-                const int site = netw.bonds[currOp->bond_of_operator][!currOp->is_left];
+                const int site = netw.bonds[currOp->bond][!currOp->is_left];
                 const int siteid = find_in_array(o_dat.specs.nr_sites_opt, 
                                                  o_dat.specs.sites_opt, site);
                 assert(siteid != -1 && is_psite(site));
@@ -242,16 +242,16 @@ static void postprocess_rOperators(struct rOperators * rops,
                          * common site with the next step */
                         assert(unupdated == -1 && unupdatedbond == -1);
                         unupdated = i;
-                        unupdatedbond = currOp->bond_of_operator;
+                        unupdatedbond = currOp->bond;
                         destroy_rOperators(currOp);
                         continue;
                 }
 
                 const struct siteTensor * tens = &T3NS[site];
-                struct rOperators * newOp = &rops[currOp->bond_of_operator];
+                struct rOperators * newOp = &rops[currOp->bond];
                 const int internalid = find_in_array(o_dat.nr_internals, 
                                                      o_dat.internalbonds, 
-                                                     currOp->bond_of_operator);
+                                                     currOp->bond);
                 assert(internalid != -1);
 
                 destroy_rOperators(newOp);
@@ -283,9 +283,9 @@ static void postprocess_rOperators(struct rOperators * rops,
                         o_dat.operators[unupdated == 0], 
                         o_dat.operators[unupdated == 2 ? 1 : 2]
                 };
-                assert(unupdated == 0 || o_dat.operators[0].bond_of_operator == bonds[0]);
-                assert(unupdated == 1 || o_dat.operators[1].bond_of_operator == bonds[1]);
-                assert(unupdated == 2 || o_dat.operators[2].bond_of_operator == bonds[2]);
+                assert(unupdated == 0 || o_dat.operators[0].bond == bonds[0]);
+                assert(unupdated == 1 || o_dat.operators[1].bond == bonds[1]);
+                assert(unupdated == 2 || o_dat.operators[2].bond == bonds[2]);
                 assert(!ops[0].P_operator && !ops[1].P_operator);
 
                 update_rOperators_branching(new_operator, ops, tens);

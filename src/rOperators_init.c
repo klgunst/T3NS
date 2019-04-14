@@ -33,10 +33,10 @@
 static void make_unitOperator(struct rOperators * const ops, const int op);
 
 static void init_nP_rOperators(struct rOperators * const rops, int ***tmp_nkappa_begin, const int 
-    bond_of_operator, const int is_left);
+    bond, const int is_left);
 
 static void init_P_rOperators(struct rOperators * const rops, int ***tmp_nkappa_begin, const int 
-    bond_of_operator, const int is_left);
+    bond, const int is_left);
 
 static void initialize_sum_unique_rOperators(struct rOperators * const newrops, const struct 
     rOperators * const uniquerops, int (*instructions)[3], const int * const 
@@ -45,7 +45,7 @@ static void initialize_sum_unique_rOperators(struct rOperators * const newrops, 
 /* ========================================================================== */
 void init_null_rOperators(struct rOperators * const rops)
 {
-  rops->bond_of_operator    = -1;
+  rops->bond    = -1;
   rops->is_left             = -1;
   rops->P_operator          = -1;
   rops->nrhss               = -1;
@@ -68,15 +68,15 @@ void destroy_rOperators(struct rOperators * const rops)
   init_null_rOperators(rops);
 }
 
-void init_vacuum_rOperators(struct rOperators * const rops, const int bond_of_operator, const int
+void init_vacuum_rOperators(struct rOperators * const rops, const int bond, const int
     is_left)
 {
         int i;
         struct symsecs ss;
-        get_symsecs(&ss, bond_of_operator);
-        assert(netw.bonds[bond_of_operator][!is_left] == -1 && 
+        get_symsecs(&ss, bond);
+        assert(netw.bonds[bond][!is_left] == -1 && 
                "Not a bond for vacuum rOperators!");
-        rops->bond_of_operator    = bond_of_operator;
+        rops->bond    = bond;
         rops->is_left             = is_left;
         rops->P_operator          = 0;
         rops->nrhss               = get_nr_hamsymsec();
@@ -120,51 +120,60 @@ void init_vacuum_rOperators(struct rOperators * const rops, const int bond_of_op
 }
 
 void init_rOperators(struct rOperators * const rops, int ***tmp_nkappa_begin, const int 
-    bond_of_operator, const int is_left, const int P_operator)
+    bond, const int is_left, const int P_operator)
 {
   if (P_operator)
-    init_P_rOperators(rops, tmp_nkappa_begin, bond_of_operator, is_left);
+    init_P_rOperators(rops, tmp_nkappa_begin, bond, is_left);
   else
-    init_nP_rOperators(rops, tmp_nkappa_begin, bond_of_operator, is_left);
+    init_nP_rOperators(rops, tmp_nkappa_begin, bond, is_left);
 }
 
-void sum_unique_rOperators(struct rOperators * const newrops, const struct rOperators * const 
-    uniquerops, int (*instructions)[3], const int * const hamsymsec_new, const double *
-    const prefactors, const int nr_instructions)
+void sum_unique_rOperators(struct rOperators * newrops,
+                           const struct rOperators * uniquerops, 
+                           struct instructionset * instro)
 {
-  int instr, i;
-  const struct sparseblocks * uniqueBlock = &uniquerops->operators[0];
+        int * hamsymsec_new = instro->hss_of_new;
+        int nr_instructions = instro->nr_instr;
+        int (*instructions)[3] = safe_malloc(nr_instructions, *instructions);
+        double * prefactors = safe_malloc(nr_instructions, *prefactors);
+        for (int i = 0; i < nr_instructions; ++i) {
+                instructions[i][0] = instro->instr[i].instr[0];
+                instructions[i][1] = instro->instr[i].instr[1];
+                instructions[i][2] = instro->instr[i].instr[2];
+                prefactors[i] = instro->instr[i].pref;
+        }
+        const struct sparseblocks * uniqueBlock = &uniquerops->operators[0];
 
-  initialize_sum_unique_rOperators(newrops, uniquerops, instructions, hamsymsec_new, 
-      nr_instructions);
+        initialize_sum_unique_rOperators(newrops, uniquerops, instructions, hamsymsec_new, 
+                                         nr_instructions);
 
-  for (instr = 0; instr < nr_instructions; ++instr)
-  {
-    const int prev1operator = instructions[instr][0];
-    const int prev2operator = instructions[instr][1];
-    const int nextoperator = instructions[instr][2];
-    const int nr_blocks = nblocks_in_operator(newrops, nextoperator);
-    struct sparseblocks * const newBlock = &newrops->operators[nextoperator];
+        for (int instr = 0; instr < nr_instructions; ++instr) {
+                const int prev1operator = instructions[instr][0];
+                const int prev2operator = instructions[instr][1];
+                const int nextoperator = instructions[instr][2];
+                const int nr_blocks = nblocks_in_operator(newrops, nextoperator);
+                struct sparseblocks * const newBlock = &newrops->operators[nextoperator];
 
-    const int N = newBlock->beginblock[nr_blocks];
-    int j;
+                const int N = newBlock->beginblock[nr_blocks];
 
-    /* This instruction is not the same as the previous one, you have to increment uniquetens. */
-    /* If it is the first instruction, you have to execute it for sure */
-    if (instr != 0 && (prev1operator != instructions[instr - 1][0] || 
-        prev2operator != instructions[instr - 1][1] || 
-        hamsymsec_new[nextoperator] != hamsymsec_new[instructions[instr - 1][2]]))
-      ++uniqueBlock;
+                /* This instruction is not the same as the previous one, you have to increment uniquetens. */
+                /* If it is the first instruction, you have to execute it for sure */
+                if (instr != 0 && (prev1operator != instructions[instr - 1][0] || 
+                                   prev2operator != instructions[instr - 1][1] || 
+                                   hamsymsec_new[nextoperator] != hamsymsec_new[instructions[instr - 1][2]]))
+                        ++uniqueBlock;
 
-    assert(N == uniqueBlock->beginblock[nr_blocks]);
+                assert(N == uniqueBlock->beginblock[nr_blocks]);
 
-    for (j = 0; j < N; ++j) newBlock->tel[j] += prefactors[instr] * uniqueBlock->tel[j];
-  }
-  assert(uniqueBlock - uniquerops->operators + 1 == uniquerops->nrops);
+                for (int j = 0; j < N; ++j) newBlock->tel[j] += prefactors[instr] * uniqueBlock->tel[j];
+        }
+        assert(uniqueBlock - uniquerops->operators + 1 == uniquerops->nrops);
+        safe_free(instructions);
+        safe_free(prefactors);
 
-  /* Kick out all the symsecs that have only zero tensor elements out of each operator */
-  for (i = 0; i < newrops->nrops; ++i)
-    kick_zero_blocks(&newrops->operators[i], nblocks_in_operator(newrops,i));
+        /* Kick out all the symsecs that have only zero tensor elements out of each operator */
+        for (int i = 0; i < newrops->nrops; ++i)
+                kick_zero_blocks(&newrops->operators[i], nblocks_in_operator(newrops,i));
 }
 
 /* ========================================================================== */
@@ -245,23 +254,23 @@ static void make_unitOperator(struct rOperators * const ops, const int op)
 }
 
 static void init_nP_rOperators(struct rOperators * const rops, int ***tmp_nkappa_begin, const int 
-    bond_of_operator, const int is_left)
+    bond, const int is_left)
 {
   struct symsecs symarr[3];
   int indexes[3];
   int ***dimarray, ***qnumbersarray, total;
   int hss;
 
-  rops->bond_of_operator = bond_of_operator;
+  rops->bond = bond;
   rops->is_left          = is_left;
   rops->P_operator       = 0;
   rops->nrhss            = get_nr_hamsymsec();
 
   rops->begin_blocks_of_hss = safe_malloc(rops->nrhss + 1, int);
 
-  indexes[0] = get_hamiltonianbond(bond_of_operator);
-  indexes[1] = is_left  ? get_ketT3NSbond(bond_of_operator) : get_braT3NSbond(bond_of_operator);
-  indexes[2] = !is_left ? get_ketT3NSbond(bond_of_operator) : get_braT3NSbond(bond_of_operator);
+  indexes[0] = get_hamiltonianbond(bond);
+  indexes[1] = is_left  ? get_ketT3NSbond(bond) : get_braT3NSbond(bond);
+  indexes[2] = !is_left ? get_ketT3NSbond(bond) : get_braT3NSbond(bond);
 
   /* expects a is_in of 001 or 110  for find_goodqnumbersectors */
   get_symsecs_arr(3, symarr, indexes);
@@ -340,7 +349,7 @@ static void init_nP_rOperators(struct rOperators * const rops, int ***tmp_nkappa
 }
 
 static void init_P_rOperators(struct rOperators * const rops, int ***nkappa_begin_temp, const int 
-    bond_of_operator, const int is_left)
+    bond, const int is_left)
 {
   int total, total_internal;
   int ***dimarray, ***dimarray_internal;
@@ -352,7 +361,7 @@ static void init_P_rOperators(struct rOperators * const rops, int ***nkappa_begi
   int i, hamss;
   struct symsecs symarr[3], symarr_internal[3];
   
-  rops->bond_of_operator = bond_of_operator;
+  rops->bond = bond;
   rops->is_left          = is_left;
   rops->P_operator       = 1;
   rops->nrhss            = get_nr_hamsymsec();
@@ -360,7 +369,7 @@ static void init_P_rOperators(struct rOperators * const rops, int ***nkappa_begi
 
   /* make sure that the dimensions of the internal bonds are all set = 1, otherwise
    * nkappa_begin_temp will be wrong! */
-  assert(is_set_to_internal_symsec(bond_of_operator) 
+  assert(is_set_to_internal_symsec(bond) 
       && "The dimensions of the internal bonds are not set to 1 yet!");
 
   *nkappa_begin_temp        = safe_malloc(rops->nrhss, int *);

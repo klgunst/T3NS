@@ -293,7 +293,7 @@ static int make1siteRDMinterm(struct siteTensor * ortho, int bond,
                               struct rOperators * interm)
 {
         const int bondid = siteTensor_give_bondid(ortho, bond);
-        interm->bond_of_operator = bond;
+        interm->bond = bond;
         interm->is_left = bondid != 2;
         interm->P_operator = 0;         // Always non-P_operator.
         return 1;

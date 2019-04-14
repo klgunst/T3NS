@@ -20,6 +20,7 @@
 #include "siteTensor.h"
 #include "symsecs.h"
 #include "macros.h"
+#include "instructions.h"
 
 /** 
  * @file rOperators.h
@@ -87,7 +88,7 @@
  */
 struct rOperators {
         /// The bond of the rOperators in the @ref netw.
-        int bond_of_operator;
+        int bond;
         /** If the contracted part of the network is to the left of the bond,
          * then this is 1, otherwise 0. */
         int is_left;
@@ -138,10 +139,10 @@ void destroy_rOperators(struct rOperators* const rops);
  * \brief Initiaizes a vacuum rOperators.
  *
  * \param [out] rops Pointer to the vacuum rOperators.
- * \param [in] bond_of_operator The bond of which rOperators belongs to. 
+ * \param [in] bond The bond of which rOperators belongs to. 
  * \param [in] is_left The boolean stating if the operator is a left operator.
  */
-void init_vacuum_rOperators(struct rOperators * const rops, const int bond_of_operator, const int
+void init_vacuum_rOperators(struct rOperators * const rops, const int bond, const int
     is_left);
 
 /**
@@ -150,16 +151,16 @@ void init_vacuum_rOperators(struct rOperators * const rops, const int bond_of_op
  * \param [out] rops Pointer to the initialized structure.
  * \param [out] tmp_beginblock 2D array where tmp_beginblock[hss][i] gives the start of the
  * i'th block for an operator with MPO-symsec == hss.
- * \param [in] bond_of_operator The bond of which rOperators belongs to. 
+ * \param [in] bond The bond of which rOperators belongs to. 
  * \param [in] is_left The boolean stating if the operator is a left operator.
  * \param [in] P_operator The boolean stating if the operator is a physical one or not.
  */
 void init_rOperators(struct rOperators * const rops, int ***tmp_nkappa_begin, 
-    const int bond_of_operator, const int is_left, const int P_operator);
+    const int bond, const int is_left, const int P_operator);
 
-void sum_unique_rOperators(struct rOperators * const newrops, const struct rOperators * const 
-    uniquerops, int (*instructions)[3], const int * const hamsymsec_new, const double * 
-    const prefactors, const int nr_instructions);
+void sum_unique_rOperators(struct rOperators * newrops,
+                           const struct rOperators * uniquerops, 
+                           struct instructionset * instr);
 
 /* ====================================== MISC ================================================= */
 /**

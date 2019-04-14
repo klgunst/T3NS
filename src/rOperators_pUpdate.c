@@ -16,390 +16,661 @@
 */
 #include <stdlib.h>
 #include <stdio.h>
+#include <stdbool.h>
+#include <assert.h>
 
 #include "rOperators.h"
-#include <assert.h>
 #include "network.h"
 #include "instructions.h"
 #include "hamiltonian.h"
 #include "sort.h"
 
-/* ========================================================================== */
-/* ==================== DECLARATION STATIC FUNCTIONS ======================== */
-/* ========================================================================== */
+/*****************************************************************************/
+/******************** Updating Physical rOperators ***************************/
+/*****************************************************************************/
 
-static void unique_rOperators_append_phys(struct rOperators * uniquerops,
-                                          int (*instructions)[3], const int * hamsymsecs_of_new, 
-                                          int nr_instructions, const struct rOperators * prevrops);
-
-static void initialize_unique_rOperators_append_phys(struct rOperators * uniquerops, 
-                                                     int bond_of_operator, int is_left, int (*instructions)[3], 
-                                                     const int * hamsymsecs_of_new, int nr_instructions);
-
-static double calculate_prefactor_append_physical(const int indexes[], const struct symsecs 
-    symarr[], const int is_left);
-
-static void get_separate_qnumbers(int indexes[], const QN_TYPE * const qnumbers, int maxdims[], 
-    const int couplings);
-
-static int get_compressed_instructions(int (*instructions)[3], int nr_instructions, 
-    const int * prev_hss, int site, const int * new_hss, int (**compr_instr)[3],
-    int ** compr_hss);
-
-/* ========================================================================== */
-
-void rOperators_append_phys(struct rOperators * const newrops, const struct rOperators * 
-    const oldrops)
+static inline bool equal_irrep(int * ir1, int * ir2) 
 {
-  /**
-   * instructions are given in a nr_instructions * 3 array : ops_index, site_op_index, result_index.
-   * in the prefactor array, the prefactor of every instruction is stored, in the hamsymsecs_of_new
-   * array the index of the irreps of the new renormalized operators are given in.
-   *
-   * This is needed because for only U(1) there was no ambiguity to which irrep the old_op + site_op
-   * should couple to, however this is not the case for SU(2).
-   *
-   * In the oldrops: some hermitian conjugates are not yet included which we need for the making
-   * of newrops, so first we need to expand them.
-   *
-   * The instructions make a condensed set of renormalized operators.
-   */
-  int (*instructions)[3], *hamsymsecs_of_new, nr_instructions;
-  double *prefactors;
-
-  /* Here the result of all the unique physical appends is stored */
-  struct rOperators uniquerops; 
-
-  /* hamsymsecs_of_new is an extra array with the hamsymsecs index of every resulting operator */
-  fetch_pUpdate(&instructions, &prefactors, &hamsymsecs_of_new, &nr_instructions, 
-      oldrops->bond_of_operator, oldrops->is_left);
-  unique_rOperators_append_phys(&uniquerops, instructions, hamsymsecs_of_new, 
-      nr_instructions, oldrops);
-
-  sum_unique_rOperators(newrops, &uniquerops, instructions, hamsymsecs_of_new, prefactors, 
-      nr_instructions);
-  safe_free(instructions);
-  safe_free(prefactors);
-  destroy_rOperators(&uniquerops);
-}
-
-/* ========================================================================== */
-/* ===================== DEFINITION STATIC FUNCTIONS ======================== */
-/* ========================================================================== */
-
-static void unique_rOperators_append_phys(struct rOperators * uniquerops,
-                                          int (*instructions)[3], const int * hamsymsecs_of_new, 
-                                          int nr_instructions, const struct rOperators * prevrops)
-{
-  /* The Lsite for right, and Rsite for left */
-  const int site = netw.bonds[prevrops->bond_of_operator][prevrops->is_left];
-  int bonds[3];
-  int tmpbond[9];
-  struct symsecs symarr[9];
-  int newsec;
-  const int couplings = 3;
-  int maxdims[3 * couplings];
-  int qnbonds[3 * couplings];
-  int (*compr_instr)[3];
-  int *compr_hss;
-  int nrinstr;
-  get_bonds_of_site(site,  bonds);
-
-  /* bra(alpha), bra(i), bra(beta) */
-  tmpbond[0] = get_braT3NSbond(bonds[0]);
-  tmpbond[1] = get_braT3NSbond(bonds[1]);
-  tmpbond[2] = get_braT3NSbond(bonds[2]);
-
-  /* ket(alpha), ket(i), ket(beta) */
-  tmpbond[3] = get_ketT3NSbond(bonds[0]);
-  tmpbond[4] = get_ketT3NSbond(bonds[1]);
-  tmpbond[5] = get_ketT3NSbond(bonds[2]);
-
-  /* hamsymsec_alpha, hamsymsec_site, hamsymsec_beta */
-  tmpbond[6] = get_hamiltonianbond(bonds[0]);
-  tmpbond[7] = get_hamiltonianbond(bonds[1]);
-  tmpbond[8] = get_hamiltonianbond(bonds[2]);
-
-  get_symsecs_arr(9, symarr, tmpbond);
- 
-  assert(is_psite(site));
-
-  initialize_unique_rOperators_append_phys(uniquerops, bonds[2 * prevrops->is_left], 
-      prevrops->is_left, instructions, hamsymsecs_of_new, nr_instructions);
-
-  assert(rOperators_give_nr_of_couplings(prevrops) == 1 && 
-      rOperators_give_nr_of_couplings(uniquerops) == couplings);
-
-  rOperators_give_qnumberbonds(uniquerops, qnbonds);
-  get_maxdims_of_bonds(maxdims, qnbonds, 3 * couplings);
-  nrinstr = get_compressed_instructions(instructions, nr_instructions, prevrops->hss_of_ops, site, 
-                                        hamsymsecs_of_new, &compr_instr, &compr_hss);
-
-  /* Now loop over different symsecs of uniquerops, find the symsecs of the original that correspond
-   * with it and of the siteoperator, and loop over all these possibilities also.
-   * After this, calculate prefactor for transform for these sectors.
-   * Now loop over the different instructions, and see which need these trasforms...
-   *
-   * First loop over all the new symsecs, newsec is label number according to rops */
-  for (newsec = 0; newsec < uniquerops->begin_blocks_of_hss[uniquerops->nrhss]; ++newsec)
-  {
-    /* The indexes of the symmsecs of all 9 bonds involved!
-     * Column major stored.
-     * order is [bra(alpha), ket(alpha), hamsymsec_alpha,
-     *            bra(i)  , ket(i)  , hamsymsec_site ,
-     *            bra(beta) , ket(beta) , hamsymsec_beta]
-     * Where Hamsymsec_alpha is hamsymsec_old for left operator and hamsymsec_new for right operator
-     * Where Hamsymsec_beta  is hamsymsec_new for left operator and hamsymsec_old for right operator
-     */
-    int indexes[9];
-    int nr_of_prods;
-    int prod;
-    int *possible_prods;
-    int hamsymsec_new;
-
-    QN_TYPE * const newqnumber = &uniquerops->qnumbers[newsec * couplings];
-
-    /* This finds the qnumber passed in indices of the different bonds.
-     * Due to the order of bonds in the renormalized ops, the indices are immediately stored
-     * in the right order in the indexes array for the first two couplings. */
-    get_separate_qnumbers(indexes, newqnumber, maxdims, couplings);
-
-    /* Hamsymsec_new is Hamsymsec_beta for left, Hamsymsec_new is Hamsymsec_alpha for right.
-     * And is stored in the last index element by the get_separate_qnumbers function call. */
-    hamsymsec_new = indexes[8];
-    indexes[6 + 2 * prevrops->is_left] = hamsymsec_new;
-
-    /* This function should decide which Hamsymsec_site and Hamsymsec_old I need to make the 
-     * Hamsymsecnew. This can be pretty much hardcoded sinds this is only hameltonianspecific.
-     * The site is also passed to say that the second bond is a site operator bond, cuz I will need 
-     * the same function for operatormerging at a branching tensor */
-    tprods_ham(&nr_of_prods, &possible_prods, hamsymsec_new, site);
-
-    for (prod = 0; prod < nr_of_prods; ++prod)
-    {
-      double prefactor;
-      const int hamsymsec_site = possible_prods[prod * 2];
-      const int hamsymsec_old  = possible_prods[prod * 2 + 1];
-      int instr;
-      int *curr_hss = compr_hss;
-
-      /* oldqnumber is bra(alpha), ket(alpha), MPO for left
-       * and           bra(beta), ket(beta), MPO for right */ 
-      const QN_TYPE oldqnumber = indexes[2 * !prevrops->is_left] + 
-        indexes[3 + 2 * !prevrops->is_left] * maxdims[2 * !prevrops->is_left] +
-        hamsymsec_old * maxdims[2 * !prevrops->is_left] * maxdims[3 + 2 * !prevrops->is_left];
-      assert(maxdims[2 * !prevrops->is_left] == maxdims[3 + 2 * !prevrops->is_left]);
-
-      /* the index of the old and the new block */
-      int oldblock;
-      int newblock;
-
-      /* pointer to the first operator in the row */
-      struct sparseblocks * nextBlock = &uniquerops->operators[0]; 
-      /* indexes is completely filled in now */
-      indexes[6 + 2 * !prevrops->is_left] = hamsymsec_old;
-      indexes[7]                          = hamsymsec_site;
-
-      /* This function calculates the prefactor for this symsec manipulation, for all symmetries */
-      prefactor = calculate_prefactor_append_physical(indexes, symarr, uniquerops->is_left);
-
-      oldblock = binSearch(&oldqnumber,
-          rOperators_give_qnumbers_for_hss(prevrops, hamsymsec_old), 
-          rOperators_give_nr_blocks_for_hss(prevrops, hamsymsec_old),
-          SORT_QN_TYPE, sizeof oldqnumber);
-
-      /* symsec not found */
-      if (oldblock == -1 || COMPARE_ELEMENT_TO_ZERO(prefactor))
-        continue;
-      newblock = newsec - uniquerops->begin_blocks_of_hss[hamsymsec_new];
-
-      /* Now loop over the different instructions and only execute the unique ones. */
-      for (instr = 0; instr < nrinstr; ++instr, ++nextBlock, curr_hss += 3)
-      {
-        const int prevoperator = compr_instr[instr][0];
-        const int siteoperator = compr_instr[instr][1];
-#ifndef NDEBUG
-        const int nextoperator = compr_instr[instr][2];
-#endif
-        const struct sparseblocks * const prevBlock = &prevrops->operators[prevoperator];
-
-        assert(prevoperator < prevrops->nrops);
-
-        assert(hamsymsecs_of_new[nextoperator] == 
-            uniquerops->hss_of_ops[nextBlock - uniquerops->operators]);
-        /* If hamsymsec_old does not correspond with the hamsymsec of the previous operator passed
-         * or hamsymsec_site does not correspond with the hamsymsec of the site operator passed
-         * or hamsymsec_new does not correspond with the hamsymsec of the new operator passed
-         * then you can just skip this instruction, because the relevant symsec manipulation does
-         * not occur in this one!
-         *
-         * If not we can start appending */
-        if (curr_hss[0] == hamsymsec_old && curr_hss[1] == hamsymsec_site &&
-            curr_hss[2] == hamsymsec_new)
-        {
-          const int N = get_size_block(prevBlock, oldblock);
-
-          /* This function gets the bra(i), ket(i) element of siteoperator
-           * in symsec specified by indexes[1] and indexes[4] */
-          const double site_el = prefactor * el_siteop(siteoperator, indexes[1], 
-              indexes[4]);
-          int j;
-          EL_TYPE * const prevTel = get_tel_block(prevBlock, oldblock);
-          EL_TYPE * const nextTel = get_tel_block(nextBlock, newblock);
-
-          assert(N == 0 || N == get_size_block(nextBlock, newblock));
-
-          for (j = 0; j < N; ++j) nextTel[j] = site_el * prevTel[j];
+        for (int i = 0; i < bookie.nrSyms; ++i) {
+                if (ir1[i] != ir2[i]) { return false; }
         }
-      }
-
-      /* check if i looped over all the uniqueoperators */
-      assert(nextBlock - uniquerops->operators == uniquerops->nrops);
-    }
-    safe_free(possible_prods);
-  }
-
-  safe_free(compr_instr);
-  safe_free(compr_hss);
+        return true;
 }
 
-static void initialize_unique_rOperators_append_phys(struct rOperators * uniquerops, 
-                                                     int bond_of_operator, int is_left, int (*instructions)[3], 
-                                                     const int * hamsymsecs_of_new, int nr_instructions)
+// Creates a mapping from internal ss to the new ss
+static int * make_oldtonew(const struct symsecs * iss, int bond)
 {
-  int i;
-  int count;
-  int **nkappa_begin_temp;
+        int * result = safe_malloc(iss->nrSecs, int);
+        struct symsecs newss;
+        get_symsecs(&newss, bond);
+        assert(iss->nrSecs >= newss.nrSecs);
 
-  init_rOperators(uniquerops, &nkappa_begin_temp, bond_of_operator, is_left, 1);
+        int cnt = 0;
+        for (int i = 0; i < newss.nrSecs; ++i) {
+                for (; cnt < iss->nrSecs; ++cnt) {
+                        if (equal_irrep(iss->irreps[cnt], newss.irreps[i])) {
+                                result[cnt++] = i;
+                                break;
+                        } else {
+                                result[cnt] = -1;
+                        }
+                }
+                assert(cnt < iss->nrSecs || 
+                       (cnt == iss->nrSecs && i == newss.nrSecs - 1));
+        }
+        for (; cnt < iss->nrSecs; ++cnt) { result[cnt] = -1; }
 
-  /* counting number of uniquerops */
-  count = 0;
-  for (i = 0; i < nr_instructions; ++i)
-  {
-    const int prevoperator = instructions[i][0];
-    const int siteoperator = instructions[i][1];
-    const int nextoperator = instructions[i][2];
-    if (i == 0 || prevoperator != instructions[i - 1][0] ||
-        siteoperator != instructions[i - 1][1] || 
-        hamsymsecs_of_new[nextoperator] != hamsymsecs_of_new[instructions[i-1][2]])
-      ++count;
-  }
-  uniquerops->nrops = count;
-
-  /* initializing the hamsymsecs */
-  uniquerops->hss_of_ops = safe_malloc(uniquerops->nrops, int);
-  count = 0;
-  for (i = 0; i < nr_instructions; ++i)
-  {
-    const int prevoperator = instructions[i][0];
-    const int siteoperator = instructions[i][1];
-    const int nextoperator = instructions[i][2];
-    if (i == 0 || prevoperator != instructions[i - 1][0] ||
-        siteoperator != instructions[i - 1][1] || 
-        hamsymsecs_of_new[nextoperator] != hamsymsecs_of_new[instructions[i-1][2]])
-      uniquerops->hss_of_ops[count++] = hamsymsecs_of_new[nextoperator];
-  }
-  assert(count == uniquerops->nrops);
-
-  /* initializing the stensors */
-  uniquerops->operators = safe_malloc(uniquerops->nrops, struct sparseblocks);
-  for (i = 0; i < uniquerops->nrops; ++i)
-  {
-    /* The current operator and current hamsymsec */
-    struct sparseblocks * const blocks = &uniquerops->operators[i];
-    const int currhss                  = uniquerops->hss_of_ops[i]; 
-    const int N                        = rOperators_give_nr_blocks_for_hss(uniquerops, currhss);
-
-    init_sparseblocks(blocks, nkappa_begin_temp[currhss], N, 'c');
-  }
-
-  for (i = 0; i < uniquerops->nrhss; ++i)
-    safe_free(nkappa_begin_temp[i]);
-  safe_free(nkappa_begin_temp);
+        return result;
 }
 
-static double calculate_prefactor_append_physical(const int indexes[], const struct symsecs 
-    symarr[], const int is_left)
+// Initializes the renormalized operator with that is formed by updating a
+// renormalized operator with a site-operator appended.
+static struct rOperators init_updated_rOperators(struct rOperators * rops)
 {
-  /* The indexes of the symmsecs of all 9 bonds involved!
-   * Column major stored.
-   * order is [bra(alpha), ket(alpha), hamsymsec_alpha,
-   *            bra(i)  , ket(i)  , hamsymsec_site ,
-   *            bra(beta) , ket(beta) , hamsymsec_beta]
-   * Where Hamsymsec_alpha is hamsymsec_old for left operator and hamsymsec_new for right operator
-   * Where Hamsymsec_beta  is hamsymsec_new for left operator and hamsymsec_old for right operator
-   *
-   * As can be seen in my notes for example at page 13, for the wigner9j */
-  double prefactor = 1;
-  int symvalues[9];
-  int i, j;
+        struct rOperators urops;
+        int ** tmpbb;
+        init_rOperators(&urops, &tmpbb, rops->bond, rops->is_left, 0);
+        urops.nrops = rops->nrops;
+        urops.hss_of_ops = safe_malloc(urops.nrops, *urops.hss_of_ops);
+        urops.operators  = safe_malloc(urops.nrops, *urops.operators);
+        for (int i = 0; i < rops->nrops; ++i) {
+                const int chss = rops->hss_of_ops[i];
+                const int nrbl = rOperators_give_nr_blocks_for_hss(&urops, chss);
+                struct sparseblocks * cBlock = &urops.operators[i];
+                urops.hss_of_ops[i] = chss;
+                init_sparseblocks(cBlock, tmpbb[chss], nrbl, 'c');
+        }
+        for (int i = 0; i < urops.nrhss; ++i) { safe_free(tmpbb[i]); }
+        safe_free(tmpbb);
 
- for (i = 0; i < bookie.nrSyms; ++i)
-  {
-    for (j = 0; j < 9; ++j)
-    {
-      symvalues[j] = symarr[j].irreps[indexes[j]][i];
-    }
-    prefactor *= prefactor_pAppend(symvalues, is_left, bookie.sgs[i]);
-  }
-
-  return prefactor;
+        return urops;
 }
 
-static void get_separate_qnumbers(int indexes[], const QN_TYPE * const qnumbers, int maxdims[], 
-    const int couplings)
-{
-  int i, j;
-  int count = 0;
+// Data for updating a physical rOperators
+struct udata {
+        // True if is_left for or and ur.
+        bool il;
+        // The original rOperators
+        struct rOperators * or;
+        // The updated rOperators
+        struct rOperators * ur;
+        // The physical site Tensor with which to update
+        const struct siteTensor * T;
 
-  for (i = 0; i < couplings; ++i)
-  {
-    QN_TYPE currqnumber = qnumbers[i];
-    for (j = 0; j < 3; ++j, ++count)
-    {
-      indexes[count] = currqnumber % maxdims[count];
-      currqnumber      = currqnumber / maxdims[count];
-    }
-    assert(currqnumber == 0);
-  }
+        // The symmetry sectors of the original physical rOperators
+        // Order same as in qnumbers for rOperators with P_operator = 1
+        struct symsecs oss[3][3];
+        // Order same as in qnumbers for rOperators with P_operator = 0 
+        struct symsecs uss[3];
+        // The symmetry sectors of the siteTensor
+        struct symsecs Tss[3];
+
+        // Mapping of the old symsecs in the internalss to new symsecs.
+        int * oldtonew;
+        // Which original blocks are needed for updated blocks?
+        int * usb_to_osb;
+};
+
+static int * make_usb_to_osb(const struct udata * const dat)
+{
+        const int N = dat->ur->begin_blocks_of_hss[dat->ur->nrhss];
+        const int NN = dat->or->begin_blocks_of_hss[dat->or->nrhss];
+        int * const result = safe_malloc(N + 1, *result);
+
+        int osb = 0;
+        for (int usb = 0; usb < N; ++usb) {
+                int id[3], nid[3];
+                indexize(id, dat->ur->qnumbers[usb], dat->uss);
+                translate_indices(id, dat->uss, nid, dat->oss[2], 2);
+                nid[2] = id[2];
+                const QN_TYPE qn = qntypize(nid, dat->oss[2]);
+                for (; osb < NN; ++osb) {
+                        if (qn < dat->or->qnumbers[3 * osb + 2]) {
+                                result[usb + 1] = osb;
+                                break;
+                        }
+                }
+        }
+        result[0] = 0;
+        result[N] = NN;
+
+        return result;
 }
 
-static int get_compressed_instructions(int (*instructions)[3], int nr_instructions, 
-    const int * prev_hss, int site, const int * new_hss, int (**compr_instr)[3],
-    int ** compr_hss)
+static struct udata make_update_data(struct rOperators * urops,
+                                     struct rOperators * rops,
+                                     const struct siteTensor * T,
+                                     const struct symsecs * iss)
 {
-  int instr;
-  int nrinstr = 0;
-  *compr_instr = safe_malloc(nr_instructions, **compr_instr);
-  *compr_hss = safe_malloc(nr_instructions * 3, int);
+        struct udata dat = {
+                .il = rops->is_left == 1,
+                .or = rops,
+                .ur = urops,
+                .T = T,
+                .oldtonew = make_oldtonew(iss, rops->bond),
+        };
 
-  /* Now loop over the different instructions and only execute the unique ones. */
-  for (instr = 0; instr < nr_instructions; ++instr)
-  {
-    const int prevoperator = instructions[instr][0];
-    const int siteoperator = instructions[instr][1];
-    const int nextoperator = instructions[instr][2];
+        int bonds[3];
+        get_bonds_of_site(T->sites[0], bonds);
+        get_symsecs_arr(3, dat.Tss, bonds);
 
-    /* This instruction is the same as the previous one, thus already executed, just skip it. */
-    /* If it is the first instruction, you have to execute it for sure */
-    if (instr != 0 && prevoperator == instructions[instr - 1][0] &&
-        siteoperator == instructions[instr - 1][1] && 
-        new_hss[nextoperator] == new_hss[instructions[instr - 1][2]])
-      continue;
+        // Free bond of siteTensor, Free bond of siteTensor, MPO
+        dat.uss[0] = dat.Tss[dat.il ? 2 : 0];
+        dat.uss[1] = dat.Tss[dat.il ? 2 : 0];
+        get_symsecs(&dat.uss[2], get_hamiltonianbond(rops->bond));
 
-    /* save the new instructions */
-    (*compr_instr)[ nrinstr][0] = instructions[instr][0];
-    (*compr_instr)[nrinstr][1] = instructions[instr][1];
-    (*compr_instr)[nrinstr][2] = instructions[instr][2];
+        // SS of siteTensor but internal bond is changed
+        get_symsecs_arr(3, dat.oss[0], bonds);
+        get_symsecs_arr(3, dat.oss[1], bonds);
+        dat.oss[0][dat.il ? 2 : 0] = *iss;
+        dat.oss[1][dat.il ? 2 : 0] = *iss;
 
-    (*compr_hss)[3 * nrinstr + 0] = prev_hss[prevoperator];
-    (*compr_hss)[3 * nrinstr + 1] = symsec_siteop(siteoperator, site);
-    (*compr_hss)[3 * nrinstr + 2] = new_hss[nextoperator];
-    ++nrinstr;
-  }
+        // internal, internal, MPO
+        dat.oss[2][0] = *iss;
+        dat.oss[2][1] = *iss;
+        get_symsecs(&dat.oss[2][2], get_hamiltonianbond(rops->bond));
 
-  *compr_instr = realloc(*compr_instr, nrinstr * sizeof **compr_instr);
-  *compr_hss   = realloc(*compr_hss, nrinstr * 3 * sizeof **compr_hss);
-  return nrinstr;
+        dat.usb_to_osb = make_usb_to_osb(&dat);
+        return dat;
+}
+
+// Cleans the calculation
+static void cleanup_update(struct udata * dat)
+{
+        safe_free(dat->oldtonew);
+        safe_free(dat->usb_to_osb);
+        destroy_rOperators(dat->or);
+        for (int i = 0; i < dat->ur->nrops; ++i) {
+                const int nbl = nblocks_in_operator(dat->ur, i);
+                kick_zero_blocks(&dat->ur->operators[i], nbl);
+        }
+}
+
+#define SITETENS 0
+#define ADJTENS 1
+#define WORK 2
+#define OOP 3
+#define UOP 4
+// Struct for storing metadata for the update from blocks
+struct update_aide {
+        // False if you can skip the update from osb to usb.
+        bool valid; 
+        // Block of the siteTensor, adjoint siteTensor, workmemory,
+        // original operator, updated operator
+        EL_TYPE * els[5];
+
+        // The prefactor from the symmetries
+        double pref;
+        struct contractinfo cinfo[2];
+        // For checking size of blocks
+        int M[2];
+        int N[2];
+};
+
+static bool select_site_blocks(struct update_aide * aide,
+                               const struct udata * dat, int osb)
+{
+        /* The quantum numbers of the siteTensor T and its hermitian, BUT in
+         * the symsec-indices where the contracted bond is still internal! */
+        const QN_TYPE * cqn = &dat->or->qnumbers[3 * osb];
+        int ids[3][3];
+        indexize(ids[0], cqn[0], dat->oss[0]);
+        indexize(ids[1], cqn[1], dat->oss[1]);
+        indexize(ids[2], cqn[2], dat->oss[2]);
+        int Tids[2][3];
+        translate_indices(ids[1], dat->oss[0], Tids[0], dat->Tss, 3);
+        if (Tids[0][1] < 0 || Tids[0][1] < 0 || Tids[0][2] < 0) { return false; }
+        translate_indices(ids[0], dat->oss[1], Tids[1], dat->Tss, 3);
+        if (Tids[1][1] < 0 || Tids[1][1] < 0 || Tids[1][2] < 0) { return false; }
+
+        const QN_TYPE Tqn = qntypize(Tids[0], dat->Tss);
+        const QN_TYPE Thqn = qntypize(Tids[1], dat->Tss);
+
+        const int Tsb = binSearch(&Tqn, dat->T->qnumbers, dat->T->nrblocks, 
+                                  SORT_QN_TYPE, sizeof Tqn);
+        const int Thsb = binSearch(&Thqn, dat->T->qnumbers, dat->T->nrblocks, 
+                                   SORT_QN_TYPE, sizeof Thqn);
+        // Block was not found
+        if (Tsb == -1 || Thsb == -1) { return false; }
+
+        aide->els[SITETENS] = get_tel_block(&dat->T->blocks, Tsb);
+        aide->els[ADJTENS] = get_tel_block(&dat->T->blocks, Thsb);
+        // skip to next symmetryblock if Tsb or Thsb is empty
+        if (aide->els[SITETENS] == NULL || aide->els[ADJTENS] == NULL) {
+                return false;
+        }
+
+        // usb is size of aide->N[0] * aide->N[1]
+        aide->N[0] = dat->Tss[2 * dat->il].dims[Tids[1][2 * dat->il]];
+        aide->N[1] = dat->Tss[2 * dat->il].dims[Tids[0][2 * dat->il]];
+        // osb is size of aide->M[0] * aide->M[1]
+        aide->M[0] = dat->Tss[2 * !dat->il].dims[Tids[1][2 * !dat->il]] *
+                dat->Tss[1].dims[Tids[1][1]];
+        aide->M[1] = dat->Tss[2 * !dat->il].dims[Tids[0][2 * !dat->il]] * 
+                dat->Tss[1].dims[Tids[0][1]];
+
+        // For left rOperators:
+        //      Tsb = aide->M[1] * aide->N[1], Thsb = aide->M[0] * aide->N[0]
+        // For right rOperators:
+        //      Tsb = aide->N[1] * aide->M[1], Thsb = aide->N[0] * aide->M[0]
+        assert(get_size_block(&dat->T->blocks, Tsb) == aide->N[1] * aide->M[1] &&
+               get_size_block(&dat->T->blocks, Thsb) == aide->N[0] * aide->M[0]);
+
+        const int * irrep_arr[3][3];
+        for (int i = 0; i < 3; ++i) {
+                for (int j = 0; j < 3; ++j) {
+                        irrep_arr[i][j] = dat->oss[i][j].irreps[ids[i][j]];
+                }
+        }
+
+        aide->pref = prefactor_adjoint(irrep_arr[0], (char) (dat->il ? '3' : '1'),
+                                      bookie.sgs, bookie.nrSyms);
+        aide->pref *= prefactor_pUpdate(irrep_arr, dat->il, 
+                                       bookie.sgs, bookie.nrSyms);
+        return true;
+}
+
+static struct update_aide get_upd_aide(const struct udata * dat, int osb)
+{
+        struct update_aide aide = { .valid = false };
+        if (!select_site_blocks(&aide, dat, osb)) { return aide; }
+
+        // Calculate the most efficient way to execute the two dgemms.
+        //      NxMxM' + NxM'xN' or MxM'xN' + NxMxN'
+        const int dgemm_order = aide.N[1] * aide.M[1] * (aide.M[0] + aide.N[1]) 
+                > aide.M[0] * aide.N[1] * (aide.M[1] + aide.N[0]);
+
+        const int worksize = dgemm_order ?
+                aide.M[0] * aide.N[1] : aide.N[0] * aide.M[1];
+        aide.els[WORK] = safe_malloc(worksize, *aide.els[WORK]);
+
+        const struct contractinfo sitetens = {
+                .tensneeded = {
+                        dgemm_order ? OOP : WORK,
+                        SITETENS,
+                        dgemm_order ? WORK : UOP
+                },
+                .trans = {CblasNoTrans, !dat->il ? CblasTrans : CblasNoTrans},
+                .M = dgemm_order ? aide.M[0] : aide.N[0],
+                .N = aide.N[1],
+                .K = aide.M[1],
+                .L = 1,
+                .lda = dgemm_order ? aide.M[0] : aide.N[0],
+                .ldb = dat->il ? aide.M[1] : aide.N[1],
+                .ldc = dgemm_order ? aide.M[0] : aide.N[0]
+        };
+        const struct contractinfo adjtens = {
+                .tensneeded = {
+                        ADJTENS, 
+                        dgemm_order ? WORK : OOP, 
+                        dgemm_order ? UOP : WORK
+                },
+                .trans = {dat->il ? CblasTrans : CblasNoTrans, CblasNoTrans},
+                .M = aide.N[0],
+                .N = dgemm_order ? aide.N[1] : aide.M[1],
+                .K = aide.M[0],
+                .L = 1,
+                .lda = !dat->il ? aide.N[0] : aide.M[0],
+                .ldb = aide.M[0],
+                .ldc = aide.N[0]
+        };
+        aide.cinfo[!dgemm_order] = sitetens;
+        aide.cinfo[dgemm_order] = adjtens;
+        aide.valid = true;
+        return aide;
+}
+
+static void pUpdate_block(const struct udata * dat, int usb)
+{
+        /* Search the hamiltonian_symsec of the current symmetryblock */
+        int newhss = 0;
+        while (usb >= dat->ur->begin_blocks_of_hss[newhss + 1]) { ++newhss; }
+
+        int osb = dat->usb_to_osb[usb];
+        const int stop_osb = dat->usb_to_osb[usb + 1];
+        for (; osb < stop_osb; ++osb) {
+                const int usb2 = usb - dat->ur->begin_blocks_of_hss[newhss];
+                const int osb2 = osb - dat->or->begin_blocks_of_hss[newhss];
+
+                struct update_aide aide = get_upd_aide(dat, osb);
+                if (!aide.valid) { continue; }
+                const struct sparseblocks * oop = &dat->or->operators[0];
+                struct sparseblocks * uop = &dat->ur->operators[0];
+
+                /* Now the intensive part happens...
+                 * 
+                 * Do for left renormalized operators  : tens_herm_sb.T x old_sb x tens_sb
+                 * Do for right renormalized operators : tens_herm_sb x old_sb x tens_sb.T */
+                for (int i = 0; i < dat->or->nrops; ++i, ++oop, ++uop) {
+                        if (dat->or->hss_of_ops[i] != newhss) { continue; }
+                        aide.els[OOP] = get_tel_block(oop, osb2);
+                        aide.els[UOP] = get_tel_block(uop, usb2);
+
+                        // the symblock of the old or new operator are empty
+                        if (aide.els[OOP] == NULL || aide.els[UOP] == NULL) { 
+                                continue;
+                        }
+
+                        if (get_size_block(oop, osb2) != aide.M[0] * aide.M[1]) {
+                                printf("%d %d %d\n", aide.M[0], aide.M[1], get_size_block(oop, osb2));
+                        }
+                        assert(get_size_block(oop, osb2) == aide.M[0] * aide.M[1]);
+                        assert(get_size_block(uop, usb2) == aide.N[0] * aide.N[1]);
+
+                        do_contract(&aide.cinfo[0], aide.els, 1, 0);
+                        do_contract(&aide.cinfo[1], aide.els, aide.pref, 1);
+                }
+                safe_free(aide.els[WORK]);
+        }
+}
+
+void update_rOperators_physical(struct rOperators * rops,
+                                const struct siteTensor * tens, 
+                                const struct symsecs * internalss)
+{
+        /* The symmetry sectors of the internal bond of the renormalized
+         * operator is already set to an external one through the SVD
+         * procedure.
+         *
+         * The hermitian of the tensor is not explicitely constructed, however,
+         * the prefactor linked to making its hermitian is. */
+
+        // Initializing the updated rOperators
+        struct rOperators urops = init_updated_rOperators(rops);
+        struct udata dat = make_update_data(&urops, rops, tens, internalss);
+
+        // Loop over the different symmetryblocks of the new rOperators.
+#pragma omp parallel for schedule(static) default(none) shared(urops, dat)
+        for (int usb = 0; usb < urops.begin_blocks_of_hss[urops.nrhss]; ++usb) {
+                pUpdate_block(&dat, usb);
+        }
+        
+        cleanup_update(&dat);
+        *rops = urops;
+}
+
+/*****************************************************************************/
+/*********************** Appending site-operator *****************************/
+/*****************************************************************************/
+
+static void init_unique_rOperators(struct rOperators * ur, int bond, bool il,
+                                   const struct instructionset * set)
+{
+        int ** tmpbb;
+        init_rOperators(ur, &tmpbb, bond, il, 1);
+
+        // counting number of uniquerops
+        int cinstr = -1;
+        ur->nrops = 0;
+        while (get_next_unique_instr(&cinstr, set)) { ++ur->nrops; }
+
+        // initializing the hamsymsecs
+        ur->hss_of_ops = safe_malloc(ur->nrops, *ur->hss_of_ops);
+        int count = 0;
+        cinstr = -1;
+        while (get_next_unique_instr(&cinstr, set)) { 
+                const int no = set->instr[cinstr].instr[2];
+                ur->hss_of_ops[count++] = set->hss_of_new[no];
+        }
+        assert(count == ur->nrops);
+
+        // initializing the stensors
+        ur->operators = safe_malloc(ur->nrops, *ur->operators);
+        for (int i = 0; i < ur->nrops; ++i) {
+                // The current operator and current hamsymsec
+                struct sparseblocks * cBlock = &ur->operators[i];
+                int chss = ur->hss_of_ops[i];
+                int nrbl = rOperators_give_nr_blocks_for_hss(ur, chss);
+
+                init_sparseblocks(cBlock, tmpbb[chss], nrbl, 'c');
+        }
+        for (int i = 0; i < ur->nrhss; ++i) { safe_free(tmpbb[i]); }
+        safe_free(tmpbb);
+}
+
+struct instructionset compress_instructions(const struct instructionset * set, 
+                                            int site, const int * phss)
+{
+        struct instructionset n_set = {
+                .instr = safe_malloc(set->nr_instr, *n_set.instr),
+                .nr_instr = 0,
+                .hss_of_new = safe_malloc(set->nr_instr * 3, *n_set.hss_of_new)
+        };
+
+        // Save the unique instructions
+        int cinstr = -1;
+        while (get_next_unique_instr(&cinstr, set)) {
+                /* save the new instructions */
+                const int po = set->instr[cinstr].instr[0];
+                const int so = set->instr[cinstr].instr[1];
+                const int no = set->instr[cinstr].instr[2];
+                n_set.instr[n_set.nr_instr].instr[0] = po;
+                n_set.instr[n_set.nr_instr].instr[1] = so;
+                n_set.instr[n_set.nr_instr].instr[2] = no;
+
+                n_set.hss_of_new[3 * n_set.nr_instr + 0] = phss[po];
+                n_set.hss_of_new[3 * n_set.nr_instr + 1] = symsec_siteop(so, site);
+                n_set.hss_of_new[3 * n_set.nr_instr + 2] = set->hss_of_new[no];
+                ++n_set.nr_instr;
+        }
+
+        n_set.instr = realloc(n_set.instr,
+                              n_set.nr_instr * sizeof *n_set.instr);
+        n_set.hss_of_new= realloc(n_set.hss_of_new,
+                                  3 * n_set.nr_instr * sizeof *n_set.hss_of_new);
+        return n_set;
+}
+
+// data for appending site operators
+struct append_data {
+        // The site that needs to be appended
+        int site;
+        // The unique update renormalized operators
+        struct rOperators ur;
+        // The original renormalized operators
+        struct rOperators or;
+        // The compressed instructionset
+        struct instructionset cinstr;
+
+        // Symmetry sectors of physical rOperators
+        struct symsecs uss[3][3];
+
+        // MPO(α), MPO(i), MPO(β)
+        struct symsecs MPOss[3];
+        /* Which bond corresponds with the one in original rOperators?
+         * Such that
+         *      updated id[0][pbond] = original id[0]
+         * and
+         *      updated id[1][pbond] = original id[1]
+         */
+        int pbond;
+        /* For left rOperators:
+         *      bra(α), ket(α), MPO(α)
+         * For right rOperators:
+         *      bra(β), ket(β), MPO(β)
+         */
+        struct symsecs oss[3];
+};
+
+static struct append_data init_append_data(const struct rOperators * or,
+                                           const struct instructionset * set)
+{
+        struct append_data ad = {
+                .site = netw.bonds[or->bond][or->is_left],
+                .or = *or,
+        };
+        assert(is_psite(ad.site));
+
+        int bonds[3];
+        get_bonds_of_site(ad.site,  bonds);
+        init_unique_rOperators(&ad.ur, bonds[2 * or->is_left], or->is_left, set);
+        ad.cinstr = compress_instructions(set, ad.site, or->hss_of_ops);
+        assert(ad.or.P_operator == 0 && ad.ur.P_operator == 1);
+
+        // bra(α), bra(i), bra(β)
+        get_symsecs_arr(3, ad.uss[0], bonds);
+        // ket(α), ket(i), ket(β)
+        get_symsecs_arr(3, ad.uss[1], bonds);
+
+        // MPO(α), MPO(i), MPO(β)
+        bonds[0] = get_hamiltonianbond(bonds[0]);
+        bonds[1] = get_hamiltonianbond(bonds[1]);
+        bonds[2] = get_hamiltonianbond(bonds[2]);
+        get_symsecs_arr(3, ad.MPOss, bonds);
+
+        bonds[0] = get_braT3NSbond(ad.ur.bond);
+        bonds[1] = get_ketT3NSbond(ad.ur.bond);
+        bonds[2] = get_hamiltonianbond(ad.ur.bond);
+        get_symsecs_arr(3, ad.uss[2], bonds);
+        ad.pbond = 2 * !ad.or.is_left;
+
+        bonds[0] = get_braT3NSbond(ad.or.bond);
+        bonds[1] = get_ketT3NSbond(ad.or.bond);
+        bonds[2] = get_hamiltonianbond(ad.or.bond);
+        get_symsecs_arr(3, ad.oss, bonds);
+
+        return ad;
+}
+
+static void destroy_append_data(struct append_data * ad)
+{
+        destroy_instructionset(&ad->cinstr);
+}
+
+static void pAppend_block(const struct append_data * dat, int usb)
+{
+        /* The indexes of the symmsecs of all 9 bonds involved!
+         * Column major stored.
+         * order is [ [bra(α), bra(i), bra(β)], 
+         *            [ket(α), ket(i), ket(β)], 
+         *            [MPO(α), MPO(i), MPO(β)] ]
+         *
+         * (same as in the order of the qnumbers of physical rOperators)
+         */
+        const QN_TYPE * qnarr = &dat->ur.qnumbers[usb * 3];
+        int ids[3][3];
+        indexize(ids[0], qnarr[0], dat->uss[0]);
+        indexize(ids[1], qnarr[1], dat->uss[1]);
+        /* Tis is not [MPO(α), MPO(i), MPO(β)] but
+         *
+         * For left:
+         *      [bra(β), ket(β), MPO(β)]
+         * For right:
+         *      [bra(α), ket(α), MPO(α)]
+         *
+         * So need to correct this. */
+        indexize(ids[2], qnarr[2], dat->uss[2]);
+        const int hssn = ids[2][2];
+        ids[2][dat->pbond == 0 ? 2 : 0] = hssn;
+        const int ublock = usb - dat->ur.begin_blocks_of_hss[hssn];
+
+        /* Decide which indexes are possible for 
+         *      [MPO(α), MPO(i), MPO(β)]
+         * When already knowing one. */
+        int * prods, nr_prods;
+        tprods_ham(&nr_prods, &prods, hssn, dat->site);
+
+        for (int prod = 0; prod < nr_prods; ++prod) {
+                const int hsss = prods[prod * 2];
+                const int hsso = prods[prod * 2 + 1];
+
+                // indexes is completely filled in now
+                ids[2][dat->pbond] = hsso;
+                ids[2][1] = hsss;
+
+                /* oldqnumber is bra(α), ket(α), MPO(α) for left
+                 * and           bra(β), ket(β), MPO(β) for right */ 
+                const int id_old[3] = {
+                        ids[0][dat->pbond],
+                        ids[1][dat->pbond],
+                        ids[2][dat->pbond]
+                };
+                const QN_TYPE oqn = qntypize(id_old, dat->oss);
+
+                const int * irr[3][3];
+                for (int i = 0; i < 2; ++i) {
+                        for (int j = 0; j < 3; ++j) {
+                                irr[i][j] = dat->uss[i][j].irreps[ids[i][j]];
+                        }
+                }
+                for (int j = 0; j < 3; ++j) {
+                        irr[2][j] = dat->MPOss[j].irreps[ids[2][j]];
+                }
+                const double pref = prefactor_pAppend(irr, dat->ur.is_left,
+                                                      bookie.sgs, bookie.nrSyms);
+
+                const QN_TYPE * qnarr = rOperators_give_qnumbers_for_hss(&dat->or, hsso);
+                const int N = rOperators_give_nr_blocks_for_hss(&dat->or, hsso);
+                const int oblock = binSearch(&oqn, qnarr, N, SORT_QN_TYPE, sizeof oqn);
+
+                /* symsec not found */
+                if (oblock == -1 || COMPARE_ELEMENT_TO_ZERO(pref)) { continue; }
+
+                // pointer to the first operator in the row
+                struct sparseblocks * uBlock = &dat->ur.operators[0]; 
+                int * chss = dat->cinstr.hss_of_new;
+                // loop over the instructions and only execute the unique ones.
+                for (int i = 0; i < dat->cinstr.nr_instr; ++i, ++uBlock, chss += 3) {
+                        const int po = dat->cinstr.instr[i].instr[0];
+                        const int so = dat->cinstr.instr[i].instr[1];
+                        const struct sparseblocks * oBlock = &dat->or.operators[po];
+                        assert(po < dat->or.nrops);
+
+                        /* If hsso, hsss or hssn  does not correspond then you
+                         * can just skip this instruction, because the relevant
+                         * symsec manipulation does not occur in this one!
+                         *
+                         * If not we can start appending */
+                        if (!(chss[0] == hsso && chss[1] == hsss && chss[2] == hssn)) {
+                                continue;
+                        }
+                        const int N = get_size_block(oBlock, oblock);
+
+                        // This function gets the bra(i), ket(i) element of siteoperator
+                        const double site_el = pref * el_siteop(so, ids[0][1], ids[1][1]);
+
+                        EL_TYPE * oTel = get_tel_block(oBlock, oblock);
+                        EL_TYPE * uTel = get_tel_block(uBlock, ublock);
+                        assert(N == 0 || N == get_size_block(uBlock, ublock));
+
+                        for (int j = 0; j < N; ++j) { uTel[j] = site_el * oTel[j]; }
+                }
+
+                // check if i looped over all the uniqueoperators
+                assert(uBlock - dat->ur.operators == dat->ur.nrops);
+        }
+        safe_free(prods);
+}
+
+static struct rOperators unique_rOperators_ap(const struct rOperators * or,
+                                              const struct instructionset * set)
+{ 
+        /* - Loop over different symsecs of uniquerops.
+         *
+         * - Find the symsecs of the original and of the siteoperator that 
+         *   correspond with it, and loop over all these possibilities.
+         *
+         * - Calculate prefactor for transform for these sectors.
+         *
+         * - Loop over the different instructions that need these transforms. */
+        struct append_data ad = init_append_data(or, set);
+
+        // Loop over different symsecs of uniquerops.
+#pragma omp parallel for schedule(static) default(none) shared(ad)
+        for (int usb = 0; usb < ad.ur.begin_blocks_of_hss[ad.ur.nrhss]; ++usb) {
+                pAppend_block(&ad, usb);
+        }
+
+        destroy_append_data(&ad);
+        return ad.ur;
+}
+
+void rOperators_append_phys(struct rOperators * nr, 
+                            const struct rOperators * or)
+{
+        struct instructionset set = fetch_pUpdate(or->bond, or->is_left);
+        // First make al the operators linked with unique instructions
+        struct rOperators ur = unique_rOperators_ap(or, &set);
+        sum_unique_rOperators(nr, &ur, &set);
+        destroy_rOperators(&ur);
 }

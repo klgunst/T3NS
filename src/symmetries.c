@@ -196,40 +196,31 @@ int find_str_in_array(char * buffer, const char ** arr, int length, int * ind)
         return 0;
 }
 
-double prefactor_pAppend(const int * symvalues, int is_left, 
-                         enum symmetrygroup sg)
+double prefactor_pAppend(const int * (*irrep_arr)[3], int is_left, 
+                         const enum symmetrygroup * sgs, int nrsy)
 {
-        /** 
-         * Notations: bra means it belongs to the bra T3NS 
-         *            (not that it is an outward bond!!)
-         *            ket means it belongs to the ket T3NS
-         *            (not that it is an inward bond!!)
-         *
-         *            * depicts an outward, no * an inward bond.
-         *
-         * appending the site-operator:
-         *        for Left renormalized operators:
-         *        bra(alpha) MPO(alpha*) ket(alpha*) ==>
-         *        bra(alpha) MPO(alpha*) ket(alpha*), MPO(alpha) MPO(i) MPO(beta*), bra(i) MPO(i*) ket(i*)
-         * (is the site operator correct?)
-         *        After this we should permute too :
-         *    bra(alpha) bra(i) bra(beta*), bra(beta) MPO(beta*) ket(beta*), ket(beta) ket(i*) ket(alpha*)
-         *
-         *        for Right renormalized operators:
-         *        bra(beta*) MPO(beta*) ket(beta) ==>
-         *        bra(beta*) MPO(beta*) ket(beta), MPO(i) MPO(beta) MPO(alpha*), bra(i) MPO(i*) ket(i*)
-         * (is the site operator correct?)
-         *        After this we should permute too :
-         * bra(alpha) bra(i) bra(beta*), bra(alpha*) MPO(alpha*) ket(alpha), ket(beta) ket(i*) ket(alpha*)
-         */
-        switch(sg) {
-        case Z2 :
-                return Z2_prefactor_pAppend(symvalues, is_left);
-        case SU2 :
-                return SU2_prefactor_pAppend(symvalues, is_left);
-        default :
-                return 1;
+        int sv[3][3];
+        double prefactor = 1;
+        for (int i = 0; i < nrsy; ++i) {
+                switch(sgs[i]) {
+                case Z2 :
+                        for (int j = 0; j < 3; ++j)
+                                for (int k = 0; k < 3; ++k)
+                                        sv[j][k] = (irrep_arr[j][k])[i];
+                        prefactor *= Z2_prefactor_pAppend(sv, is_left);
+                        break;
+
+                case SU2 :
+                        for (int j = 0; j < 3; ++j)
+                                for (int k = 0; k < 3; ++k)
+                                        sv[j][k] = (irrep_arr[j][k])[i];
+                        prefactor *= SU2_prefactor_pAppend(sv, is_left);
+                        break;
+                default :
+                        break;
+                }
         }
+        return prefactor;
 }
 
 double prefactor_adjoint(const int ** irrep_arr, char c, 

@@ -231,28 +231,17 @@ void update_rOperators_branching(struct rOperators * const newops, const struct 
         assert(check_correctness(Operator, tens));
 
         struct rOperators uniqueOperators;
-        struct instructionset instructions;
 
         const int updateCase = prepare_update_branching(&uniqueOperators, Operator, tens);
 
-        fetch_bUpdate(&instructions, uniqueOperators.bond_of_operator, uniqueOperators.is_left);
+        struct instructionset instructions = 
+                fetch_bUpdate(uniqueOperators.bond,
+                              uniqueOperators.is_left);
 
         init_uniqueOperators(&uniqueOperators, &instructions);
         update_unique_ops_T3NS(&uniqueOperators, Operator, tens, updateCase, &instructions);
 
-        int (*instr)[3] = safe_malloc(instructions.nr_instr, *instr);
-        double *pref = safe_malloc(instructions.nr_instr, *pref);
-        for (int i = 0; i < instructions.nr_instr; ++i) {
-                const struct instruction * curin = &instructions.instr[i];
-                instr[i][0] = curin->instr[0];
-                instr[i][1] = curin->instr[1];
-                instr[i][2] = curin->instr[2];
-                pref[i] = curin->pref;
-        }
-        sum_unique_rOperators(newops, &uniqueOperators, instr, instructions.hss_of_new, 
-                              pref, instructions.nr_instr);
-        safe_free(instr);
-        safe_free(pref);
+        sum_unique_rOperators(newops, &uniqueOperators, &instructions);
 
         destroy_rOperators(&uniqueOperators);
 }
@@ -268,7 +257,7 @@ static void init_uniqueOperators(struct rOperators * const uniqueOps, const stru
         int **nkappa_begin;
         int curr_instr;
 
-        init_rOperators(uniqueOps, &nkappa_begin, uniqueOps->bond_of_operator, uniqueOps->is_left, 0);
+        init_rOperators(uniqueOps, &nkappa_begin, uniqueOps->bond, uniqueOps->is_left, 0);
 
         /* counting number of uniqueOps */
         count = 0;
@@ -309,7 +298,7 @@ static int prepare_update_branching(struct rOperators * const newops, const stru
         int updateCase;
         get_bonds_of_site(tens->sites[0], bonds);
         for (i = 0; i < 3; ++i)
-                if (bonds[i] != Operator[0].bond_of_operator && bonds[i] != Operator[1].bond_of_operator)
+                if (bonds[i] != Operator[0].bond && bonds[i] != Operator[1].bond)
                         break;
         assert(i != 3);
         updateCase = i;
@@ -317,7 +306,7 @@ static int prepare_update_branching(struct rOperators * const newops, const stru
         assert(Operator[0].is_left);
         assert((updateCase == 2) == (Operator[1].is_left));
 
-        newops->bond_of_operator = bonds[updateCase];
+        newops->bond = bonds[updateCase];
         newops->is_left = Operator[1].is_left;
 
         return updateCase;
@@ -1119,13 +1108,13 @@ static int check_correctness(const struct rOperators * Operator,
 
         int i;
         for (i = 0; i < 3; ++i) {
-                if (bonds[i] == Operator[0].bond_of_operator) { break; }
+                if (bonds[i] == Operator[0].bond) { break; }
         }
 
         if (i == 3) { return 0; }
 
         for (i = 0; i < 3; ++i) {
-                if (bonds[i] == Operator[1].bond_of_operator) { break; }
+                if (bonds[i] == Operator[1].bond) { break; }
         }
 
         if (i == 3) { return 0; }

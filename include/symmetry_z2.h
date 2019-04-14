@@ -59,7 +59,7 @@ void Z2_get_irrstring(char * buffer, int irr);
  */
 int Z2_which_irrep(char * buffer, int *irr);
 
-double Z2_prefactor_pAppend(const int * symv, int is_left);
+double Z2_prefactor_pAppend(int (*symv)[3], int is_left);
 
 /**
  * @brief The prefactor fermionic \f$\mathbb{Z}_2\f$-symmetry when making the
