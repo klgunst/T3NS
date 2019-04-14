@@ -36,10 +36,6 @@ static void init_nP_rOperators(struct rOperators * const rops, int ***tmp_nkappa
 static void init_P_rOperators(struct rOperators * const rops, int ***tmp_nkappa_begin, const int 
     bond, const int is_left);
 
-static void initialize_sum_unique_rOperators(struct rOperators * const newrops, const struct 
-    rOperators * const uniquerops, int (*instructions)[3], const int * const 
-    hamsymsec_of_new, const int nr_instructions);
-
 /* ========================================================================== */
 
 void init_rOperators(struct rOperators * const rops, int ***tmp_nkappa_begin, const int 
@@ -49,54 +45,6 @@ void init_rOperators(struct rOperators * const rops, int ***tmp_nkappa_begin, co
     init_P_rOperators(rops, tmp_nkappa_begin, bond, is_left);
   else
     init_nP_rOperators(rops, tmp_nkappa_begin, bond, is_left);
-}
-
-void sum_unique_rOperators(struct rOperators * newrops,
-                           const struct rOperators * uniquerops, 
-                           struct instructionset * instro)
-{
-        int * hamsymsec_new = instro->hss_of_new;
-        int nr_instructions = instro->nr_instr;
-        int (*instructions)[3] = safe_malloc(nr_instructions, *instructions);
-        double * prefactors = safe_malloc(nr_instructions, *prefactors);
-        for (int i = 0; i < nr_instructions; ++i) {
-                instructions[i][0] = instro->instr[i].instr[0];
-                instructions[i][1] = instro->instr[i].instr[1];
-                instructions[i][2] = instro->instr[i].instr[2];
-                prefactors[i] = instro->instr[i].pref;
-        }
-        const struct sparseblocks * uniqueBlock = &uniquerops->operators[0];
-
-        initialize_sum_unique_rOperators(newrops, uniquerops, instructions, hamsymsec_new, 
-                                         nr_instructions);
-
-        for (int instr = 0; instr < nr_instructions; ++instr) {
-                const int prev1operator = instructions[instr][0];
-                const int prev2operator = instructions[instr][1];
-                const int nextoperator = instructions[instr][2];
-                const int nr_blocks = nblocks_in_operator(newrops, nextoperator);
-                struct sparseblocks * const newBlock = &newrops->operators[nextoperator];
-
-                const int N = newBlock->beginblock[nr_blocks];
-
-                /* This instruction is not the same as the previous one, you have to increment uniquetens. */
-                /* If it is the first instruction, you have to execute it for sure */
-                if (instr != 0 && (prev1operator != instructions[instr - 1][0] || 
-                                   prev2operator != instructions[instr - 1][1] || 
-                                   hamsymsec_new[nextoperator] != hamsymsec_new[instructions[instr - 1][2]]))
-                        ++uniqueBlock;
-
-                assert(N == uniqueBlock->beginblock[nr_blocks]);
-
-                for (int j = 0; j < N; ++j) newBlock->tel[j] += prefactors[instr] * uniqueBlock->tel[j];
-        }
-        assert(uniqueBlock - uniquerops->operators + 1 == uniquerops->nrops);
-        safe_free(instructions);
-        safe_free(prefactors);
-
-        /* Kick out all the symsecs that have only zero tensor elements out of each operator */
-        for (int i = 0; i < newrops->nrops; ++i)
-                kick_zero_blocks(&newrops->operators[i], nblocks_in_operator(newrops,i));
 }
 
 /* ========================================================================== */
@@ -410,52 +358,4 @@ static void init_P_rOperators(struct rOperators * const rops, int ***nkappa_begi
   }
   safe_free(qnumbersarray_internal);
   safe_free(dimarray_internal);
-}
-
-static void initialize_sum_unique_rOperators(struct rOperators * const newrops, const struct 
-    rOperators * const uniquerops, int (*instructions)[3], const int * const 
-    hamsymsec_of_new, const int nr_instructions)
-{
-  const int couplings = rOperators_give_nr_of_couplings(uniquerops);
-  int i;
-
-  /* copy everything */
-  *newrops = *uniquerops;
-
-  /* calc the number of operators */
-  newrops->nrops = 0;
-  for (i = 0; i < nr_instructions; ++i) 
-    newrops->nrops = (newrops->nrops > instructions[i][2]) ? newrops->nrops:instructions[i][2]+1;
-
-  /* Making deepcopy of qnumbers and begin_block_of_hss */
-  newrops->begin_blocks_of_hss = safe_malloc(newrops->nrhss + 1, int);
-  for (i = 0; i < newrops->nrhss + 1; ++i) 
-    newrops->begin_blocks_of_hss[i] = uniquerops->begin_blocks_of_hss[i];
-
-  newrops->qnumbers = safe_malloc(newrops->begin_blocks_of_hss[newrops->nrhss] * couplings, 
-      QN_TYPE);
-  for (i = 0; i < newrops->begin_blocks_of_hss[newrops->nrhss] * couplings; ++i) 
-    newrops->qnumbers[i] = uniquerops->qnumbers[i];
-
-  newrops->hss_of_ops = safe_malloc(newrops->nrops, int);
-  newrops->operators  = safe_malloc(newrops->nrops, struct sparseblocks);
-  for (i = 0; i < newrops->nrops; ++i)
-  {
-    struct sparseblocks * const newBlock = &newrops->operators[i];
-    struct sparseblocks * oldBlock = NULL;
-    int j = 0;
-    const int N = rOperators_give_nr_blocks_for_hss(newrops, hamsymsec_of_new[i]);
-    newrops->hss_of_ops[i] = hamsymsec_of_new[i];
-    newBlock->beginblock = safe_malloc(N + 1, int);
-
-    /* find in uniquerops a operator with same symsecs that is already initialized.
-     * For this operator no zero-symsecs are kicked out yet. */
-    while (j < uniquerops->nrops && uniquerops->hss_of_ops[j] != newrops->hss_of_ops[i]) ++j;
-    assert(j < uniquerops->nrops);
-    oldBlock = &uniquerops->operators[j];
-
-    for (j = 0; j < N + 1; ++j)
-      newBlock->beginblock[j] = oldBlock->beginblock[j];
-    newBlock->tel = safe_calloc(newBlock->beginblock[N], EL_TYPE);
-  }
 }

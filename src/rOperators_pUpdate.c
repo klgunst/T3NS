@@ -671,6 +671,6 @@ void rOperators_append_phys(struct rOperators * nr,
         struct instructionset set = fetch_pUpdate(or->bond, or->is_left);
         // First make al the operators linked with unique instructions
         struct rOperators ur = unique_rOperators_ap(or, &set);
-        sum_unique_rOperators(nr, &ur, &set);
+        *nr = sum_unique_rOperators(&ur, &set);
         destroy_rOperators(&ur);
 }

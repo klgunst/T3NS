@@ -18,6 +18,7 @@
 #include <stdio.h>
 #include <assert.h>
 #include <stdbool.h>
+#include <omp.h>
 
 #include "rOperators.h"
 #include "tensorproducts.h"
@@ -161,4 +162,102 @@ struct rOperators vacuum_rOperators(int bond, int is_left)
         result.operators = safe_malloc(result.nrops, *result.operators);
         make_unitOperator(&result, 0);
         return result;
+}
+
+static struct rOperators deep_copy_metadata(const struct rOperators * tocopy)
+{
+        const int c = rOperators_give_nr_of_couplings(tocopy);
+        // copy everything the bond info and so on.
+        struct rOperators copy = *tocopy;
+
+        // Making deepcopy of qnumbers and begin_block_of_hss
+        copy.begin_blocks_of_hss = safe_malloc(copy.nrhss + 1,
+                                               *copy.begin_blocks_of_hss);
+        for (int i = 0; i < copy.nrhss + 1; ++i) {
+                copy.begin_blocks_of_hss[i] = tocopy->begin_blocks_of_hss[i];
+        }
+
+        copy.qnumbers = safe_malloc(copy.begin_blocks_of_hss[copy.nrhss] * c, 
+                                    *copy.qnumbers);
+
+        for (int i = 0; i < copy.begin_blocks_of_hss[copy.nrhss] * c; ++i) {
+                copy.qnumbers[i] = tocopy->qnumbers[i];
+        }
+        return copy;
+}
+
+static struct rOperators init_sum_unique(const struct rOperators * ur,
+                                         const struct instructionset * set)
+{
+        struct rOperators res = deep_copy_metadata(ur);
+        // calc the number of operators
+        res.nrops = 0;
+        for (int i = 0; i < set->nr_instr; ++i) {
+                const int co = set->instr[i].instr[2];
+                res.nrops = (res.nrops > co) ? res.nrops : co + 1;
+        }
+
+        res.hss_of_ops = safe_malloc(res.nrops, *res.hss_of_ops);
+        res.operators  = safe_malloc(res.nrops, *res.operators);
+#pragma omp parallel for schedule(static) default(none) shared(ur,set,res)
+        for (int i = 0; i < res.nrops; ++i) {
+                struct sparseblocks * nOp = &res.operators[i];
+                res.hss_of_ops[i] = set->hss_of_new[i];
+                const int N = rOperators_give_nr_blocks_for_hss(&res, res.hss_of_ops[i]);
+                nOp->beginblock = safe_malloc(N + 1, *nOp->beginblock);
+
+                // find in uniquerops a operator with same symsecs that is 
+                // already initialized. For this operator no zero-symsecs are
+                // kicked out yet.
+                struct sparseblocks * oOp = &ur->operators[0];
+                for (int j = 0; j < ur->nrops; ++j, ++oOp) {
+                        if (ur->hss_of_ops[j] == res.hss_of_ops[i]) { break; }
+                }
+                assert(oOp != &ur->operators[ur->nrops]);
+
+                for (int j = 0; j < N + 1; ++j) {
+                        nOp->beginblock[j] = oOp->beginblock[j];
+                }
+                nOp->tel = safe_calloc(nOp->beginblock[N], *nOp->tel);
+        }
+        return res;
+}
+
+struct rOperators sum_unique_rOperators(const struct rOperators * ur, 
+                                        const struct instructionset * set)
+{
+        struct rOperators res = init_sum_unique(ur, set);
+        const struct sparseblocks * uOp = &ur->operators[0];
+        struct instruction pinstr = {0};
+        for (int i = 0; i < set->nr_instr; ++i) {
+                const struct instruction instr = set->instr[i];
+                const int nrbl = nblocks_in_operator(&res, instr.instr[2]);
+                struct sparseblocks * const nOp = &res.operators[instr.instr[2]];
+                const int N = nOp->beginblock[nrbl];
+
+                /* If the instruction is not the same as the previous one,
+                 * you have to increment uOp. */
+                if (i != 0 && (instr.instr[0] != pinstr.instr[0] ||
+                               instr.instr[1] != pinstr.instr[1] ||
+                               set->hss_of_new[instr.instr[2]] != 
+                               set->hss_of_new[pinstr.instr[2]])) {
+                        ++uOp;
+                }
+                assert(N == uOp->beginblock[nrbl]);
+
+                // Could be better parallelized
+#pragma omp parallel for schedule(static) default(none) shared(uOp)
+                for (int j = 0; j < N; ++j) {
+                        nOp->tel[j] += instr.pref * uOp->tel[j];
+                }
+                pinstr = instr;
+        }
+        assert(uOp - ur->operators + 1 == ur->nrops);
+
+        // Kick out all the symsecs that have only zero tensor elements out
+#pragma omp parallel for schedule(dynamic) default(none) shared(res)
+        for (int i = 0; i < res.nrops; ++i) {
+                kick_zero_blocks(&res.operators[i], nblocks_in_operator(&res, i));
+        }
+        return res;
 }

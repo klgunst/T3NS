@@ -188,7 +188,7 @@ static void init_uniqueOperators(struct rOperators * const uniqueOps, const stru
 static int prepare_update_branching(struct rOperators * const newops, const struct rOperators 
                                     Operator[2], const struct siteTensor* const tens);
 
-static void clean_indexhelper(const int site);
+static void clean_indexhelper(void);
 
 static void fill_indexes(struct update_data * const data, const int operator, 
                          QN_TYPE qn);
@@ -241,7 +241,7 @@ void update_rOperators_branching(struct rOperators * const newops, const struct 
         init_uniqueOperators(&uniqueOperators, &instructions);
         update_unique_ops_T3NS(&uniqueOperators, Operator, tens, updateCase, &instructions);
 
-        sum_unique_rOperators(newops, &uniqueOperators, &instructions);
+        *newops = sum_unique_rOperators(&uniqueOperators, &instructions);
 
         destroy_rOperators(&uniqueOperators);
 }
@@ -574,7 +574,7 @@ static void destroy_helper(struct nextshelper * help)
         safe_free(help->qns);
 }
 
-static void clean_indexhelper(const int site)
+static void clean_indexhelper(void)
 {
         safe_free(idh.qnumbertens);
         for (int i = 0; i < idh.nrqnumbertens; ++i) {
@@ -672,7 +672,7 @@ static void update_unique_ops_T3NS(struct rOperators * const newops,
                 }
                 safe_free(possible_prods);
         }
-        clean_indexhelper(site);
+        clean_indexhelper();
 }
 
 static int next_sb_tens(const int ** sb, int * qnid, QN_TYPE qntomatch, 
