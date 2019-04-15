@@ -40,45 +40,6 @@ int get_max_irrep(int (*prop1)[MAX_SYMMETRIES], int nr1,
         }
 }
 
-void tensprod_symmsec(int **resultsymmsec, int *nr_symmsecs, int *symmsec1, 
-                      int *symmsec2, int sign, enum symmetrygroup* sgs, int nrsy)
-{
-        int min_irrep[nrsy];
-        int nr_irreps[nrsy];
-        int step[nrsy];
-        int indices[nrsy];
-        int i;
-        int cnt;
-
-        *nr_symmsecs = 1;
-        for (i = 0; i < nrsy; ++i) {
-                indices[i] = 0;
-                tensprod_irrep(&min_irrep[i], &nr_irreps[i], &step[i], 
-                               symmsec1[i], symmsec2[i], sign, sgs[i]);
-                *nr_symmsecs *= nr_irreps[i];
-        }
-
-        *resultsymmsec = safe_malloc(nrsy * *nr_symmsecs, int);
-
-        cnt = 0;
-        while (cnt != *nr_symmsecs) {
-                for (i = 0; i < nrsy; ++i)
-                        (*resultsymmsec)[cnt * nrsy + i] = 
-                                min_irrep[i] + indices[i] * step[i];
-
-                for (i = 0; i < nrsy; ++i) {
-                        ++indices[i];
-                        if (indices[i] == nr_irreps[i])
-                                indices[i] = 0;
-                        else
-                                break;
-                }
-                ++cnt;
-        }
-        assert((i == nrsy) && (indices[i - 1] == 0) && 
-               "Not all symmsecs looped");
-}
-
 void tensprod_irrep(int *min_irrep, int *nr_irreps, int *step, int irrep1, 
                     int irrep2, int sign, enum symmetrygroup sg)
 {

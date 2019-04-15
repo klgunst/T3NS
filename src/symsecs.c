@@ -164,8 +164,6 @@ int search_symsec(int * symmsec, const struct symsecs * sectors)
                                  sort_int[bookie.nrSyms],
                                  sizeof *sectors->irreps);
         }
-        fprintf(stderr, "Invalid option in %s.\n", __func__);
-        return -1;
 }
 
 void print_symsecinfo(struct symsecs * ss)

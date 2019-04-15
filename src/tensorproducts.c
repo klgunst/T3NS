@@ -25,123 +25,113 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 #include "bookkeeper.h"
 #include "hamiltonian.h"
 
-void find_goodqnumbersectors(int ****dimarray, int ****qnumbersarray, int *total, 
-                             const struct symsecs symarr[], const int sign)
+// Structure for the iteration over the valid tensorproducts of two irrep sets
+struct iter_tprod {
+        // The current irreps
+        int cirr[MAX_SYMMETRIES];
+        // The minimal irreps
+        int minirr[MAX_SYMMETRIES];
+        // The maximal value of irreps
+        int maxirr[MAX_SYMMETRIES];
+        // The stepsize
+        int step[MAX_SYMMETRIES];
+        // Π nrirr 
+        int total;
+        // The number of symmetries
+        int nrsy;
+};
+
+// Initializes the iterator
+static struct iter_tprod init_tprod(const int *ir1, const int * ir2, int sign,
+                                    const enum symmetrygroup * sgs, int nrsy)
 {
-        /** Loop over bond 1 and 2, tensorproduct them to form bond 3 and then look at the ones that 
-         * actually exist in bond 3. First do it for the first resulting symsec,
-         * after that, do it for all the rest.
-         */
-        int sym1, sym2, i;
-        int prevsym[2][bookie.nrSyms];
-        int min_irrep[bookie.nrSyms];
-        int nr_irreps[bookie.nrSyms];
-        int step     [bookie.nrSyms];
-        int max_irrep[bookie.nrSyms];
+        struct iter_tprod iter;
+        iter.nrsy = nrsy;
+        iter.total = 1;
+        for (int i = 0; i < nrsy; ++i) {
+                int nrirr;
+                tensprod_irrep(&iter.minirr[i], &nrirr, &iter.step[i], 
+                               ir1[i], ir2[i], sign, sgs[i]);
+                iter.maxirr[i] = iter.minirr[i] + (nrirr - 1) * iter.step[i];
+                iter.cirr[i] = iter.minirr[i];
+                iter.total *= nrirr;
+        }
+        // Needed for first iteration
+        iter.cirr[0] = iter.minirr[0] - iter.step[0];
+        return iter;
+}
 
-        *dimarray      = safe_malloc(symarr[0].nrSecs, int**);
-        *qnumbersarray = safe_malloc(symarr[0].nrSecs, int**);
-        *total = 0;
+// Iterates
+static inline bool iterate_tprod(struct iter_tprod * iter)
+{
+        for (int i = 0; i < iter->nrsy; ++i) {
+                iter->cirr[i] += iter->step[i];
+                if (iter->cirr[i] <= iter->maxirr[i]) { return true; }
+                iter->cirr[i] = iter->minirr[i];
+        }
+        return false;
+}
 
-        for (i = 0; i < bookie.nrSyms; i++)
-        {
-                prevsym[0][i] = symarr[0].irreps[0][i];
-                prevsym[1][i] = symarr[1].irreps[0][i];
-                tensprod_irrep(&min_irrep[i], &nr_irreps[i], &step[i], prevsym[0][i],
-                               prevsym[1][i], sign, bookie.sgs[i]);
-                max_irrep[i] = min_irrep[i] + step[i] * (nr_irreps[i] - 1);
+static int sel_goodsymsecs(const struct symsecs * ss, int i, int j, int sign,
+                           int ** da, int ** qna)
+{
+        struct iter_tprod iter = init_tprod(ss[0].irreps[i], ss[1].irreps[j],
+                                            sign, bookie.sgs, bookie.nrSyms);
+
+        const int dim = ss[0].dims[i] * ss[1].dims[j];
+        *da = safe_malloc(iter.total, **da);
+        *qna = safe_malloc(1 + iter.total, **qna);
+        (*qna)[0] = iter.total;
+
+        int valids = 0;
+        while (iterate_tprod(&iter)) {
+                const int ind = search_symsec(iter.cirr, &ss[2]);
+                if (ind == -1 || ss[2].dims[ind] == 0) { continue; }
+                (*da)[valids] = dim * ss[2].dims[ind];
+                (*qna)[valids + 1] = ind;
+                ++valids;
         }
 
-        for (sym1 = 0; sym1 < symarr[0].nrSecs; sym1++)
-        {
-                (*dimarray)[sym1]      = NULL;
-                (*qnumbersarray)[sym1] = NULL;
-                if (symarr[0].dims[sym1] == 0)
-                        continue;
+        if (valids == 0) {
+                safe_free(*da);
 
-                (*dimarray)[sym1]      = safe_malloc(symarr[1].nrSecs, int*);
-                (*qnumbersarray)[sym1] = safe_malloc(symarr[1].nrSecs, int*);
+        } else {
+                *da = realloc(*da, valids * sizeof **da);
+        }
+        *qna = realloc(*qna, (valids + 1) * sizeof **qna);
+        (*qna)[0] = valids;
 
-                for (i = 0; i < bookie.nrSyms;i++)
-                {
-                        if (symarr[0].irreps[sym1][i] != prevsym[0][i])
-                        {
-                                prevsym[0][i] = symarr[0].irreps[sym1][i];
-                                tensprod_irrep(&min_irrep[i], &nr_irreps[i], &step[i], prevsym[0][i],
-                                               prevsym[1][i], sign, bookie.sgs[i]);
-                                max_irrep[i] = min_irrep[i] + step[i] * (nr_irreps[i] - 1);
-                        }
-                }
+        if ((valids != 0 && *da == NULL) || *qna == NULL) {
+                fprintf(stderr, "%s:%s: realloc failed.\n", __FILE__, __func__);
+                exit(EXIT_FAILURE);
+        }
+        return valids;
+}
 
-                for (sym2 = 0; sym2 < symarr[1].nrSecs; sym2++)
-                {
-                        int irrep[bookie.nrSyms];
-                        int dim         = symarr[0].dims[sym1] * symarr[1].dims[sym2];
-                        int totalirreps = 1;
-                        int count       = -1;
-                        int curr        = 0;
-                        (*dimarray)[sym1][sym2]      = NULL;
-                        (*qnumbersarray)[sym1][sym2] = NULL;
-                        if (symarr[1].dims[sym2] == 0)
-                                continue;
+void find_goodqnumbersectors(int **** const da, int **** const qna, int *ptotal, 
+                             const struct symsecs * const symarr, const int sign)
+{
+        /* Loop over bond 1 and 2, tensorproduct them to form bond 3 and then
+         * look at the ones that actually exist in bond 3. */
 
-                        for (i = 0; i < bookie.nrSyms;i++)
-                        {
-                                if (symarr[1].irreps[sym2][i] != prevsym[1][i])
-                                {
-                                        prevsym[1][i] = symarr[1].irreps[sym2][i];
-                                        tensprod_irrep(&min_irrep[i], &nr_irreps[i], &step[i], prevsym[0][i],
-                                                       prevsym[1][i], sign, bookie.sgs[i]);
-                                        max_irrep[i] = min_irrep[i] + step[i] * (nr_irreps[i] - 1);
-                                }
+        // On practically all systems calloc will initialize NULL's
+        *da = safe_calloc(symarr[0].nrSecs, **da);
+        *qna = safe_calloc(symarr[0].nrSecs, **qna);
+        int total = 0;
 
-                                irrep[i] = min_irrep[i];
-                                totalirreps *= nr_irreps[i];
-                        }
+#pragma omp parallel for schedule(dynamic) default(none) reduction(+:total)
+        for (int i = 0; i < symarr[0].nrSecs; ++i) {
+                if (symarr[0].dims[i] == 0) { continue; }
+                (*da)[i] = safe_calloc(symarr[1].nrSecs, ***da);
+                (*qna)[i] = safe_calloc(symarr[1].nrSecs, ***qna);
 
-                        (*dimarray)[sym1][sym2]           = safe_malloc(totalirreps, int);
-                        (*qnumbersarray)[sym1][sym2]      = safe_malloc(1 + totalirreps, int);
-                        (*qnumbersarray)[sym1][sym2][0] = totalirreps;
-
-                        while (++count < totalirreps)
-                        {
-                                int ind = search_symsec(irrep, &symarr[2]);
-                                if (ind != -1 && symarr[2].dims[ind])
-                                {
-                                        (*total)++;
-                                        (*dimarray)[sym1][sym2][curr] = dim * symarr[2].dims[ind];
-                                        (*qnumbersarray)[sym1][sym2][curr + 1] = ind;
-                                        ++curr;
-                                }
-
-                                for (i = 0; i < bookie.nrSyms; i++)
-                                {
-                                        if ((irrep[i] += step[i]) > max_irrep[i])
-                                                irrep[i] = min_irrep[i];
-                                        else
-                                                break;
-                                }
-                        }
-                        assert(i == bookie.nrSyms);
-                        assert(irrep[bookie.nrSyms - 1]  == min_irrep[bookie.nrSyms - 1]);
-
-                        if (curr == 0)
-                                safe_free((*dimarray)[sym1][sym2]);
-                        else
-                                (*dimarray)[sym1][sym2] = realloc((*dimarray)[sym1][sym2],  curr * sizeof(int));
-
-                        (*qnumbersarray)[sym1][sym2] 
-                                = realloc((*qnumbersarray)[sym1][sym2],  (curr + 1) * sizeof(int));
-                        (*qnumbersarray)[sym1][sym2][0] = curr;
-
-                        if ((curr != 0 && (*dimarray)[sym1][sym2] == NULL) ||
-                            (*qnumbersarray)[sym1][sym2] == NULL)
-                        {
-                                fprintf(stderr, "%s@%s: realloc failed: curr = %d\n", __FILE__, __func__, curr);
-                                exit(EXIT_FAILURE);
-                        }
+                for (int j = 0; j < symarr[1].nrSecs; ++j) {
+                        if (symarr[1].dims[j] == 0) { continue; }
+                        total += sel_goodsymsecs(symarr, i, j, sign,
+                                                 &(*da)[i][j], &(*qna)[i][j]);
                 }
         }
+        *ptotal = total;
 }
 
 void destroy_dim_and_qnumbersarray(int ****dimarray, int ****qnumbersarray, const struct symsecs 
@@ -333,13 +323,12 @@ static void tensprod_and_fill(struct symsecs * res, const struct symsecs * ss,
 {
         /* for non-abelian symmetries, like SU(2), there are multiple irreps
          * that are valid as result of the tensorproduct of two irreps */
-        int nrirreps, *irreps;
-        tensprod_symmsec(&irreps, &nrirreps, ss[0].irreps[ids[0]],
-                         ss[1].irreps[ids[1]], sign, bookie.sgs,
-                         bookie.nrSyms);
+        struct iter_tprod iter = init_tprod(ss[0].irreps[ids[0]], 
+                                            ss[1].irreps[ids[1]],
+                                            sign, bookie.sgs, bookie.nrSyms);
 
-        for (nrirreps--; nrirreps >= 0; nrirreps--) {
-                int ps = search_symsec(irreps + bookie.nrSyms * nrirreps, res);
+        while (iterate_tprod(&iter)) {
+                int ps = search_symsec(iter.cirr, res);
                 if (ps < 0) { continue; }
                 switch (o) {
                 case 'd':
@@ -356,7 +345,6 @@ static void tensprod_and_fill(struct symsecs * res, const struct symsecs * ss,
                         fprintf(stderr, "Invalid option (%c) in %s.\n", o, __func__);
                 }
         }
-        safe_free(irreps);
 }
 
 static inline int zero_dim(const struct symsecs * const ss, const int id, 

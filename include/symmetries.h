@@ -51,21 +51,6 @@ int get_max_irrep(int (*prop1)[MAX_SYMMETRIES], int nr1,
                   enum symmetrygroup sg, int whichsym);
 
 /**
- * @brief Gives the resulting symmetry sectors from tensor product of two other
- * symmetry sectors. 
- *
- * @param [out] resultsymmsec Resulting array. Will be allocated, should be freed.
- * @param [out] nr_symmsecs Number of symmsecs in resultsymmsec.
- * @param [in] symmsec1 The first symmetry sector of the tensorproduct.
- * @param [in] symmsec2 The second symmetry sector of the tensorproduct.
- * @param [in] sign -1 if the inverse of symmsec2 should be taken, +1 otherwise.
- * @param [in] sgs The symmetry groups of the system.
- * @param [in] nr_symmetries The number of symmetries in the system.
- */
-void tensprod_symmsec(int **resultsymmsec, int *nr_symmsecs, int *symmsec1, 
-                      int *symmsec2, int sign, enum symmetrygroup* sgs, int nrsy);
-
-/**
  * @brief Gives the resulting irreps from tensor product of two other irreps
  * belonging to sg.
  *
