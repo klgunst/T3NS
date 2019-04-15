@@ -16,6 +16,7 @@
 */
 #include <stdlib.h>
 #include <stdio.h>
+#include <stdbool.h>
 #include <omp.h>
 
 #include "rOperators.h"
@@ -257,7 +258,7 @@ static void init_uniqueOperators(struct rOperators * const uniqueOps, const stru
         int **nkappa_begin;
         int curr_instr;
 
-        init_rOperators(uniqueOps, &nkappa_begin, uniqueOps->bond, uniqueOps->is_left, 0);
+        init_rOperators(uniqueOps, &nkappa_begin, uniqueOps->bond, uniqueOps->is_left, false);
 
         /* counting number of uniqueOps */
         count = 0;

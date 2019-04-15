@@ -16,6 +16,8 @@
 */
 #pragma once
 
+#include <stdbool.h>
+
 #include "sparseblocks.h"
 #include "siteTensor.h"
 #include "symsecs.h"
@@ -134,14 +136,14 @@ struct rOperators vacuum_rOperators(int bond, int is_left);
  * @brief Initializes a rOperators structure.
  *
  * @param [out] rops Pointer to the initialized structure.
- * @param [out] tmp_beginblock 2D array where tmp_beginblock[hss][i] gives the start of the
- * i'th block for an operator with MPO-symsec == hss.
- * @param [in] bond The bond of which rOperators belongs to. 
- * @param [in] is_left The boolean stating if the operator is a left operator.
- * @param [in] P_operator The boolean stating if the operator is a physical one or not.
+ * @param [out] tmpbb 2D array where `tmpbb[hss][i]` gives the start of the
+ * i'th block for an operator with `MPO-symsec == hss`.
+ * @param [in] bond The bond of rOperators.
+ * @param [in] is_left Boolean stating if the operator is a left operator.
+ * @param [in] P_operator Boolean stating if the operator is a physical one.
  */
-void init_rOperators(struct rOperators * const rops, int ***tmp_nkappa_begin, 
-    const int bond, const int is_left, const int P_operator);
+void init_rOperators(struct rOperators * rops, int *** tmpbb, int bond,
+                     int is_left, bool P_operator);
 
 /**
  * @brief Sums the previously made unique rOperators to the final set of

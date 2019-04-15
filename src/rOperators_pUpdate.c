@@ -69,7 +69,7 @@ static struct rOperators init_updated_rOperators(struct rOperators * rops)
 {
         struct rOperators urops;
         int ** tmpbb;
-        init_rOperators(&urops, &tmpbb, rops->bond, rops->is_left, 0);
+        init_rOperators(&urops, &tmpbb, rops->bond, rops->is_left, false);
         urops.nrops = rops->nrops;
         urops.hss_of_ops = safe_malloc(urops.nrops, *urops.hss_of_ops);
         urops.operators  = safe_malloc(urops.nrops, *urops.operators);
@@ -351,9 +351,6 @@ static void pUpdate_block(const struct udata * dat, int usb)
                                 continue;
                         }
 
-                        if (get_size_block(oop, osb2) != aide.M[0] * aide.M[1]) {
-                                printf("%d %d %d\n", aide.M[0], aide.M[1], get_size_block(oop, osb2));
-                        }
                         assert(get_size_block(oop, osb2) == aide.M[0] * aide.M[1]);
                         assert(get_size_block(uop, usb2) == aide.N[0] * aide.N[1]);
 
@@ -397,7 +394,7 @@ static void init_unique_rOperators(struct rOperators * ur, int bond, bool il,
                                    const struct instructionset * set)
 {
         int ** tmpbb;
-        init_rOperators(ur, &tmpbb, bond, il, 1);
+        init_rOperators(ur, &tmpbb, bond, il, true);
 
         // counting number of uniquerops
         int cinstr = -1;

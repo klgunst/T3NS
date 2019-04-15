@@ -21,7 +21,6 @@ set(T3NSLIB_SOURCE_FILES
     "optimize_network.c"
     "rOperators_bUpdate.c"
     "rOperators_init.c"
-    "rOperators_initNEW.c"
     "rOperators_misc.c"
     "rOperators_pUpdate.c"
     "siteTensor_decompose.c"
