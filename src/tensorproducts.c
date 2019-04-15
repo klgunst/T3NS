@@ -327,74 +327,116 @@ static void build_all_sectors(struct symsecs * res,
         }
 }
 
-void tensprod_symsecs(struct symsecs * res, const struct symsecs * sectors1, 
-                      const struct symsecs * sectors2, int sign, char o)
+static void tensprod_and_fill(struct symsecs * res, const struct symsecs * ss,
+                              const int * ids, int sign, char o, double * fd,
+                              int * d)
 {
-        /* First I make a 'worst-case' res, where a rough first guess of the
-         * symmsecs that will occur is initialized in. After this, this
-         * 'worst-case' res can be simplified by kicking out all the symmsecs
-         * with D = 0. */
+        /* for non-abelian symmetries, like SU(2), there are multiple irreps
+         * that are valid as result of the tensorproduct of two irreps */
+        int nrirreps, *irreps;
+        tensprod_symmsec(&irreps, &nrirreps, ss[0].irreps[ids[0]],
+                         ss[1].irreps[ids[1]], sign, bookie.sgs,
+                         bookie.nrSyms);
+
+        for (nrirreps--; nrirreps >= 0; nrirreps--) {
+                int ps = search_symsec(irreps + bookie.nrSyms * nrirreps, res);
+                if (ps < 0) { continue; }
+                switch (o) {
+                case 'd':
+                        d[ps] += ss[0].dims[ids[0]] * ss[1].dims[ids[1]];
+                        // Fall through
+                case 'f':
+                        fd[ps] += ss[0].fcidims[ids[0]] * ss[1].fcidims[ids[1]];
+                        break;
+                case 'n':
+                        fd[ps] = 1;
+                        d[ps] = 1;
+                        break;
+                default:
+                        fprintf(stderr, "Invalid option (%c) in %s.\n", o, __func__);
+                }
+        }
+        safe_free(irreps);
+}
+
+static inline int zero_dim(const struct symsecs * const ss, const int id, 
+                           const char o)
+{
+        return o == 'f' ? ss->fcidims[id] < 0.5 : ss->dims[id] == 0;
+}
+
+struct symsecs tensprod_symsecs(const struct symsecs * sectors1,
+                                const struct symsecs * sectors2,
+                                int sign, char o)
+{
+        /* First I make a 'worst-case', where a rough first guess of the
+         * symsecs is initialized. After this, this 'worst-case' can be 
+         * simplified by kicking out all the symsecs with D = 0. */
         assert(o == 'f' || o == 'n' || o == 'd');
+        struct symsecs res = {0};
 
-        res->nrSecs = 0;
-        res->irreps    = NULL;
-        res->fcidims   = NULL;
-        res->dims      = NULL;
-        res->totaldims = 0;
+        // Gives a rough first array with also a lot of forbidden symmsecs.
+        build_all_sectors(&res, sectors1, sectors2);
+        //res.fcidims = safe_calloc(res.nrSecs, *res.fcidims);
+        //if (o != 'f') { res.dims = safe_calloc(res.nrSecs, *res.dims); }
+        struct symsecs ss[2] = {
+                *sectors1,
+                *sectors2
+        };
 
-        /* This function will give a rough first irreps array with also a lot
-         * of forbidden symmsecs. */
-        build_all_sectors(res, sectors1, sectors2);
-        res->fcidims = safe_calloc(res->nrSecs,  double);
-        if (o != 'f') res->dims = safe_calloc(res->nrSecs,  int);
+#pragma omp parallel default(none) shared(ss,res,sign,o,stderr)
+        {
+                double * fcidims = safe_calloc(res.nrSecs, *fcidims);
+                int * dims = NULL;
+                if (o != 'f') { dims = safe_calloc(res.nrSecs, *dims); }
 
-        for (int i = 0; i < sectors1->nrSecs; i++) {
-                /* zero dimension symmsec */
-                if ((o == 'f' && sectors1->fcidims[i] < 0.5) || 
-                    (o != 'f' && sectors1->dims[i] == 0)) { continue; }
-
-                for (int j = 0; j < sectors2->nrSecs; j++) {
-                        int nr_symmsecs;
-                        int *resultsymmsec;
-                        if ((o == 'f' && sectors2->fcidims[j] < 0.5) || 
-                            (o != 'f' && sectors2->dims[j] == 0)) { continue; }
-
-                        /* for non-abelian symmetries, like SU(2), there are
-                         * multiple irreps that are valid as result of the
-                         * tensorproduct of two irreps */
-                        tensprod_symmsec(&resultsymmsec, &nr_symmsecs, 
-                                         sectors1->irreps[i], 
-                                         sectors2->irreps[j], sign, 
-                                         bookie.sgs, bookie.nrSyms);
-
-                        for (nr_symmsecs--; nr_symmsecs >= 0; nr_symmsecs--) {
-                                int pos_symmsec = 
-                                        search_symsec(resultsymmsec + 
-                                                      bookie.nrSyms * 
-                                                      nr_symmsecs, res);
-
-                                if (pos_symmsec < 0) { break; }
-                                if (o == 'f') {
-                                        res->fcidims[pos_symmsec] += 
-                                                sectors1->fcidims[i] * 
-                                                sectors2->fcidims[j];
-                                } else if (o == 'n') {
-                                        res->fcidims[pos_symmsec] = 1;
-                                        res->dims[pos_symmsec] = 1;
-                                } else if (o == 'd') {
-                                        res->fcidims[pos_symmsec] += 
-                                                sectors1->fcidims[i] * 
-                                                sectors2->fcidims[j];
-                                        res->dims[pos_symmsec] += 
-                                                sectors1->dims[i] * 
-                                                sectors2->dims[j];
-                                }
+#pragma omp for schedule(dynamic) nowait
+                for (int i = 0; i < ss[0].nrSecs; i++) {
+                        /* zero dimension symmsec */
+                        if (zero_dim(&ss[0], i, o)) { continue; }
+                        for (int j = 0; j < ss[1].nrSecs; j++) {
+                                if (zero_dim(&ss[1], j, o)) { continue; }
+                                const int ids[2] = {i, j};
+                                tensprod_and_fill(&res, ss, ids, sign, o,
+                                                  fcidims, dims);
                         }
-                        safe_free(resultsymmsec);
+                }
+
+#pragma omp critical
+                {
+                        if (res.fcidims == NULL) {
+                                assert(res.dims == NULL);
+                                res.fcidims = fcidims;
+                                res.dims = dims;
+                        } else {
+                                switch (o) {
+                                case 'd':
+                                        for (int i = 0; i < res.nrSecs; ++i) {
+                                                res.dims[i] += dims[i];
+                                        }
+                                        // Fall through
+                                case 'f':
+                                        for (int i = 0; i < res.nrSecs; ++i) {
+                                                res.fcidims[i] += fcidims[i];
+                                        }
+                                        break;
+                                case 'n':
+                                        for (int i = 0; i < res.nrSecs; ++i) {
+                                                res.dims[i] = res.dims[i] + dims[i] > 0;
+                                                res.fcidims[i] = res.fcidims[i] + fcidims[i] > 0;
+                                        }
+                                        break;
+                                default:
+                                        fprintf(stderr, "Invalid option (%c) in %s.\n", o, __func__);
+                                }
+                                safe_free(fcidims);
+                                safe_free(dims);
+
+                        }
                 }
         }
 
-        /* now we have the 'worst-case' res. 
-         * Kick out all the symmsecs with dimension 0. */
-        kick_empty_symsecs(res, (char) (o == 'd' ? 'n' : o));
+        // Kick out all the symmsecs with dimension 0.
+        kick_empty_symsecs(&res, (char) (o == 'd' ? 'n' : o));
+        return res;
 }

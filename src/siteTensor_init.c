@@ -276,8 +276,8 @@ static void initialize_inner_symsecs(void)
                         }
                 }
                 assert(cnt == 2);
-                tensprod_symsecs(&make_dat.intss[i], &symsec[0],
-                                 &symsec[1], sign, 'n');
+                make_dat.intss[i] = tensprod_symsecs(&symsec[0], &symsec[1], 
+                                                     sign, 'n');
                 make_dat.intss[i].bond = make_dat.internals[i];
         }
 }

@@ -212,29 +212,27 @@ static void make_symsec(struct symsecs *symsec, int bond, int is_left, char o)
         assert(sectors2p->nrSecs != 0);
 
         if (flag && is_left) {
-                tensprod_symsecs(symsec, &sectors1, sectors2p, +1, o);
+                *symsec = tensprod_symsecs(&sectors1, sectors2p, +1, o);
                 kick_impossibles(symsec);
                 symsec->bond = bond;
                 return;
         }
         if(flag && !is_left) {
-                struct symsecs temp;
-                tensprod_symsecs(&temp, &sectors1, sectors2p, -1, o);
+                struct symsecs temp = tensprod_symsecs(&sectors1, sectors2p, -1, o);
                 select_lowest(symsec, &temp);
                 destroy_symsecs(&temp);
                 symsec->bond = bond;
                 return;
         }
         if(!flag && is_left) {
-                tensprod_symsecs(symsec, &sectors1, sectors2p, +1, o);
+                *symsec = tensprod_symsecs(&sectors1, sectors2p, +1, o);
                 kick_impossibles(symsec);
                 symsec->bond = bond;
                 return;
         }
         while(!flag) {
-                struct symsecs temp, temp2;
-                tensprod_symsecs(&temp, &sectors1, sectors2p, -1, o);
-                tensprod_symsecs(&temp2, &sectors1, symsec, -1, o);
+                struct symsecs temp = tensprod_symsecs(&sectors1, sectors2p, -1, o);
+                struct symsecs temp2 = tensprod_symsecs(&sectors1, symsec, -1, o);
 
                 flag  = select_lowest(sectors2p, &temp2); 
                 flag *= select_lowest(symsec,  &temp);

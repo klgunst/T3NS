@@ -60,11 +60,10 @@ void find_qnumbers_with_index_in_array(const int id, const int idnr, int *** qnu
  *
  * Symmetry sectors with a dimension of 0 are kicked out.
  *
- * @param res [out] The resulting @ref symsecs structure.
- * @param sectors1 [in] The first @ref symsecs structure.
- * @param sectors2 [in] The second @ref symsecs structure.
- * @param sign [in] -1 if inverse of @p sector2 should be used. 1 otherwise.
- * @param o [in] Can be @p 'f', @p 'n' or @p 'd':<br>
+ * @param [in] sectors1 The first @ref symsecs structure.
+ * @param [in] sectors2 The second @ref symsecs structure.
+ * @param [in] sign -1 if inverse of @p sector2 should be used. 1 otherwise.
+ * @param [in] o Can be @p 'f', @p 'n' or @p 'd':<br>
  * Case @p 'f':
  * > The @ref symsecs.fcidims are used for the tensorproduct and resulting new 
  * > dimensions are stored also in @ref symsecs.fcidims.<br>
@@ -76,6 +75,8 @@ void find_qnumbers_with_index_in_array(const int id, const int idnr, int *** qnu
  * > The resulting @ref symsecs.fcidims is filled in the same way as case @p 'f'.<br>
  * > The resulting @ref symsecs.dims is filled according to the dimensions of 
  * > @p sectors1 and @p sectors2.
+ * @return The resulting symsecs.
  */
-void tensprod_symsecs(struct symsecs * res, const struct symsecs * sectors1,
-                      const struct symsecs * sectors2, int sign, char o);
+struct symsecs tensprod_symsecs(const struct symsecs * sectors1,
+                                const struct symsecs * sectors2,
+                                int sign, char o);
