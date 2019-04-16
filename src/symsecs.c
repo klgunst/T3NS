@@ -92,7 +92,7 @@ void kick_empty_symsecs(struct symsecs *sectors, char o)
         int cnt = 0;
         if (o == 'n') sectors->totaldims = 0;
         for (int i = 0; i < sectors->nrSecs; ++i) {
-                if (sectors->fcidims[i] < 0.5 || (o == 'n' && !sectors->dims[i]))
+                if (sectors->fcidims[i] < 0.5 || (o == 'n' && sectors->dims[i] == 0))
                         continue;
 
                 for (int j = 0; j < bookie.nrSyms; ++j) {

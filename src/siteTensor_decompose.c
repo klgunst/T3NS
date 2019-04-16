@@ -685,12 +685,8 @@ static int calc_block_size(struct symsecs(*symarr)[3], const QN_TYPE * qnarr,
 {
         int result = 1;
         for (int i = 0; i < n; ++i) {
-                const int ids[] = {
-                        qnarr[i] % symarr[i][0].nrSecs,
-                        (qnarr[i] / symarr[i][0].nrSecs) % symarr[i][1].nrSecs,
-                        qnarr[i] / symarr[i][0].nrSecs / symarr[i][1].nrSecs
-                };
-                assert(ids[2] < symarr[i][2].nrSecs);
+                int ids[3];
+                indexize(ids, qnarr[i], symarr[i]);
                 result *= symarr[i][0].dims[ids[0]] *
                         symarr[i][1].dims[ids[1]] *
                         symarr[i][2].dims[ids[2]];
@@ -888,13 +884,8 @@ static void get_dims(int * dims, int block, const struct siteTensor * T,
         for (int i = 0; i < T->nrsites; ++i) {
                 const int smap = site_map == NULL ? i : site_map[i];
                 assert(smap >= 0);
-                const int ids[3] = {
-                        qn[i] % symarr[smap][0].nrSecs,
-                        (qn[i] / symarr[smap][0].nrSecs) % 
-                                symarr[smap][1].nrSecs,
-                        (qn[i] / symarr[smap][0].nrSecs) /
-                                symarr[smap][1].nrSecs
-                };
+                int ids[3];
+                indexize(ids, qn[i], symarr[smap]);
 
                 if (id_s != i) {
                         dims[cnt] *= symarr[smap][0].dims[ids[0]] *
@@ -1043,6 +1034,7 @@ static int SVD_copy_from_mem(struct svddata * dat, const int ssid)
 
 static int svdblocks(struct svddata * dat, int ssid)
 {
+        if (dat->S->dimS[ssid][0] == 0) { return 0; }
         const struct svd_bond_info inf = dat->ss_info[ssid];
         const int M = inf.Mstart[inf.Msecs];
         const int N = inf.Nstart[inf.Nsecs];
@@ -1054,8 +1046,9 @@ static int svdblocks(struct svddata * dat, int ssid)
                                   dat->S->sing[ssid], inf.memU, M, 
                                   inf.memVT, dat->S->dimS[ssid][0]);
 
-        if (info) { 
-                printf("%d %d %d\n", M, N, dat->S->dimS[ssid][0]);
+        if (info) {
+                fprintf(stderr, "%d %d %d %d %d %d\n", M, N,
+                        dat->S->dimS[ssid][0], ssid, inf.Msecs, inf.Nsecs);
                 fprintf(stderr, "dgesdd exited with %d.\n", info);
         }
         safe_free(memA);
@@ -1387,10 +1380,9 @@ static void adapt_UV_tensors_and_kick_empties(struct svddata * dat)
         safe_free(newid);
 
         
-        int bonds[3];
-        get_bonds_of_site(dat->V->sites[0], bonds);
-        kick_empty_symsecs(&bookie.v_symsecs[bonds[dat->id_bond]], 'n');
-        assert(cnt == bookie.v_symsecs[bonds[dat->id_bond]].nrSecs);
+        const int leg = dat->legs[dat->id_siteV][dat->id_bond];
+        kick_empty_symsecs(&bookie.v_symsecs[leg], 'n');
+        assert(cnt == bookie.v_symsecs[leg].nrSecs);
 }
 
 struct SelectRes split_of_site(struct siteTensor * A, int site, 
