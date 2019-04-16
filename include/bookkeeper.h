@@ -167,4 +167,4 @@ void bookkeeper_get_symsecs(const struct bookkeeper * keeper,
                             struct symsecs *res, int bond);
 
 void bookkeeper_get_symsecs_arr(const struct bookkeeper * keeper, int n, 
-                                struct symsecs * symarr, int * bonds);
+                                struct symsecs * symarr, const int * bonds);
