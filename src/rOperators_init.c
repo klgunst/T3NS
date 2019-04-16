@@ -375,7 +375,7 @@ static void destroy_qndarr(struct rOperators * rops, struct qndarr * qna)
         safe_free(qna);
 }
 
-static struct qndarr * make_qndarr(struct rOperators * rops)
+static struct qndarr * make_qndarr(struct rOperators * const rops)
 {
         /* Since the first row in qnumberbonds in rops is α, i, β
          * For both right and left renormalized operators */
@@ -385,8 +385,9 @@ static struct qndarr * make_qndarr(struct rOperators * rops)
         get_symsecs_arr(3, ss, bonds);
         struct good_sectors sitegs = find_good_sectors(ss, 1);
         const int ibond = rops->is_left * 2;
-        struct qndarr * res = safe_malloc(sitegs.ss[ibond].nrSecs, *res);
+        struct qndarr * const res = safe_malloc(sitegs.ss[ibond].nrSecs, *res);
 
+#pragma omp parallel for schedule(dynamic) default(none) shared(ss, sitegs)
         for (int i = 0; i < sitegs.ss[ibond].nrSecs; ++i) {
                 struct iter_gs iter = init_iter_gs(i, ibond, &sitegs);
                 res[i].L = iter.length;
