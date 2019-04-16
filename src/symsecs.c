@@ -39,7 +39,7 @@ void get_symsecs(struct symsecs *res, int bond)
         assert(res->bond == bond);
 }
 
-void get_symsecs_arr(int n, struct symsecs * symarr, int * bonds)
+void get_symsecs_arr(int n, struct symsecs * symarr, const int * bonds)
 {
         bookkeeper_get_symsecs_arr(&bookie, n, symarr, bonds);
 }

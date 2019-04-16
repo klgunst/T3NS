@@ -66,9 +66,11 @@ static void make_unitOperator(struct rOperators * ops, int op)
         struct sparseblocks * UBlock = &ops->operators[op];
         QN_TYPE * qn = rOperators_give_qnumbers_for_hss(ops, hss);
 
-        int bonds[3];
-        assert(rOperators_give_nr_of_indices(ops) == 3);
-        rOperators_give_indices(ops, bonds);
+        const int bonds[3] = {
+                ops->bond,
+                ops->bond,
+                get_hamiltonianbond(ops->bond)
+        };
         get_symsecs_arr(3, symarr, bonds);
 
         /* I will first use this array to store the sqrt(D) instead of D */
@@ -262,9 +264,12 @@ struct rOperators sum_unique_rOperators(const struct rOperators * ur,
         return res;
 }
 
-static int * make_qnumbers_for_hss(struct rOperators * rops,
-                                   const struct good_sectors * gs, int hss)
+static int * nP_make_qnumbers_for_hss(struct rOperators * rops,
+                                      const struct good_sectors * gs, int hss)
 {
+        const int id0 = 1 + rops->is_left;
+        const int id1 = 1 + !rops->is_left;
+
         const int N = rOperators_give_nr_blocks_for_hss(rops, hss);
         QN_TYPE *qntmp = safe_malloc(N, *qntmp);
         int *dimtmp = safe_malloc(N, *dimtmp);
@@ -272,14 +277,10 @@ static int * make_qnumbers_for_hss(struct rOperators * rops,
         struct iter_gs iter = init_iter_gs(hss, 0, gs);
         assert(iter.length == N);
         while (iterate_gs(&iter)) {
-                int idsn[3];
-                // This is 
-                indexize(idsn, iter.cqn, gs->ss);
-                assert(idsn[0] == hss);
-
-                qntmp[iter.cnt] = idsn[1 + rops->is_left] +
-                        idsn[1 + !rops->is_left] * gs->ss[1 + rops->is_left].nrSecs + 
-                        idsn[0] * gs->ss[1].nrSecs * gs->ss[2].nrSecs;
+                assert(iter.cid[0] == hss);
+                qntmp[iter.cnt] = iter.cid[id0] +
+                        iter.cid[id1] * gs->ss[id0].nrSecs + 
+                        iter.cid[0] * gs->ss[1].nrSecs * gs->ss[2].nrSecs;
                 dimtmp[iter.cnt] = iter.cdim;
         }
 
@@ -297,6 +298,23 @@ static int * make_qnumbers_for_hss(struct rOperators * rops,
         return bb;
 }
 
+static struct good_sectors find_good_sectorsMPO(const struct rOperators * rops)
+{
+        const int bond = rops->bond;
+        const int is_left = rops->is_left;
+        int bonds[3];
+        bonds[0] = get_hamiltonianbond(bond);
+        bonds[1] = is_left  ? get_ketT3NSbond(bond) : get_braT3NSbond(bond);
+        bonds[2] = !is_left ? get_ketT3NSbond(bond) : get_braT3NSbond(bond);
+
+        /* expects a is_in of 001 or 110  for find_goodqnumbersectors */
+        struct symsecs symarr[3];
+        get_symsecs_arr(3, symarr, bonds);
+        assert(symarr[0].nrSecs == rops->nrhss);
+
+        return find_good_sectors(symarr, 1);
+}
+
 static void init_nP_rOperators(struct rOperators * const rops, int *** tmpbb,
                                int bond, int is_left)
 {
@@ -308,22 +326,12 @@ static void init_nP_rOperators(struct rOperators * const rops, int *** tmpbb,
         rops->begin_blocks_of_hss = safe_malloc(rops->nrhss + 1,
                                                 *rops->begin_blocks_of_hss);
 
-        int bonds[3];
-        bonds[0] = get_hamiltonianbond(bond);
-        bonds[1] = is_left  ? get_ketT3NSbond(bond) : get_braT3NSbond(bond);
-        bonds[2] = !is_left ? get_ketT3NSbond(bond) : get_braT3NSbond(bond);
-
-        /* expects a is_in of 001 or 110  for find_goodqnumbersectors */
-        struct symsecs symarr[3];
-        get_symsecs_arr(3, symarr, bonds);
-        assert(symarr[0].nrSecs == rops->nrhss);
-
-        struct good_sectors gs = find_good_sectors(symarr, 1);
+        struct good_sectors gs = find_good_sectorsMPO(rops);
 
         rops->begin_blocks_of_hss[0] = 0;
         for (int hss = 0; hss < rops->nrhss; ++hss) {
                 rops->begin_blocks_of_hss[hss + 1] = rops->begin_blocks_of_hss[hss];
-                for (int i = 0; i < symarr[1].nrSecs; ++i) {
+                for (int i = 0; i < gs.ss[1].nrSecs; ++i) {
                         rops->begin_blocks_of_hss[hss + 1] += gs.sectors[hss][i].L;
                 }
         }
@@ -334,225 +342,160 @@ static void init_nP_rOperators(struct rOperators * const rops, int *** tmpbb,
         rops->hss_of_ops = NULL;
         rops->operators = NULL;
 
-#pragma omp parallel for schedule(dynamic) default(none) shared(gs,tmpbb,symarr)
+#pragma omp parallel for schedule(dynamic) default(none) shared(gs,tmpbb)
         for (int hss = 0; hss < rops->nrhss; ++hss) {
-                (*tmpbb)[hss] = make_qnumbers_for_hss(rops, &gs, hss);
+                (*tmpbb)[hss] = nP_make_qnumbers_for_hss(rops, &gs, hss);
         }
         destroy_good_sectors(&gs);
 }
 
-static void init_P_rOperators(struct rOperators * rops, int *** tmpbb,
+
+struct qnd {
+        QN_TYPE qn;
+        int dim;
+};
+
+struct qndarr {
+        int L;
+        struct qnd * arr;
+};
+
+static void destroy_qndarr(struct rOperators * rops, struct qndarr * qna)
+{
+        int bonds[3];
+        struct symsecs ss[3];
+        get_bonds_of_site(rOperators_site_to_attach(rops), bonds);
+        get_symsecs_arr(3, ss, bonds);
+        const int ibond = rops->is_left * 2;
+        const int N = ss[ibond].nrSecs;
+
+        for (int i = 0; i < N; ++i) {
+                safe_free(qna[i].arr);
+        }
+        safe_free(qna);
+}
+
+static struct qndarr * make_qndarr(struct rOperators * rops)
+{
+        /* Since the first row in qnumberbonds in rops is α, i, β
+         * For both right and left renormalized operators */
+        int bonds[3];
+        struct symsecs ss[3];
+        get_bonds_of_site(rOperators_site_to_attach(rops), bonds);
+        get_symsecs_arr(3, ss, bonds);
+        struct good_sectors sitegs = find_good_sectors(ss, 1);
+        const int ibond = rops->is_left * 2;
+        struct qndarr * res = safe_malloc(sitegs.ss[ibond].nrSecs, *res);
+
+        for (int i = 0; i < sitegs.ss[ibond].nrSecs; ++i) {
+                struct iter_gs iter = init_iter_gs(i, ibond, &sitegs);
+                res[i].L = iter.length;
+                res[i].arr = safe_malloc(iter.length, *res[i].arr);
+                while (iterate_gs(&iter)) {
+                        res[i].arr[iter.cnt].qn = iter.cqn;
+                        res[i].arr[iter.cnt].dim = iter.cdim;
+                }
+        }
+        destroy_good_sectors(&sitegs);
+        return res;
+}
+
+static int * P_make_qnumbers_for_hss(struct rOperators * rops,
+                                     const struct good_sectors * intgs, 
+                                     const struct qndarr * qna, int hss)
+{
+        struct iter_gs iter = init_iter_gs(hss, 0, intgs);
+        const int N = rOperators_give_nr_blocks_for_hss(rops, hss);
+        QN_TYPE * qntmp = safe_malloc(N * 3, *qntmp);
+        int * dimtmp = safe_malloc(N, * dimtmp);
+        const int id0 = 1 + rops->is_left;
+        const int id1 = 1 + !rops->is_left;
+
+        int cqn = 0;
+        while (iterate_gs(&iter)) {
+                assert(iter.cid[0] == hss);
+                const int bra = iter.cid[id0];
+                const int ket = iter.cid[id1];
+                const QN_TYPE MPOqnumber = bra +
+                        ket * intgs->ss[id0].nrSecs +
+                        hss * intgs->ss[id0].nrSecs * intgs->ss[id1].nrSecs;
+                assert(iter.cdim == 1 && "Not all elements of dimarray_internal are equal to 1!");
+
+                const struct qndarr * qnket = &qna[ket];
+                const struct qndarr * qnbra = &qna[bra];
+                for (int i = 0; i < qnbra->L; ++i) {
+                        for (int j = 0; j < qnket->L; ++j, ++cqn) {
+                                /* bra qnumber */
+                                qntmp[cqn * 3 + 0] = qnbra->arr[i].qn;
+                                /* ket qnumber */
+                                qntmp[cqn * 3 + 1] = qnket->arr[j].qn;
+                                /* MPO qnumber */
+                                qntmp[cqn * 3 + 2] = MPOqnumber;
+                                dimtmp[cqn] = qnbra->arr[i].dim *
+                                        qnket->arr[j].dim;
+                        }
+                }
+        }
+        assert(cqn == N);
+
+        int * idx = quickSort(qntmp, N, SORT_QN_TYPE3);
+        int * bb = safe_malloc(N + 1, *bb);
+        bb[0] = 0;
+        QN_TYPE *qnrOps = rOperators_give_qnumbers_for_hss(rops, hss);
+        for (int i = 0; i < N; ++i) {
+                qnrOps[i * 3 + 0] = qntmp[idx[i] * 3 + 0];
+                qnrOps[i * 3 + 1] = qntmp[idx[i] * 3 + 1];
+                qnrOps[i * 3 + 2] = qntmp[idx[i] * 3 + 2];
+                bb[i + 1] = dimtmp[idx[i]] + bb[i];
+        }
+
+        safe_free(idx);
+        safe_free(qntmp);
+        safe_free(dimtmp);
+        return bb;
+}
+
+static void init_P_rOperators(struct rOperators * const rops, int *** tmpbb,
                               int bond, int is_left)
 {
-        int total, total_internal;
-        int ***dimarray, ***dimarray_internal;
-        int ***qnumbersarray, ***qnumbersarray_internal;
-        int bonds[3];
-        int qnumberbonds[9];
-        const int couplings = 3;
-
-        int i, hamss;
-        struct symsecs symarr[3], symarr_internal[3];
-
         rops->bond = bond;
-        rops->is_left          = is_left;
-        rops->P_operator       = 1;
-        rops->nrhss            = get_nr_hamsymsec();
-        assert(couplings == rOperators_give_nr_of_couplings(rops));
+        rops->is_left = is_left;
+        rops->P_operator = 1;
+        rops->nrhss = get_nr_hamsymsec();
+        assert(3 == rOperators_give_nr_of_couplings(rops));
 
-        /* make sure that the dimensions of the internal bonds are all set = 1, otherwise
-         * tmpbb will be wrong! */
-        assert(is_set_to_internal_symsec(bond) 
-               && "The dimensions of the internal bonds are not set to 1 yet!");
+        /* make sure that the dimensions of the internal bonds are all set = 1,
+         * otherwise tmpbb will be wrong! */
+        assert(is_set_to_internal_symsec(bond));
 
-        *tmpbb        = safe_malloc(rops->nrhss, int *);
-        rops->begin_blocks_of_hss = safe_malloc(rops->nrhss + 1, int);
+        struct good_sectors intgs = find_good_sectorsMPO(rops);
+        struct qndarr * qna = make_qndarr(rops);
 
-        /* Since the first row in qnumberbonds in rops is alpha, i, beta for both right and left 
-         * renormalized operators */
-        rOperators_give_qnumberbonds(rops, qnumberbonds);
-        get_symsecs_arr(3, symarr, qnumberbonds);
-        find_goodqnumbersectors(&dimarray, &qnumbersarray, &total, symarr, 1);
-
-        /* Since the third row in qnumberbonds is coupling is bra(inner), ket(inner), MPO with is_in being 
-         * 1,0,0 for Left and 0,1,0 for Right. So we want 0,0,1 order and MPO on first place. Easier and 
-         * the function find_goodqnumbersectors expects a 1,1,0 or 0,0,1. */
-        bonds[0] = qnumberbonds[6 + 2];            /* MPO */
-        bonds[1] = qnumberbonds[6 + is_left];  /* the inner bond that is going out */
-        bonds[2] = qnumberbonds[6 + !is_left]; /* the inner bond that is going in */
-        get_symsecs_arr(3, symarr_internal, bonds);
-        assert(symarr_internal[0].nrSecs == rops->nrhss && "Something wrong with the hamsymsec");
-        find_goodqnumbersectors(&dimarray_internal, &qnumbersarray_internal, &total_internal, 
-                                symarr_internal, 1);
-
-        /* So now you know enough to recombine everything */
-        /* First count the number of blocks... */
-        rops->begin_blocks_of_hss[0] = 0;
-        for (hamss = 0; hamss < rops->nrhss; ++hamss)
-        {
-                /* qnumbersarray_internal[hamss] has all the symsecs of bra(internal) X ket(internal) that 
-                 * combine to hamss. So now, loop over all these different possible products. After that,
-                 * loop over the qnumbersarray, and see which bra(internal) and ket(internal) correspond.
-                 * Then you have found a valid symsec block for the renormalized operator. */ 
-
-                /* internal_out is of the internal bond that is going out.
-                 * So bra(internal) for right rops and ket(internal) for left rops. */
-                int internal_out;
-                rops->begin_blocks_of_hss[hamss + 1] = rops->begin_blocks_of_hss[hamss];
-                for (internal_out = 0; internal_out < symarr_internal[1].nrSecs; ++internal_out)
-                {
-                        const int nr_of_prods =  qnumbersarray_internal[hamss][internal_out][0];
-                        int internal_in;
-                        for (internal_in = 0; internal_in < nr_of_prods; ++internal_in)
-                        {
-                                const int ket_internal =  is_left ? internal_out : 
-                                        qnumbersarray_internal[hamss][internal_out][1 + internal_in];
-                                const int bra_internal = !is_left ? internal_out : 
-                                        qnumbersarray_internal[hamss][internal_out][1 + internal_in];
-                                int little_length;
-                                int dim; 
-                                assert(dimarray_internal[hamss][internal_out][internal_in] == 1 &&
-                                       "Not all elements of dimarray_internal are equal to 1!");
-
-                                /* finds the blocks which correpsond with a certain bra_internal */
-                                find_qnumbers_with_index_in_array(bra_internal, is_left * 2, qnumbersarray, dimarray, 
-                                                                  symarr, NULL, NULL, &little_length);
-                                dim = little_length;
-
-                                /* finds the blocks which correpsond with a certain ket_internal */
-                                find_qnumbers_with_index_in_array(ket_internal, is_left * 2, qnumbersarray, dimarray, 
-                                                                  symarr, NULL, NULL, &little_length);
-                                dim *= little_length;
-                                rops->begin_blocks_of_hss[hamss + 1] += dim;
-                        }
+        rops->begin_blocks_of_hss = safe_calloc(rops->nrhss + 1,
+                                                *rops->begin_blocks_of_hss);
+        // So now you know enough to recombine everything.
+        // First count the number of blocks...
+        for (int i = 0; i < rops->nrhss; ++i) {
+                struct iter_gs iter = init_iter_gs(i, 0, &intgs);
+                while (iterate_gs(&iter)) {
+                        assert(iter.cdim == 1 && "Not all elements of dimarray_internal are equal to 1!");
+                        rops->begin_blocks_of_hss[i + 1] += 
+                                qna[iter.cid[1]].L * qna[iter.cid[2]].L;
                 }
         }
-
-        rops->qnumbers = safe_malloc(rops->begin_blocks_of_hss[rops->nrhss] * couplings, QN_TYPE);
-        for (hamss = 0; hamss < rops->nrhss; ++hamss)
-        {
-                /* qnumbersarray_internal[hamss] has all the symsecs of bra(internal) X ket(internal) that 
-                 * combine to hamss. So now, loop over all these different possible products. After that,
-                 * loop over the qnumbersarray, and see which bra(internal) and ket(internal) correspond.
-                 * Then have found a valid symsec block for the renormalized operator. */ 
-
-                /* internal_out is of the internal bond that is going out.
-                 * So bra(internal) for right rops and ket(internal) for left rops. */
-                int internal_out;
-                int curr_qnumber = 0;
-                QN_TYPE *qnumberstmp;
-                QN_TYPE * qnumbershss = rOperators_give_qnumbers_for_hss(rops, hamss);
-                int *dimtmp;
-                int *idx;
-                const int N = rOperators_give_nr_blocks_for_hss(rops, hamss);
-                (*tmpbb)[hamss] = safe_malloc(N + 1, int);
-                qnumberstmp                   = safe_malloc(N * couplings, QN_TYPE);
-                dimtmp                        = safe_malloc(N, int);
-
-                for (internal_out = 0; internal_out < symarr_internal[1].nrSecs; ++internal_out)
-                {
-                        const int nr_of_prods =  qnumbersarray_internal[hamss][internal_out][0];
-                        int internal_in;
-                        for (internal_in = 0; internal_in < nr_of_prods; ++internal_in)
-                        {
-                                const int ket_internal =  is_left ? internal_out : 
-                                        qnumbersarray_internal[hamss][internal_out][1 + internal_in];
-                                const int bra_internal = !is_left ? internal_out : 
-                                        qnumbersarray_internal[hamss][internal_out][1 + internal_in];
-
-                                /* qnumber for bra(internal) ket(internal) MPO where dim_bra == dim_ket */
-                                assert(symarr_internal[1].nrSecs == symarr_internal[2].nrSecs);
-                                QN_TYPE MPOqnumber = bra_internal + ket_internal * symarr_internal[1].nrSecs
-                                        + hamss * symarr_internal[1].nrSecs * symarr_internal[1].nrSecs;
-
-                                int     * little_dimarray;
-                                QN_TYPE * little_qnumbersarray;
-                                int       little_length;
-                                int     * little_dimarray2;
-                                QN_TYPE * little_qnumbersarray2;
-                                int       little_length2;
-                                int       branrs, ketnrs;
-                                assert(dimarray_internal[hamss][internal_out][internal_in] == 1 &&
-                                       "Not all elements of dimarray_internal are equal to 1!");
-
-                                /* finds the blocks which correspond with a certain bra_internal */
-                                find_qnumbers_with_index_in_array(bra_internal, is_left * 2, qnumbersarray, dimarray, 
-                                                                  symarr, &little_qnumbersarray, &little_dimarray, &little_length);
-
-                                /* finds the blocks which correspond with a certain ket_internal */
-                                find_qnumbers_with_index_in_array(ket_internal, is_left * 2, qnumbersarray, dimarray, 
-                                                                  symarr, &little_qnumbersarray2, &little_dimarray2, &little_length2);
-
-                                for (branrs = 0; branrs < little_length; ++branrs)
-                                        for (ketnrs = 0; ketnrs < little_length2; ++ketnrs)
-                                        {
-                                                /* bra qnumber */
-                                                qnumberstmp[curr_qnumber * couplings + 0] = little_qnumbersarray[branrs];
-                                                /* ket qnumber */
-                                                qnumberstmp[curr_qnumber * couplings + 1] = little_qnumbersarray2[ketnrs];
-                                                /* MPO qnumber */
-                                                qnumberstmp[curr_qnumber * couplings + 2] = MPOqnumber;
-
-                                                dimtmp[curr_qnumber] = little_dimarray[branrs] * little_dimarray2[ketnrs];
-                                                ++curr_qnumber;
-                                        }
-
-                                safe_free(little_dimarray);
-                                safe_free(little_qnumbersarray);
-                                safe_free(little_dimarray2);
-                                safe_free(little_qnumbersarray2);
-                        }
-                }
-                assert(curr_qnumber == N);
-
-                assert(couplings == 3);
-                idx = quickSort(qnumberstmp, N, SORT_QN_TYPE3);
-                for (i = 0; i < N; ++i)
-                {
-                        int j;
-                        for (j = 0; j < couplings; ++j)
-                                qnumbershss[i * couplings + j] = qnumberstmp[idx[i] * couplings + j];
-                        (*tmpbb)[hamss][i + 1] = dimtmp[idx[i]];
-                }
-                (*tmpbb)[hamss][0] = 0;
-                for (i = 0; i < N; ++i)
-                {
-                        assert((*tmpbb)[hamss][i + 1] >= 0); 
-                        (*tmpbb)[hamss][i + 1] += (*tmpbb)[hamss][i];
-                }
-
-                safe_free(idx);
-                safe_free(qnumberstmp);
-                safe_free(dimtmp);
+        for (int i = 0; i < rops->nrhss; ++i) {
+                rops->begin_blocks_of_hss[i + 1] += rops->begin_blocks_of_hss[i];
         }
 
-        for (i = 0; i < symarr[0].nrSecs; ++i)
-        {
-                int j;
-                for (j = 0; j < symarr[1].nrSecs; ++j)
-                {
-                        safe_free(qnumbersarray[i][j]);
-                        safe_free(dimarray[i][j]);
-                }
-                safe_free(qnumbersarray[i]);
-                safe_free(dimarray[i]);
+        rops->qnumbers = safe_malloc(rops->begin_blocks_of_hss[rops->nrhss] * 3,
+                                     *rops->qnumbers);
+        *tmpbb = safe_malloc(rops->nrhss, **tmpbb);
+#pragma omp parallel for schedule(dynamic) default(none) shared(qna,intgs,tmpbb)
+        for (int hss = 0; hss < rops->nrhss; ++hss) {
+                (*tmpbb)[hss] = P_make_qnumbers_for_hss(rops, &intgs, qna, hss);
         }
-        safe_free(qnumbersarray);
-        safe_free(dimarray);
-
-        for (i = 0; i < symarr_internal[0].nrSecs; ++i)
-        {
-                int j;
-                for (j = 0; j < symarr_internal[1].nrSecs; ++j)
-                {
-                        safe_free(qnumbersarray_internal[i][j]);
-                        safe_free(dimarray_internal[i][j]);
-                }
-                safe_free(qnumbersarray_internal[i]);
-                safe_free(dimarray_internal[i]);
-        }
-        safe_free(qnumbersarray_internal);
-        safe_free(dimarray_internal);
+        destroy_qndarr(rops, qna);
+        destroy_good_sectors(&intgs);
 }
 
 void init_rOperators(struct rOperators * rops, int *** tmpbb, int bond,

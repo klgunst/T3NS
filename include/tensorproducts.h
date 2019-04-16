@@ -17,8 +17,6 @@
 #pragma once
 
 #include "symsecs.h"
-#include "symmetries.h"
-#include "macros.h"
 
 /**
  * @file tensorproducts.h
@@ -80,6 +78,8 @@ struct iter_gs {
         int cdim;
         /// The quantum number of the currently found sector
         QN_TYPE cqn;
+        /// The indexes which combine to cqn
+        int cid[3];
 
         /// The good_sectors structure over which to iterate
         const struct good_sectors * gs;
@@ -145,13 +145,3 @@ bool iterate_gs(struct iter_gs * iter);
 struct symsecs tensprod_symsecs(const struct symsecs * sectors1,
                                 const struct symsecs * sectors2,
                                 int sign, char o);
-
-void find_goodqnumbersectors(int **** const da, int **** const qna, int *ptotal, 
-                             const struct symsecs * const symarr, const int sign);
-
-void destroy_dim_and_qnumbersarray(int ****dimarray, int ****qnumbersarray, const struct symsecs 
-                                   symarr[]);
-
-void find_qnumbers_with_index_in_array(const int id, const int idnr, int *** qnumbersarray, 
-                                       int ***dimarray, const struct symsecs symarr[], QN_TYPE **res_qnumbers, int ** res_dim, 
-                                       int *length);

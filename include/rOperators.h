@@ -160,11 +160,8 @@ struct rOperators sum_unique_rOperators(const struct rOperators * ur,
                                         const struct instructionset * set);
 
 /******************************** MISC ***************************************/
-/**
- * @brief Prints a rOperators to stdin.
- *
- * @param [in] rops The rOperators to print.
- */
+
+/// Prints a rOperators to stdin.
 void print_rOperators(const struct rOperators * const rops, const int givename);
 
 /* HELPERS */

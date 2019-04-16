@@ -74,7 +74,7 @@ void get_symsecs(struct symsecs *res, int bond);
  * \param [out] res The resulting symmsecs.
  * \param [in] bonds The bond array of which we want the symmsecs.
  */
-void get_symsecs_arr(int n, struct symsecs * res, int * bonds);
+void get_symsecs_arr(int n, struct symsecs * res, const int * bonds);
 
 void destroy_symsecs(struct symsecs *sectors);
 
