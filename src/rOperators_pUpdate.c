@@ -219,9 +219,9 @@ static bool select_site_blocks(struct update_aide * aide,
         indexize(ids[2], cqn[2], dat->oss[2]);
         int Tids[2][3];
         translate_indices(ids[1], dat->oss[0], Tids[0], dat->Tss, 3);
-        if (Tids[0][1] < 0 || Tids[0][1] < 0 || Tids[0][2] < 0) { return false; }
+        if (Tids[0][0] < 0 || Tids[0][1] < 0 || Tids[0][2] < 0) { return false; }
         translate_indices(ids[0], dat->oss[1], Tids[1], dat->Tss, 3);
-        if (Tids[1][1] < 0 || Tids[1][1] < 0 || Tids[1][2] < 0) { return false; }
+        if (Tids[1][0] < 0 || Tids[1][1] < 0 || Tids[1][2] < 0) { return false; }
 
         const QN_TYPE Tqn = qntypize(Tids[0], dat->Tss);
         const QN_TYPE Thqn = qntypize(Tids[1], dat->Tss);
