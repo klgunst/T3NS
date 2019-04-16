@@ -262,32 +262,26 @@ struct rOperators sum_unique_rOperators(const struct rOperators * ur,
         return res;
 }
 
-static int * make_qnumbers_for_hss(struct rOperators * rops, int ** qna,
-                                   int ** da, int hss, struct symsecs * symarr)
+static int * make_qnumbers_for_hss(struct rOperators * rops,
+                                   const struct good_sectors * gs, int hss)
 {
         const int N = rOperators_give_nr_blocks_for_hss(rops, hss);
         QN_TYPE *qntmp = safe_malloc(N, *qntmp);
         int *dimtmp = safe_malloc(N, *dimtmp);
 
-        int curr = 0;
-        int ids[3] = {0, 0, hss}; // bra, ket, mpo
+        struct iter_gs iter = init_iter_gs(hss, 0, gs);
+        assert(iter.length == N);
+        while (iterate_gs(&iter)) {
+                int idsn[3];
+                // This is 
+                indexize(idsn, iter.cqn, gs->ss);
+                assert(idsn[0] == hss);
 
-        for (int i = 0; i < symarr[1].nrSecs; ++i) {
-                for (int j = 0; j < qna[i][0]; ++j, ++curr) {
-                        ids[!rops->is_left] = qna[i][1 + j];
-                        ids[rops->is_left] = i;
-                        qntmp[curr] = qntypize(ids, symarr);
-                        qntmp[curr] = ids[0] +
-                                ids[1] * symarr[1 + rops->is_left].nrSecs + 
-                                ids[2] * symarr[1].nrSecs * symarr[2].nrSecs;
-                        dimtmp[curr] = da[i][j];
-                }
-                safe_free(qna[i]);
-                safe_free(da[i]);
+                qntmp[iter.cnt] = idsn[1 + rops->is_left] +
+                        idsn[1 + !rops->is_left] * gs->ss[1 + rops->is_left].nrSecs + 
+                        idsn[0] * gs->ss[1].nrSecs * gs->ss[2].nrSecs;
+                dimtmp[iter.cnt] = iter.cdim;
         }
-        assert(curr == N);
-        safe_free(qna);
-        safe_free(da);
 
         int * idx = quickSort(qntmp, N, SORT_QN_TYPE);
         int * bb = safe_malloc(N + 1, *bb);
@@ -324,14 +318,13 @@ static void init_nP_rOperators(struct rOperators * const rops, int *** tmpbb,
         get_symsecs_arr(3, symarr, bonds);
         assert(symarr[0].nrSecs == rops->nrhss);
 
-        int *** da, *** qna, total;
-        find_goodqnumbersectors(&da, &qna, &total, symarr, 1);
+        struct good_sectors gs = find_good_sectors(symarr, 1);
 
         rops->begin_blocks_of_hss[0] = 0;
         for (int hss = 0; hss < rops->nrhss; ++hss) {
                 rops->begin_blocks_of_hss[hss + 1] = rops->begin_blocks_of_hss[hss];
                 for (int i = 0; i < symarr[1].nrSecs; ++i) {
-                        rops->begin_blocks_of_hss[hss + 1] += qna[hss][i][0];
+                        rops->begin_blocks_of_hss[hss + 1] += gs.sectors[hss][i].L;
                 }
         }
         rops->qnumbers = safe_malloc(rops->begin_blocks_of_hss[rops->nrhss],
@@ -341,14 +334,11 @@ static void init_nP_rOperators(struct rOperators * const rops, int *** tmpbb,
         rops->hss_of_ops = NULL;
         rops->operators = NULL;
 
-#pragma omp parallel for schedule(dynamic) default(none) shared(qna,da,tmpbb,symarr)
+#pragma omp parallel for schedule(dynamic) default(none) shared(gs,tmpbb,symarr)
         for (int hss = 0; hss < rops->nrhss; ++hss) {
-                (*tmpbb)[hss] = make_qnumbers_for_hss(rops, qna[hss], da[hss],
-                                                      hss, symarr);
+                (*tmpbb)[hss] = make_qnumbers_for_hss(rops, &gs, hss);
         }
-
-        safe_free(qna);
-        safe_free(da);
+        destroy_good_sectors(&gs);
 }
 
 static void init_P_rOperators(struct rOperators * rops, int *** tmpbb,

@@ -68,10 +68,8 @@ static void make_1sblocks(struct siteTensor * tens)
         struct symsecs symarr[3];
         get_symsecs_arr(3, symarr, bonds);
 
-        int ***dimarray      = NULL;
-        int ***qnumbersarray = NULL;
-        find_goodqnumbersectors(&dimarray, &qnumbersarray, 
-                                &tens->nrblocks, symarr, 1);
+        struct good_sectors gs = find_good_sectors(symarr, 1);
+        tens->nrblocks = gs.total;
 
         int * dims = safe_malloc(tens->nrblocks, *dims);
         QN_TYPE * qnumbers = safe_malloc(tens->nrblocks, *qnumbers);
@@ -80,18 +78,17 @@ static void make_1sblocks(struct siteTensor * tens)
                 for (int j = 0; j < symarr[1].nrSecs; ++j) {
                         const QN_TYPE ind = i + j * symarr[0].nrSecs;
                         const QN_TYPE inc = symarr[0].nrSecs * symarr[1].nrSecs;
-                        int * da = dimarray[i][j];
-                        int * qna = qnumbersarray[i][j];
-                        for (int k = 0; k < qnumbersarray[i][j][0]; ++k) {
-                                if (da[k] == 0) { continue; }
-                                dims[cnt] = da[k];
-                                qnumbers[cnt] = ind + qna[k + 1] * inc;
+                        struct gsec_arr * gsa = &gs.sectors[i][j];
+                        for (int k = 0; k < gsa->L; ++k) {
+                                if (gsa->sectors[k].d == 0) { continue; }
+                                dims[cnt] = gsa->sectors[k].d;
+                                qnumbers[cnt] = ind + gsa->sectors[k].id3 * inc;
                                 ++cnt;
                         }
                 }
         }
         assert(cnt == tens->nrblocks);
-        destroy_dim_and_qnumbersarray(&dimarray, &qnumbersarray, symarr);
+        destroy_good_sectors(&gs);
 
         /* Reform leading order, and I could kick this order */
         int * idx = quickSort(qnumbers, tens->nrblocks, sort_qn[tens->nrsites]);
@@ -289,11 +286,7 @@ static void correct_inner_symsecs(void)
         // possibilities for the inner symsecs.
         int * bonds = make_dat.bonds[make_dat.innersite];
         struct symsecs * symsec = make_dat.ssarr[make_dat.innersite];
-
-        int ***dimarray;
-        int ***qnumbersarray;
-        int total;
-        find_goodqnumbersectors(&dimarray, &qnumbersarray, &total, symsec, 1);
+        struct good_sectors gs = find_good_sectors(symsec, 1);
 
         for (int i = 0; i < 3; ++i) {
                 int j;
@@ -307,18 +300,15 @@ static void correct_inner_symsecs(void)
                 // It is an internal one, check which symmetry sectors could
                 // be kicked.
                 for (int ss = 0; ss < make_dat.intss[j].nrSecs; ++ss) {
-                        int length;
-                        find_qnumbers_with_index_in_array(ss, i, qnumbersarray, 
-                                                          dimarray, symsec, 
-                                                          NULL, NULL, &length);
+                        struct iter_gs iter = init_iter_gs(ss, i, &gs);
 
-                        if (length < 1) { 
+                        if (iter.length < 1) { 
                                 make_dat.intss[j].fcidims[ss] = 0;
                                 make_dat.intss[j].dims[ss] = 0;
                         }
                 }
         }
-        destroy_dim_and_qnumbersarray(&dimarray, &qnumbersarray, symsec);
+        destroy_good_sectors(&gs);
 
         // Kick the symmetry sectors
         for (int i = 0; i < make_dat.nr_internal; ++i) {
@@ -354,24 +344,26 @@ static void sort_and_make(void)
 }
 
 static int get_partqn_and_dim(bool counted, int id, int leg, QN_TYPE ** partqn, 
-                              int ** partdim, int **** qnarr, int **** dimarr)
+                              int ** partdim, const struct good_sectors * gs)
 {
         const int site = make_dat.connected[leg][0];
         const int bond = make_dat.connected[leg][1];
-        const struct symsecs * syms = make_dat.ssarr[site];
         assert(site != -1);
 
-        QN_TYPE ** p_partqn = !counted ? NULL : &partqn[site];
-        int ** p_partdim = !counted ? NULL : &partdim[site];
-        int length;
-
-        find_qnumbers_with_index_in_array(id, bond, qnarr[site], dimarr[site], 
-                                          syms, p_partqn, p_partdim, &length);
-        return length;
+        struct iter_gs iter = init_iter_gs(id, bond, &gs[site]);
+        if (counted) {
+                partqn[site] = safe_malloc(iter.length, **partqn);
+                partdim[site] = safe_malloc(iter.length, **partdim);
+                while (iterate_gs(&iter)) {
+                        partqn[site][iter.cnt] = iter.cqn;
+                        partdim[site][iter.cnt] = iter.cdim;
+                }
+        }
+        return iter.length;
 }
 
 static int innerl_qn_dims(bool counted, const int * ids, int k, QN_TYPE ** p_qn, 
-                          int ** p_dims, int **** qnarr, int **** dimarr)
+                          int ** p_dims, const struct good_sectors * gs)
 {
         QN_TYPE * partqn[STEPSPECS_MSITES] = { NULL, };
         int * partdim[STEPSPECS_MSITES] = { NULL, };
@@ -382,7 +374,7 @@ static int innerl_qn_dims(bool counted, const int * ids, int k, QN_TYPE ** p_qn,
                 if (make_dat.connected[i][0] == -1) { continue; }
                 length[make_dat.connected[i][0]] = 
                         get_partqn_and_dim(counted, ids[i], i, partqn, 
-                                           partdim, qnarr, dimarr);
+                                           partdim, gs);
                 assert(length[make_dat.connected[i][0]] >= 0);
                 totlength *= length[make_dat.connected[i][0]];
         }
@@ -391,7 +383,7 @@ static int innerl_qn_dims(bool counted, const int * ids, int k, QN_TYPE ** p_qn,
 
         const int isite = make_dat.innersite;
         QN_TYPE internal_qn = qntypize(ids, make_dat.ssarr[isite]);
-        int internal_dim = dimarr[isite][ids[0]][ids[1]][k];
+        int internal_dim = gs[isite].sectors[ids[0]][ids[1]].sectors[k].d;
 
         partqn[isite] = &internal_qn;
         partdim[isite] = &internal_dim;
@@ -439,7 +431,7 @@ static int innerl_qn_dims(bool counted, const int * ids, int k, QN_TYPE ** p_qn,
  *
  * The second call will make make the qnumbers and the dimension array.
  */
-static void make_qnumbers_and_dims(int **** const qnarr, int **** const dimarr)
+static void make_qnumbers_and_dims(const struct good_sectors * const gs)
 {
         int nrblocks = 0;
         const bool counted = make_dat.T->nrblocks != 0;
@@ -460,20 +452,16 @@ static void make_qnumbers_and_dims(int **** const qnarr, int **** const dimarr)
 #pragma omp for schedule(static) collapse(2)
                 for (int i = 0; i < intsym[0].nrSecs; ++i) {
                         for (int j = 0; j < intsym[1].nrSecs; ++j) {
-                                const int N = qnarr[make_dat.innersite][i][j][0];
-                                for (int k = 0; k < N; ++k) {
+                                struct gsec_arr * gsa = &gs[make_dat.innersite].sectors[i][j];
+                                for (int k = 0; k < gsa->L; ++k) {
                                         const int ids[] = {
                                                 i,
                                                 j,
-                                                qnarr[make_dat.innersite][i][j][k + 1]
+                                                gsa->sectors[k].id3
                                         };
-                                        nrblocks += innerl_qn_dims(counted, 
-                                                                   ids, k,
-                                                                   &c_qn,
-                                                                   &c_dims,
-                                                                   qnarr,
-                                                                   dimarr
-                                                                   );
+                                        nrblocks += innerl_qn_dims(counted, ids,
+                                                                   k, &c_qn,
+                                                                   &c_dims, gs);
                                         assert(!counted || nrblocks * make_dat.T->nrsites == c_qn - qnumbers);
                                         assert(!counted || nrblocks == c_dims - dims);
                                 }
@@ -526,24 +514,20 @@ static void init_multisitetensor(void)
          * We sort then and allocate memory for the siteTensor. */
 
         // So first generate for every site the qnumbersarray.
-        int ***darr[STEPSPECS_MSITES];
-        int ***qnarr[STEPSPECS_MSITES];
+        struct good_sectors gs[STEPSPECS_MSITES];
         for (int i = 0; i < make_dat.T->nrsites; ++i) {
-                int total;
-                find_goodqnumbersectors(&darr[i], &qnarr[i], &total, 
-                                        make_dat.ssarr[i], 1);
+                gs[i] = find_good_sectors(make_dat.ssarr[i], 1);
         }
 
         // Combine them to valid sectors for the multisitetensor
         make_dat.T->nrblocks = 0;
-        make_qnumbers_and_dims(qnarr, darr);
+        make_qnumbers_and_dims(gs);
         // Now make it.
-        make_qnumbers_and_dims(qnarr, darr);
+        make_qnumbers_and_dims(gs);
 
         // Destroy them
         for (int i = 0; i < make_dat.T->nrsites; ++i) {
-                destroy_dim_and_qnumbersarray(&darr[i], &qnarr[i],
-                                              make_dat.ssarr[i]);
+                destroy_good_sectors(&gs[i]);
         }
         sort_and_make();
 }

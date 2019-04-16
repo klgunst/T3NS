@@ -72,187 +72,168 @@ static inline bool iterate_tprod(struct iter_tprod * iter)
         return false;
 }
 
-static int sel_goodsymsecs(const struct symsecs * ss, int i, int j, int sign,
-                           int ** da, int ** qna)
+static struct gsec_arr sel_goodsymsecs(struct symsecs * ss, 
+                                       int i, int j, int sign)
 {
+        const int dim = ss[0].dims[i] * ss[1].dims[j];
+        if (dim == 0) {
+                struct gsec_arr gsa = {0};
+                return gsa;
+        }
+
         struct iter_tprod iter = init_tprod(ss[0].irreps[i], ss[1].irreps[j],
                                             sign, bookie.sgs, bookie.nrSyms);
-
-        const int dim = ss[0].dims[i] * ss[1].dims[j];
-        *da = safe_malloc(iter.total, **da);
-        *qna = safe_malloc(1 + iter.total, **qna);
-        (*qna)[0] = iter.total;
+        struct gsec_arr gsa = {
+                .L = iter.total,
+                .sectors = safe_malloc(iter.total, *gsa.sectors)
+        };
 
         int valids = 0;
         while (iterate_tprod(&iter)) {
                 const int ind = search_symsec(iter.cirr, &ss[2]);
                 if (ind == -1 || ss[2].dims[ind] == 0) { continue; }
-                (*da)[valids] = dim * ss[2].dims[ind];
-                (*qna)[valids + 1] = ind;
+                gsa.sectors[valids].d = dim * ss[2].dims[ind];
+                gsa.sectors[valids].id3 = ind;
                 ++valids;
         }
 
         if (valids == 0) {
-                safe_free(*da);
-
+                safe_free(gsa.sectors);
         } else {
-                *da = realloc(*da, valids * sizeof **da);
+                gsa.sectors = realloc(gsa.sectors, valids * sizeof *gsa.sectors);
         }
-        *qna = realloc(*qna, (valids + 1) * sizeof **qna);
-        (*qna)[0] = valids;
+        gsa.L = valids;
 
-        if ((valids != 0 && *da == NULL) || *qna == NULL) {
+        if (valids != 0 && gsa.sectors == NULL) {
                 fprintf(stderr, "%s:%s: realloc failed.\n", __FILE__, __func__);
                 exit(EXIT_FAILURE);
         }
-        return valids;
+        return gsa;
 }
 
-void find_goodqnumbersectors(int **** const da, int **** const qna, int *ptotal, 
-                             const struct symsecs * const symarr, const int sign)
+struct good_sectors find_good_sectors(const struct symsecs * symarr, int sign)
 {
         /* Loop over bond 1 and 2, tensorproduct them to form bond 3 and then
          * look at the ones that actually exist in bond 3. */
 
         // On practically all systems calloc will initialize NULL's
-        *da = safe_calloc(symarr[0].nrSecs, **da);
-        *qna = safe_calloc(symarr[0].nrSecs, **qna);
+        struct good_sectors res = {
+                .ss = {symarr[0], symarr[1], symarr[2]},
+                .sectors = safe_calloc(symarr[0].nrSecs, *res.sectors),
+                .total = 0
+        };
         int total = 0;
 
-#pragma omp parallel for schedule(dynamic) default(none) reduction(+:total)
-        for (int i = 0; i < symarr[0].nrSecs; ++i) {
-                if (symarr[0].dims[i] == 0) { continue; }
-                (*da)[i] = safe_calloc(symarr[1].nrSecs, ***da);
-                (*qna)[i] = safe_calloc(symarr[1].nrSecs, ***qna);
-
-                for (int j = 0; j < symarr[1].nrSecs; ++j) {
-                        if (symarr[1].dims[j] == 0) { continue; }
-                        total += sel_goodsymsecs(symarr, i, j, sign,
-                                                 &(*da)[i][j], &(*qna)[i][j]);
+#pragma omp parallel for schedule(dynamic) default(none) shared(res,sign) reduction(+:total)
+        for (int i = 0; i < res.ss[0].nrSecs; ++i) {
+                if (res.ss[0].dims[i] == 0) { continue; }
+                res.sectors[i] = safe_malloc(res.ss[1].nrSecs, *res.sectors[i]);
+                for (int j = 0; j < res.ss[1].nrSecs; ++j) {
+                        res.sectors[i][j].L = 0;
+                        res.sectors[i][j].sectors = NULL;
+                        if (res.ss[1].dims[j] == 0) { continue; }
+                        res.sectors[i][j] = sel_goodsymsecs(res.ss, i, j, sign);
+                        total += res.sectors[i][j].L;
                 }
         }
-        *ptotal = total;
+        res.total = total;
+        return res;
 }
 
-void destroy_dim_and_qnumbersarray(int ****dimarray, int ****qnumbersarray, const struct symsecs 
-                                   symarr[])
+void destroy_good_sectors(struct good_sectors * gs)
 {
-        int i;
-
-        for (i = 0; i < symarr[0].nrSecs; ++i)
-        {
-                int j;
-
-                for (j = 0; j < symarr[1].nrSecs; ++j)
-                {
-                        safe_free((*dimarray)[i][j]);
-                        safe_free((*qnumbersarray)[i][j]);
+        for (int i = 0; i < gs->ss[0].nrSecs; ++i) {
+                for (int j = 0; j < gs->ss[1].nrSecs; ++j) {
+                        safe_free(gs->sectors[i][j].sectors);
                 }
-                safe_free((*dimarray)[i]);
-                safe_free((*qnumbersarray)[i]);
+                safe_free(gs->sectors[i]);
         }
-        safe_free(*dimarray);
-        safe_free(*qnumbersarray);
+        safe_free(gs->sectors);
 }
 
-void find_qnumbers_with_index_in_array(const int id, const int idnr, int *** qnumbersarray, 
-                                       int ***dimarray, const struct symsecs symarr[], QN_TYPE **res_qnumbers, int ** res_dim, 
-                                       int *length)
+struct iter_gs init_iter_gs(int tid, int idnr, const struct good_sectors * gs)
 {
-        int sym1, sym2, sym3;
-        int counter;
-        const int dim1 = symarr[0].nrSecs;
-        const int dim2 = symarr[0].nrSecs * symarr[1].nrSecs;
-        const int NULLflag = (res_qnumbers == NULL) && (res_dim == NULL);
+        assert(tid < gs->ss[idnr].nrSecs);
+        struct iter_gs iter = {
+                .gs = gs,
+                .length = 0,
+                .idnr = idnr,
+                .iid = {0, 0, 0},
+                .minid = {0, 0, 0},
+                .maxid = {gs->ss[0].nrSecs, gs->ss[1].nrSecs, 0},
+                .cnt = -1
+        };
+        iter.iid[idnr] = tid;
+        iter.minid[idnr] = tid;
+        iter.maxid[idnr] = tid + 1;
 
-        assert((res_qnumbers == NULL) == (res_dim == NULL) &&
-               "Both res_qnumbers and res_dim should be null-pointers or valid pointers");
-
-        *length = 0;
-        switch (idnr)
-        {
-        case 0:
-                assert(id < symarr[0].nrSecs);
-                sym1 = id;
-                for (sym2 = 0; sym2 < symarr[1].nrSecs; ++sym2)
-                {
-                        *length += qnumbersarray[sym1][sym2][0];
+        const int oidnr = idnr == 0;
+        int id[2] = {0};
+        if (idnr != 2) {
+                id[idnr] = tid;
+                for (id[oidnr] = 0; id[oidnr] < gs->ss[oidnr].nrSecs; ++id[oidnr]) {
+                        iter.length += gs->sectors[id[0]][id[1]].L;
                 }
-                if (NULLflag)
-                        break;
-
-                *res_qnumbers = safe_malloc(*length, QN_TYPE);
-                *res_dim      = safe_malloc(*length, int);
-
-                counter = 0;
-                for (sym2 = 0; sym2 < symarr[1].nrSecs; ++sym2)
-                {
-                        QN_TYPE ind = sym1 + dim1 * sym2;
-                        for (sym3 = 0; sym3 < qnumbersarray[sym1][sym2][0]; ++sym3)
-                        {
-                                (*res_qnumbers)[counter] = ind + qnumbersarray[sym1][sym2][1 + sym3] * dim2;
-                                (*res_dim)[counter]      = dimarray[sym1][sym2][sym3];
-                                ++counter;
-                        }
-                }
-                break;
-        case 1:
-                assert(id < symarr[1].nrSecs);
-                sym2 = id;
-                for (sym1 = 0; sym1 < symarr[0].nrSecs; ++sym1)
-                {
-                        *length += qnumbersarray[sym1][sym2][0];
-                }
-                if (NULLflag)
-                        break;
-
-                *res_qnumbers = safe_malloc(*length, QN_TYPE);
-                *res_dim      = safe_malloc(*length, int);
-
-                counter = 0;
-                for (sym1 = 0; sym1 < symarr[0].nrSecs; ++sym1)
-                {
-                        QN_TYPE ind = sym1 + dim1 * sym2;
-                        for (sym3 = 0; sym3 < qnumbersarray[sym1][sym2][0]; ++sym3)
-                        {
-                                (*res_qnumbers)[counter] = ind + qnumbersarray[sym1][sym2][1 + sym3] * dim2;
-                                (*res_dim)[counter]      = dimarray[sym1][sym2][sym3];
-                                ++counter;
-                        }
-                }
-                break;
-        case 2:
-                assert(id < symarr[2].nrSecs);
-
-                for (sym1 = 0; sym1 < symarr[0].nrSecs; ++sym1)
-                        for (sym2 = 0; sym2 < symarr[1].nrSecs; ++sym2)
-                                for (sym3 = 0; sym3 < qnumbersarray[sym1][sym2][0]; ++sym3)
-                                {
-                                        *length += qnumbersarray[sym1][sym2][1 + sym3] == id;
-                                }
-                if (NULLflag)
-                        break;
-
-                *res_qnumbers = safe_malloc(*length, QN_TYPE);
-                *res_dim      = safe_malloc(*length, int);
-
-                counter = 0;
-                for (sym1 = 0; sym1 < symarr[0].nrSecs; ++sym1)
-                        for (sym2 = 0; sym2 < symarr[1].nrSecs; ++sym2){
-                                QN_TYPE ind = sym1 + dim1 * sym2;
-                                for (sym3 = 0; sym3 < qnumbersarray[sym1][sym2][0]; ++sym3)
-                                        if (qnumbersarray[sym1][sym2][1 + sym3] == id)
-                                        {
-                                                (*res_qnumbers)[counter] = ind + qnumbersarray[sym1][sym2][1 + sym3] * dim2;
-                                                (*res_dim)[counter]      = dimarray[sym1][sym2][sym3];
-                                                ++counter;
+                iter.maxid[2] = gs->sectors[iter.iid[0]][iter.iid[1]].L;
+        } else {
+                for (id[0] = 0; id[0] < gs->ss[0].nrSecs; ++id[0]) {
+                        for (id[1] = 0; id[1] < gs->ss[1].nrSecs; ++id[1]) {
+                                const struct gsec_arr * ga = 
+                                        &gs->sectors[id[0]][id[1]];
+                                for (int k = 0; k < ga->L; ++k) {
+                                        if (ga->sectors[k].id3 == tid) {
+                                                ++iter.length;
+                                                break;
                                         }
+                                }
                         }
-                assert(counter == *length);
-                break;
-        default:
-                fprintf(stderr, "ERROR: Wrong idnr (%d) passed in find_qnumbers_with_index_in_array\n",idnr);
-                exit(EXIT_FAILURE);
+                }
+        }
+        // For first iteration needed
+        --iter.iid[2];
+        return iter;
+}
+
+bool iterate_gs(struct iter_gs * iter)
+{
+        int * iid = iter->iid;
+        while (true) {
+                int i;
+                for (i = 2; i >= 0; --i) {
+                        if (++iid[i] < iter->maxid[i]) { break; }
+                        iid[i] = iter->minid[i];
+                }
+                // Finished iterating
+                if (i == -1) {
+                        assert(iter->cnt + 1 == iter->length);
+                        return false;
+                }
+                const struct gsec_arr * gsa = &iter->gs->sectors[iid[0]][iid[1]];
+
+                if (iter->idnr != 2) {
+                        // No valid tensor products for these, just continue
+                        if ((iter->maxid[2] = gsa->L) == 0) { continue; }
+                        // If dimension is zero of the block, just continue.
+                        if ((iter->cdim = gsa->sectors[iid[2]].d) == 0) { continue; }
+                } else {
+                        for (i = 0; i < gsa->L; ++i) {
+                                if (gsa->sectors[i].id3 == iid[2]) { break; }
+                        }
+                        // If not found, just continue
+                        if (i == gsa->L) { continue; }
+                        // If dimension is zero of the block, just continue.
+                        if ((iter->cdim = gsa->sectors[i].d) == 0) { continue; }
+                }
+
+                const int id[3] = {
+                        iid[0],
+                        iid[1],
+                        iter->idnr == 2 ? iid[2] : gsa->sectors[iid[2]].id3
+                };
+                // Calculate the qntype
+                iter->cqn = qntypize(id, iter->gs->ss);
+                ++iter->cnt;
+                return true;
         }
 }
 
@@ -428,3 +409,188 @@ struct symsecs tensprod_symsecs(const struct symsecs * sectors1,
         kick_empty_symsecs(&res, (char) (o == 'd' ? 'n' : o));
         return res;
 }
+
+static int sel_goodsymsecs1(const struct symsecs * ss, int i, int j, int sign,
+                           int ** da, int ** qna)
+{
+        struct iter_tprod iter = init_tprod(ss[0].irreps[i], ss[1].irreps[j],
+                                            sign, bookie.sgs, bookie.nrSyms);
+
+        const int dim = ss[0].dims[i] * ss[1].dims[j];
+        *da = safe_malloc(iter.total, **da);
+        *qna = safe_malloc(1 + iter.total, **qna);
+        (*qna)[0] = iter.total;
+
+        int valids = 0;
+        while (iterate_tprod(&iter)) {
+                const int ind = search_symsec(iter.cirr, &ss[2]);
+                if (ind == -1 || ss[2].dims[ind] == 0) { continue; }
+                (*da)[valids] = dim * ss[2].dims[ind];
+                (*qna)[valids + 1] = ind;
+                ++valids;
+        }
+
+        if (valids == 0) {
+                safe_free(*da);
+
+        } else {
+                *da = realloc(*da, valids * sizeof **da);
+        }
+        *qna = realloc(*qna, (valids + 1) * sizeof **qna);
+        (*qna)[0] = valids;
+
+        if ((valids != 0 && *da == NULL) || *qna == NULL) {
+                fprintf(stderr, "%s:%s: realloc failed.\n", __FILE__, __func__);
+                exit(EXIT_FAILURE);
+        }
+        return valids;
+}
+
+void find_goodqnumbersectors(int **** const da, int **** const qna, int *ptotal, 
+                             const struct symsecs * const symarr, const int sign)
+{
+        /* Loop over bond 1 and 2, tensorproduct them to form bond 3 and then
+         * look at the ones that actually exist in bond 3. */
+
+        // On practically all systems calloc will initialize NULL's
+        *da = safe_calloc(symarr[0].nrSecs, **da);
+        *qna = safe_calloc(symarr[0].nrSecs, **qna);
+        int total = 0;
+
+#pragma omp parallel for schedule(dynamic) default(none) reduction(+:total)
+        for (int i = 0; i < symarr[0].nrSecs; ++i) {
+                if (symarr[0].dims[i] == 0) { continue; }
+                (*da)[i] = safe_calloc(symarr[1].nrSecs, ***da);
+                (*qna)[i] = safe_calloc(symarr[1].nrSecs, ***qna);
+
+                for (int j = 0; j < symarr[1].nrSecs; ++j) {
+                        if (symarr[1].dims[j] == 0) { continue; }
+                        total += sel_goodsymsecs1(symarr, i, j, sign,
+                                                 &(*da)[i][j], &(*qna)[i][j]);
+                }
+        }
+        *ptotal = total;
+}
+
+void destroy_dim_and_qnumbersarray(int ****dimarray, int ****qnumbersarray, const struct symsecs 
+                                   symarr[])
+{
+        int i;
+
+        for (i = 0; i < symarr[0].nrSecs; ++i)
+        {
+                int j;
+
+                for (j = 0; j < symarr[1].nrSecs; ++j)
+                {
+                        safe_free((*dimarray)[i][j]);
+                        safe_free((*qnumbersarray)[i][j]);
+                }
+                safe_free((*dimarray)[i]);
+                safe_free((*qnumbersarray)[i]);
+        }
+        safe_free(*dimarray);
+        safe_free(*qnumbersarray);
+}
+
+void find_qnumbers_with_index_in_array(const int id, const int idnr, int *** qnumbersarray, 
+                                       int ***dimarray, const struct symsecs symarr[], QN_TYPE **res_qnumbers, int ** res_dim, 
+                                       int *length)
+{
+        int sym1, sym2, sym3;
+        int counter;
+        const int dim1 = symarr[0].nrSecs;
+        const int dim2 = symarr[0].nrSecs * symarr[1].nrSecs;
+        const int NULLflag = (res_qnumbers == NULL) && (res_dim == NULL);
+
+        assert((res_qnumbers == NULL) == (res_dim == NULL) &&
+               "Both res_qnumbers and res_dim should be null-pointers or valid pointers");
+
+        *length = 0;
+        switch (idnr)
+        {
+        case 0:
+                assert(id < symarr[0].nrSecs);
+                sym1 = id;
+                for (sym2 = 0; sym2 < symarr[1].nrSecs; ++sym2)
+                {
+                        *length += qnumbersarray[sym1][sym2][0];
+                }
+                if (NULLflag)
+                        break;
+
+                *res_qnumbers = safe_malloc(*length, QN_TYPE);
+                *res_dim      = safe_malloc(*length, int);
+
+                counter = 0;
+                for (sym2 = 0; sym2 < symarr[1].nrSecs; ++sym2)
+                {
+                        QN_TYPE ind = sym1 + dim1 * sym2;
+                        for (sym3 = 0; sym3 < qnumbersarray[sym1][sym2][0]; ++sym3)
+                        {
+                                (*res_qnumbers)[counter] = ind + qnumbersarray[sym1][sym2][1 + sym3] * dim2;
+                                (*res_dim)[counter]      = dimarray[sym1][sym2][sym3];
+                                ++counter;
+                        }
+                }
+                break;
+        case 1:
+                assert(id < symarr[1].nrSecs);
+                sym2 = id;
+                for (sym1 = 0; sym1 < symarr[0].nrSecs; ++sym1)
+                {
+                        *length += qnumbersarray[sym1][sym2][0];
+                }
+                if (NULLflag)
+                        break;
+
+                *res_qnumbers = safe_malloc(*length, QN_TYPE);
+                *res_dim      = safe_malloc(*length, int);
+
+                counter = 0;
+                for (sym1 = 0; sym1 < symarr[0].nrSecs; ++sym1)
+                {
+                        QN_TYPE ind = sym1 + dim1 * sym2;
+                        for (sym3 = 0; sym3 < qnumbersarray[sym1][sym2][0]; ++sym3)
+                        {
+                                (*res_qnumbers)[counter] = ind + qnumbersarray[sym1][sym2][1 + sym3] * dim2;
+                                (*res_dim)[counter]      = dimarray[sym1][sym2][sym3];
+                                ++counter;
+                        }
+                }
+                break;
+        case 2:
+                assert(id < symarr[2].nrSecs);
+
+                for (sym1 = 0; sym1 < symarr[0].nrSecs; ++sym1)
+                        for (sym2 = 0; sym2 < symarr[1].nrSecs; ++sym2)
+                                for (sym3 = 0; sym3 < qnumbersarray[sym1][sym2][0]; ++sym3)
+                                {
+                                        *length += qnumbersarray[sym1][sym2][1 + sym3] == id;
+                                }
+                if (NULLflag)
+                        break;
+
+                *res_qnumbers = safe_malloc(*length, QN_TYPE);
+                *res_dim      = safe_malloc(*length, int);
+
+                counter = 0;
+                for (sym1 = 0; sym1 < symarr[0].nrSecs; ++sym1)
+                        for (sym2 = 0; sym2 < symarr[1].nrSecs; ++sym2){
+                                QN_TYPE ind = sym1 + dim1 * sym2;
+                                for (sym3 = 0; sym3 < qnumbersarray[sym1][sym2][0]; ++sym3)
+                                        if (qnumbersarray[sym1][sym2][1 + sym3] == id)
+                                        {
+                                                (*res_qnumbers)[counter] = ind + qnumbersarray[sym1][sym2][1 + sym3] * dim2;
+                                                (*res_dim)[counter]      = dimarray[sym1][sym2][sym3];
+                                                ++counter;
+                                        }
+                        }
+                assert(counter == *length);
+                break;
+        default:
+                fprintf(stderr, "ERROR: Wrong idnr (%d) passed in find_qnumbers_with_index_in_array\n",idnr);
+                exit(EXIT_FAILURE);
+        }
+}
+
