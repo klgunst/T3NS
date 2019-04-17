@@ -354,20 +354,14 @@ int main(int argc, char *argv[])
                 return EXIT_FAILURE;
         }
         execute_optScheme(T3NS, rops, &scheme, pbuffer);
+        struct disentScheme sch = {
+                .max_sweeps = 30,
+                .gambling = true,
+                .beta = 100,
+                .svd_sel = scheme.regimes[0].svd_sel
+        };
+        disentangle_state(T3NS, &sch, 0);
         print_target_state_coeff(T3NS);
-
-        /*
-        struct RedDM rdm;
-        get_RedDMs(T3NS, &rdm, 1, 0);
-        double * ent;
-        get_1siteEntanglement(&rdm, &ent);
-        for(int i = 0; i < rdm.sites; ++i) {
-                printf("%f ", ent[i]);
-        }
-        printf("\n");
-        safe_free(ent);
-        destroy_RedDM(&rdm);
-        */
 
         cleanup_before_exit(&T3NS, &rops, &scheme);
         printf("SUCCESFULL END!\n");

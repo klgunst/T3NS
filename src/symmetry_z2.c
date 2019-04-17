@@ -235,3 +235,24 @@ double Z2_prefactor_RDMinterm(int * symvalues, int bond)
                 return (symvalues[1] && symvalues[4]) || symvalues[5] ? -1 : 1;
         }
 }
+
+double Z2_prefactor_permutation(int symv[5][3], int permuteType)
+{
+        switch (permuteType) {
+        case 0:
+                return symv[0][1] && symv[1][1] ? -1 : 1;
+        case 1:
+                return symv[1][1] && symv[2][1] ? -1 : 1;
+        case 2:
+                return symv[0][1] && symv[2][1] ? -1 : 1;
+        case 3:
+                return symv[0][1] && symv[1][1] ? -1 : 1;
+        case 4:
+                return symv[0][1] && (symv[1][1] || symv[2][1]) ? -1 : 1;
+        case 5:
+                return symv[2][1] && (symv[0][1] || symv[1][1]) ? -1 : 1;
+        default:
+                fprintf(stderr, "Error: invalid permuteType passed to %s.\n", __func__);
+                return 0;
+        }
+}

@@ -128,7 +128,7 @@ void init_1siteTensor(struct siteTensor * const tens, const int site, const char
  * \param [in] sitelist The sites of which to make a product. maximal 4 and if less than four
  * a -1 sentinel is included.
  */
-int makesiteTensor(struct siteTensor * tens, struct siteTensor * T3NS, 
+int makesiteTensor(struct siteTensor * tens, const struct siteTensor * T3NS, 
                    const int * sitelist, int nr_sites);
 
 /**
@@ -145,6 +145,9 @@ void destroy_siteTensor(struct siteTensor * const tens);
  * \param [in] tocopy The siteTensor to copy.
  */
 void deep_copy_siteTensor(struct siteTensor * const copy, const struct siteTensor * const tocopy);
+
+int permute_siteTensor(const struct siteTensor * T, struct siteTensor * Tp, 
+                       const int * perm, int n);
 
 /* ====================================== MISC ================================================= */
 

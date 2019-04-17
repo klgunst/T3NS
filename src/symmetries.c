@@ -25,9 +25,7 @@
 
 int get_max_irrep(int (*prop1)[MAX_SYMMETRIES], int nr1, 
                   int (*prop2)[MAX_SYMMETRIES], int nr2,
-                  enum symmetrygroup sg, int whichsym)
-{
-        switch(sg) {
+                  enum symmetrygroup sg, int whichsym) { switch(sg) {
         case Z2 :
                 return Z2_get_max_irrep();
         case U1 :
@@ -333,6 +331,32 @@ double prefactor_combine_MPOs(int * const (*irreps)[3], int * const *irrMPO,
         return prefactor;
 }
 
+double prefactor_permutation(int * irreps[5][3], int permuteType,
+                             const enum symmetrygroup * sgs, int nrsy)
+{
+        int symvalues[5][3];
+        double prefactor = 1;
+        for (int i = 0; i < nrsy; ++i) {
+                switch(sgs[i]) {
+                case Z2 :
+                        for (int j = 0; j < 5; ++j)
+                                for (int k = 0; k < 3; ++k)
+                                        symvalues[j][k] = irreps[j][k] == NULL ? -1 : irreps[j][k][i];
+                        prefactor *= Z2_prefactor_permutation(symvalues, permuteType);
+                        break;
+                case SU2 :
+                        for (int j = 0; j < 5; ++j)
+                                for (int k = 0; k < 3; ++k)
+                                        symvalues[j][k] = irreps[j][k] == NULL ? -1 : irreps[j][k][i];
+                        //prefactor *= SU2_prefactor_permutation(symvalues, permuteType);
+                        break;
+                default :
+                        break;
+                }
+        }
+        return prefactor;
+}
+
 double prefactor_1siteRDM(int * (*irreps)[3], const enum symmetrygroup * sgs,
                           int nrsy)
 {
@@ -409,4 +433,3 @@ void get_sgsstring(enum symmetrygroup * sgs, int nrSyms, char * buffer)
                 strcat(buffer, "\t");
         }
 }
-

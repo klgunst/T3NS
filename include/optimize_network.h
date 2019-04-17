@@ -94,3 +94,38 @@ int init_operators(struct rOperators ** rOps, struct siteTensor ** T3NS);
  */
 int init_wave_function(struct siteTensor ** T3NS, int changedSS, 
                        struct bookkeeper * prevbookie, char option);
+
+/// A structure for specifying the scheme for disentangling the wave function.
+struct disentScheme {
+        /// Maximal number of sweeps for the disentangling.
+        int max_sweeps;
+        /** Randomly select a permutation at each state in a *metropolis-like* 
+         * fashion instead of choosing the best permutation at each point. */
+        bool gambling;
+        /// The 'temperature' for the metropolis-like step.
+        double beta;
+        /** The way to do HOSVD at each stage. You can choose the bond
+         * dimension higher than when energy-optimizing. */
+        struct SvalSelect svd_sel;
+};
+
+/**
+ * @brief Disentangles the wave function by permuting the orbitals on the
+ * network.
+ *
+ * The network.sitetoorb from the global @ref netw and the bookkeeper.v_symsecs 
+ * from the global @ref bookie are also changed by this procedure.
+ *
+ * **Note:** You should keep in mind, that after executing this function, the
+ * Hamiltonian and the rOperators should be reinitialized.
+ * 
+ * @param [in,out] T3NS The wave function, the orbitals are permuted by this
+ * function and possibly an extra truncation error is introduced.
+ * @param [in] scheme The disentangling scheme to be used.
+ * @param [in] verbosity Level of verbosity for the printed statements.
+ * @return The total entanglement in the disentangled state.
+ */
+double disentangle_state(struct siteTensor * T3NS,
+                         const struct disentScheme * scheme,
+                         int verbosity);
+

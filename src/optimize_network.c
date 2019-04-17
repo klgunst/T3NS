@@ -76,7 +76,7 @@ static double stop_timing(int timernr)
         return t_elapsed * 1e-6;
 }
 
-static void print_timers(const double * timings)
+static void print_timersArr(const double * timings)
 {
         for(int i = 0; i < NR_TIMERS; ++i) {
                 printf("  >>  %-35s  :: %lf sec\n", timernames[i], timings[i]);
@@ -334,7 +334,7 @@ static struct sweep_info execute_sweep(struct siteTensor * T3NS,
                 set_internal_symsecs();
 
                 double energy = optimize_siteTensor(reg, swinfo.sweeptimings);
-                printf("   * Energy : %.12lf\n", energy);
+                printf("   * Energy: %.12lf\n", energy);
                 start_timing(0);
 
                 /* same noise as CheMPS2 */
@@ -378,7 +378,7 @@ static void print_sweep_info(const struct sweep_info * info, int sw_nr, int regn
         printf("MAXIMUM TRUNCATION ERROR ENCOUNTERED DURING THIS SWEEP: %.4e\n", info->sw_trunc );
         printf("MAXIMUM BOND DIMENSION ENCOUNTERED DURING THIS SWEEP: %d\n", info->sw_maxdim    );
         printf("TIME NEEDED : %lf sec\n", info->tottime                                         );
-        print_timers(info->sweeptimings);
+        print_timersArr(info->sweeptimings);
         printf("============================================================================\n\n");
 }
 
@@ -639,7 +639,7 @@ double execute_optScheme(struct siteTensor * const T3NS, struct rOperators * con
                "\n", energy);
  
         printf("** TIMERS FOR OPTIMIZATION SCHEME\n");
-        print_timers(timings);
+        print_timersArr(timings);
         printf("============================================================================\n\n");
         return energy;
 }
@@ -686,4 +686,396 @@ void print_target_state_coeff(const struct siteTensor * T3NS)
                 printf("%g\n", value);
         }
         destroy_Rmatrix(&R);
+}
+
+/*****************************************************************************/
+/**************************** DISENTANGLING SWEEP ****************************/
+/*****************************************************************************/
+
+struct entanglement_info {
+        /// Number of virtual bonds in the state
+        int nr_bonds;
+        /// The entanglement in each bond
+        double * entanglement;
+        /// The total entanglement in the state
+        double totent;
+};
+
+static void print_entanglement_info(const struct entanglement_info * enti,
+                                    int verbosity)
+{
+        printf("total entanglement: %lf\n", enti->totent);
+        if (verbosity == 0) { return; }
+
+        printf("Entanglement per bond: {");
+        for (int i = 0; i < enti->nr_bonds; ++i) {
+                printf("%g%s", enti->entanglement[i], 
+                       i != enti->nr_bonds - 1 ? ", " : "}\n");
+        }
+}
+
+static struct entanglement_info entanglement_state(const struct siteTensor * T3NS)
+{
+        struct siteTensor * tempT3NS = safe_calloc(netw.sites, *tempT3NS);
+        for (int i = 0; i < netw.sites; ++i) {
+                deep_copy_siteTensor(&tempT3NS[i], &T3NS[i]);
+        }
+        struct entanglement_info enti = {
+                .nr_bonds = netw.nr_bonds,
+                .entanglement = safe_calloc(netw.nr_bonds, *enti.entanglement),
+                .totent = 0
+        };
+        bool * already_touched = safe_calloc(netw.nr_bonds, *already_touched);
+        int * sweep, swlength;
+
+        make_simplesweep(true, &sweep, &swlength);
+        for (int i = 0; i < swlength; ++i) {
+                const struct decompose_info info = 
+                        qr_step(&tempT3NS[sweep[i]], sweep[(i + 1) % swlength], 
+                                tempT3NS, true);
+                assert(info.wasQR);
+                const int bond = info.cutted_bonds[0];
+                if (!already_touched[bond]) {
+                        already_touched[bond] = true;
+                        enti.entanglement[bond] = info.cut_ent[0];
+                        enti.totent += enti.entanglement[bond];
+                } else {
+                        const double diffent = enti.entanglement[bond] -
+                                info.cut_ent[0];
+                        if (fabs(diffent) > 1e-14) {
+                                fprintf(stderr,"Something went wrong when calculating entanglement at bond %d. Difference is %g\n", bond, diffent);
+                        }
+                }
+        }
+
+        for (int i = 0; i < netw.sites; ++i) {
+                destroy_siteTensor(&tempT3NS[i]);
+        }
+        safe_free(tempT3NS);
+        safe_free(sweep);
+        safe_free(already_touched);
+        return enti;
+}
+
+// Structure for storeing the best found permutation.
+struct bestPerm {
+        double totent;
+        struct siteTensor * T3NS;
+        struct symsecs * vss;
+        int * sitetoorb;
+};
+
+static struct bestPerm init_bestPerm(const struct siteTensor * T3NS)
+{
+        struct bestPerm bp = {
+                .T3NS = malloc(netw.sites * sizeof *bp.T3NS),
+                .vss = malloc(netw.nr_bonds * sizeof *bp.vss),
+                .sitetoorb = malloc(netw.sites * sizeof *bp.sitetoorb)
+        };
+        for (int i = 0; i < netw.sites; ++i) {
+                deep_copy_siteTensor(&bp.T3NS[i], &T3NS[i]);
+                bp.sitetoorb[i] = netw.sitetoorb[i];
+        }
+
+        for (int i = 0; i < netw.nr_bonds; ++i) {
+                deep_copy_symsecs(&bp.vss[i], &bookie.v_symsecs[i]);
+        }
+
+        return bp;
+}
+
+static void destroy_bestPerm(struct bestPerm * bp)
+{
+        for (int i = 0; i < netw.sites; ++i) {
+                destroy_siteTensor(&bp->T3NS[i]);
+        }
+        for (int i = 0; i < netw.nr_bonds; ++i) {
+                destroy_symsecs(&bp->vss[i]);
+        }
+
+        safe_free(bp->T3NS);
+        safe_free(bp->sitetoorb);
+        safe_free(bp->vss);
+}
+
+static int accept_bestPerm(struct bestPerm * bp, struct siteTensor * T3NS)
+{
+        for (int i = 0; i < netw.sites; ++i) {
+                destroy_siteTensor(&T3NS[i]);
+                T3NS[i] = bp->T3NS[i];
+                netw.sitetoorb[i] = bp->sitetoorb[i];
+        }
+        for (int i = 0; i < netw.nr_bonds; ++i) {
+                destroy_symsecs(&bookie.v_symsecs[i]);
+                bookie.v_symsecs[i] = bp->vss[i];
+        }
+
+        safe_free(bp->T3NS);
+        safe_free(bp->sitetoorb);
+        safe_free(bp->vss);
+
+        const int lastsite = netw.bonds[get_outgoing_bond()][0];
+        return recanonicalize_T3NS(T3NS, lastsite);
+}
+
+static bool written;
+static int nribs;
+static int internalbonds[STEPSPECS_MBONDS];
+
+static int orig_sitetoorb[STEPSPECS_MSITES];
+static struct symsecs origss[STEPSPECS_MBONDS];
+
+static int best_sitetoorb[STEPSPECS_MSITES];
+static struct siteTensor besttens[STEPSPECS_MSITES];
+static struct symsecs bestss[STEPSPECS_MBONDS];
+
+static void backup_orig(const struct stepSpecs * specs)
+{
+        assert(!written);
+        for (int i = 0; i < specs->nr_sites_opt; ++i) {
+                orig_sitetoorb[i] = netw.sitetoorb[specs->sites_opt[i]];
+        }
+        for (int i = 0; i < nribs; ++i) {
+                struct symsecs css;
+                get_symsecs(&css, internalbonds[i]);
+                deep_copy_symsecs(&origss[i], &css);
+        }
+}
+
+static void backup_perm(const struct siteTensor * T3NS,
+                        const struct stepSpecs * specs)
+{
+        for (int i = 0; i < specs->nr_sites_opt; ++i) {
+                best_sitetoorb[i] = netw.sitetoorb[specs->sites_opt[i]];
+                if (written) { destroy_siteTensor(&besttens[i]); }
+                deep_copy_siteTensor(&besttens[i], &T3NS[specs->sites_opt[i]]);
+        }
+        for (int i = 0; i < nribs; ++i) {
+                if (written) { destroy_symsecs(&bestss[i]); }
+                struct symsecs css;
+                get_symsecs(&css, internalbonds[i]);
+                deep_copy_symsecs(&bestss[i], &css);
+        }
+        written = true;
+}
+
+static void put_back_perm(struct siteTensor * T3NS,
+                          const struct stepSpecs * specs)
+{
+        for (int i = 0; i < specs->nr_sites_opt; ++i) {
+                netw.sitetoorb[specs->sites_opt[i]] = best_sitetoorb[i];
+                destroy_siteTensor(&T3NS[specs->sites_opt[i]]);
+                T3NS[specs->sites_opt[i]] = besttens[i];
+        }
+        for (int i = 0; i < nribs; ++i) {
+                destroy_symsecs(&bookie.v_symsecs[internalbonds[i]]);
+                bookie.v_symsecs[internalbonds[i]] = bestss[i];
+        }
+        written = false;
+}
+
+static void put_back_orig(const struct stepSpecs * specs)
+{
+        for (int i = 0; i < specs->nr_sites_opt; ++i) {
+                netw.sitetoorb[specs->sites_opt[i]] = orig_sitetoorb[i];
+        }
+        for (int i = 0; i < nribs; ++i) {
+                destroy_symsecs(&bookie.v_symsecs[internalbonds[i]]);
+                deep_copy_symsecs(&bookie.v_symsecs[internalbonds[i]], &origss[i]);
+        }
+}
+
+static void clean_orig(void)
+{
+        for (int i = 0; i < nribs; ++i) {
+                destroy_symsecs(&origss[i]);
+        }
+}
+
+static void print_permutation(int * perm, int nr)
+{
+        printf("Permutation ");
+        for (int i = 0; i < nr; ++i) {
+                printf("%d%s", perm[i], i == nr - 1 ? " " : ", ");
+        }
+}
+
+static struct decompose_info selectBestPerm(struct siteTensor * T3NS,
+                                            const struct stepSpecs * specs,
+                                            const struct disentScheme * scheme,
+                                            int verbosity)
+{
+        int perm2[][3] = {{0, 1}, {1, 0}};
+        int perm3[][3] = {
+                {0, 1, 2},
+                {0, 2, 1},
+                {2, 1, 0},
+                {1, 0, 2},
+                {1, 2, 0},
+                {2, 0, 1}
+        };
+
+        int accepted_perm = 0;
+        struct siteTensor S;
+
+        makesiteTensor(&S, T3NS, specs->sites_opt, specs->nr_sites_opt);
+        nribs = get_nr_internalbonds(&S);
+        get_internalbonds(&S, internalbonds);
+        backup_orig(specs);
+
+        struct siteTensor Stemp;
+        deep_copy_siteTensor(&Stemp, &S);
+        struct decompose_info info = 
+                decompose_siteTensor(&Stemp, specs->nCenter, 
+                                     T3NS, &scheme->svd_sel);
+
+        assert(S.nrsites == 2 || S.nrsites == 3 || S.nrsites == 4);
+
+
+        int (*perm)[3] = S.nrsites == 4 ? perm3 : perm2;
+        int nrperm = S.nrsites == 4 ? sizeof perm3 / sizeof perm3[0] : 
+                sizeof perm2 / sizeof perm2[0];
+        const int nr = S.nrsites == 4 ? 3 : 2;
+
+        backup_perm(T3NS, specs);
+        if (verbosity > 0) { 
+                print_permutation(perm[0], nr);
+                printf("\n");
+                print_decompose_info(&info, NULL);
+        }
+
+        if (scheme->gambling) {
+                // Do a Metropolis step instead of trying all permutations!
+                nrperm = 2;
+                perm = &perm[rand() % (nrperm - 1)];
+        }
+
+        for (int i = 1; i < nrperm; ++i) {
+                put_back_orig(specs);
+                struct siteTensor Sp;
+                permute_siteTensor(&S, &Sp, perm[i], nr);
+                struct decompose_info cinfo = 
+                        decompose_siteTensor(&Sp, specs->nCenter, T3NS, 
+                                             &scheme->svd_sel);
+
+                if (verbosity > 0) { 
+                        print_permutation(perm[i], nr);
+                        printf("\n");
+                        print_decompose_info(&info, NULL);
+                }
+                bool accepted = cinfo.cut_totalent < info.cut_totalent;
+                if (scheme->gambling) {
+                        // Metropolis step
+                        // Acceptance with probability exp(-b * dS)
+                        double diff = cinfo.cut_totalent - info.cut_totalent;
+                        double expval = exp(-scheme->beta * diff);
+                        accepted = rand() < expval * RAND_MAX;
+                }
+                if (accepted) {
+                        accepted_perm = i;
+                        info = cinfo;
+                        backup_perm(T3NS, specs);
+                }
+        }
+
+        if (verbosity > 0) {
+                printf("Accepted ");
+                print_permutation(perm[accepted_perm], nr);
+                printf("with entanglement %g\n", info.cut_totalent);
+        }
+
+        put_back_perm(T3NS, specs);
+        destroy_siteTensor(&S);
+        clean_orig();
+        return info;
+}
+
+static void disentangle_sweep(struct siteTensor * T3NS, 
+                              const struct disentScheme * scheme,
+                              struct entanglement_info * enti,
+                              struct bestPerm * bp, int verbosity)
+{
+        struct stepSpecs specs;
+        while (next_opt_step(4, &specs)) {
+                const struct decompose_info dinfo = 
+                        selectBestPerm(T3NS, &specs, scheme, verbosity - 1);
+                if (dinfo.erflag) { exit(EXIT_FAILURE); }
+
+                for (int i = 0; i < dinfo.cuts; ++i) {
+                        enti->entanglement[dinfo.cutted_bonds[i]] = 
+                                dinfo.cut_ent[i];
+                }
+                enti->totent = 0;
+                for (int i = 0; i < enti->nr_bonds; ++i) {
+                        enti->totent += enti->entanglement[i];
+                }
+                if (verbosity > 0) {
+                        printf("Current entanglement: %g\n", enti->totent);
+                }
+
+                if (enti->totent < bp->totent) {
+                        destroy_bestPerm(bp);
+                        *bp = init_bestPerm(T3NS);
+                        bp->totent = enti->totent;
+                }
+        }
+}
+
+static void print_siteorder(void)
+{
+        printf("Site to orbital: ");
+        for (int i = 0; i < netw.sites; ++i) {
+                if (is_psite(i)) {
+                        printf("%d ", netw.sitetoorb[i]);
+                } else {
+                        printf("* ");
+                }
+        }
+}
+
+double disentangle_state(struct siteTensor * T3NS,
+                         const struct disentScheme * scheme,
+                         int verbosity)
+{
+        int * tempsweep = netw.sweep;
+        int tempswlength = netw.sweeplength;
+        make_simplesweep(true, &netw.sweep, &netw.sweeplength);
+        struct entanglement_info enti = entanglement_state(T3NS);
+        srand(time(NULL));
+
+        struct bestPerm bp = init_bestPerm(T3NS);
+        bp.totent = enti.totent;
+
+        printf("\n****** Disentangling the wave function ******\n");
+        if (scheme->gambling) { printf("~~~ Rien ne va plus! ~~~\n"); }
+        printf("Initial ");
+        print_entanglement_info(&enti, verbosity);
+        print_siteorder();
+        printf("\n");
+
+        for (int i = 0; i < scheme->max_sweeps; ++i) {
+                disentangle_sweep(T3NS, scheme, &enti, &bp, verbosity);
+                if (verbosity > 0) {
+                        printf("@ sweep %d: ", i + 1);
+                        print_entanglement_info(&enti, verbosity - 1);
+                }
+        }
+
+        if (accept_bestPerm(&bp, T3NS)) {
+                fprintf(stderr, "Error: something went wrong when recanonicalizing the wave function.\n");
+        }
+        safe_free(enti.entanglement);
+        enti = entanglement_state(T3NS);
+
+        printf("Final ");
+        print_entanglement_info(&enti, verbosity);
+        print_siteorder();
+        printf("\n");
+        printf("** Timers for disentangling scheme:\n");
+
+        safe_free(netw.sweep);
+        netw.sweep = tempsweep;
+        netw.sweeplength = tempswlength;
+        safe_free(enti.entanglement);
+        return enti.totent;
 }

@@ -167,38 +167,43 @@ static struct {
         struct symsecs ssarr[STEPSPECS_MSITES][3];
         // Pointer to the original symsecs.
         struct symsecs ssarr_old[STEPSPECS_MSITES][3];
-} make_dat;
+} md;
 
 static void add_psite(int bond, int bid, const int * sitelist, int nr) 
 {
         const int site = netw.bonds[bond][bid == 2];
         assert(is_psite(site));
         if (linSearch(&site, sitelist, nr, sort_int[1], sizeof(int)) == -1) {
-                make_dat.connected[bid][0] = -1;
-                make_dat.connected[bid][1] = -1;
+                md.connected[bid][0] = -1;
+                md.connected[bid][1] = -1;
         } else {
-                make_dat.connected[bid][0] = make_dat.T->nrsites;
-                make_dat.connected[bid][1] = 2 * (bid != 2);
+                md.connected[bid][0] = md.T->nrsites;
+                md.connected[bid][1] = 2 * (bid != 2);
 
-                make_dat.outersites[make_dat.nr_internal] = make_dat.T->nrsites;
-                make_dat.internals[make_dat.nr_internal] = bond;
-                make_dat.T->sites[make_dat.T->nrsites] = site;
-                ++make_dat.nr_internal;
-                ++make_dat.T->nrsites;
+                md.outersites[md.nr_internal] = md.T->nrsites;
+                md.internals[md.nr_internal] = bond;
+                md.T->sites[md.T->nrsites] = site;
+                ++md.nr_internal;
+                ++md.T->nrsites;
         }
 }
 
-static int init_make_dat(struct siteTensor * T, const int * sitelist, int nr,
-                         struct siteTensor * T3NS)
+static int init_md(struct siteTensor * T, const int * sitelist, int nr,
+                         const struct siteTensor * T3NS)
 {
-        make_dat.T = T;
+        md.T = T;
         T->nrsites = 0;
-        make_dat.nr_internal = 0;
+        md.nr_internal = 0;
         int branch = -1;
         for (int i = 0; i < nr; ++i) {
                 if (is_psite(sitelist[i])) { continue; }
                 if (branch != -1) {
-                        fprintf(stderr, "Making a multisite tensor with multiply branching tensors is not supported at the moment.\n");
+                        fprintf(stderr, "Making a multisite tensor with multiple branching tensors is not supported at the moment.\n");
+                        fprintf(stderr, "Sitelist given is ");
+                        for (int j = 0; j < nr; ++j) {
+                                printf("%d ", sitelist[j]);
+                        }
+                        printf("\n");
                         return 1;
                 } else {
                         branch = sitelist[i];
@@ -211,45 +216,45 @@ static int init_make_dat(struct siteTensor * T, const int * sitelist, int nr,
                 for (int i = 0; i < 2; ++i) {
                         add_psite(bonds[i], i, sitelist, nr);
                 }
-                make_dat.innersite = make_dat.T->nrsites;
-                T->sites[make_dat.T->nrsites++] = branch;
+                md.innersite = md.T->nrsites;
+                T->sites[md.T->nrsites++] = branch;
                 add_psite(bonds[2], 2, sitelist, nr);
         } else {
                 assert(nr == 2);
                 const int bond = get_common_bond(sitelist[0], sitelist[1]);
                 T->nrsites = 2;
-                make_dat.nr_internal = 1;
-                make_dat.internals[0] = bond;
+                md.nr_internal = 1;
+                md.internals[0] = bond;
                 T->sites[0] = netw.bonds[bond][0];
                 T->sites[1] = netw.bonds[bond][1];
 
-                make_dat.outersites[0] = 0;
-                make_dat.outersites[1] = 1;
-                make_dat.outersites[2] = 2;
-                make_dat.innersite = nr - 1;
+                md.outersites[0] = 0;
+                md.outersites[1] = 1;
+                md.outersites[2] = 2;
+                md.innersite = nr - 1;
 
-                make_dat.connected[0][0] = 0;
-                make_dat.connected[0][1] = 2;
-                make_dat.connected[1][0] = -1;
-                make_dat.connected[1][1] = -1;
-                make_dat.connected[2][0] = -1;
-                make_dat.connected[2][1] = -1;
+                md.connected[0][0] = 0;
+                md.connected[0][1] = 2;
+                md.connected[1][0] = -1;
+                md.connected[1][1] = -1;
+                md.connected[2][0] = -1;
+                md.connected[2][1] = -1;
         }
-        assert(make_dat.nr_internal == nr - 1);
+        assert(md.nr_internal == nr - 1);
 
         for (int i = 0; i < T->nrsites; ++i) {
-                make_dat.oT[i] = T3NS[T->sites[i]];
-                get_bonds_of_site(T->sites[i], make_dat.bonds[i]);
-                get_symsecs_arr(3, make_dat.ssarr_old[i], make_dat.bonds[i]);
+                if (T3NS != NULL) { md.oT[i] = T3NS[T->sites[i]]; }
+                get_bonds_of_site(T->sites[i], md.bonds[i]);
+                get_symsecs_arr(3, md.ssarr_old[i], md.bonds[i]);
         }
         return 0;
 }
 
 static void change_internals_in_bookkeeper(void)
 {
-        for (int i = 0; i < make_dat.nr_internal; ++i) {
-                destroy_symsecs(&bookie.v_symsecs[make_dat.internals[i]]);
-                bookie.v_symsecs[make_dat.internals[i]] = make_dat.intss[i];
+        for (int i = 0; i < md.nr_internal; ++i) {
+                destroy_symsecs(&bookie.v_symsecs[md.internals[i]]);
+                bookie.v_symsecs[md.internals[i]] = md.intss[i];
         }
 }
 
@@ -258,24 +263,24 @@ static void initialize_inner_symsecs(void)
 {
         // With the bordering sites, give a first estimate for 
         // the inner symsecs.
-        for (int i = 0; i < make_dat.nr_internal; ++i) {
-                const int site = make_dat.outersites[i];
-                int * bonds = make_dat.bonds[site];
-                const int sign = make_dat.internals[i] == bonds[2] ? 1 : -1;
+        for (int i = 0; i < md.nr_internal; ++i) {
+                const int site = md.outersites[i];
+                int * bonds = md.bonds[site];
+                const int sign = md.internals[i] == bonds[2] ? 1 : -1;
                 int cnt = 0;
 
                 struct symsecs symsec[2];
                 // Need to do this in opposite order (so that sign is correc)
                 // The outer should be the first symsec if present
                 for (int j = 2; j >= 0; --j) {
-                        if (bonds[j] != make_dat.internals[i]) {
-                                symsec[cnt++] = make_dat.ssarr_old[site][j];
+                        if (bonds[j] != md.internals[i]) {
+                                symsec[cnt++] = md.ssarr_old[site][j];
                         }
                 }
                 assert(cnt == 2);
-                make_dat.intss[i] = tensprod_symsecs(&symsec[0], &symsec[1], 
+                md.intss[i] = tensprod_symsecs(&symsec[0], &symsec[1], 
                                                      sign, 'n');
-                make_dat.intss[i].bond = make_dat.internals[i];
+                md.intss[i].bond = md.internals[i];
         }
 }
 
@@ -284,70 +289,70 @@ static void correct_inner_symsecs(void)
 {
         // With the remaining site, get some extra restrictions on the
         // possibilities for the inner symsecs.
-        int * bonds = make_dat.bonds[make_dat.innersite];
-        struct symsecs * symsec = make_dat.ssarr[make_dat.innersite];
+        int * bonds = md.bonds[md.innersite];
+        struct symsecs * symsec = md.ssarr[md.innersite];
         struct good_sectors gs = find_good_sectors(symsec, 1);
 
         for (int i = 0; i < 3; ++i) {
                 int j;
-                for (j = 0; j < make_dat.nr_internal; ++j) {
-                        if (bonds[i] == make_dat.internals[j]) { break; }
+                for (j = 0; j < md.nr_internal; ++j) {
+                        if (bonds[i] == md.internals[j]) { break; }
                 }
                 // The bond you are looking at of internalsite is not an 
                 // internal one
-                if (j == make_dat.nr_internal) { continue; }
+                if (j == md.nr_internal) { continue; }
 
                 // It is an internal one, check which symmetry sectors could
                 // be kicked.
-                for (int ss = 0; ss < make_dat.intss[j].nrSecs; ++ss) {
+                for (int ss = 0; ss < md.intss[j].nrSecs; ++ss) {
                         struct iter_gs iter = init_iter_gs(ss, i, &gs);
 
                         if (iter.length < 1) { 
-                                make_dat.intss[j].fcidims[ss] = 0;
-                                make_dat.intss[j].dims[ss] = 0;
+                                md.intss[j].fcidims[ss] = 0;
+                                md.intss[j].dims[ss] = 0;
                         }
                 }
         }
         destroy_good_sectors(&gs);
 
         // Kick the symmetry sectors
-        for (int i = 0; i < make_dat.nr_internal; ++i) {
-                kick_empty_symsecs(&make_dat.intss[i], 'n');
+        for (int i = 0; i < md.nr_internal; ++i) {
+                kick_empty_symsecs(&md.intss[i], 'n');
         }
 }
 
 static void sort_and_make(void)
 {
-        const int nb = make_dat.T->nrblocks;
-        const int ns = make_dat.T->nrsites;
+        const int nb = md.T->nrblocks;
+        const int ns = md.T->nrsites;
         QN_TYPE * new_qn = safe_malloc(nb * ns, *new_qn);
         int * new_dim = safe_malloc(nb + 1, *new_dim);
         // Sorting
-        int * idx = quickSort(make_dat.T->qnumbers, nb, sort_qn[ns]);
+        int * idx = quickSort(md.T->qnumbers, nb, sort_qn[ns]);
 
         new_dim[0] = 0; 
         for (int i = 0; i < nb; ++i) {
                 for (int j = 0; j < ns; ++j) {
-                        new_qn[i * ns + j] = make_dat.T->qnumbers[idx[i] * ns + j];
+                        new_qn[i * ns + j] = md.T->qnumbers[idx[i] * ns + j];
                 }
-                new_dim[i + 1] = make_dat.T->blocks.beginblock[idx[i]] + new_dim[i];
+                new_dim[i + 1] = md.T->blocks.beginblock[idx[i]] + new_dim[i];
         }
 
-        safe_free(make_dat.T->blocks.beginblock);
-        safe_free(make_dat.T->qnumbers);
+        safe_free(md.T->blocks.beginblock);
+        safe_free(md.T->qnumbers);
         safe_free(idx);
 
-        make_dat.T->blocks.beginblock = new_dim;
-        make_dat.T->qnumbers = new_qn;
-        make_dat.T->blocks.tel = safe_calloc(siteTensor_get_size(make_dat.T),
-                                             *make_dat.T->blocks.tel);
+        md.T->blocks.beginblock = new_dim;
+        md.T->qnumbers = new_qn;
+        md.T->blocks.tel = safe_calloc(siteTensor_get_size(md.T),
+                                             *md.T->blocks.tel);
 }
 
 static int get_partqn_and_dim(bool counted, int id, int leg, QN_TYPE ** partqn, 
                               int ** partdim, const struct good_sectors * gs)
 {
-        const int site = make_dat.connected[leg][0];
-        const int bond = make_dat.connected[leg][1];
+        const int site = md.connected[leg][0];
+        const int bond = md.connected[leg][1];
         assert(site != -1);
 
         struct iter_gs iter = init_iter_gs(id, bond, &gs[site]);
@@ -371,18 +376,18 @@ static int innerl_qn_dims(bool counted, const int * ids, int k, QN_TYPE ** p_qn,
 
         int totlength = 1;
         for (int i = 0; i < 3; ++i) {
-                if (make_dat.connected[i][0] == -1) { continue; }
-                length[make_dat.connected[i][0]] = 
+                if (md.connected[i][0] == -1) { continue; }
+                length[md.connected[i][0]] = 
                         get_partqn_and_dim(counted, ids[i], i, partqn, 
                                            partdim, gs);
-                assert(length[make_dat.connected[i][0]] >= 0);
-                totlength *= length[make_dat.connected[i][0]];
+                assert(length[md.connected[i][0]] >= 0);
+                totlength *= length[md.connected[i][0]];
         }
         // Still counting, dont need to fill p_qn and p_dims.
         if (!counted) { return totlength; }
 
-        const int isite = make_dat.innersite;
-        QN_TYPE internal_qn = qntypize(ids, make_dat.ssarr[isite]);
+        const int isite = md.innersite;
+        QN_TYPE internal_qn = qntypize(ids, md.ssarr[isite]);
         int internal_dim = gs[isite].sectors[ids[0]][ids[1]].sectors[k].d;
 
         partqn[isite] = &internal_qn;
@@ -398,15 +403,15 @@ static int innerl_qn_dims(bool counted, const int * ids, int k, QN_TYPE ** p_qn,
                 assert(cnt < totlength);
                 ++cnt;
                 **p_dims = 1;
-                for (int i = 0; i < make_dat.T->nrsites; ++i) {
+                for (int i = 0; i < md.T->nrsites; ++i) {
                         (*p_qn)[i] = partqn[i][indexes[i]];
                         **p_dims *= partdim[i][indexes[i]];
                 }
-                *p_qn += make_dat.T->nrsites;
+                *p_qn += md.T->nrsites;
                 *p_dims += 1; 
 
                 flag = false;
-                for (int i = 0; i < make_dat.T->nrsites; ++i) {
+                for (int i = 0; i < md.T->nrsites; ++i) {
                         ++indexes[i];
                         if (indexes[i] < length[i]) {
                                 flag = true;
@@ -417,7 +422,7 @@ static int innerl_qn_dims(bool counted, const int * ids, int k, QN_TYPE ** p_qn,
         }
 
         for (int i = 0; i < 3; ++i) {
-                const int site = make_dat.connected[i][0];
+                const int site = md.connected[i][0];
                 if (site == -1) { continue; }
                 safe_free(partqn[site]);
                 safe_free(partdim[site]);
@@ -425,7 +430,7 @@ static int innerl_qn_dims(bool counted, const int * ids, int k, QN_TYPE ** p_qn,
         return totlength;
 }
 
-/* Should set make_dat.T->nrblocks to zero on first call.
+/* Should set md.T->nrblocks to zero on first call.
  *
  * This function first calls the number of blocks and calls it self again.
  *
@@ -434,25 +439,25 @@ static int innerl_qn_dims(bool counted, const int * ids, int k, QN_TYPE ** p_qn,
 static void make_qnumbers_and_dims(const struct good_sectors * const gs)
 {
         int nrblocks = 0;
-        const bool counted = make_dat.T->nrblocks != 0;
+        const bool counted = md.T->nrblocks != 0;
 
-#pragma omp parallel default(none) shared(make_dat) reduction(+:nrblocks)
+#pragma omp parallel default(none) shared(md) reduction(+:nrblocks)
         {
                 QN_TYPE * qnumbers = NULL;
                 int * dims = NULL;
                 if (counted) {
-                        qnumbers = safe_malloc(make_dat.T->nrblocks * 
-                                               make_dat.T->nrsites, *qnumbers);
-                        dims = safe_malloc(make_dat.T->nrblocks, *dims);
+                        qnumbers = safe_malloc(md.T->nrblocks * 
+                                               md.T->nrsites, *qnumbers);
+                        dims = safe_malloc(md.T->nrblocks, *dims);
                 }
                 QN_TYPE * c_qn = qnumbers;
                 int * c_dims = dims;
-                struct symsecs * intsym  = make_dat.ssarr[make_dat.innersite];
+                struct symsecs * intsym  = md.ssarr[md.innersite];
 
 #pragma omp for schedule(static) collapse(2)
                 for (int i = 0; i < intsym[0].nrSecs; ++i) {
                         for (int j = 0; j < intsym[1].nrSecs; ++j) {
-                                struct gsec_arr * gsa = &gs[make_dat.innersite].sectors[i][j];
+                                struct gsec_arr * gsa = &gs[md.innersite].sectors[i][j];
                                 for (int k = 0; k < gsa->L; ++k) {
                                         const int ids[] = {
                                                 i,
@@ -462,7 +467,7 @@ static void make_qnumbers_and_dims(const struct good_sectors * const gs)
                                         nrblocks += innerl_qn_dims(counted, ids,
                                                                    k, &c_qn,
                                                                    &c_dims, gs);
-                                        assert(!counted || nrblocks * make_dat.T->nrsites == c_qn - qnumbers);
+                                        assert(!counted || nrblocks * md.T->nrsites == c_qn - qnumbers);
                                         assert(!counted || nrblocks == c_dims - dims);
                                 }
                         }
@@ -470,34 +475,34 @@ static void make_qnumbers_and_dims(const struct good_sectors * const gs)
 
 #pragma omp critical
                 if (counted) {
-                        assert(nrblocks * make_dat.T->nrsites == c_qn - qnumbers);
+                        assert(nrblocks * md.T->nrsites == c_qn - qnumbers);
                         assert(nrblocks == c_dims - dims);
 
-                        if (make_dat.T->qnumbers == NULL) {
-                                make_dat.T->qnumbers = qnumbers;
-                                make_dat.T->blocks.beginblock = dims;
-                                make_dat.T->nrblocks = nrblocks;
+                        if (md.T->qnumbers == NULL) {
+                                md.T->qnumbers = qnumbers;
+                                md.T->blocks.beginblock = dims;
+                                md.T->nrblocks = nrblocks;
                         } else {
                                 for (int i = 0; i < nrblocks; ++i) {
-                                        const int cid = i + make_dat.T->nrblocks;
-                                        make_dat.T->blocks.beginblock[cid] = dims[i];
-                                        const int N = make_dat.T->nrsites;
+                                        const int cid = i + md.T->nrblocks;
+                                        md.T->blocks.beginblock[cid] = dims[i];
+                                        const int N = md.T->nrsites;
                                         for (int j = 0; j < N; ++j) {
-                                                make_dat.T->qnumbers[cid * N + j] = qnumbers[i * N + j];
+                                                md.T->qnumbers[cid * N + j] = qnumbers[i * N + j];
                                         }
                                 }
-                                make_dat.T->nrblocks += nrblocks;
+                                md.T->nrblocks += nrblocks;
                                 safe_free(qnumbers);
                                 safe_free(dims);
                         }
                 }
         }
         if (!counted) {
-                make_dat.T->nrblocks = nrblocks;
-                make_dat.T->qnumbers = NULL;
-                make_dat.T->blocks.beginblock = NULL;
+                md.T->nrblocks = nrblocks;
+                md.T->qnumbers = NULL;
+                md.T->blocks.beginblock = NULL;
         }
-        assert(make_dat.T->nrblocks == nrblocks);
+        assert(md.T->nrblocks == nrblocks);
 }
 
 // This function initializes the different qnumbers for the multisite tensor
@@ -515,18 +520,18 @@ static void init_multisitetensor(void)
 
         // So first generate for every site the qnumbersarray.
         struct good_sectors gs[STEPSPECS_MSITES];
-        for (int i = 0; i < make_dat.T->nrsites; ++i) {
-                gs[i] = find_good_sectors(make_dat.ssarr[i], 1);
+        for (int i = 0; i < md.T->nrsites; ++i) {
+                gs[i] = find_good_sectors(md.ssarr[i], 1);
         }
 
         // Combine them to valid sectors for the multisitetensor
-        make_dat.T->nrblocks = 0;
+        md.T->nrblocks = 0;
         make_qnumbers_and_dims(gs);
         // Now make it.
         make_qnumbers_and_dims(gs);
 
         // Destroy them
-        for (int i = 0; i < make_dat.T->nrsites; ++i) {
+        for (int i = 0; i < md.T->nrsites; ++i) {
                 destroy_good_sectors(&gs[i]);
         }
         sort_and_make();
@@ -534,18 +539,18 @@ static void init_multisitetensor(void)
 
 static void set_ssarr(void)
 {
-        for (int i = 0; i < make_dat.T->nrsites; ++i) {
+        for (int i = 0; i < md.T->nrsites; ++i) {
                 for (int j = 0; j < 3; ++j) {
                         int k;
-                        for (k = 0; k < make_dat.nr_internal; ++k) {
-                                if (make_dat.bonds[i][j] == make_dat.internals[k]) {
+                        for (k = 0; k < md.nr_internal; ++k) {
+                                if (md.bonds[i][j] == md.internals[k]) {
                                         break;
                                 }
                         }
-                        if (k == make_dat.nr_internal) {
-                                make_dat.ssarr[i][j] = make_dat.ssarr_old[i][j];
+                        if (k == md.nr_internal) {
+                                md.ssarr[i][j] = md.ssarr_old[i][j];
                         } else {
-                                make_dat.ssarr[i][j] = make_dat.intss[k];
+                                md.ssarr[i][j] = md.intss[k];
                         }
                 }
         }
@@ -566,9 +571,9 @@ static void make_internalss_and_tensor(void)
          *
          * All the internal symsecs are updated. And after this I execute 
          * find_goodqnumbersectors for every site. And match the things. */
-        make_dat.nr_internal = get_nr_internalbonds(make_dat.T);
-        assert(make_dat.nr_internal <= 3);
-        get_internalbonds(make_dat.T, make_dat.internals);
+        md.nr_internal = get_nr_internalbonds(md.T);
+        assert(md.nr_internal <= 3);
+        get_internalbonds(md.T, md.internals);
 
         initialize_inner_symsecs();
         set_ssarr();
@@ -596,24 +601,28 @@ static struct makeinfo init_makeinfo(int sb)
 {
         const enum teltype origmap[] = {SITE1, SITE2, SITE3, SITE4};
         struct makeinfo minfo = {.is_valid = true, };
-        const int ns = make_dat.T->nrsites;
-        minfo.tel[RESULT] = get_tel_block(&make_dat.T->blocks, sb);
-        const QN_TYPE * const qn = &make_dat.T->qnumbers[sb * ns];
+        const int ns = md.T->nrsites;
+        minfo.tel[RESULT] = get_tel_block(&md.T->blocks, sb);
+        const QN_TYPE * const qn = &md.T->qnumbers[sb * ns];
 
         for (int i = 0; i < ns; ++i) {
-                struct symsecs * nsym = make_dat.ssarr[i];
-                struct symsecs * osym = make_dat.ssarr_old[i];
+                struct symsecs * nsym = md.ssarr[i];
+                struct symsecs * osym = md.ssarr_old[i];
 
                 int nids[3], oids[3];
                 indexize(nids, qn[i], nsym);
                 translate_indices(nids, nsym, oids, osym, 3);
                 const QN_TYPE old_qn = qntypize(oids, osym);
 
-                const int csb = binSearch(&old_qn, make_dat.oT[i].qnumbers,
-                                          make_dat.oT[i].nrblocks,
+                const int csb = binSearch(&old_qn, md.oT[i].qnumbers,
+                                          md.oT[i].nrblocks,
                                           sort_qn[1], sizeof old_qn);
+                if (csb == -1) {
+                        minfo.is_valid = false;
+                        return minfo;
+                }
                 
-                minfo.tel[origmap[i]] = get_tel_block(&make_dat.oT[i].blocks, csb);
+                minfo.tel[origmap[i]] = get_tel_block(&md.oT[i].blocks, csb);
                 if (minfo.tel[origmap[i]] == NULL) { 
                         minfo.is_valid = false;
                         return minfo;
@@ -636,33 +645,33 @@ static int init_contractinfo(struct makeinfo * minfo,
         // We work backward in contracting the outer sites to the inner site.
         const enum teltype origmap[] = {SITE1, SITE2, SITE3, SITE4};
         const enum teltype result[] = {
-                origmap[make_dat.innersite], WORK1, WORK2, RESULT
+                origmap[md.innersite], WORK1, WORK2, RESULT
         };
 
         int innerdim[3] = {
-                minfo->odim[make_dat.innersite][0],
-                minfo->odim[make_dat.innersite][1],
-                minfo->odim[make_dat.innersite][2]
+                minfo->odim[md.innersite][0],
+                minfo->odim[md.innersite][1],
+                minfo->odim[md.innersite][2]
         };
 
-        const int contracts = make_dat.nr_internal;
+        const int contracts = md.nr_internal;
         bool one_added = false;
         for(int i = 0; i < contracts; ++i) {
                 int j;
                 for (j = 0; j < 3; ++j) {
-                        if (make_dat.internals[order[i]] == 
-                            make_dat.bonds[make_dat.innersite][j]) {
+                        if (md.internals[order[i]] == 
+                            md.bonds[md.innersite][j]) {
                                 break;
                         }
                 }
 
                 const int bond_int = j;
                 assert(bond_int != -1);
-                const int site = make_dat.connected[bond_int][0];
-                const int bond = make_dat.connected[bond_int][1];
+                const int site = md.connected[bond_int][0];
+                const int bond = md.connected[bond_int][1];
                 assert(bond == 0 || bond == 2);
 
-                if (site > make_dat.innersite) {
+                if (site > md.innersite) {
                         assert(bond == 0);
                         cinfo[i].tensneeded[0] = result[i];
                         cinfo[i].trans[0] = CblasNoTrans;
@@ -684,7 +693,7 @@ static int init_contractinfo(struct makeinfo * minfo,
                         cinfo[i].K = minfo->odim[site][bond];
                         cinfo[i].lda = bond == 0 ? cinfo[i].K : cinfo[i].M;
                         cinfo[i].stride[0] = 0;
-                        assert(cinfo[i].K == minfo->odim[make_dat.innersite][bond_int]);
+                        assert(cinfo[i].K == minfo->odim[md.innersite][bond_int]);
                         assert(cinfo[i].K == innerdim[bond_int]);
 
                         cinfo[i].tensneeded[1] = result[i];
@@ -749,8 +758,8 @@ static void clean_makeinfo(struct makeinfo * minfo)
 
 static void contractsiteTensors(void)
 {
-#pragma omp parallel for schedule(static) default(none) shared(make_dat)
-        for (int sb = 0; sb < make_dat.T->nrblocks; ++sb) {
+#pragma omp parallel for schedule(static) default(none) shared(md)
+        for (int sb = 0; sb < md.T->nrblocks; ++sb) {
                 const int order[3] = {0, 1, 2};
                 struct makeinfo minfo = init_makeinfo(sb);
                 if (minfo.is_valid == false) { continue; }
@@ -764,7 +773,7 @@ static void contractsiteTensors(void)
         }
 }
 
-int makesiteTensor(struct siteTensor * tens, struct siteTensor * T3NS, 
+int makesiteTensor(struct siteTensor * tens, const struct siteTensor * T3NS, 
                    const int * sitelist, int nr_sites)
 {
         // For 1 site-optimization.
@@ -773,12 +782,455 @@ int makesiteTensor(struct siteTensor * tens, struct siteTensor * T3NS,
                 return 0;
         }
 
-        if (init_make_dat(tens, sitelist, nr_sites, T3NS)) { return 1; }
+        if (init_md(tens, sitelist, nr_sites, T3NS)) { return 1; }
         make_internalss_and_tensor();
         /* contracts the correct tensor objects in T3NS to a new big site and
          * destroys them */
         contractsiteTensors();
         // Put the internal symmetry sectors in the bookkeeper.
         change_internals_in_bookkeeper();
+        return 0;
+}
+
+// Structure with data for performing of permutations of orbitals.
+static struct {
+        /* The type of permutation:
+         *      0 : 1 ↔ 2 (dmrg)
+         *   (T3NS)
+         *      1 : 2 ↔ 3 (1, 3, 2)
+         *      2 : 1 ↔ 3 (3, 2, 1)
+         *      3 : 1 ↔ 2 (2, 1, 3)
+         *      4 : 1 ↔ 2, 2 ↔ 3 (2, 3, 1)
+         *      5 : 1 ↔ 2, 1 ↔ 3 (3, 1, 2)
+         */
+        int permuteType;
+        /* for T3NS: 
+         *      sitemapping[0,1,2] is first, sec, and third physical site.
+         *              (can be -1 if the first, sec or third p site is not present)
+         *      sitemapping[3] is branching site
+         * 
+         * For DMRG:
+         *      sitemapping[0,1] is first and second physical site.
+         */
+        int sitemapping[5];
+
+        // Number of sites in both Tp and T
+        int ns;
+        // Original siteTensor
+        const struct siteTensor * T;
+        // The indexes of all the blocks.
+        int (*oids)[STEPSPECS_MSITES][3];
+        // Permuted siteTensor
+        struct siteTensor * Tp;
+
+        // The bonds of both T and Tp (this doesn't change)
+        int bonds[STEPSPECS_MSITES][3];
+        // The symsecs of the original T (for every bond in bonds)
+        // (Be sure that you deep copied the internal symsecs!)
+        struct symsecs osyms[STEPSPECS_MSITES][3];
+        // The symsecs of Tp (for every bond in bonds)
+        struct symsecs psyms[STEPSPECS_MSITES][3];
+
+        // The amount of outer bonds in T and Tp
+        int nr_outerb;
+        /* Mapping for the different outer bonds.
+         *
+         * There are maximal 6 outer bonds.
+         * The array is specified by:
+         *      outerb[index outer bond][old, new][site index, bond index]
+         *
+         * Thus for each outer bond index we have the following equality:
+         *      osyms[outerb[.][0][0]][outerb[.][0][1]] == 
+         *              psyms[outerb[.][1][0]][outerb[.][1][1]]
+         */
+        int outerb[6][2][2];
+        // Permutation array for outer bonds.
+        // Maps the old bond to the new bond.
+        int indexperm[6];
+        // Maps the new bond to the old bond.
+        int indexperminv[6];
+} pd;
+
+struct permute_helper {
+        // Old block index.
+        int ob;
+        // Pointer to the old block.
+        EL_TYPE * p_ob;
+        // Indexes of the old block.
+        int oids[STEPSPECS_MSITES][3];
+        // the leading dimensions for the outer bonds.
+        // The dimensions for the old outerbonds are equal to
+        // permute_helper.ndims[pd.outerbperm[.]]
+        int old[6];
+
+        // New block index.
+        int nb;
+        // Pointer to the new block.
+        EL_TYPE * p_nb;
+        // Indexes of the new block.
+        int nids[STEPSPECS_MSITES][3];
+        // For every outer bond, the dimension
+        int ndims[6];
+        // the leading dimensions for the outer bonds.
+        int nld[6];
+
+        // The irreps for all the bonds,
+        //  * irreps[0, 1, 2] are the irreps from the new p sites
+        //      (or NULL if not present)
+        //  * irreps[3] are the irreps from the new b site
+        //  * irreps[4] are the irresp from the old b site
+        //
+        //  Or for DMRG:
+        //  * irreps[0,1] are the irreps from the new p sites
+        //  * irreps[4] are the irreps from the last old p site
+        int * irreps[5][3];
+};
+
+static void permute_orbitals(const int * perm)
+{
+        int posP[STEPSPECS_MSITES];
+        int orbitals[STEPSPECS_MSITES];
+        int cnt = 0;
+        for (int i = 0; i < pd.ns; ++i) {
+                if (is_psite(pd.T->sites[i])) { 
+                        orbitals[cnt] = netw.sitetoorb[pd.T->sites[i]];
+                        posP[cnt++] = i; 
+                }
+        }
+
+        cnt = 0;
+        for (int i = 0; i < pd.ns; ++i) {
+                if (is_psite(pd.T->sites[i])) { 
+                        netw.sitetoorb[pd.T->sites[i]] = orbitals[perm[cnt]];
+                        ++cnt;
+                }
+        }
+
+        pd.nr_outerb = 0;
+        cnt = 0;
+        for (int i = 0; i < pd.ns; ++i) {
+                for (int j = 0; j < 3; ++j) {
+                        bool isouter = true;
+                        for (int k = 0; k < pd.ns; ++k) {
+                                for (int l = 0; l < 3; ++l) {
+                                        if (pd.bonds[i][j] == pd.bonds[k][l] &&
+                                            (i != k || j != l)) {
+                                                isouter = false;
+                                                break;
+                                        }
+                                }
+                        }
+                        if (!isouter) { continue; }
+
+                        // So it is an outer bond
+                        if (is_pbond(pd.bonds[i][j])) {
+                                // The orbital was remapped.
+                                // So should remap the outer bond also.
+                                assert(posP[cnt] == i && j == 1);
+                                pd.outerb[pd.nr_outerb][0][0] = posP[perm[cnt]];
+                                pd.outerb[pd.nr_outerb][0][1] = j;
+                                pd.outerb[pd.nr_outerb][1][0] = posP[cnt];
+                                pd.outerb[pd.nr_outerb][1][1] = j;
+                                ++pd.nr_outerb;
+                                ++cnt;
+                        } else {
+                                // No remapping of outer virtual bonds needed.
+                                // They stay the same.
+                                pd.outerb[pd.nr_outerb][0][0] = i;
+                                pd.outerb[pd.nr_outerb][0][1] = j;
+                                pd.outerb[pd.nr_outerb][1][0] = i;
+                                pd.outerb[pd.nr_outerb][1][1] = j;
+                                ++pd.nr_outerb;
+                        }
+                }
+        }
+        for (int i = 0; i < pd.nr_outerb; ++i) {
+                int j;
+                for (j = 0; j < pd.nr_outerb; ++j) {
+                        if (pd.outerb[i][0][0] == pd.outerb[j][1][0] &&
+                            pd.outerb[i][0][1] == pd.outerb[j][1][1]) {
+                                pd.indexperm[i] = j;
+                                pd.indexperminv[j] = i;
+                                break;
+                        }
+                }
+                assert(j != pd.nr_outerb);
+        }
+}
+
+static void set_sitemapping(void)
+{
+        if (pd.ns == 2) {
+                const int bond = get_common_bond(pd.T->sites[0], pd.T->sites[1]);
+                const int fsite = netw.bonds[bond][0];
+                pd.sitemapping[0] = fsite == pd.T->sites[0] ? 0 : 1;
+                pd.sitemapping[1] = fsite == pd.T->sites[0] ? 1 : 0;
+                pd.sitemapping[2] = -1;
+                pd.sitemapping[3] = -1;
+                pd.sitemapping[4] = pd.sitemapping[1];
+        } else {
+                int bonds[3];
+                for (int i = 0; i < pd.ns; ++i) {
+                        if (!is_psite(pd.T->sites[i])) {
+                                pd.sitemapping[3] = i;
+                                pd.sitemapping[4] = i;
+                                get_bonds_of_site(pd.T->sites[i], bonds);
+                                break;
+                        }
+                }
+                int sites[3] = {
+                        netw.bonds[bonds[0]][0],
+                        netw.bonds[bonds[1]][0],
+                        netw.bonds[bonds[2]][1]
+                };
+
+                pd.sitemapping[0] = -1;
+                pd.sitemapping[1] = -1;
+                pd.sitemapping[2] = -1;
+                for (int i = 0; i < 3; ++i) {
+                        for (int j = 0; j < pd.ns; ++j) {
+                                if (sites[i] == pd.T->sites[j]) {
+                                        assert(pd.sitemapping[i] == -1);
+                                        pd.sitemapping[i] = j;
+                                }
+                        }
+                }
+        }
+}
+
+static void set_permuteType(const int * perm)
+{
+        assert(pd.ns == 2 || pd.ns == 3 || pd.ns == 4);
+        if (pd.ns == 2) {
+                assert(perm[0] == 1 && perm[1] == 0);
+                pd.permuteType = 0;
+        } else if (pd.ns == 3) {
+                assert(perm[0] == 1 && perm[1] == 0);
+                pd.permuteType = -1;
+                for (int i = 0; i < 3; ++i) {
+                        if (pd.sitemapping[i] == -1) {
+                                pd.permuteType = i + 1;
+                                break;
+                        }
+                }
+                assert(pd.permuteType != -1);
+        } else {
+                const int idp = perm[0] + perm[1] * 3 + perm[2] * 9;
+                switch (idp) {
+                case 15: // 0 + 2 * 3 + 1 * 9
+                        pd.permuteType = 1;
+                        break;
+                case 5: // 2 + 1 * 3 + 0 * 9
+                        pd.permuteType = 2;
+                        break;
+                case 19: // 1 + 0 * 3 + 2 * 9
+                        pd.permuteType = 3;
+                        break;
+                case 7: // 1 + 2 * 3 + 0 * 9
+                        pd.permuteType = 4;
+                        break;
+                case 11: // 2 + 0 * 3 + 1 * 9
+                        pd.permuteType = 5;
+                        break;
+                default:
+                        fprintf(stderr, "Error: wrong permutation given.\n");
+                        exit(EXIT_FAILURE);
+                }
+        }
+}
+
+static void init_pd(const struct siteTensor * T, struct siteTensor * Tp, 
+                    const int * perm)
+{
+        pd.T = T;
+        pd.Tp = Tp;
+        pd.ns = pd.T->nrsites;
+
+        for (int i = 0; i < pd.ns; ++i) {
+                get_bonds_of_site(T->sites[i], pd.bonds[i]);
+        }
+        for (int i = 0; i < pd.ns; ++i) {
+                struct symsecs tempss[3];
+                get_symsecs_arr(3, tempss, pd.bonds[i]);
+                deep_copy_symsecs(&pd.osyms[i][0], &tempss[0]);
+                deep_copy_symsecs(&pd.osyms[i][1], &tempss[1]);
+                deep_copy_symsecs(&pd.osyms[i][2], &tempss[2]);
+        }
+        // pd.bonds, pd.perm and pd.T should already be assigned.
+        permute_orbitals(perm);
+        set_sitemapping();
+        set_permuteType(perm);
+
+        pd.oids = safe_malloc(pd.T->nrblocks, *pd.oids);
+        const QN_TYPE * qn = pd.T->qnumbers;
+        for (int i = 0; i < pd.T->nrblocks; ++i) {
+                for (int j = 0; j < pd.ns; ++j, ++qn) {
+                        indexize(pd.oids[i][j], *qn, pd.osyms[j]);
+                }
+        }
+}
+
+static void move_from_make_to_perm(void)
+{
+        // Only moving md.ssarr to the pd.psyms
+        for (int i = 0; i < pd.ns; ++i) {
+                pd.psyms[i][0] = md.ssarr[i][0];
+                pd.psyms[i][1] = md.ssarr[i][1];
+                pd.psyms[i][2] = md.ssarr[i][2];
+        }
+}
+
+static struct permute_helper init_permute_helper(int nb)
+{
+        struct permute_helper ph = {.nb = nb};
+        // Set to -1 for enabling start search
+        ph.ob = -1; 
+        ph.p_nb = get_tel_block(&pd.Tp->blocks, nb);
+        const QN_TYPE * qn = &pd.Tp->qnumbers[pd.ns * nb];
+        for (int i = 0; i < pd.ns; ++i) {
+                indexize(ph.nids[i], qn[i], pd.psyms[i]);
+        }
+
+        for (int i = 0; i < pd.nr_outerb; ++i) {
+                const int site = pd.outerb[i][1][0];
+                const int bond = pd.outerb[i][1][1];
+                ph.ndims[i] = pd.psyms[site][bond].dims[ph.nids[site][bond]];
+        }
+
+        ph.nld[0] = 1;
+        int tempold[6];
+        tempold[0] = 1;
+        for (int i = 1; i < pd.nr_outerb; ++i) {
+                ph.nld[i] = ph.nld[i - 1] * ph.ndims[i - 1];
+                tempold[i] = tempold[i - 1] * ph.ndims[pd.indexperm[i - 1]];
+        }
+        for (int i = 0; i < pd.nr_outerb; ++i) {
+                ph.old[i] = tempold[pd.indexperminv[i]];
+        }
+        assert(get_size_block(&pd.Tp->blocks, nb) == 
+               ph.nld[pd.nr_outerb - 1] * ph.ndims[pd.nr_outerb - 1]);
+
+        for (int i = 0; i < STEPSPECS_MSITES; ++i) {
+                const int site = pd.sitemapping[i];
+                if (site == -1) {
+                        ph.irreps[i][0] = NULL;
+                        ph.irreps[i][1] = NULL;
+                        ph.irreps[i][2] = NULL;
+                } else {
+                        const int * ids = ph.nids[site];
+                        ph.irreps[i][0] = pd.psyms[site][0].irreps[ids[0]];
+                        ph.irreps[i][1] = pd.psyms[site][1].irreps[ids[1]];
+                        ph.irreps[i][2] = pd.psyms[site][2].irreps[ids[2]];
+                }
+        }
+        return ph;
+}
+
+static bool get_o_perm_block(struct permute_helper * ph)
+{
+        // Loop over the old blocks.
+        bool match = false;
+        while (!match && (++ph->ob) < pd.T->nrblocks) {
+                match = true;
+                for (int i = 0; i < pd.nr_outerb; ++i) {
+                        const int * oouterb = pd.outerb[i][0];
+                        const int * nouterb = pd.outerb[i][1];
+                        if (ph->nids[nouterb[0]][nouterb[1]] !=
+                            pd.oids[ph->ob][oouterb[0]][oouterb[1]]) { 
+                                match = false;
+                                break;
+                        }
+                }
+        }
+        if (!match) { return false; }
+        ph->p_ob = get_tel_block(&pd.T->blocks, ph->ob);
+        assert(ph->p_ob != NULL);
+        for (int i = 0; i < pd.ns; ++i) {
+                for (int j = 0; j < 3; ++j) {
+                        ph->oids[i][j] = pd.oids[ph->ob][i][j];
+                }
+        }
+        const int site = pd.sitemapping[4];
+        const int * ids = ph->oids[site];
+        ph->irreps[4][0] = pd.osyms[site][0].irreps[ids[0]];
+        ph->irreps[4][1] = pd.osyms[site][1].irreps[ids[1]];
+        ph->irreps[4][2] = pd.osyms[site][2].irreps[ids[2]];
+        return true;
+}
+
+static void permute_tensors(void)
+{
+#pragma omp parallel for schedule(static) default(none) shared(pd,bookie)
+        for (int nb = 0; nb < pd.Tp->nrblocks; ++nb) {
+                struct permute_helper ph = init_permute_helper(nb);
+                while (get_o_perm_block(&ph)) { 
+                        const double pref = 
+                                prefactor_permutation(ph.irreps, pd.permuteType,
+                                                      bookie.sgs, bookie.nrSyms);
+                        permadd_block(ph.p_ob, ph.old, 
+                                      ph.p_nb, ph.nld, ph.ndims, 
+                                      pd.nr_outerb, pref);
+                }
+        }
+}
+
+static void cleanup_permute(void)
+{
+        safe_free(pd.oids);
+        for (int i = 0; i < pd.ns; ++i) {
+                destroy_symsecs(&pd.osyms[i][0]);
+                destroy_symsecs(&pd.osyms[i][1]);
+                destroy_symsecs(&pd.osyms[i][2]);
+        }
+}
+
+int permute_siteTensor(const struct siteTensor * T, struct siteTensor * Tp, 
+                       const int * perm, int n)
+{
+        /* perm: The permutation of the orbitals.
+         *
+         * e.g. {2, 0, 1} means that third orbital goes to first location,
+         * first orbital to second and so on. */
+        int cnt = 0;
+        for (int i = 0; i < T->nrsites; ++i) {
+                cnt += is_psite(T->sites[i]);
+
+        }
+        bool validperm = true;
+        for (int i = 0; i < n; ++i) { 
+                if (perm[i] >= cnt || perm[i] < 0) { validperm = false; }
+        }
+        if (!validperm || cnt != n) {
+                fprintf(stderr, "Invalid permutation array given for the permuting of the siteTensor.\n");
+                return 1;
+        }
+
+        int i;
+        for (i = 0; i < n; ++i) {
+                if (perm[i] != i) { break; }
+        }
+        if (i == n) {
+                fprintf(stderr, "Warning: identity permutation inputted for %s. Function exited without doing anything.\n", __func__);
+                return 0;
+        }
+
+        // Initial making of the permutation data
+        // In this function some needed symsecs and so are stored and also
+        // the permutation is performed on the netw.sitetoorb array.
+        init_pd(T, Tp, perm);
+        // Making the mda
+        if (init_md(Tp, T->sites, pd.ns, NULL)) { return 1; }
+        // Initializing the permuted tensor
+        make_internalss_and_tensor();
+        // Put the internals at their spot
+        // (I should have copied the old internals in the permute_data)
+        change_internals_in_bookkeeper();
+        // Move relevant information from the mda to the pda.
+        move_from_make_to_perm();
+
+        // Do the permutation of the elements
+        permute_tensors();
+        // Cleanup
+        cleanup_permute();
         return 0;
 }

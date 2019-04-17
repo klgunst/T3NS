@@ -180,6 +180,46 @@ double prefactor_combine_MPOs(int * const (*irreps)[3], int * const *irrMPO,
                               int isdmrg, int extradinge);
 
 /**
+ * @brief Calculates the prefactor for a certain permutation of the orbitals of
+ * the multi-site tensor.
+ *
+ * The type of the permutation is given by:
+ *      * DMRG:
+ *              * 0 : 1 ↔ 2
+ *      * T3NS:
+ *              * 1 : 2 ↔ 3 (1, 3, 2)
+ *              * 2 : 1 ↔ 3 (3, 2, 1)
+ *              * 3 : 1 ↔ 2 (2, 1, 3)
+ *              * 4 : 1 ↔ 2, 2 ↔ 3 (2, 3, 1)
+ *              * 5 : 1 ↔ 2, 1 ↔ 3 (3, 1, 2)
+ *
+ * The @ref irreps array is given by:
+ *      * DMRG:
+ *              * `irreps[0,1][.]` are the irreps of the bonds of **new** 
+ *              first and second physical site.
+ *              * `irreps[4][.]` are the irreps from the **old** second 
+ *              physical site.
+ *              * The other irreps are `NULL`.
+ *      * T3NS:
+ *              * `irreps[0,1,2][.]` are the irreps of the bonds of **new**
+ *              first, second an third physical site (i.e. the physical site 
+ *              attached to the first, second or third bond of the branching
+ *              site), or `NULL` if that site is not present.
+ *              * `irreps[3][.]` are the irreps from the **new** branching
+ *              site.
+ *              * `irreps[4][.]` are the irreps from the **old** branching
+ *              site.
+ *
+ * @param [in] irreps The different irreps of bonds.
+ * @param [in] permuteType The type of the permutation.
+ * @param [in] sgs The symmetrygroups.
+ * @param [in] nrsy The number of symmetrygroups.
+ * @return The prefactor for this type of permutation.
+ */
+double prefactor_permutation(int * irreps[5][3], int permuteType, 
+                             const enum symmetrygroup * sgs, int nrsy);
+
+/**
  * @brief Returns the prefactor for making the 1-site RDM.
  *
  * In this step, a certain orthocenter is contracted with itself over \f$α\f$
