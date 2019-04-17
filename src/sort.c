@@ -248,23 +248,20 @@ void rm_duplicates(void * array, int * n, enum sortType st, size_t size)
         }
 #endif
         int cnt = 1;
-        char * el = array;
         const int incr = size / sizeof(char);
-        char * cp_el = el + incr;
+        char * cel = array;
+        char * el = cel + incr;
 
-        for (int i = 1; i < *n; ++i) {
-                char * pel = el;
-                el += incr;
+        for (int i = 1; i < *n; ++i, el += incr) {
                 // Previous is neq to current
-                if (compareSearch[st](pel, el) != 0) {
-                        memcpy(cp_el, el, size);
-                        cp_el += incr;
+                if (compareSearch[st](cel, el) != 0) {
+                        cel += incr;
+                        memcpy(cel, el, size);
                         ++cnt;
                 }
         }
         *n = cnt;
-
-        assert((cp_el - (char *) array) == cnt * incr);
+        assert((cel - (char *) array) == (cnt - 1) * incr);
 }
 
 int linSearch(const void * value, const void * array, int n, 

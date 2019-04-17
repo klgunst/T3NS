@@ -675,8 +675,8 @@ static struct siteTensor init_splitted_tens(const struct siteTensor * A,
         inplace_quickSort(result.qnumbers, result.nrblocks,
                           sort_qn[result.nrsites], sizeofel);
         // Kick out duplicates
-        rm_duplicates(result.qnumbers, &result.nrblocks, sort_qn[result.nrsites],
-                      result.nrsites * sizeof result.qnumbers);
+        rm_duplicates(result.qnumbers, &result.nrblocks,
+                      sort_qn[result.nrsites], sizeofel);
         return result;
 }
 
@@ -724,6 +724,7 @@ static void make_r_count_svdinfos(struct svddata * dat, int make)
                 ++cnt;
         }
         const int id_csite = dat->id_csite - (dat->id_csite > dat->id_siteV);
+        assert(dat->U->sites[id_csite] == dat->A->sites[dat->id_csite]);
         divide = 1;
         for (int i = 0; i < dat->id_cbond; ++i) {
                 divide *= dat->symarr[dat->id_csite][i].nrSecs;
@@ -905,6 +906,7 @@ static void get_dims(int * dims, int block, const struct siteTensor * T,
                         ++cnt;
                 }
         }
+        assert(get_size_block(&T->blocks, block) == dims[0] * dims[1] * dims[2]);
 }
 
 // Copies and permutes a block from A to the working memory
@@ -944,7 +946,6 @@ static void SVD_copy_to_mem(struct svddata * dat, const int ssid,
                 const int Npos = inf.Nstart[idV];
                 EL_TYPE * mem = &memA[Mpos + inf.Mstart[inf.Msecs] * Npos];
 
-                const int pa[3] = {0, 2, 1};
                 int dims[3] = {1, 1, 1};
                 get_dims(dims, *block, dat->A, dat->id_siteV, -1, 
                          NULL, dat->symarr);
@@ -957,7 +958,9 @@ static void SVD_copy_to_mem(struct svddata * dat, const int ssid,
                 assert(dims[0] * dims[1] * dims[2] == 
                        get_size_block(&dat->A->blocks, *block));
 
-                permute_3tensor(mem, telA, &pa, &ld, &dims);
+                const int old[] = {1, dims[0] * dims[1], dims[0]};
+                const int idim[] = {dims[0], dims[2], dims[1]};
+                permadd_block(telA, old, mem, ld[1], idim, 3, 1);
         }
 }
 
@@ -976,7 +979,6 @@ static int SVD_copy_from_mem(struct svddata * dat, const int ssid)
 
                 const EL_TYPE * mem = &inf.memVT[inf.Nstart[idV] * origdimS];
 
-                const int pa[3] = {1, 0, 2};
                 int tdims[3];
                 get_dims(tdims, block, dat->V, 0, dat->id_bond, 
                          &dat->id_siteV, dat->symarr);
@@ -990,12 +992,13 @@ static int SVD_copy_from_mem(struct svddata * dat, const int ssid)
                 assert(dims[0] * dims[1] * dims[2] == 
                        get_size_block(&dat->V->blocks, block));
 
-                permute_3tensor(telV, mem, &pa, &ld, &dims);
+                const int old[] = {origdimS, 1, origdimS * dims[1]};
+                permadd_block(mem, old, telV, ld[1], tdims, 3, 1);
         }
 
         // Multiplying singular values in U
         const int M = inf.Mstart[inf.Msecs];
-        for (int s = 0; s < origdimS; ++s) {
+        for (int s = 0; s < dimS; ++s) {
                 cblas_dscal(M, dat->S->sing[ssid][s], inf.memU + s * M, 1);
         }
 
@@ -1012,7 +1015,6 @@ static int SVD_copy_from_mem(struct svddata * dat, const int ssid)
                         sitemap[i] = i + (i >= dat->id_siteV);
                 }
 
-                const int pa[3] = {0, 2, 1};
                 int tdims[3];
                 get_dims(tdims, block, dat->U, id_csite, dat->id_cbond, 
                          sitemap, dat->symarr);
@@ -1026,8 +1028,8 @@ static int SVD_copy_from_mem(struct svddata * dat, const int ssid)
                 assert(dims[0] * dims[1] == inf.Mstart[idU+1]-inf.Mstart[idU]);
                 assert(dims[0] * dims[1] * dims[2] == 
                        get_size_block(&dat->U->blocks, block));
-
-                permute_3tensor(telU, mem, &pa, &ld, &dims);
+                const int old[] = {1, M, dims[0]};
+                permadd_block(mem, old, telU, ld[1], tdims, 3, 1);
         }
         return 0;
 }
@@ -1362,8 +1364,8 @@ static void adapt_UV_tensors_and_kick_empties(struct svddata * dat)
         };
         int * newid = safe_malloc(olddimU[dat->id_cbond], *newid);
         int cnt = 0;
-        for (int i = 0; i < olddimV[dat->id_bond]; ++i) {
-                if (dat->symarr[dat->id_siteV][dat->id_bond].dims[i] == 0) {
+        for (int i = 0; i < olddimU[dat->id_cbond]; ++i) {
+                if (dat->symarr[dat->id_csite][dat->id_cbond].dims[i] == 0) {
                         newid[i] = -1;
                 } else {
                         newid[i] = cnt++;
@@ -1538,7 +1540,6 @@ struct decompose_info HOSVD(struct siteTensor * A,
                 struct SelectRes res = split_of_site(A, *site, sel, &newA, 
                                                      &S, &T3NS[*site]);
                 if (res.erflag) { return info; }
-
                 *A = newA;
 
                 info.cutted_bonds[info.cuts] = S.bond;

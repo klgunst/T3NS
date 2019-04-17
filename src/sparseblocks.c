@@ -16,16 +16,17 @@
 */
 #include <stdlib.h>
 #include <stdio.h>
+#include <assert.h>
+#include <stdbool.h>
 
+#include "sparseblocks.h"
+#include "macros.h"
 #ifdef T3NS_MKL
 #include "mkl.h"
 #else
 #include <lapacke.h>
 #endif
-
-#include "sparseblocks.h"
-#include "macros.h"
-#include <assert.h>
+#define MAX_PERM 6
 
 void init_null_sparseblocks(struct sparseblocks * blocks)
 {
@@ -112,7 +113,7 @@ int get_size_block(const struct sparseblocks * blocks, int id)
 
 EL_TYPE * get_tel_block(const struct sparseblocks * blocks, int id)
 {
-        if (id >= 0 && get_size_block(blocks, id))
+        if (get_size_block(blocks, id))
                 return blocks->tel + blocks->beginblock[id];
         else
                 return NULL;
@@ -156,42 +157,39 @@ void do_contract(const struct contractinfo * cinfo, EL_TYPE ** tel,
         }
 }
 
-void permute_3tensor(EL_TYPE * perm, const EL_TYPE * orig, const int (*pa)[3], 
-                     const int (*ld)[2][3], int (*dims)[3])
+void permadd_block(const EL_TYPE * orig, const int * old,
+                   EL_TYPE * perm, const int * nld, const int * ndims, int n,
+                   const double pref)
 {
-        assert((*ld)[0][0] == 1 && (*ld)[1][0] == 1);
-        const int ld_orig[3] = {
-                (*ld)[0][(*pa)[0]],
-                (*ld)[0][(*pa)[1]],
-                (*ld)[0][(*pa)[2]]
-        };
-        const int ld_perm[3] = {
-                (*ld)[1][0],
-                (*ld)[1][1],
-                (*ld)[1][2]
-        };
-        const int dim_perm[3] = {
-                (*dims)[(*pa)[0]],
-                (*dims)[(*pa)[1]],
-                (*dims)[(*pa)[2]]
-        };
-
-        assert((*ld)[0][1] >= (*dims)[0]);
-        assert((*ld)[0][2] >= (*dims)[0] * (*dims)[1]);
-        assert(ld_perm[1] >= dim_perm[0]);
-        assert(ld_perm[2] >= dim_perm[0] * dim_perm[1]);
-
-        for (int k = 0; k < dim_perm[2]; ++k) {
-                EL_TYPE * perm_k = perm + ld_perm[2] * k;
-                const EL_TYPE * orig_k = orig + ld_orig[2] * k;
-
-                for (int j = 0; j < dim_perm[1]; ++j) {
-                        EL_TYPE * perm_j = perm_k + ld_perm[1] * j;
-                        const EL_TYPE * orig_j = orig_k + ld_orig[1] * j;
-
-                        for (int i = 0; i < dim_perm[0]; ++i) {
-                                perm_j[i] = orig_j[ld_orig[0] * i];
+        // The n >= 2 is needed since I put two for loops explicit in it.
+        // The two first indices 
+        assert(n <= MAX_PERM && n >= 2);
+        assert(nld[0] == 1);
+        int ids[MAX_PERM] = {0};
+        const EL_TYPE * orig2 = orig;
+        EL_TYPE * perm2 = perm;
+        bool flag = true;
+        while (flag) {
+                for (ids[1] = 0; ids[1] < ndims[1]; ++ids[1]) {
+                        const EL_TYPE * orig1 = orig2 + old[1] * ids[1];
+                        EL_TYPE * perm1 = perm2 + nld[1] * ids[1];
+                        for (ids[0] = 0; ids[0] < ndims[0]; ++ids[0]) {
+                                perm1[ids[0]] += pref * orig1[old[0] * ids[0]];
                         }
+                }
+
+                flag = false;
+                for (int i = 2; i < n; ++i) {
+                        orig2 += old[i];
+                        perm2 += nld[i];
+                        ++ids[i];
+                        if(ids[i] < ndims[i]) {
+                                flag = true;
+                                break;
+                        }
+                        orig2 -= old[i] * ids[i];
+                        perm2 -= nld[i] * ids[i];
+                        ids[i] = 0;
                 }
         }
 }

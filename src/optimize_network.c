@@ -189,10 +189,10 @@ static double optimize_siteTensor(const struct regime * reg, double * timings)
         init_Heffdata(&mv_dat, o_dat.operators, &o_dat.msiteObj, isdmrg);
         timings[prep_heff] += stop_timing(0);
 
-        printf(">> Optimize site%s", o_dat.specs.nr_sites_opt == 1 ? "" : "s");
-        for (int i = 0; i < o_dat.specs.nr_sites_opt; ++i) {
-                printf(" %d%s", o_dat.specs.sites_opt[i], 
-                       i == o_dat.specs.nr_sites_opt - 1 ? ": " : " &");
+        printf(">> Optimize site%s", o_dat.msiteObj.nrsites == 1 ? "" : "s");
+        for (int i = 0; i < o_dat.msiteObj.nrsites; ++i) {
+                printf(" %d%s", o_dat.msiteObj.sites[i], 
+                       i == o_dat.msiteObj.nrsites - 1 ? ": " : " &");
         }
         printf("(blocks: %d, qns: %d, dim: %d, instr: %d)\n", 
                o_dat.msiteObj.nrblocks, mv_dat.nr_qnB, size, mv_dat.nr_instr);
@@ -211,8 +211,7 @@ static double optimize_siteTensor(const struct regime * reg, double * timings)
         destroy_Heffdata(&mv_dat);
         safe_free(diagonal);
         return energy;
-}
-
+} 
 static int find_in_array(const int size, const int * array, const int id)
 {
         for (int i = 0; i < size; ++i)
@@ -336,7 +335,6 @@ static struct sweep_info execute_sweep(struct siteTensor * T3NS,
 
                 double energy = optimize_siteTensor(reg, swinfo.sweeptimings);
                 printf("   * Energy : %.12lf\n", energy);
-
                 start_timing(0);
 
                 /* same noise as CheMPS2 */

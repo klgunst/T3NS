@@ -230,23 +230,27 @@ void do_contract(const struct contractinfo * cinfo, EL_TYPE ** tel,
                  double alpha, double beta);
 
 /**
- * @brief General permutation of a dense 3-rank tensor block.
+ * @brief General permutation and addition of a block.
  *
- * @param [out] perm Memory for the permuted block (already allocated).
- * @param [in] orig Memory for the original block.
- * @param [in] pa The permutation array.<br>
- * e.g.: `[2,0,1]` means `orig[i,j,k] = perm[k,i,j]`
- * @param [in] ld Leading dimensions for the first indexes of the permuted and
- * original block.<br>
- * Both `ld[0][0]` and `ld[1][0]` should be equal to 1.<br>
- * Thus: 
- * * `orig[i,j,k] = orig[i + ld[0][1] * j + ld[0][2] * k]`
- * * `perm[i,j,k] = perm[i + ld[1][1] * j + ld[1][2] * k]`
- * @param [in] dims The dimensions of the original block.<br>
- * `dims[pa]` are thus the the dimensions of the permuted block.
+ * This function does the following:
+ *      `perm[pid] += pref * orig[oid]`
+ *
+ * With `pid = Σ id[i] * nld[i]` and `oid = Σid[i] * old[i]`
+ *
+ * @ref old should thus be appropriately permuted such that oid points to the
+ * correct element.
+ *
+ * @param [in] orig The original block.
+ * @param [in] old The leading dimensions of the original block, appropriately
+ * permuted.
+ * @param [in,out] perm The permuted block.
+ * @param [in] nld The leading dimensions of the new block.
+ * @param [in] n The number of indices.
+ * @param [in] pref The prefactor.
  */
-void permute_3tensor(EL_TYPE * perm, const EL_TYPE * orig, const int (*pa)[3], 
-                     const int (*ld)[2][3], int (*dims)[3]);
+void permadd_block(const EL_TYPE * orig, const int * old,
+                   EL_TYPE * perm, const int * nld, const int * ndims, int n,
+                   const double pref);
 
 #ifndef NDEBUG
 /**

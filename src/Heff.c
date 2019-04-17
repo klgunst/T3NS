@@ -709,8 +709,10 @@ static void make_map(int * map, const struct Heffdata * data)
                 }
                 cnt += data->rOperators_on_site[i] == data->posB;
         }
-        map[0] = data->rOperators_on_site[1] != data->posB ? 1 : 0;
-        map[1] = data->rOperators_on_site[1] != data->posB ? 0 : 1;
+        map[0] = (data->rOperators_on_site[1] != data->posB &&
+                  data->rOperators_on_site[0] == data->posB) ? 1 : 0;
+        map[1] = (data->rOperators_on_site[1] != data->posB &&
+                  data->rOperators_on_site[0] == data->posB) ? 0 : 1;
         map[2] = 2;
 }
 

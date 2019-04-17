@@ -646,6 +646,7 @@ static int init_contractinfo(struct makeinfo * minfo,
         };
 
         const int contracts = make_dat.nr_internal;
+        bool one_added = false;
         for(int i = 0; i < contracts; ++i) {
                 int j;
                 for (j = 0; j < 3; ++j) {
@@ -692,17 +693,36 @@ static int init_contractinfo(struct makeinfo * minfo,
                                 cinfo[i].N = innerdim[1] * innerdim[2];
                                 cinfo[i].L = 1;
                                 cinfo[i].ldb = cinfo[i].K;
+                                one_added = true;
                         } else if (bond_int == 1) {
                                 cinfo[i].N = innerdim[0];
                                 cinfo[i].L = innerdim[2];
                                 cinfo[i].ldb = cinfo[i].N;
+                                cinfo[i].stride[1] = cinfo[i].N * cinfo[i].K;
                         } else if (bond_int == 2) {
                                 cinfo[i].N = innerdim[0] * innerdim[1];
                                 cinfo[i].L = 1;
                                 cinfo[i].ldb = cinfo[i].N;
                         }
-                        innerdim[bond_int] = cinfo[i].M;
-                        cinfo[i].stride[1] = cinfo[i].N * cinfo[i].K;
+                        if (one_added && bond_int == 1) {
+                                cinfo[i].tensneeded[0] = result[i];
+                                cinfo[i].trans[0] = CblasNoTrans;
+                                cinfo[i].M = innerdim[0];
+                                cinfo[i].K = innerdim[1];
+                                cinfo[i].L = innerdim[2];
+                                cinfo[i].lda = cinfo[i].M;
+
+                                cinfo[i].tensneeded[1] = origmap[site];
+                                cinfo[i].trans[1] = CblasTrans;
+                                cinfo[i].N = minfo->odim[site][0] * minfo->odim[site][1];
+                                assert(cinfo[i].K == minfo->odim[site][2]);
+                                cinfo[i].ldb = cinfo[i].N;
+                                cinfo[i].stride[0] = cinfo[i].M * cinfo[i].K;
+                                cinfo[i].stride[1] = 0;
+                                innerdim[bond_int] = cinfo[i].N;
+                        } else {
+                                innerdim[bond_int] = cinfo[i].M;
+                        }
                 }
 
                 cinfo[i].tensneeded[2] = result[i + 1];
