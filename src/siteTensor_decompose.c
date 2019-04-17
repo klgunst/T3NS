@@ -97,14 +97,14 @@ static int getQRdimensions(struct qrdata * dat, int * M, int * N, int * minMN,
                             int Rblock)
 {
         const int n = dat->idstart[Rblock + 1] - dat->idstart[Rblock];
-        if (n == 0) {
+        *N = dat->symarr[dat->bond].dims[Rblock];
+        if (n == 0 || *N == 0) {
                 *M = 0;
                 *N = 0;
                 *minMN = 0;
                 return 0; 
         }
 
-        *N = dat->symarr[dat->bond].dims[Rblock];
         int memsize = 0;
         // calculate size fo all blocks needed
         for (int * id = &dat->idperm[dat->idstart[Rblock]]; 
@@ -181,8 +181,8 @@ static struct qrdata init_qrdata(struct siteTensor * A, struct siteTensor * Q,
         if (dat.R != NULL) {
                 dat.R->bond = dat.legs[dat.bond];
                 dat.R->nrblocks = dat.nrRblocks;
-                dat.R->dims = safe_malloc(dat.R->nrblocks, *dat.R->dims);
-                dat.R->Rels = safe_malloc(dat.R->nrblocks, *dat.R->Rels);
+                dat.R->dims = safe_calloc(dat.R->nrblocks, *dat.R->dims);
+                dat.R->Rels = safe_calloc(dat.R->nrblocks, *dat.R->Rels);
                 for (int i = 0; i < dat.R->nrblocks; ++i) { 
                         dat.R->dims[i][0] = 0;
                         dat.R->dims[i][1] = 0;
@@ -270,7 +270,11 @@ static void QR_copy_fromto_mem(struct qrdata * dat, EL_TYPE * mem, int Rblock,
 static int qrblocks(struct qrdata * dat, int Rblock)
 {
         int M, N, minMN;
-        if (!getQRdimensions(dat, &M, &N, &minMN, Rblock)) { return 0; }
+        if (!getQRdimensions(dat, &M, &N, &minMN, Rblock)) {
+                copy_to_R(dat->R, NULL, M, N, Rblock);
+                dat->symarr[dat->bond].dims[Rblock] = minMN;
+                return 0;
+        }
         assert(dat->symarr[dat->bond].dims[Rblock] == N);
 
         const int memsize = M * N;
@@ -388,10 +392,14 @@ static void makeB(const struct siteTensor * const A, const int bondA,
                 QN_TYPE id = B->qnumbers[i];
                 id /= divide;
                 id %= modulo;
-                assert(sizeA % R->dims[id][bondR] == 0);
                 assert(R->dims[id][0] == symarr[bondA].dims[id]);
-                B->blocks.beginblock[i + 1] = sizeA / R->dims[id][bondR] *
-                        R->dims[id][!bondR];
+                if(R->dims[id][0] == 0) {
+                        B->blocks.beginblock[i + 1] = 0;
+                } else {
+                        assert(sizeA % R->dims[id][bondR] == 0);
+                        B->blocks.beginblock[i + 1] = sizeA / 
+                                R->dims[id][bondR] * R->dims[id][!bondR];
+                }
         }
 
         for (int i = 0; i < B->nrblocks; ++i) {
@@ -414,7 +422,7 @@ int multiplyR(struct siteTensor * A, const int bondA,
         }
         assert(A->nrsites == 1 && "QR only for one-site tensors");
         assert(bondA >= 0 && bondA < 3 && "BondA for contract should be 0,1 or 2");
-        assert(bondR >= 0 && bondR < 3 && "BondR for contract should be 0,1");
+        assert(bondR >= 0 && bondR < 2 && "BondR for contract should be 0,1");
 
         struct symsecs symarr[3];
         int legs[3];
@@ -443,6 +451,9 @@ int multiplyR(struct siteTensor * A, const int bondA,
                         R->Rels[id[bondA]],
                         get_tel_block(&B->blocks, block)
                 };
+                if (tels[0] == NULL || tels[1] == NULL || tels[2] == NULL) {
+                        continue;
+                }
                 cinfo.tensneeded[bondA == 0] = 0;
                 cinfo.tensneeded[bondA != 0] = 1;
                 cinfo.tensneeded[2] = 2;
@@ -549,6 +560,7 @@ static struct Sval R_svd(struct Rmatrix * R)
                 S.dimS[ss][0] = M > N ?  N : M;
                 S.dimS[ss][1] = S.dimS[ss][0];
                 S.sing[ss] = safe_malloc(S.dimS[ss][0], *S.sing[ss]);
+                if (M == 0 || N == 0) { continue; }
                 int info = LAPACKE_dgesdd(LAPACK_COL_MAJOR, 'N', M, N, 
                                           R->Rels[ss], M, S.sing[ss], NULL, M,
                                           NULL, S.dimS[ss][0]);
@@ -1486,13 +1498,19 @@ void print_decompose_info(const struct decompose_info * info,
 static void select_ls_sigma(struct Sval * S, struct decompose_info * info,
                             int cut) 
 {
-        double sigma = S->sing[0][S->dimS[0][0] - 1];
-        info->ls_sigma[cut] = sigma;
-        info->s_sigma[cut] = sigma;
-        for (int ss = 1; ss < S->nrblocks; ++ss) {
-                sigma = S->sing[ss][S->dimS[ss][0] - 1];
-                info->ls_sigma[cut] = fmax(info->ls_sigma[cut], sigma);
-                info->s_sigma[cut] = fmin(info->s_sigma[cut], sigma);
+        bool flag = false;
+        for (int ss = 0; ss < S->nrblocks; ++ss) {
+                if (S->dimS[ss][0] == 0) { continue; }
+                if (flag) {
+                        const double sigma = S->sing[ss][S->dimS[ss][0] - 1];
+                        info->ls_sigma[cut] = fmax(info->ls_sigma[cut], sigma);
+                        info->s_sigma[cut] = fmin(info->s_sigma[cut], sigma);
+                } else {
+                        const double sigma = S->sing[ss][S->dimS[ss][0] - 1];
+                        info->ls_sigma[cut] = sigma;
+                        info->s_sigma[cut] = sigma;
+                        flag = true;
+                }
         }
 }
 
