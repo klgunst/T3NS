@@ -903,8 +903,8 @@ static struct decompose_info selectBestPerm(struct siteTensor * T3NS,
                 {0, 2, 1},
                 {2, 1, 0},
                 {1, 0, 2},
-                {1, 2, 0},
-                {2, 0, 1}
+                //{1, 2, 0},
+                //{2, 0, 1}
         };
 
         int accepted_perm = 0;
@@ -945,7 +945,9 @@ static struct decompose_info selectBestPerm(struct siteTensor * T3NS,
         for (int i = 1; i < nrperm; ++i) {
                 put_back_orig(specs);
                 struct siteTensor Sp;
-                permute_siteTensor(&S, &Sp, perm[i], nr);
+                if (permute_siteTensor(&S, &Sp, perm[i], nr)) {
+                        deep_copy_siteTensor(&Sp, &S);
+                }
                 struct decompose_info cinfo = 
                         decompose_siteTensor(&Sp, specs->nCenter, T3NS, 
                                              &scheme->svd_sel);

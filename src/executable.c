@@ -357,7 +357,7 @@ int main(int argc, char *argv[])
         struct disentScheme sch = {
                 .max_sweeps = 30,
                 .gambling = true,
-                .beta = 100,
+                .beta = 20,
                 .svd_sel = scheme.regimes[0].svd_sel
         };
         disentangle_state(T3NS, &sch, 0);

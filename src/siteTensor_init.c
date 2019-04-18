@@ -189,7 +189,7 @@ static void add_psite(int bond, int bid, const int * sitelist, int nr)
 }
 
 static int init_md(struct siteTensor * T, const int * sitelist, int nr,
-                         const struct siteTensor * T3NS)
+                   const struct siteTensor * T3NS)
 {
         md.T = T;
         T->nrsites = 0;
@@ -270,7 +270,7 @@ static void initialize_inner_symsecs(void)
                 int cnt = 0;
 
                 struct symsecs symsec[2];
-                // Need to do this in opposite order (so that sign is correc)
+                // Need to do this in opposite order (so that sign is correct)
                 // The outer should be the first symsec if present
                 for (int j = 2; j >= 0; --j) {
                         if (bonds[j] != md.internals[i]) {
@@ -911,7 +911,7 @@ static void permute_orbitals(const int * perm)
         for (int i = 0; i < pd.ns; ++i) {
                 for (int j = 0; j < 3; ++j) {
                         bool isouter = true;
-                        for (int k = 0; k < pd.ns; ++k) {
+                        for (int k = 0; k < (isouter == true) * pd.ns; ++k) {
                                 for (int l = 0; l < 3; ++l) {
                                         if (pd.bonds[i][j] == pd.bonds[k][l] &&
                                             (i != k || j != l)) {
@@ -945,16 +945,15 @@ static void permute_orbitals(const int * perm)
                 }
         }
         for (int i = 0; i < pd.nr_outerb; ++i) {
-                int j;
-                for (j = 0; j < pd.nr_outerb; ++j) {
+                for (int j = 0; j < pd.nr_outerb; ++j) {
                         if (pd.outerb[i][0][0] == pd.outerb[j][1][0] &&
                             pd.outerb[i][0][1] == pd.outerb[j][1][1]) {
                                 pd.indexperm[i] = j;
                                 pd.indexperminv[j] = i;
                                 break;
                         }
+                        assert(j != pd.nr_outerb - 1);
                 }
-                assert(j != pd.nr_outerb);
         }
 }
 
@@ -977,6 +976,7 @@ static void set_sitemapping(void)
                                 get_bonds_of_site(pd.T->sites[i], bonds);
                                 break;
                         }
+                        assert(i != pd.ns - 1);
                 }
                 int sites[3] = {
                         netw.bonds[bonds[0]][0],
@@ -988,6 +988,7 @@ static void set_sitemapping(void)
                 pd.sitemapping[1] = -1;
                 pd.sitemapping[2] = -1;
                 for (int i = 0; i < 3; ++i) {
+                        assert(is_psite(sites[i]));
                         for (int j = 0; j < pd.ns; ++j) {
                                 if (sites[i] == pd.T->sites[j]) {
                                         assert(pd.sitemapping[i] == -1);
@@ -1048,19 +1049,12 @@ static void init_pd(const struct siteTensor * T, struct siteTensor * Tp,
 
         for (int i = 0; i < pd.ns; ++i) {
                 get_bonds_of_site(T->sites[i], pd.bonds[i]);
-        }
-        for (int i = 0; i < pd.ns; ++i) {
                 struct symsecs tempss[3];
                 get_symsecs_arr(3, tempss, pd.bonds[i]);
                 deep_copy_symsecs(&pd.osyms[i][0], &tempss[0]);
                 deep_copy_symsecs(&pd.osyms[i][1], &tempss[1]);
                 deep_copy_symsecs(&pd.osyms[i][2], &tempss[2]);
         }
-        // pd.bonds, pd.perm and pd.T should already be assigned.
-        permute_orbitals(perm);
-        set_sitemapping();
-        set_permuteType(perm);
-
         pd.oids = safe_malloc(pd.T->nrblocks, *pd.oids);
         const QN_TYPE * qn = pd.T->qnumbers;
         for (int i = 0; i < pd.T->nrblocks; ++i) {
@@ -1068,6 +1062,11 @@ static void init_pd(const struct siteTensor * T, struct siteTensor * Tp,
                         indexize(pd.oids[i][j], *qn, pd.osyms[j]);
                 }
         }
+
+        // pd.bonds and pd.T should already be assigned.
+        permute_orbitals(perm);
+        set_sitemapping();
+        set_permuteType(perm);
 }
 
 static void move_from_make_to_perm(void)
@@ -1145,11 +1144,21 @@ static bool get_o_perm_block(struct permute_helper * ph)
         if (!match) { return false; }
         ph->p_ob = get_tel_block(&pd.T->blocks, ph->ob);
         assert(ph->p_ob != NULL);
+        assert(get_size_block(&pd.T->blocks, ph->ob) ==
+               get_size_block(&pd.Tp->blocks, ph->nb));
         for (int i = 0; i < pd.ns; ++i) {
                 for (int j = 0; j < 3; ++j) {
                         ph->oids[i][j] = pd.oids[ph->ob][i][j];
                 }
         }
+
+#ifndef NDEBUG
+        for (int i = 0; i < pd.nr_outerb; ++i) {
+                const int site = pd.outerb[i][0][0];
+                const int bond = pd.outerb[i][0][1];
+                assert(ph->ndims[i] == pd.osyms[site][bond].dims[ph->oids[site][bond]]);
+        }
+#endif
         const int site = pd.sitemapping[4];
         const int * ids = ph->oids[site];
         ph->irreps[4][0] = pd.osyms[site][0].irreps[ids[0]];

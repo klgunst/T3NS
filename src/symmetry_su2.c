@@ -128,3 +128,80 @@ double SU2_prefactor_RDMinterm(int * symvalues, int bond)
 }
 
 int SU2_multiplicity(int irrep) {return irrep + 1;}
+
+static double perm12(int symv[5][3])
+{
+        assert(symv[3][0] == symv[0][2]);
+        assert(symv[3][1] == symv[1][2]);
+        if (symv[4][2] != symv[3][2]) { return 0; }
+        const int sign = abs(symv[0][1] - symv[1][1] - symv[3][1] + symv[4][1]) % 4 == 0 ? 1 : -1;
+        double val = sign * bracket(symv[3][0]);
+        val *= bracket(symv[4][0]);
+        val *= bracket(symv[3][1]);
+        val *= bracket(symv[4][1]);
+        val *= wigner9j(symv[0][0], symv[1][1], symv[4][0],
+                        symv[0][1], symv[1][0], symv[4][1],
+                        symv[0][2], symv[1][2], symv[4][2]);
+        return val;
+}
+
+static double perm13(int symv[5][3])
+{
+        assert(symv[3][0] == symv[0][2]);
+        assert(symv[3][2] == symv[2][0]);
+        assert(symv[0][0] != -1 && symv[0][1] != -1 && symv[0][2] != -1);
+        assert(symv[2][0] != -1 && symv[2][1] != -1 && symv[2][2] != -1);
+        assert(symv[3][0] != -1 && symv[3][1] != -1 && symv[3][2] != -1);
+        assert(symv[4][0] != -1 && symv[4][1] != -1 && symv[4][2] != -1);
+        if (symv[4][1] != symv[3][1]) { return 0; }
+        const int sign = abs(symv[4][0] - symv[3][0] - (symv[4][2] - symv[3][2])) % 4 == 0 ? 1 : -1;
+        double val = sign * bracket(symv[3][0]);
+        val *= bracket(symv[4][0]);
+        val *= bracket(symv[3][2]);
+        val *= bracket(symv[4][2]);
+        val *= wigner9j(symv[0][0], symv[2][1], symv[4][0],
+                        symv[0][1], symv[2][2], symv[4][2],
+                        symv[0][2], symv[2][0], symv[4][1]);
+        return val;
+}
+
+static double perm23(int symv[5][3])
+{
+        assert(symv[3][1] == symv[1][2]);
+        assert(symv[3][2] == symv[2][0]);
+        if (symv[4][0] != symv[3][0]) { return 0; }
+        const int sign = abs(symv[4][2] - symv[3][2]) % 2 == 0 ? 1 : -1;
+        double val = sign * bracket(symv[3][1]);
+        val *= bracket(symv[4][1]);
+        val *= bracket(symv[3][2]);
+        val *= bracket(symv[4][2]);
+        val *= wigner9j(symv[1][0], symv[2][1], symv[4][1],
+                        symv[1][1], symv[2][2], symv[4][2],
+                        symv[1][2], symv[2][0], symv[4][0]);
+        return val;
+}
+
+double SU2_prefactor_permutation(int symv[5][3], int permuteType)
+{
+        int sign;
+        double val;
+        switch (permuteType) {
+        case 0:
+                sign = (symv[1][0] + symv[4][0] - symv[0][1] - symv[1][1]) % 4 == 0 ? 1: -1;
+                val = sign * bracket(symv[1][0]);
+                val *= bracket(symv[4][0]);
+                return val * wigner6j(symv[0][1], symv[1][2], symv[4][0],
+                                      symv[1][1], symv[0][0], symv[1][0]);
+        case 1:
+                return perm23(symv);
+        case 2:
+                return perm13(symv);
+        case 3:
+                return perm12(symv);
+        case 4:
+        case 5:
+        default:
+                fprintf(stderr, "Error: invalid permuteType passed to %s.\n", __func__);
+                return 0;
+        }
+}

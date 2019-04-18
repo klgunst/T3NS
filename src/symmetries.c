@@ -348,7 +348,7 @@ double prefactor_permutation(int * irreps[5][3], int permuteType,
                         for (int j = 0; j < 5; ++j)
                                 for (int k = 0; k < 3; ++k)
                                         symvalues[j][k] = irreps[j][k] == NULL ? -1 : irreps[j][k][i];
-                        //prefactor *= SU2_prefactor_permutation(symvalues, permuteType);
+                        prefactor *= SU2_prefactor_permutation(symvalues, permuteType);
                         break;
                 default :
                         break;
