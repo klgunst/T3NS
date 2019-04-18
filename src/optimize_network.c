@@ -714,12 +714,8 @@ static void print_entanglement_info(const struct entanglement_info * enti,
         }
 }
 
-static struct entanglement_info entanglement_state(const struct siteTensor * T3NS)
+static struct entanglement_info entanglement_state(struct siteTensor * T3NS)
 {
-        struct siteTensor * tempT3NS = safe_calloc(netw.sites, *tempT3NS);
-        for (int i = 0; i < netw.sites; ++i) {
-                deep_copy_siteTensor(&tempT3NS[i], &T3NS[i]);
-        }
         struct entanglement_info enti = {
                 .nr_bonds = netw.nr_bonds,
                 .entanglement = safe_calloc(netw.nr_bonds, *enti.entanglement),
@@ -731,8 +727,8 @@ static struct entanglement_info entanglement_state(const struct siteTensor * T3N
         make_simplesweep(true, &sweep, &swlength);
         for (int i = 0; i < swlength; ++i) {
                 const struct decompose_info info = 
-                        qr_step(&tempT3NS[sweep[i]], sweep[(i + 1) % swlength], 
-                                tempT3NS, true);
+                        qr_step(&T3NS[sweep[i]], sweep[(i + 1) % swlength], 
+                                T3NS, true);
                 assert(info.wasQR);
                 const int bond = info.cutted_bonds[0];
                 if (!already_touched[bond]) {
@@ -748,10 +744,6 @@ static struct entanglement_info entanglement_state(const struct siteTensor * T3N
                 }
         }
 
-        for (int i = 0; i < netw.sites; ++i) {
-                destroy_siteTensor(&tempT3NS[i]);
-        }
-        safe_free(tempT3NS);
         safe_free(sweep);
         safe_free(already_touched);
         return enti;
