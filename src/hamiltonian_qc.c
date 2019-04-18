@@ -126,6 +126,17 @@ static void su2_string_from_tag(const int nr, const int t, const int * tags,
 
 /* ========================================================================== */
 
+void QC_reinit_hamiltonian(void)
+{
+        safe_free(MPOsymsecs.irreps);
+        safe_free(MPOsymsecs.fcidims);
+        safe_free(MPOsymsecs.dims);
+        opType_destroy_all();
+
+        prepare_MPOsymsecs();
+        init_opType_array(hdat.su2);
+}
+
 void QC_destroy_hamiltonian(void)
 {
         safe_free(MPOsymsecs.irreps);

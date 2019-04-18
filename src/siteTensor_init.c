@@ -1160,7 +1160,7 @@ static bool get_o_perm_block(struct permute_helper * ph)
 
 static void permute_tensors(void)
 {
-#pragma omp parallel for schedule(static) default(none) shared(pd,bookie)
+#pragma omp parallel for schedule(dynamic) default(none) shared(pd,bookie)
         for (int nb = 0; nb < pd.Tp->nrblocks; ++nb) {
                 struct permute_helper ph = init_permute_helper(nb);
                 while (get_o_perm_block(&ph)) { 
@@ -1218,7 +1218,7 @@ int permute_siteTensor(const struct siteTensor * T, struct siteTensor * Tp,
         // In this function some needed symsecs and so are stored and also
         // the permutation is performed on the netw.sitetoorb array.
         init_pd(T, Tp, perm);
-        // Making the mda
+        // Making the md
         if (init_md(Tp, T->sites, pd.ns, NULL)) { return 1; }
         // Initializing the permuted tensor
         make_internalss_and_tensor();

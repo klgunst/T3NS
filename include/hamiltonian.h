@@ -116,3 +116,5 @@ void read_hamiltonian_from_disk(const hid_t id);
  * @return 1 if successful, 0 otherwise.
  */
 int consistent_state(int * ts);
+
+void reinit_hamiltonian(void);

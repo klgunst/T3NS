@@ -361,6 +361,12 @@ int main(int argc, char *argv[])
                 .svd_sel = scheme.regimes[0].svd_sel
         };
         disentangle_state(T3NS, &sch, 0);
+        destroy_all_rops(&rops);
+        clear_instructions();
+        reinit_hamiltonian();
+        init_operators(&rops, &T3NS);
+        execute_optScheme(T3NS, rops, &scheme, pbuffer);
+        disentangle_state(T3NS, &sch, 0);
         print_target_state_coeff(T3NS);
 
         cleanup_before_exit(&T3NS, &rops, &scheme);

@@ -946,8 +946,8 @@ static struct decompose_info selectBestPerm(struct siteTensor * T3NS,
 
         if (scheme->gambling) {
                 // Do a Metropolis step instead of trying all permutations!
-                nrperm = 2;
                 perm = &perm[rand() % (nrperm - 1)];
+                nrperm = 2;
         }
 
         for (int i = 1; i < nrperm; ++i) {
@@ -1049,7 +1049,7 @@ double disentangle_state(struct siteTensor * T3NS,
         printf("\n****** Disentangling the wave function ******\n");
         if (scheme->gambling) { printf("~~~ Rien ne va plus! ~~~\n"); }
         printf("Initial ");
-        print_entanglement_info(&enti, verbosity);
+        print_entanglement_info(&enti, 1);
         print_siteorder();
         printf("\n");
 
@@ -1068,7 +1068,7 @@ double disentangle_state(struct siteTensor * T3NS,
         enti = entanglement_state(T3NS);
 
         printf("Final ");
-        print_entanglement_info(&enti, verbosity);
+        print_entanglement_info(&enti, 1);
         print_siteorder();
         printf("\n");
         printf("** Timers for disentangling scheme:\n");
@@ -1077,5 +1077,9 @@ double disentangle_state(struct siteTensor * T3NS,
         netw.sweep = tempsweep;
         netw.sweeplength = tempswlength;
         safe_free(enti.entanglement);
+        safe_free(netw.nr_left_psites);
+        create_nr_left_psites();
+        safe_free(netw.order_psites);
+        create_order_psites();
         return enti.totent;
 }

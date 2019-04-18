@@ -391,6 +391,19 @@ int consistent_state(int * ts)
         }
 }
 
+void reinit_hamiltonian(void)
+{
+        switch(ham) {
+        case QC :
+                QC_reinit_hamiltonian();
+                break;
+        default:
+                fprintf(stderr, "%s@%s: Not defined for the given hamiltonian.\n",
+                        __FILE__, __func__);
+                exit(EXIT_FAILURE);
+        }
+}
+
 /* ========================================================================== */
 /* ===================== DEFINITION STATIC FUNCTIONS ======================== */
 /* ========================================================================== */

@@ -71,3 +71,5 @@ void QC_write_hamiltonian_to_disk(const hid_t id);
 void QC_read_hamiltonian_from_disk(const hid_t id);
 
 int QC_consistent_state(int * ts);
+
+void QC_reinit_hamiltonian(void);
