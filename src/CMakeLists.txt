@@ -37,6 +37,7 @@ set(T3NSLIB_SOURCE_FILES
     "tensorproducts.c"
     "wrapper_solvers.c"
     "RedDM.c"
+    "timers.c"
     )
 
 add_library(T3NS-shared SHARED ${T3NSLIB_SOURCE_FILES})
