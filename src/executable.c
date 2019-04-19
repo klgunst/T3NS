@@ -17,7 +17,6 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
-#include <time.h>
 #include <sys/time.h>
 #include <argp.h>
 #include <unistd.h>
@@ -38,6 +37,32 @@
 #include "symmetries.h"
 #include "options.h"
 #include "RedDM.h"
+#include "timers.h"
+
+static const char *timernames[] = {
+        "Reading HDF5", 
+        "Reading input files",
+        "Preparing bookkeeper", 
+        "Initializing wave function",
+        "Initializing renormalized operators"
+};
+
+enum timerkeys {
+        READ_HDF5,
+        READ_INPUTS,
+        PREP_BOOKIE,
+        INIT_WAV,
+        INIT_OPS
+};
+
+static const int timkeys[] = {
+        READ_HDF5,
+        READ_INPUTS,
+        PREP_BOOKIE,
+        INIT_WAV,
+        INIT_OPS
+};
+
 
 const char *argp_program_version     = "T3NS " T3NS_VERSION;
 const char *argp_program_bug_address = "<" T3NS_MAIL ">";
@@ -249,9 +274,8 @@ static int initialize_program(int argc, char *argv[],
                               struct optScheme * scheme, 
                               char ** saveloc)
 {
-        struct timeval t_start, t_end;
-        gettimeofday(&t_start, NULL);
-
+        struct timers chrono = init_timers(timernames, timkeys,
+                                           sizeof timkeys / sizeof timkeys[0]);
         char buffer_symm[MY_STRING_LEN];
         int buffersize = sizeof doc / sizeof doc[0] + MY_STRING_LEN + 100;
         char buffer[buffersize];
@@ -290,23 +314,28 @@ static int initialize_program(int argc, char *argv[],
         int minocc = DEFAULT_MINSTATES;
         // Read and continue previous calculation.
         if (arguments.h5file) {
+                tic(&chrono, READ_HDF5);
                 printf(">> Reading %s...\n", arguments.h5file);
                 if(read_from_disk(arguments.h5file, T3NS, rops)) { return 1; }
                 minocc = 0;
+                toc(&chrono, READ_HDF5);
         }
 
         // Read the input file.
         struct bookkeeper prevbookie = shallow_copy_bookkeeper(&bookie);
 
+        tic(&chrono, READ_INPUTS);
         if (read_inputfile(arguments.args[0], scheme, &minocc, 
                            arguments.h5file == NULL)) {
                 return 1;
         }
+        toc(&chrono, READ_INPUTS);
         if (scheme->nrRegimes < 1) {
                 fprintf(stderr, "At least one optimization regime should be defined in the input file.\n");
                 return 1;
         }
 
+        tic(&chrono, PREP_BOOKIE);
         printf(">> Preparing bookkeeper...\n");
         int changedSS = 0;
         if (preparebookkeeper(arguments.h5file ? &prevbookie : NULL, 
@@ -314,22 +343,25 @@ static int initialize_program(int argc, char *argv[],
                               &changedSS)) {
                 return 1;
         }
+        toc(&chrono, PREP_BOOKIE);
 
+        tic(&chrono, INIT_WAV);
         if (init_wave_function(T3NS, changedSS, &prevbookie, 'r')) { return 1; } 
+        toc(&chrono, INIT_WAV);
         if (changedSS) { 
                 destroy_all_rops(rops);
                 destroy_bookkeeper(&prevbookie);
         }
         // Need to initialize operators still.
+        tic(&chrono, INIT_OPS);
         if (init_operators(rops, T3NS)) { return 1; }
+        toc(&chrono, INIT_OPS);
 
         print_input(scheme);
 
-        gettimeofday(&t_end, NULL);
-        long long t_elapsed = (t_end.tv_sec - t_start.tv_sec) * 1000000LL + 
-                t_end.tv_usec - t_start.tv_usec;
-        double d_elapsed = t_elapsed * 1e-6;
-        printf("Elapsed time for preparing calculation: %lf sec\n", d_elapsed);
+        printf("Timers for preparing calculation:\n");
+        print_timers(&chrono, " * ", true);
+        destroy_timers(&chrono);
         return 0;
 }
 
@@ -364,6 +396,7 @@ int main(int argc, char *argv[])
         destroy_all_rops(&rops);
         clear_instructions();
         reinit_hamiltonian();
+
         init_operators(&rops, &T3NS);
         execute_optScheme(T3NS, rops, &scheme, pbuffer);
         disentangle_state(T3NS, &sch, 0);

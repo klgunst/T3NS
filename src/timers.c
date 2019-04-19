@@ -103,14 +103,14 @@ void print_timers(struct timers * tim, const char * prefix, bool onlytouched)
                                 TimTim.name);
                 }
                 if (!onlytouched || TimTim.touched)
-                        printf("%s%-35s :: %lf sec\n",
+                        printf("%s%-35s :: %.2lf sec\n",
                                prefix, TimTim.name, TimTim.t);
         }
         struct timeval tv;
         gettimeofday(&tv, NULL);
         long long t_el = (tv.tv_sec - tim->inittime.tv_sec) * 
                 1000000LL + tv.tv_usec - tim->inittime.tv_usec;
-        printf("%s%-35s :: %lf sec\n", prefix, "Total time", t_el * 1e-6);
+        printf("%s%-35s :: %.2lf sec\n", prefix, "Total time", t_el * 1e-6);
 }
 
 int add_timers(struct timers * result, const struct timers * toadd)

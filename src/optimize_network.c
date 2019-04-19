@@ -318,9 +318,6 @@ struct sweep_info {
         struct timers chrono;
 };
 
-static void init_rops(struct rOperators * const rops, 
-                      const struct siteTensor * const tens, const int bond);
-
 static struct sweep_info execute_sweep(struct siteTensor * T3NS, 
                                        struct rOperators * rops, 
                                        const struct regime * reg, 
@@ -429,7 +426,8 @@ static double execute_regime(struct siteTensor * T3NS, struct rOperators * rops,
 }
 
 static void init_rops(struct rOperators * const rops, 
-                      const struct siteTensor * const tens, const int bond)
+                      const struct siteTensor * const tens, const int bond,
+                      struct timers * chrono)
 {
         const int siteL = netw.bonds[bond][0];
         const int siteR = netw.bonds[bond][1];
@@ -448,19 +446,25 @@ static void init_rops(struct rOperators * const rops,
 
                 get_bonds_of_site(siteL, bonds);
                 assert(bonds[2] == bond);
+                tic(chrono, ROP_APPEND);
                 rOperators_append_phys(curr_rops, &rops[bonds[0]]); 
+                toc(chrono, ROP_APPEND);
                 safe_free(bookie.v_symsecs[bond].dims);
                 bookie.v_symsecs[bond].dims = tempdim;
                 /* Just pass the same symsecs as internal one. Doesnt really matter that dims != 1.
                  * What matters is that both have the same symsecs and this way a correct array can be made
                  * in update_rOperators_physical */
+                tic(chrono, ROP_UPDP);
                 update_rOperators_physical(curr_rops, tens, &bookie.v_symsecs[bond]);
+                toc(chrono, ROP_UPDP);
         } else { /* branching tensor, T3NS update needed */
                 int bonds[3];
                 get_bonds_of_site(siteL, bonds);
                 assert(bonds[2] == bond);
                 struct rOperators ops[2] = {rops[bonds[0]], rops[bonds[1]]};
+                tic(chrono, ROP_UPDB);
                 update_rOperators_branching(curr_rops, ops, tens);
+                toc(chrono, ROP_UPDB);
         }
 }
 
@@ -468,17 +472,21 @@ static void init_rops(struct rOperators * const rops,
 
 int init_operators(struct rOperators ** rOps, struct siteTensor ** T3NS)
 { 
+        struct timers chrono = init_timers(timernames, timkeys,
+                                           sizeof timkeys / sizeof timkeys[0]);
         if (*rOps) { return 0; }
         printf(">> Preparing renormalized operators...\n");
         init_null_rops(rOps);
         for (int i = 0; i < netw.nr_bonds; ++i) {
                 const int siteL = netw.bonds[i][0];
                 if (siteL == -1) {
-                        init_rops(*rOps, NULL, i);
+                        init_rops(*rOps, NULL, i, &chrono);
                 } else {
-                        init_rops(*rOps, &(*T3NS)[siteL], i);
+                        init_rops(*rOps, &(*T3NS)[siteL], i, &chrono);
                 }
         }
+        print_timers(&chrono, " * ", true);
+        destroy_timers(&chrono);
         return 0;
 }
 
