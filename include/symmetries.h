@@ -194,21 +194,15 @@ double prefactor_combine_MPOs(int * const (*irreps)[3], int * const *irrMPO,
  *              * 5 : 1 ↔ 2, 1 ↔ 3 (3, 1, 2)
  *
  * The @ref irreps array is given by:
- *      * DMRG:
- *              * `irreps[0,1][.]` are the irreps of the bonds of **new** 
- *              first and second physical site.
- *              * `irreps[4][.]` are the irreps from the **old** second 
- *              physical site.
- *              * The other irreps are `NULL`.
- *      * T3NS:
- *              * `irreps[0,1,2][.]` are the irreps of the bonds of **new**
- *              first, second an third physical site (i.e. the physical site 
- *              attached to the first, second or third bond of the branching
- *              site), or `NULL` if that site is not present.
- *              * `irreps[3][.]` are the irreps from the **new** branching
- *              site.
- *              * `irreps[4][.]` are the irreps from the **old** branching
- *              site.
+ *      * DMRG:\f$[[α, i, β], [β, j, γ], \mathrm{NULL}, \mathrm{NULL}, [β', i, γ]]\f$<br>
+ *      Where the first and the second array are the irreps of the first and
+ *      second physical site **after** permutation. The last array are the
+ *      irreps of the second physical site **before** permutation.
+ *      * T3NS:\f$[[α, i, β], [γ, j, δ], [μ, k, ν], [β, δ, μ], [β', δ', μ']]\f$<br>
+ *      Where the first three arrays are the irreps of the first three physical
+ *      sites **after** permutation. The fourth array contains the irreps of
+ *      the branching site **after** permutation and the last array **before**
+ *      permutation.
  *
  * @param [in] irreps The different irreps of bonds.
  * @param [in] permuteType The type of the permutation.

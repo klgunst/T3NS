@@ -121,35 +121,79 @@ int SU2_multiplicity(const int irrep);
  * @brief Calculates the prefactor for a certain permutation of the orbitals of
  * the multi-site tensor.
  *
- * The type of the permutation is given by:
+ * The type of the permutation and their prefactor is given by:
  *      * DMRG:
- *              * 0 : 1 ↔ 2
+ *              * 0 : 1 ↔ 2:<br>
+ *              \f$(-1)^{j_i + j_j - (j_β + j_{β'})}[j_β][j_{β'}]
+ *              \begin{Bmatrix}
+ *              j_i & j_γ & j_{β'}\\
+ *              j_j & j_α & j_β
+ *              \end{Bmatrix}
+ *              \f$
  *      * T3NS:
- *              * 1 : 2 ↔ 3 (1, 3, 2)
- *              * 2 : 1 ↔ 3 (3, 2, 1)
- *              * 3 : 1 ↔ 2 (2, 1, 3)
- *              * 4 : 1 ↔ 2, 2 ↔ 3 (2, 3, 1)
- *              * 5 : 1 ↔ 2, 1 ↔ 3 (3, 1, 2)
+ *              * 1 : 2 ↔ 3 (1, 3, 2):<br>
+ *              \f$(-1)^{2(j_δ - j_{δ'})}[j_δ][j_{δ'}][j_μ][j_{μ'}]
+ *              \begin{Bmatrix}
+ *              j_γ & j_k & j_{δ'}\\
+ *              j_j & j_ν & j_{μ'}\\
+ *              j_δ & j_μ & j_β
+ *              \end{Bmatrix}
+ *              \f$
  *
- * The @ref symv array is given by:
- *      * DMRG:
- *              * `symv[0,1][.]` are the irreps of the bonds of **new** 
- *              first and second physical site.
- *              * `symv[4][.]` are the irreps from the **old** second 
- *              physical site.
- *              * The other irreps are `NULL`.
- *      * T3NS:
- *              * `symv[0,1,2][.]` are the irreps of the bonds of **new**
- *              first, second an third physical site (i.e. the physical site 
- *              attached to the first, second or third bond of the branching
- *              site), or `NULL` if that site is not present.
- *              * `symv[3][.]` are the irreps from the **new** branching
- *              site.
- *              * `symv[4][.]` are the irreps from the **old** branching
- *              site.
+ *              * 2 : 1 ↔ 3 (3, 2, 1):<br>
+ *              \f$(-1)^{(j_β - j_{β'}) - (j_μ - j_{μ'})}[j_β][j_{β'}][j_μ][j_{μ'}]
+ *              \begin{Bmatrix}
+ *              j_α & j_k & j_{β'}\\
+ *              j_i & j_ν & j_{μ'}\\
+ *              j_β & j_μ & j_δ
+ *              \end{Bmatrix}
+ *              \f$
  *
- * @param [in] symv The different irreps of bonds.
+ *              * 3 : 1 ↔ 2 (2, 1, 3):<br>
+ *              \f$(-1)^{(j_j - j_i) + (j_δ - j_{δ'})}[j_β][j_{β'}][j_δ][j_{δ'}]
+ *              \begin{Bmatrix}
+ *              j_α & j_j & j_{β'}\\
+ *              j_i & j_γ  & j_{δ'}\\
+ *              j_β & j_δ & j_μ
+ *              \end{Bmatrix}
+ *              \f$
+ *
+ *              * 4 : 1 ↔ 2, 2 ↔ 3 (2, 3, 1):<br>
+ *              \f$ Σ_J
+ *              (-1)^{(j_k - j_i) + (J - j_{δ'})}[j_β][j_{β'}][J][j_{δ'}]
+ *              \begin{Bmatrix}
+ *              j_α & j_k & j_{β'}\\
+ *              j_i & j_γ  & j_{δ'}\\
+ *              j_β & J & j_{μ'}
+ *              \end{Bmatrix}
+ *              (-1)^{2(j_δ - J)}[j_δ][J][j_μ][j_{μ'}]
+ *              \begin{Bmatrix}
+ *              j_γ & j_k & J\\
+ *              j_j & j_ν & j_{μ'}\\
+ *              j_δ & j_μ & j_β
+ *              \end{Bmatrix}
+ *              \f$
+ *
+ *              * 5 : 1 ↔ 2, 1 ↔ 3 (3, 1, 2):<br>
+ *              \f$ Σ_J
+ *              (-1)^{(j_j - j_k) + (j_δ - j_{δ'})}[J][j_{β'}][j_δ][j_{δ'}]
+ *              \begin{Bmatrix}
+ *              j_α & j_j & j_{β'}\\
+ *              j_k & j_γ  & j_{δ'}\\
+ *              J & j_δ & j_{μ'}
+ *              \end{Bmatrix}
+ *              (-1)^{(j_β - J) - (j_μ - j_{μ'})}[j_β][J][j_μ][j_{μ'}]
+ *              \begin{Bmatrix}
+ *              j_α & j_k & J\\
+ *              j_i & j_ν & j_{μ'}\\
+ *              j_β & j_μ & j_δ
+ *              \end{Bmatrix}
+ *              \f$
+ *
+ * For the order of the symv, see the documentation on prefactor_permutation().
+ *
+ * @param [in] symv The different \f$2j\f$ values of the bonds.
  * @param [in] permuteType The type of the permutation.
  * @return The prefactor for this type of permutation.
  */
-double SU2_prefactor_permutation(int symv[5][3], int permuteType);
+double SU2_prefactor_permutation(int (*symv)[3], int permuteType);

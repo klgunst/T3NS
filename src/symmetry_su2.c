@@ -129,7 +129,7 @@ double SU2_prefactor_RDMinterm(int * symvalues, int bond)
 
 int SU2_multiplicity(int irrep) {return irrep + 1;}
 
-static double perm12(int symv[5][3])
+static double swap12(int (*symv)[3])
 {
         assert(symv[3][0] == symv[0][2]);
         assert(symv[3][1] == symv[1][2]);
@@ -145,7 +145,7 @@ static double perm12(int symv[5][3])
         return val;
 }
 
-static double perm13(int symv[5][3])
+static double swap13(int (*symv)[3])
 {
         assert(symv[3][0] == symv[0][2]);
         assert(symv[3][2] == symv[2][0]);
@@ -165,12 +165,12 @@ static double perm13(int symv[5][3])
         return val;
 }
 
-static double perm23(int symv[5][3])
+static double swap23(int (*symv)[3])
 {
         assert(symv[3][1] == symv[1][2]);
         assert(symv[3][2] == symv[2][0]);
         if (symv[4][0] != symv[3][0]) { return 0; }
-        const int sign = abs(symv[4][2] - symv[3][2]) % 2 == 0 ? 1 : -1;
+        const int sign = abs(symv[4][1] - symv[3][1]) % 2 == 0 ? 1 : -1;
         double val = sign * bracket(symv[3][1]);
         val *= bracket(symv[4][1]);
         val *= bracket(symv[3][2]);
@@ -181,7 +181,51 @@ static double perm23(int symv[5][3])
         return val;
 }
 
-double SU2_prefactor_permutation(int symv[5][3], int permuteType)
+static double cycleperm(int (*symv)[3], int permuteType)
+{
+        assert(permuteType == 4 || permuteType == 5);
+        const int legid = permuteType == 4 ? 1 : 0;
+
+        // The final symv is the same as symv, however 
+        // with symv[4][legid] changed by the intermediate j
+        // and symv[4][!legid] = symv[3][!legid]
+        //
+        // The second symv is the same as symv, however 
+        // with symv[3][legid] and symv[legid][2] changed to the intermediate j
+        // and symv[legid][1] and symv[2][1] swapped
+        // and symv[3][2] = symv[4][2]
+        // and symv[2][0] = symv[4][2]
+        int fsv[5][3], ssv[5][3];
+        for (int i = 0; i < 5; ++i) {
+                for (int j = 0; j < 3; ++j) {
+                        fsv[i][j] = symv[i][j];
+                        ssv[i][j] = symv[i][j];
+                }
+        }
+        const int temp = ssv[legid][1];
+        fsv[4][!legid] = symv[3][!legid];
+        ssv[legid][1] = symv[2][1];
+        ssv[2][1] = temp;
+        ssv[2][0] = symv[4][2];
+        ssv[3][2] = symv[4][2];
+
+        // calculate the range for j_δ" (case 4) or j_β" (case 5)
+        // i.e. the intermediate summated j.
+        const int minJ = abs(ssv[legid][0] - ssv[legid][1]);
+        const int maxJ = ssv[legid][0] + ssv[legid][1];
+        
+        double prefactor = 0;
+        for (int j = minJ; j <= maxJ; j += 2) {
+                fsv[4][legid] = j;
+                ssv[3][legid] = j;
+                ssv[legid][2] = j;
+                const double pref = swap12(ssv);
+                prefactor += pref * (permuteType == 4 ? swap23(fsv) : swap13(fsv));
+        }
+        return prefactor;
+}
+
+double SU2_prefactor_permutation(int (*symv)[3], int permuteType)
 {
         int sign;
         double val;
@@ -193,13 +237,14 @@ double SU2_prefactor_permutation(int symv[5][3], int permuteType)
                 return val * wigner6j(symv[0][1], symv[1][2], symv[4][0],
                                       symv[1][1], symv[0][0], symv[1][0]);
         case 1:
-                return perm23(symv);
+                return swap23(symv);
         case 2:
-                return perm13(symv);
+                return swap13(symv);
         case 3:
-                return perm12(symv);
+                return swap12(symv);
         case 4:
         case 5:
+                return cycleperm(symv, permuteType);
         default:
                 fprintf(stderr, "Error: invalid permuteType passed to %s.\n", __func__);
                 return 0;

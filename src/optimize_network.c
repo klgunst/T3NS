@@ -903,8 +903,8 @@ static struct decompose_info selectBestPerm(struct siteTensor * T3NS,
                 {0, 2, 1},
                 {2, 1, 0},
                 {1, 0, 2},
-                //{1, 2, 0},
-                //{2, 0, 1}
+                {1, 2, 0},
+                {2, 0, 1}
         };
 
         int accepted_perm = 0;

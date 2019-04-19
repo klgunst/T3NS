@@ -114,35 +114,20 @@ double Z2_prefactor_RDMinterm(int * symvalues, int bond);
  * @brief Calculates the prefactor for a certain permutation of the orbitals of
  * the multi-site tensor.
  *
- * The type of the permutation is given by:
+ * The type of the permutation and their prefactor is given by:
  *      * DMRG:
- *              * 0 : 1 ↔ 2
+ *              * 0 : 1 ↔ 2: \f$(-1)^{|i||j|}\f$
  *      * T3NS:
- *              * 1 : 2 ↔ 3 (1, 3, 2)
- *              * 2 : 1 ↔ 3 (3, 2, 1)
- *              * 3 : 1 ↔ 2 (2, 1, 3)
- *              * 4 : 1 ↔ 2, 2 ↔ 3 (2, 3, 1)
- *              * 5 : 1 ↔ 2, 1 ↔ 3 (3, 1, 2)
+ *              * 1 : 2 ↔ 3 (1, 3, 2): \f$(-1)^{|j||k|}\f$
+ *              * 2 : 1 ↔ 3 (3, 2, 1): \f$(-1)^{|i||k| + (|i| + |k|)|δ|}\f$
+ *              * 3 : 1 ↔ 2 (2, 1, 3): \f$(-1)^{|i||j| + (|i| + |j|)|γ|}\f$
+ *              * 4 : 1 ↔ 2, 2 ↔ 3 (2, 3, 1): \f$(-1)^{|k|(|i|+|j|) + (|i| + |k|)|γ|}\f$
+ *              * 5 : 1 ↔ 2, 1 ↔ 3 (3, 1, 2): \f$(-1)^{|i|(|j|+|k|) + (|i| + |j|)|γ|}\f$
  *
- * The @ref symv array is given by:
- *      * DMRG:
- *              * `symv[0,1][.]` are the irreps of the bonds of **new** 
- *              first and second physical site.
- *              * `symv[4][.]` are the irreps from the **old** second 
- *              physical site.
- *              * The other irreps are `NULL`.
- *      * T3NS:
- *              * `symv[0,1,2][.]` are the irreps of the bonds of **new**
- *              first, second an third physical site (i.e. the physical site 
- *              attached to the first, second or third bond of the branching
- *              site), or `NULL` if that site is not present.
- *              * `symv[3][.]` are the irreps from the **new** branching
- *              site.
- *              * `symv[4][.]` are the irreps from the **old** branching
- *              site.
+ * For the order of the symv, see the documentation on prefactor_permutation().
  *
- * @param [in] symv The different irreps of bonds.
+ * @param [in] symv The different parities of bonds.
  * @param [in] permuteType The type of the permutation.
  * @return The prefactor for this type of permutation.
  */
-double Z2_prefactor_permutation(int symv[5][3], int permuteType);
+double Z2_prefactor_permutation(int (*symv)[3], int permuteType);
