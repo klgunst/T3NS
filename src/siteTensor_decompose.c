@@ -115,7 +115,7 @@ static int getQRdimensions(struct qrdata * dat, int * M, int * N, int * minMN,
         assert(memsize % *N == 0);
 
         *minMN = *M < *N ? *M : *N;
-        return 1;
+        return *minMN != 0;
 }
 
 static void make_Q(struct qrdata * dat)
@@ -284,6 +284,7 @@ static int qrblocks(struct qrdata * dat, int Rblock)
         EL_TYPE * tau  = safe_malloc(minMN, *tau);
         int info = LAPACKE_dgeqrf(LAPACK_COL_MAJOR, M, N, mem, M, tau);
         if (info) {
+                fprintf(stderr, "%d %d %p %p\n", M, N, (void *) mem, (void *) tau);
                 fprintf(stderr, "dgeqrf exited with %d.\n", info);
                 safe_free(mem);
                 safe_free(tau);
@@ -1471,7 +1472,7 @@ void print_decompose_info(const struct decompose_info * info,
                 return;
         }
 
-        printf(prefix);
+        printf("%s", prefix);
         const char * type[] = {"QR @ ", "SVD @ ", "HOSVD @ "};
         const char * ctype = type[(!info->wasQR) * ((info->cuts > 1) + 1)];
         int length = strlen(prefix);

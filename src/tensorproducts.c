@@ -126,6 +126,7 @@ struct good_sectors find_good_sectors(const struct symsecs * symarr, int sign)
 
 #pragma omp parallel for schedule(dynamic) default(none) shared(res,sign) reduction(+:total)
         for (int i = 0; i < res.ss[0].nrSecs; ++i) {
+                res.sectors[i] = NULL;
                 if (res.ss[0].dims[i] == 0) { continue; }
                 res.sectors[i] = safe_malloc(res.ss[1].nrSecs, *res.sectors[i]);
                 for (int j = 0; j < res.ss[1].nrSecs; ++j) {
@@ -144,6 +145,7 @@ void destroy_good_sectors(struct good_sectors * gs)
 {
         for (int i = 0; i < gs->ss[0].nrSecs; ++i) {
                 for (int j = 0; j < gs->ss[1].nrSecs; ++j) {
+                        if (gs->sectors[i] == NULL) { continue; }
                         safe_free(gs->sectors[i][j].sectors);
                 }
                 safe_free(gs->sectors[i]);
@@ -172,12 +174,14 @@ struct iter_gs init_iter_gs(int tid, int idnr, const struct good_sectors * gs)
         if (idnr != 2) {
                 id[idnr] = tid;
                 for (id[oidnr] = 0; id[oidnr] < gs->ss[oidnr].nrSecs; ++id[oidnr]) {
+                        if (iter.gs->sectors[id[0]] == NULL) { continue; }
                         iter.length += gs->sectors[id[0]][id[1]].L;
                 }
                 iter.maxid[2] = gs->sectors[iter.iid[0]][iter.iid[1]].L;
         } else {
                 for (id[0] = 0; id[0] < gs->ss[0].nrSecs; ++id[0]) {
                         for (id[1] = 0; id[1] < gs->ss[1].nrSecs; ++id[1]) {
+                                if (iter.gs->sectors[id[0]] == NULL) { continue; }
                                 const struct gsec_arr * ga = 
                                         &gs->sectors[id[0]][id[1]];
                                 for (int k = 0; k < ga->L; ++k) {
@@ -208,6 +212,7 @@ bool iterate_gs(struct iter_gs * iter)
                         assert(iter->cnt + 1 == iter->length);
                         return false;
                 }
+                if (iter->gs->sectors[iid[0]] == NULL) { continue; }
                 const struct gsec_arr * gsa = &iter->gs->sectors[iid[0]][iid[1]];
 
                 if (iter->idnr != 2) {
