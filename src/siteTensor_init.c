@@ -78,6 +78,7 @@ static void make_1sblocks(struct siteTensor * tens)
                 for (int j = 0; j < symarr[1].nrSecs; ++j) {
                         const QN_TYPE ind = i + j * symarr[0].nrSecs;
                         const QN_TYPE inc = symarr[0].nrSecs * symarr[1].nrSecs;
+                        if (gs.sectors[i] == NULL) { continue; }
                         struct gsec_arr * gsa = &gs.sectors[i][j];
                         for (int k = 0; k < gsa->L; ++k) {
                                 if (gsa->sectors[k].d == 0) { continue; }
@@ -457,6 +458,9 @@ static void make_qnumbers_and_dims(const struct good_sectors * const gs)
 #pragma omp for schedule(static) collapse(2)
                 for (int i = 0; i < intsym[0].nrSecs; ++i) {
                         for (int j = 0; j < intsym[1].nrSecs; ++j) {
+                                if (gs[md.innersite].sectors[i] == NULL) {
+                                        continue;
+                                }
                                 struct gsec_arr * gsa = &gs[md.innersite].sectors[i][j];
                                 for (int k = 0; k < gsa->L; ++k) {
                                         const int ids[] = {
