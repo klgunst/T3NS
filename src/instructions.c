@@ -215,9 +215,9 @@ struct instructionset fetch_merge(const int bond, int isdmrg, int ** hss_ops)
                 instr->hss_of_new = NULL;
         }
 
-//#ifdef PRINT_INSTRUCTIONS
+#ifdef PRINT_INSTRUCTIONS
         print_instructions(&iset_merge[bond][isdmrg], bond, 0, 'm', isdmrg);
-//#endif
+#endif
         return iset_merge[bond][isdmrg];
 }
 
