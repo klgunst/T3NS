@@ -1,3 +1,5 @@
+set(CMAKE_INSTALL_RPATH "${CMAKE_INSTALL_PREFIX}/lib")
+
 set(T3NSLIB_SOURCE_FILES
     "Heff.c"
     "Wigner.c"
