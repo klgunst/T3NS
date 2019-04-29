@@ -17,6 +17,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <assert.h>
+#include <string.h>
 
 #include "instructions.h"
 #include "instructions_qc.h"
@@ -37,10 +38,53 @@ static struct instructionset (*iset_merge)[2] = NULL;
 
 //#define PRINT_INSTRUCTIONS
 
+static const struct instructionset invalid_instr = {
+        .nr_instr = -1,
+        .instr = NULL,
+        .step = 0,
+        .hss_of_new = NULL,
+        .nrMPOc = 0,
+        .MPOc = NULL,
+        .MPOc_beg = NULL
+};
+
 static void sort_instructions(struct instructionset * instructions)
 {
         inplace_quickSort(instructions->instr, instructions->nr_instr, 
                           SORT_INSTR, sizeof *instructions->instr);
+}
+
+static void sortinstructions_merge(struct instructionset *iset, int ** hss_ops)
+{
+        int * temp = safe_malloc(iset->nr_instr, *temp); 
+        const int hssdim = get_nr_hamsymsec();
+        for (int i = 0; i < iset->nr_instr; ++i) {
+                temp[i] = 0;
+                for (int j = iset->step - 1; j >= 0; --j) {
+                        temp[i] *= hssdim;
+                        temp[i] += hss_ops[j][iset->instr[i].instr[j]];
+                }
+        }
+        int * idx = quickSort(temp, iset->nr_instr, SORT_INT);
+
+        struct instruction * newi = safe_malloc(iset->nr_instr, *newi);
+        iset->MPOc_beg = safe_malloc(iset->nr_instr + 1, *iset->MPOc_beg);
+        iset->MPOc = safe_malloc(iset->nr_instr, *iset->MPOc);
+        iset->nrMPOc = 0;
+        for (int i = 0; i < iset->nr_instr; ++i) {
+                memcpy(&newi[i], &iset->instr[idx[i]], sizeof newi[i]);
+                if (i == 0 || iset->MPOc[iset->nrMPOc - 1] != temp[idx[i]]) {
+                        iset->MPOc_beg[iset->nrMPOc] = i;
+                        iset->MPOc[iset->nrMPOc++] = temp[idx[i]];
+                }
+        }
+        iset->MPOc_beg[iset->nrMPOc] = iset->nr_instr;
+        iset->MPOc_beg = realloc(iset->MPOc_beg, (iset->nrMPOc + 1) * sizeof *iset->MPOc_beg);
+        iset->MPOc = realloc(iset->MPOc, iset->nrMPOc * sizeof *iset->MPOc);
+        safe_free(iset->instr);
+        safe_free(idx);
+        safe_free(temp);
+        iset->instr = newi;
 }
 
 void clear_instructions(void)
@@ -65,13 +109,14 @@ void destroy_instructionset(struct instructionset * const instructions)
 {
         safe_free(instructions->instr);
         safe_free(instructions->hss_of_new);
+        safe_free(instructions->MPOc);
+        safe_free(instructions->MPOc_beg);
 }
 
 struct instructionset fetch_pUpdate(int bond, int is_left)
 {
         if (iset_pUpdate == NULL) {
                 iset_pUpdate = safe_malloc(netw.nr_bonds, *iset_pUpdate);
-                const struct instructionset invalid_instr = {.nr_instr = -1};
                 for (int i = 0; i < netw.nr_bonds; ++i) {
                         iset_pUpdate[i][0] = invalid_instr;
                         iset_pUpdate[i][1] = invalid_instr;
@@ -95,6 +140,8 @@ struct instructionset fetch_pUpdate(int bond, int is_left)
                         exit(EXIT_FAILURE);
                 }
                 sort_instructions(instr);
+                instr->MPOc = NULL;
+                instr->MPOc_beg = NULL;
         }
 #ifdef PRINT_INSTRUCTIONS
         print_instructions(&iset_pUpdate[bond][is_left], bond, is_left, 'd', 0);
@@ -106,7 +153,6 @@ struct instructionset fetch_bUpdate(int bond, int is_left)
 {
         if (iset_bUpdate == NULL) {
                 iset_bUpdate = safe_malloc(netw.nr_bonds, *iset_bUpdate);
-                const struct instructionset invalid_instr = {.nr_instr = -1};
                 for (int i = 0; i < netw.nr_bonds; ++i) {
                         iset_bUpdate[i][0] = invalid_instr;
                         iset_bUpdate[i][1] = invalid_instr;
@@ -130,6 +176,8 @@ struct instructionset fetch_bUpdate(int bond, int is_left)
                         exit(EXIT_FAILURE);
                 }
                 sort_instructions(instr);
+                instr->MPOc = NULL;
+                instr->MPOc_beg = NULL;
         }
 #ifdef PRINT_INSTRUCTIONS
         print_instructions(&iset_bUpdate[bond][is_left], bond, is_left, 't', 0);
@@ -137,12 +185,10 @@ struct instructionset fetch_bUpdate(int bond, int is_left)
         return iset_bUpdate[bond][is_left];
 }
 
-void fetch_merge(int (**instructions)[3], int * const nr_instructions, 
-                 double** const prefactors, const int bond, int isdmrg)
+struct instructionset fetch_merge(const int bond, int isdmrg, int ** hss_ops)
 {
         if (iset_merge == NULL) {
                 iset_merge = safe_malloc(netw.nr_bonds, *iset_merge);
-                const struct instructionset invalid_instr = {.nr_instr = -1};
                 for (int i = 0; i < netw.nr_bonds; ++i) {
                         iset_merge[i][0] = invalid_instr;
                         iset_merge[i][1] = invalid_instr;
@@ -165,81 +211,14 @@ void fetch_merge(int (**instructions)[3], int * const nr_instructions,
                                 __FILE__, __func__);
                         exit(EXIT_FAILURE);
                 }
+                sortinstructions_merge(instr, hss_ops);
                 instr->hss_of_new = NULL;
         }
-        *nr_instructions = iset_merge[bond][isdmrg].nr_instr;
-        *instructions = safe_malloc(*nr_instructions, **instructions);
-        *prefactors = safe_malloc(*nr_instructions, **prefactors);
-        for (int i = 0; i < *nr_instructions; ++i) {
-                (*instructions)[i][0] = iset_merge[bond][isdmrg].instr[i].instr[0];
-                (*instructions)[i][1] = iset_merge[bond][isdmrg].instr[i].instr[1];
-                (*instructions)[i][2] = iset_merge[bond][isdmrg].instr[i].instr[2];
-                (*prefactors)[i] = iset_merge[bond][isdmrg].instr[i].pref;
-        }
 
-#ifdef PRINT_INSTRUCTIONS
+//#ifdef PRINT_INSTRUCTIONS
         print_instructions(&iset_merge[bond][isdmrg], bond, 0, 'm', isdmrg);
-#endif
-}
-
-void sortinstructions_toMPOcombos(int (**instructions)[3], 
-                                  int ** const instrbegin, 
-                                  double ** const prefactors, 
-                                  const int nr_instructions, const int step, 
-                                  int * const hss_of_Ops[step], 
-                                  int ** const MPOinstr, int * const nrMPOinstr)
-{
-        int * temp = safe_malloc(nr_instructions, int); 
-        int (*newinstructions)[3] = safe_malloc(nr_instructions, **instructions);
-        double * newpref = safe_malloc(nr_instructions, double);
-        int * idx;
-        int i;
-        const int hssdim = get_nr_hamsymsec();
-
-        for (i = 0; i < nr_instructions; ++i)
-        {
-                int j;
-                temp[i] = 0;
-                for (j = step - 1; j >= 0; --j)
-                        temp[i] = hss_of_Ops[j][(*instructions)[i][j]] + 
-                                temp[i] * hssdim;
-        }
-
-        idx = quickSort(temp, nr_instructions, SORT_INT);
-
-        *instrbegin = safe_malloc(nr_instructions + 1, int);
-        *MPOinstr   = safe_malloc(nr_instructions, int);
-        *nrMPOinstr = 0;
-
-        (*instrbegin)[(*nrMPOinstr)] = 0;
-        (*MPOinstr)  [(*nrMPOinstr)] = temp[idx[0]];
-        ++(*nrMPOinstr);
-        newpref[0] = (*prefactors)[idx[0]];
-        for (i = 0; i < step; ++i)
-                newinstructions[0][i] = (*instructions)[idx[0]][i];
-        for (i = 1; i < nr_instructions; ++i) {
-                int j;
-                assert((*MPOinstr)[(*nrMPOinstr) - 1] <= temp[idx[i]]);
-
-                newpref[i] = (*prefactors)[idx[i]];
-                for (j = 0; j < step; ++j)
-                        newinstructions[i][j] = (*instructions)[idx[i]][j];
-
-                if ((*MPOinstr)[(*nrMPOinstr) - 1] != temp[idx[i]]) {
-                        (*instrbegin)[(*nrMPOinstr)] = i;
-                        (*MPOinstr)  [(*nrMPOinstr)] = temp[idx[i]];
-                        ++(*nrMPOinstr);
-                }
-        }
-        (*instrbegin)[(*nrMPOinstr)] = i;
-        *instrbegin = realloc(*instrbegin, (*nrMPOinstr + 1) * sizeof(int));
-        *MPOinstr   = realloc(*MPOinstr, *nrMPOinstr * sizeof(int));
-        safe_free(idx);
-        safe_free(temp);
-        safe_free(*instructions);
-        safe_free(*prefactors);
-        *instructions = newinstructions;
-        *prefactors = newpref;
+//#endif
+        return iset_merge[bond][isdmrg];
 }
 
 int get_next_unique_instr(int * curr_instr, const struct instructionset * set)

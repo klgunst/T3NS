@@ -33,7 +33,7 @@ struct rOperators null_rOperators(void)
         const struct rOperators nullops = {
                 .bond = -1,
                 .is_left = -1,
-                .P_operator = -1,
+                .P_operator = 0,
                 .nrhss = -1,
                 .begin_blocks_of_hss = NULL,
                 .qnumbers = NULL,

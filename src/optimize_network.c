@@ -198,7 +198,7 @@ static double optimize_siteTensor(const struct regime * reg,
         const int size = siteTensor_get_size(&o_dat.msiteObj);
 
         tic(timings, prep_heff);
-        init_Heffdata(&mv_dat, o_dat.operators, &o_dat.msiteObj, isdmrg);
+        init_Heffdata(&mv_dat, o_dat.operators, &o_dat.msiteObj);
         toc(timings, prep_heff);
 
         printf(">> Optimize site%s", o_dat.msiteObj.nrsites == 1 ? "" : "s");
@@ -207,7 +207,7 @@ static double optimize_siteTensor(const struct regime * reg,
                        i == o_dat.msiteObj.nrsites - 1 ? ": " : " &");
         }
         printf("(blocks: %d, qns: %d, dim: %d, instr: %d)\n", 
-               o_dat.msiteObj.nrblocks, mv_dat.nr_qnB, size, mv_dat.nr_instr);
+               o_dat.msiteObj.nrblocks, mv_dat.nr_qnB, size, mv_dat.iset.nr_instr);
 
         tic(timings, diag);
         EL_TYPE * diagonal = make_diagonal(&mv_dat);

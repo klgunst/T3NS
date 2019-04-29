@@ -17,6 +17,7 @@
 #define _GNU_SOURCE
 
 #include <stdlib.h>
+#include <stdio.h>
 #include <string.h>
 #include <assert.h>
 
@@ -26,9 +27,6 @@
 
 //#define SORT_DEBUG
 
-#ifdef SORT_DEBUG
-#include <stdio.h>
-#endif
 
 
 // Array such that sort_qn[i] will return SORT_QN_TYPEi

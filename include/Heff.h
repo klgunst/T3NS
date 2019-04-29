@@ -50,9 +50,7 @@ struct secondrun {
         struct newtooldmatvec ** ntom;
 };
 
-/**
- * A structure for all the data needed for the matvec routine.
- */
+/// A structure for all the data needed for the matvec routine.
 struct Heffdata {
         /// 1 if DMRG Heff, 0 if T3NS Heff.
         int isdmrg;
@@ -149,20 +147,9 @@ struct Heffdata {
         /** The instructions for which rOperators to combine to obtain the 
          * effective Hamiltonian.
          *
-         * This is a <tt>[2 * nrinstructions]</tt> array if 
-         * <tt>@ref isdmrg == 1</tt>.
-         *
-         * This is a <tt>[3 * nrinstructions]</tt> array if 
-         * <tt>@ref isdmrg == 0</tt>.
-         *
          * The instructions shoulde besorted such that instructions which have
          * a same combination of MPOs for the @ref rOperators are concurrent. */
-        int (*instructions)[3];
-        /// The beginning of the instructions for every @ref MPOs combination.
-        int * instrbegin;
-        int nr_instr;
-        /// The prefactors for the instructions.
-        double * prefactors;
+        struct instructionset iset;
 
         struct secondrun sr;
 };
@@ -174,11 +161,10 @@ struct Heffdata {
  * @param Operators [in] Array of size <tt>2 + !@p isdmrg</tt> with the needed 
  * rOperators to form the effective Hamiltonian.
  * @param siteObject [in] The siteObject to optimize.
- * @param isdmrg [in] 1 if dmrg-like effective Hamiltonian. 
  * 0 if T3NS-like effective Hamiltonian.
  */
 void init_Heffdata(struct Heffdata * data, const struct rOperators * Operators,
-                   const struct siteTensor * siteObject, int isdmrg);
+                   const struct siteTensor * siteObject);
 
 /**
  * The matvec routine to perform Ψ' = Heff Ψ.

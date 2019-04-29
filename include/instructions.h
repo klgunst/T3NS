@@ -53,20 +53,23 @@ struct instructionset {
          * Irrelevant if you are doing a matvec.
          */
         int * hss_of_new;
+
+
+        // These are only important for the merge instructions
+        
+        /// Number of different MPO combos (i.e. MPO1 x MPO2 x MPO3 combos) 
+        int nrMPOc;
+        /// The different MPO combos (column major)
+        int * MPOc;
+        /// The first instruction with a certain MPO combo
+        int * MPOc_beg;
 };
 
 struct instructionset fetch_pUpdate(int bond, int is_left);
 
 struct instructionset fetch_bUpdate(int bond, int is_left);
 
-void fetch_merge(int (**instructions)[3], int * const nr_instructions, 
-                 double** const prefactors, const int bond, int isdmrg);
-
-void sortinstructions_toMPOcombos(int (**instructions)[3], int ** const
-                                  instrbegin, double ** const prefactors, const
-                                  int nr_instructions, const int step, int *
-                                  const hss_of_Ops[step], int ** const
-                                  MPOinstr, int * const nrMPOinstr);
+struct instructionset fetch_merge(const int bond, int isdmrg, int ** hss_ops);
 
 int get_next_unique_instr(int * curr_instr, 
                           const struct instructionset * instructions);

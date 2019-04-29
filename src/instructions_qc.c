@@ -31,6 +31,16 @@
 // of it
 #define MEMINSTR 100000
 
+static const struct instructionset invalid_instr = {
+        .nr_instr = -1,
+        .instr = NULL,
+        .step = 0,
+        .hss_of_new = NULL,
+        .nrMPOc = 0,
+        .MPOc = NULL,
+        .MPOc_beg = NULL
+};
+
 static void add_instruction(struct instructionset * instructions,
                             const int * instr, double val)
 {
@@ -203,6 +213,7 @@ static void combine_all_operators(const struct opType * const ops, const char c,
 void QC_fetch_pUpdate(struct instructionset * instructions, 
                       int bond, int is_left)
 {
+        *instructions = invalid_instr;
         int bonds[3];
         const int site = netw.bonds[bond][is_left];
         const int psite = netw.sitetoorb[site];
@@ -244,6 +255,7 @@ void QC_fetch_bUpdate(struct instructionset * instructions,
                       int bond, int is_left)
 {
         int bonds[3];
+        *instructions = invalid_instr;
         get_bonds_of_site(netw.bonds[bond][!is_left], bonds);
         const int updateCase = !is_left ? bonds[1] == bond : 2;
 
@@ -271,6 +283,7 @@ void QC_fetch_bUpdate(struct instructionset * instructions,
 
 void QC_fetch_merge(struct instructionset * instructions, int bond, int isdmrg)
 {
+        *instructions = invalid_instr;
         struct opType ops[3];
         int order[3] = {0, 1, 2};
 
