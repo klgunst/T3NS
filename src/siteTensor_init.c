@@ -189,13 +189,17 @@ static void add_psite(int bond, int bid, const int * sitelist, int nr)
         }
 }
 
-static int init_md(struct siteTensor * T, const int * sitelist, int nr,
+static int init_md(struct siteTensor * T, const int * sitelistdumdum, int nr,
                    const struct siteTensor * T3NS)
 {
         md.T = T;
         T->nrsites = 0;
         md.nr_internal = 0;
         int branch = -1;
+        int sitelist[STEPSPECS_MSITES];
+        for (int i = 0; i < STEPSPECS_MSITES; ++i) {
+                sitelist[i] = T3NS[sitelistdumdum[i]].sites[0];
+        }
         for (int i = 0; i < nr; ++i) {
                 if (is_psite(sitelist[i])) { continue; }
                 if (branch != -1) {

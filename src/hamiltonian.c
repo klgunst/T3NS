@@ -397,6 +397,8 @@ void reinit_hamiltonian(void)
         case QC :
                 QC_reinit_hamiltonian();
                 break;
+        case DOCI :
+                break;
         default:
                 fprintf(stderr, "%s@%s: Not defined for the given hamiltonian.\n",
                         __FILE__, __func__);
