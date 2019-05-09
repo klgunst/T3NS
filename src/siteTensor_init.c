@@ -197,8 +197,9 @@ static int init_md(struct siteTensor * T, const int * sitelistdumdum, int nr,
         md.nr_internal = 0;
         int branch = -1;
         int sitelist[STEPSPECS_MSITES];
-        for (int i = 0; i < STEPSPECS_MSITES; ++i) {
-                sitelist[i] = T3NS[sitelistdumdum[i]].sites[0];
+        for (int i = 0; i < nr; ++i) {
+                sitelist[i] = T3NS == NULL ? sitelistdumdum[i] : 
+                        T3NS[sitelistdumdum[i]].sites[0];
         }
         for (int i = 0; i < nr; ++i) {
                 if (is_psite(sitelist[i])) { continue; }
