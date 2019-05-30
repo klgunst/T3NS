@@ -239,6 +239,8 @@ static void postprocess_rOperators(struct rOperators * rops,
 {
         int unupdated = -1, unupdatedbond = -1;
 
+        // In deze postprocess kan je dan de overlap objecten updaten
+
         /* first do all dmrg updates possible */
         tic(timings, ROP_UPDP);
         for (int i = 0; i < o_dat.specs.nr_bonds_opt; ++i) {

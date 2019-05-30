@@ -1050,6 +1050,8 @@ void matvecT3NS(const double * vec, double * result, void * vdata)
 {
         struct Heffdata * const data = vdata;
 
+        // Bijdrage van overlap voor excitaties in rekening brengen
+
         for (int i = 0; i < siteTensor_get_size(&data->siteObject); ++i) {
                 result[i] = 0;
         }
@@ -1218,6 +1220,10 @@ void init_Heffdata(struct Heffdata * data, const struct rOperators * Operators,
         adaptMPOcombos(data);
 
         data->sr.dimsofsb = NULL;
+
+
+        // Hier het berekenen van de overlapvector en optslaan in de data
+        // struct
 }
 
 static void destroy_secondrun(struct Heffdata * const data)
@@ -1263,6 +1269,8 @@ void destroy_Heffdata(struct Heffdata * const data)
         safe_free(data->MPOs);
 
         destroy_secondrun(data);
+
+        // Mogelijks free-en van excitatie data
 }
 
 EL_TYPE * make_diagonal(const struct Heffdata * const data)
@@ -1304,6 +1312,8 @@ EL_TYPE * make_diagonal(const struct Heffdata * const data)
                         safe_free(idd.tel[WORK1]);
                 }
         }
+
+        // Toepasselijk de overlapvector gebruiken voor de diagonal te maken
 
 #ifdef T3NS_HEFF_DEBUG
         check_diagonal((struct Heffdata *) data, result);

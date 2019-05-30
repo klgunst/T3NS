@@ -357,6 +357,15 @@ static int initialize_program(int argc, char *argv[],
         if (init_operators(rops, T3NS)) { return 1; }
         toc(&chrono, INIT_OPS);
 
+
+        /* Hier oproepen van init_OOcalculator is inderdaad goed.
+         *
+         * Sla je de objecten voor excitaties op als een global of pass je ze?
+         *
+         * (tweede is aan te raden, dan zullen we gewoon wat argumenten in paar
+         * functies moeten aanpassen)
+         */
+
         print_input(scheme);
 
         printf("Timers for preparing calculation:\n");
