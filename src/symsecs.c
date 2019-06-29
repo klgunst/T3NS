@@ -193,3 +193,23 @@ QN_TYPE translate_qn(QN_TYPE qn, const struct symsecs * oss,
         if (oids[0] < 0 || oids[1] < 0 || oids[2] < 0) { return -1; }
         return qntypize(nids, nss);
 }
+
+void compress_symsec(struct symsecs * nss, const struct symsecs * oss)
+{
+        deep_copy_symsecs(nss, oss);
+        inplace_quickSort(nss->irreps, nss->nrSecs, sort_int[bookie.nrSyms],
+                          sizeof *nss->irreps);
+        rm_duplicates(nss->irreps, &nss->nrSecs, sort_int[bookie.nrSyms],
+                      sizeof *nss->irreps);
+        nss->irreps = realloc(nss->irreps, nss->nrSecs * sizeof *nss->irreps);
+        nss->fcidims = realloc(nss->fcidims, nss->nrSecs * sizeof *nss->fcidims);
+        safe_free(nss->dims);
+        nss->dims = safe_calloc(nss->nrSecs, *nss->dims);
+
+        for (int i = 0; i < oss->nrSecs; ++i) {
+                const int id = search_symsec(oss->irreps[i], nss);
+                assert(id >= 0);
+
+                nss->dims[id] += oss->dims[i];
+        }
+}

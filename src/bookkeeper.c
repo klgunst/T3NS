@@ -512,7 +512,7 @@ int include_Z2(void)
         return 0;
 }
 
-static void DOCI_irrep_to_seniority(int irrepDOCI, int * irrepSEN,
+static void DOCI_irrep_to_qchem(int irrepDOCI, int * irrepSEN,
                                     enum symmetrygroup * sgs, int nrSyms)
 {
         int nrU1s = 0;
@@ -553,25 +553,25 @@ int translate_DOCI_to_qchem(struct bookkeeper * keeper,
                 }
         }
 
-        DOCI_irrep_to_seniority(keeper->target_state[0], keeper->target_state,
-                                keeper->sgs, keeper->nrSyms);
+        DOCI_irrep_to_qchem(keeper->target_state[0], keeper->target_state,
+                            keeper->sgs, keeper->nrSyms);
 
         for (int i = 0; i < keeper->nr_bonds; ++i) {
                 struct symsecs * ss = &keeper->v_symsecs[i];
                 for (int j = 0; j < ss->nrSecs; ++j) {
-                        DOCI_irrep_to_seniority(ss->irreps[j][0],
-                                                ss->irreps[j],
-                                                keeper->sgs,
-                                                keeper->nrSyms);
+                        DOCI_irrep_to_qchem(ss->irreps[j][0],
+                                            ss->irreps[j],
+                                            keeper->sgs,
+                                            keeper->nrSyms);
                 }
         }
         for (int i = 0; i < keeper->psites; ++i) {
                 struct symsecs * ss = &keeper->p_symsecs[i];
                 for (int j = 0; j < ss->nrSecs; ++j) {
-                        DOCI_irrep_to_seniority(ss->irreps[j][0],
-                                                ss->irreps[j],
-                                                keeper->sgs,
-                                                keeper->nrSyms);
+                        DOCI_irrep_to_qchem(ss->irreps[j][0],
+                                            ss->irreps[j],
+                                            keeper->sgs,
+                                            keeper->nrSyms);
                 }
         }
         return 0;
@@ -591,6 +591,55 @@ struct bookkeeper shallow_copy_bookkeeper(struct bookkeeper * tocopy)
                 copy.target_state[i] =tocopy->target_state[i];
         }
         return copy;
+}
+
+static int remove_seniority(struct bookkeeper * keeper)
+{
+        int idsen;
+        for (idsen = 0; idsen < keeper->nrSyms; ++idsen) {
+                if (keeper->sgs[idsen] == SENIORITY) { break; }
+        }
+        if (idsen == keeper->nrSyms) {
+                fprintf(stderr, "No seniority in the original bookkeeper.\n");
+                return 1;
+        }
+        --keeper->nrSyms;
+        for (int i = idsen; i < keeper->nrSyms; ++i) {
+                keeper->sgs[i] = keeper->sgs[i + 1];
+        }
+
+        for (int i = 0; i < keeper->nr_bonds; ++i) {
+                struct symsecs * ss = &keeper->v_symsecs[i];
+                for (int j = 0; j < ss->nrSecs; ++j) {
+                        for (int k = idsen; k < bookie.nrSyms; ++k) {
+                                ss->irreps[j][k] = ss->irreps[j][k + 1];
+                        }
+                }
+        }
+        for (int i = 0; i < keeper->psites; ++i) {
+                struct symsecs * ss = &keeper->p_symsecs[i];
+                for (int j = 0; j < ss->nrSecs; ++j) {
+                        for (int k = idsen; k < bookie.nrSyms; ++k) {
+                                ss->irreps[j][k] = ss->irreps[j][k + 1];
+                        }
+                }
+        }
+
+        return 0;
+}
+
+static int translate_old_to_new_sym(struct bookkeeper * keeper)
+{
+        if (keeper->nrSyms == 1 && keeper->sgs[0] == U1) {
+                // If it is a DOCI first transform to a qchem with seniority
+                return translate_DOCI_to_qchem(keeper, bookie.sgs, bookie.nrSyms);
+        }
+
+        if (keeper->nrSyms == bookie.nrSyms + 1) {
+                return remove_seniority(keeper);
+        }
+        fprintf(stderr, "No valid way of translating symmetries found.\n");
+        return 1;
 }
 
 static int translate_symmetries(struct bookkeeper * prevbookie, int * changedSS)
@@ -616,15 +665,20 @@ static int translate_symmetries(struct bookkeeper * prevbookie, int * changedSS)
                        i == bookie.nrSyms - 1 ? "" : " ");
         }
         printf("]\n");
-        if (translate_DOCI_to_qchem(prevbookie, bookie.sgs, bookie.nrSyms)) {
-                return 1;
-        }
+        if (translate_old_to_new_sym(prevbookie)) { return 1; }
+
         *changedSS = 1;
         bookie.v_symsecs = safe_malloc(bookie.nr_bonds, *bookie.v_symsecs);
         for (int i = 0; i < bookie.nr_bonds; ++i) {
-                deep_copy_symsecs(&bookie.v_symsecs[i],
-                                  &prevbookie->v_symsecs[i]);
+                // This function makes that equal symmetry sectors
+                // (due to the removal of the seniority e.g.) gets summed into
+                // 1 symmetry sector. 
+                compress_symsec(&bookie.v_symsecs[i],
+                                &prevbookie->v_symsecs[i]);
         }
+        struct symsecs ss_last = bookie.v_symsecs[get_outgoing_bond()];
+        // Set the dimension of all the symsecs in the last one to 1
+        for (int i = 0; i < ss_last.nrSecs; ++i) { ss_last.dims[i] = 1; }
         create_p_symsecs(&bookie);
         return 0;
 }
@@ -726,17 +780,24 @@ int preparebookkeeper(struct bookkeeper * prevbookie, int max_dim,
                       int interm_scale, int minocc, int * changedSS)
 {
         if (changedSS != NULL) { *changedSS = 0; }
+        // Create bookkeeper from scratch
         if (prevbookie == NULL) {
                 create_p_symsecs(&bookie);
                 create_v_symsecs(max_dim, interm_scale, minocc);
                 return 0;
         }
 
+        // Translate the symmetries of the bookkeeper
         if (translate_symmetries(prevbookie, changedSS)) { return 1; }
+
+        // Changing the target state
         if (change_targetstate(&bookie, changedSS)) { return 1; }
+
+        // Adding empty symmetry sectors
         if (minocc) {
                 printf(" > Adding previously removed symmetry sectors.\n");
                 printf("   The wave function will be filled with noise in these sectors.\n");
+                // The symmetries itself were not changed, just deepcopy
                 if (!*changedSS) {
                         *changedSS = 1;
                         // Copying bookkeeper
@@ -748,12 +809,17 @@ int preparebookkeeper(struct bookkeeper * prevbookie, int max_dim,
                         }
                         create_p_symsecs(&bookie);
                 }
+
                 struct symsecs * lofss = bookie.v_symsecs;
+                // create new virtual symsecs with minimal filling
                 create_v_symsecs(max_dim, interm_scale, minocc);
+
+                // Select highest dimension of lofss unless that one is zero
                 for (int i = 0; i < bookie.nr_bonds; ++i) {
                         select_highest_ss_dim(&lofss[i], 
                                               &bookie.v_symsecs[i]);
                 }
+                // Set dimensions of target bond on 1
                 for (int i = 0; i < bookie.nr_bonds; ++i) {
                         destroy_symsecs(&lofss[i]);
                 }

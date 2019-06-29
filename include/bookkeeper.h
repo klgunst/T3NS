@@ -147,7 +147,7 @@ int include_Z2(void);
  * @return 0 on success, 1 on failure.
  */
 int translate_DOCI_to_qchem(struct bookkeeper * keeper, 
-                                enum symmetrygroup * sgs, int nrSyms);
+                            enum symmetrygroup * sgs, int nrSyms);
 
 struct bookkeeper shallow_copy_bookkeeper(struct bookkeeper * tocopy);
 

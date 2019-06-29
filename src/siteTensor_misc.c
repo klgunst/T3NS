@@ -17,6 +17,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <assert.h>
+#include <stdbool.h>
 
 #ifdef T3NS_MKL
 #include "mkl.h"
@@ -249,6 +250,25 @@ double norm_tensor(struct siteTensor * tens)
         return norm;
 }
 
+static int get_offset(const struct symsecs * ss, int id)
+{
+        if (ss->bond == get_outgoing_bond()) {
+                assert(ss->dims[id] == 1);
+                return 0;
+        }
+
+        int * this_irrep = ss->irreps[id];
+        int offset = 0;
+        for (int i = 0; i < id; ++i) {
+                int j;
+                for (j = 0; j < bookie.nrSyms; ++j) {
+                        if (ss->irreps[i][j] != this_irrep[j]) { break; }
+                }
+                if (j == bookie.nrSyms) { offset += ss->dims[i]; }
+        }
+        return offset;
+}
+
 void change_sectors_tensor(struct siteTensor * oldtens, 
                            struct bookkeeper * prevbookie,
                            struct siteTensor * newtens)
@@ -260,40 +280,61 @@ void change_sectors_tensor(struct siteTensor * oldtens,
         struct symsecs newss[3];
         bookkeeper_get_symsecs_arr(prevbookie, 3, oldss, bonds);
         bookkeeper_get_symsecs_arr(&bookie, 3, newss, bonds);
-        int olddims[3] = {oldss[0].nrSecs, oldss[1].nrSecs, oldss[2].nrSecs};
-        int newdims[3] = {newss[0].nrSecs, newss[1].nrSecs, newss[2].nrSecs};
 
         for (int oldblock = 0; oldblock < oldtens->nrblocks; ++oldblock) {
-                int oldid[3];
-                QN_TYPE oldqn = oldtens->qnumbers[oldblock];
-                for (int i = 0; i < 3; ++i) {
-                        oldid[i] = oldqn % olddims[i];
-                        oldqn /= olddims[i];
-                }
-                assert(oldqn == 0);
+                int oldid[3], newid[3];
+                indexize(oldid, oldtens->qnumbers[oldblock], oldss);
 
-                int newid[3];
                 newid[0] = search_symsec(oldss[0].irreps[oldid[0]], &newss[0]);
-                if (newid[0] == -1 ) { continue; }
+                if (newid[0] == -1) { continue; }
                 newid[1] = search_symsec(oldss[1].irreps[oldid[1]], &newss[1]);
-                if (newid[0] == -1 ) { continue; }
+                if (newid[1] == -1) { continue; }
                 newid[2] = search_symsec(oldss[2].irreps[oldid[2]], &newss[2]);
-                if (newid[0] == -1 ) { continue; }
+                if (newid[2] == -1) { continue; }
 
-                const QN_TYPE newqn = newid[0] + newid[1] * newdims[0] +
-                        newid[2] * newdims[0] * newdims[1];
+                const QN_TYPE newqn = qntypize(newid, newss);
 
                 const int newblock = binSearch(&newqn, newtens->qnumbers,
                                                newtens->nrblocks, SORT_QN_TYPE,
                                                sizeof newqn);
 
                 if (newblock == -1) { continue; }
-                const int N = get_size_block(&newtens->blocks, newblock);
-                assert(N == get_size_block(&oldtens->blocks, oldblock));
 
-                EL_TYPE * newtel = get_tel_block(&newtens->blocks, newblock);
+                // ** Now copy the block **
+                // Leading dimensions of the block
+                const int LD[] = {
+                        newss[0].dims[newid[0]],
+                        newss[1].dims[newid[1]],
+                        newss[2].dims[newid[2]]
+                };
+                // The minor dimension of the block
+                const int MD[] = {
+                        oldss[0].dims[oldid[0]],
+                        oldss[1].dims[oldid[1]],
+                        oldss[2].dims[oldid[2]]
+                };
+
+                const int offset[] = {
+                        get_offset(&oldss[0], oldid[0]),
+                        get_offset(&oldss[1], oldid[1]),
+                        get_offset(&oldss[2], oldid[2])
+                };
+
                 EL_TYPE * oldtel = get_tel_block(&oldtens->blocks, oldblock);
-                for (int i = 0; i < N; ++i) { newtel[i] = oldtel[i]; }
+                EL_TYPE * const newtel = get_tel_block(&newtens->blocks, newblock)
+                        + offset[0] + offset[1] * LD[0] + offset[2] * LD[0] * LD[1];
+
+                for (int k = 0; k < MD[2]; ++k) {
+                        double * const nt3 = newtel + k * LD[0] * LD[1];
+                        double * const ot3 = oldtel + k * MD[0] * MD[1];
+                        for (int j = 0; j < MD[1]; ++j) {
+                                double * const nt2 = nt3 + j * LD[0];
+                                double * const ot2 = ot3 + j * MD[0];
+                                for (int i = 0; i < MD[0]; ++i) {
+                                        nt2[i] = ot2[i];
+                                }
+                        }
+                }
         }
 }
 

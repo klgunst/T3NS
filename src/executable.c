@@ -24,7 +24,7 @@
 #include <sys/types.h>
 #include <assert.h> 
 
-#include "T3NSConfig.h.in"
+#include "T3NSConfig.h"
 #include "io.h"
 #include "io_to_disk.h"
 #include "macros.h"
@@ -386,6 +386,7 @@ int main(int argc, char *argv[])
                 return EXIT_FAILURE;
         }
         execute_optScheme(T3NS, rops, &scheme, pbuffer);
+        /*
         struct disentScheme sch = {
                 .max_sweeps = 30,
                 .gambling = true,
@@ -400,6 +401,7 @@ int main(int argc, char *argv[])
         init_operators(&rops, &T3NS);
         execute_optScheme(T3NS, rops, &scheme, pbuffer);
         disentangle_state(T3NS, &sch, 0);
+        */
         print_target_state_coeff(T3NS);
 
         cleanup_before_exit(&T3NS, &rops, &scheme);

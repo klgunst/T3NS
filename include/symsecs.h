@@ -196,3 +196,13 @@ inline void translate_indices(const int * oids, const struct symsecs * oss,
  */
 QN_TYPE translate_qn(QN_TYPE qn, const struct symsecs * oss,
                   const struct symsecs * nss);
+
+/**
+ * @brief Compresses the oss to nss.
+ *
+ * This is useful for when you delete certain quantum numbers. For example if
+ * we delete the seniority number than several sectors in oss shall combine to
+ * the same sector in nss. This summates those dimensions and sorts the array
+ * appropriately.
+ */
+void compress_symsec(struct symsecs * nss, const struct symsecs * oss);

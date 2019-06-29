@@ -594,38 +594,43 @@ int init_wave_function(struct siteTensor ** T3NS, int changedSS,
 
         double norm = 10;
         double noise = 1;
-        while (norm > 0.05) {
-                struct siteTensor * newT3NS = safe_malloc(netw.sites, *newT3NS);
-                for (int i = 0 ; i < netw.sites; ++i) {
-                        assert((*T3NS)[i].nrsites == 1);
-                        // Initialize the new site tensor to zero
-                        init_1siteTensor(&newT3NS[i], (*T3NS)[i].sites[0], '0');
-                        // Add some noise
-                        add_noise(&newT3NS[i], noise);
-                        // Fill in the sectors (so the unfilled sectors are filled with
-                        // some noise).
-                        change_sectors_tensor(&(*T3NS)[i], prevbookie, &newT3NS[i]);
-                }
-
-                const int lastsite = netw.bonds[get_outgoing_bond()][0];
-                if (recanonicalize_T3NS(newT3NS, lastsite)) { return 1; }
-                norm = 2 - 2 / norm_tensor(&newT3NS[lastsite]);
-                printf(" > (noise %g) ||Psi_new - Psi_orig||^2 = %g\n", noise, norm);
-                print_target_state_coeff(newT3NS);
-                noise /= 2;
-                if (norm > 0.05) {
-                        for (int i = 0 ; i < netw.sites; ++i) {
-                                destroy_siteTensor(&newT3NS[i]);
-                        }
-                        safe_free(newT3NS);
-                } else {
-                        for (int i = 0 ; i < netw.sites; ++i) {
-                                destroy_siteTensor(&(*T3NS)[i]);
-                        }
-                        safe_free((*T3NS));
-                        *T3NS = newT3NS;
-                }
+        struct siteTensor * origT3NS = safe_malloc(netw.sites, *origT3NS);
+        for (int i = 0 ; i < netw.sites; ++i) {
+                assert((*T3NS)[i].nrsites == 1);
+                // Initialize the new site tensor to zero
+                init_1siteTensor(&origT3NS[i], (*T3NS)[i].sites[0], '0');
+                // Fill in the sectors
+                change_sectors_tensor(&(*T3NS)[i], prevbookie, &origT3NS[i]);
         }
+
+        fprintf(stderr, "WARNING: The calculation of the overlap is not correct anymore.\n");
+        while (norm > 0.05) {
+                for (int i = 0 ; i < netw.sites; ++i) {
+                        destroy_siteTensor(&(*T3NS)[i]);
+                }
+                // add noise
+                for (int i = 0 ; i < netw.sites; ++i) {
+                        deep_copy_siteTensor(&(*T3NS)[i], &origT3NS[i]);
+                        add_noise(&(*T3NS)[i], noise);
+                }
+                // Normalizes the newT3NS
+                const int lastsite = netw.bonds[get_outgoing_bond()][0];
+                if (recanonicalize_T3NS(*T3NS, lastsite)) { return 1; }
+
+                norm = 2 - 2 / norm_tensor(&(*T3NS)[lastsite]);
+                // norm_tensor(&newT3NS[lastsite]); // needed to normalize the T3NS
+                // Once this all is correct, move recanonicalize_T3NS to after
+                // checking of overlap!
+
+                // NOTE this overlap calculation is not valid anymore!
+                printf(" > (noise %g) ||Psi_new - Psi_orig||^2 = %g\n", noise, norm);
+                print_target_state_coeff(*T3NS);
+                noise *= 0.5;
+        }
+        for (int i = 0 ; i < netw.sites; ++i) {
+                destroy_siteTensor(&origT3NS[i]);
+        }
+        safe_free(origT3NS);
         return 0;
 }
 
