@@ -259,7 +259,7 @@ static void cleanup_before_exit(struct siteTensor **T3NS,
                                 struct rOperators **rops, 
                                 struct optScheme * const scheme)
 {
-        destroy_network();
+        destroy_network(&netw);
         destroy_bookkeeper(&bookie);
         destroy_T3NS(T3NS);
         destroy_all_rops(rops);
@@ -321,10 +321,10 @@ static int initialize_program(int argc, char *argv[],
                 toc(&chrono, READ_HDF5);
         }
 
-        // Read the input file.
         struct bookkeeper prevbookie = shallow_copy_bookkeeper(&bookie);
 
         tic(&chrono, READ_INPUTS);
+        // Read the input file.
         if (read_inputfile(arguments.args[0], scheme, &minocc, 
                            arguments.h5file == NULL)) {
                 return 1;

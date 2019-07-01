@@ -369,15 +369,15 @@ void make_network(const char * netwfile)
         }
 }
 
-void destroy_network(void)
+void destroy_network(struct network * net)
 {
-        safe_free(netw.bonds);
-        safe_free(netw.sitetoorb);
-        safe_free(netw.nr_left_psites);
-        for (int i = 0; i < netw.nr_bonds; ++i)
-                safe_free(netw.order_psites[i]);
-        safe_free(netw.order_psites);
-        safe_free(netw.sweep);
+        safe_free(net->bonds);
+        safe_free(net->sitetoorb);
+        safe_free(net->nr_left_psites);
+        for (int i = 0; i < net->nr_bonds; ++i)
+                safe_free(net->order_psites[i]);
+        safe_free(net->order_psites);
+        safe_free(net->sweep);
 }
 
 void print_network(void)
@@ -852,4 +852,42 @@ int get_outgoing_bond(void)
                 if (netw.bonds[i][1] == -1) { return i; }
         }
         return -1;
+}
+
+void fillin_network(struct network * res, int nr_bonds, int psites, int sites,
+                    int (*bonds)[2], int * sitetoorb, int sweeplength, int * sweep)
+{
+        netw.nr_bonds = nr_bonds;
+        netw.psites = psites;
+        netw.sites = sites;
+        netw.bonds = safe_malloc(nr_bonds, *netw.bonds);
+        for (int i = 0; i < nr_bonds; ++i) {
+                netw.bonds[i][0] = bonds[i][0];
+                netw.bonds[i][1] = bonds[i][1];
+        }
+        netw.sitetoorb = safe_malloc(sites, *netw.sitetoorb);
+        for (int i = 0; i < sites; ++i) {
+                netw.sitetoorb[i] = sitetoorb[i];
+        }
+
+        if (check_network()) {
+                fprintf(stderr, "Something is wrong with your network");
+                exit(EXIT_FAILURE);
+        }
+
+        create_nr_left_psites();
+        create_order_psites();
+
+        if (sweeplength == 0 || sweep == NULL) {
+                if(make_simplesweep(false, &netw.sweep, &netw.sweeplength)) {
+                        exit(EXIT_FAILURE);
+                }
+        } else {
+                netw.sweeplength = sweeplength;
+                netw.sweep = safe_malloc(sweeplength, *netw.sweep);
+                for (int i = 0; i < sweeplength; ++i) {
+                        netw.sweep[i] = sweep[i];
+                }
+        }
+        *res = netw;
 }

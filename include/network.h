@@ -92,7 +92,7 @@ void make_network(const char * netwfile);
 /**
  * @brief Destroys the network object.
  */
-void destroy_network(void);
+void destroy_network(struct network * net);
 
 /**
  * @brief Prints the network.
@@ -199,3 +199,6 @@ void create_order_psites(void);
 int  make_simplesweep(bool inclborder, int ** sweep, int * swlength);
 
 int get_outgoing_bond(void);
+
+void fillin_network(struct network * res, int nr_bonds, int psites, int sites,
+                    int (*bonds)[2], int * sitetoorb, int sweeplength, int * sweep);
