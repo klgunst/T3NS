@@ -220,7 +220,7 @@ static struct rOperators init_sum_unique(const struct rOperators * ur,
                 for (int j = 0; j < N + 1; ++j) {
                         nOp->beginblock[j] = oOp->beginblock[j];
                 }
-                nOp->tel = safe_calloc(nOp->beginblock[N], *nOp->tel);
+                nOp->tel = safe_malloc(nOp->beginblock[N], *nOp->tel);
         }
         return res;
 }
@@ -229,38 +229,70 @@ struct rOperators sum_unique_rOperators(const struct rOperators * ur,
                                         const struct instructionset * set)
 {
         struct rOperators res = init_sum_unique(ur, set);
-        const struct sparseblocks * uOp = &ur->operators[0];
+        struct sum_instr {
+                const EL_TYPE * uOpblock;
+                EL_TYPE pref;
+        };
+        int * nrins = safe_calloc(res.nrops, *nrins);
+        struct sum_instr ** ins = safe_malloc(res.nrops, *ins);
+        int inssize = set->nr_instr / res.nrops;
+
+        // Initialize arrays, they can grow if too small
+        for (int i = 0; i < res.nrops; ++i) {
+                ins[i] = safe_malloc(inssize, **ins);
+        }
+
+        // Initialize instruction data for the summation
         struct instruction pinstr = {0};
+
+        int cuOp = 0;
         for (int i = 0; i < set->nr_instr; ++i) {
                 const struct instruction instr = set->instr[i];
-                const int nrbl = nblocks_in_operator(&res, instr.instr[2]);
-                struct sparseblocks * const nOp = &res.operators[instr.instr[2]];
-                const int N = nOp->beginblock[nrbl];
-
-                /* If the instruction is not the same as the previous one,
-                 * you have to increment uOp. */
                 if (i != 0 && (instr.instr[0] != pinstr.instr[0] ||
                                instr.instr[1] != pinstr.instr[1] ||
                                set->hss_of_new[instr.instr[2]] != 
                                set->hss_of_new[pinstr.instr[2]])) {
-                        ++uOp;
+                        ++cuOp;
                 }
-                assert(N == uOp->beginblock[nrbl]);
 
-                // Could be better parallelized
-#pragma omp parallel for schedule(static) default(none) shared(uOp)
-                for (int j = 0; j < N; ++j) {
-                        nOp->tel[j] += instr.pref * uOp->tel[j];
+                const int idr = instr.instr[2];
+                assert(idr <= res.nrops && idr >= 0);
+                // Grow array with inssize
+                if (nrins[idr] != 0 && (nrins[idr] % inssize) == 0) {
+                        const int size = nrins[idr] + inssize;
+                        ins[idr] = realloc(ins[idr], size * sizeof *ins[idr]);
+                        assert(ins[idr] != NULL);
                 }
+                ins[idr][nrins[idr]].uOpblock = ur->operators[cuOp].tel;
+                ins[idr][nrins[idr]].pref = instr.pref; 
+
+                ++nrins[idr];
                 pinstr = instr;
         }
-        assert(uOp - ur->operators + 1 == ur->nrops);
 
-        // Kick out all the symsecs that have only zero tensor elements out
-#pragma omp parallel for schedule(dynamic) default(none) shared(res)
+#pragma omp parallel for schedule(dynamic) default(none) shared(res, nrins, ins)
         for (int i = 0; i < res.nrops; ++i) {
-                kick_zero_blocks(&res.operators[i], nblocks_in_operator(&res, i));
+                const int nrbl = nblocks_in_operator(&res, i);
+                struct sparseblocks * const nOp = &res.operators[i];
+                const int N = nOp->beginblock[nrbl];
+                EL_TYPE * nOptel = nOp->tel;
+
+                struct sum_instr * ii = &ins[i][0];
+                EL_TYPE pref = ii->pref;
+                const EL_TYPE * uOp = ii->uOpblock;
+                for (int k = 0; k < N; ++k) { nOptel[k] = pref * uOp[k]; }
+
+                ++ii;
+                for (; ii < &ins[i][nrins[i]]; ++ii) {
+                        pref = ii->pref;
+                        uOp = ii->uOpblock;
+                        for (int k = 0; k < N; ++k) { nOptel[k] += pref * uOp[k]; }
+                }
+
+                kick_zero_blocks(nOp, nrbl);
         }
+        safe_free(nrins);
+        for (int i = 0; i < res.nrops; ++i) { safe_free(ins[i]); }
         return res;
 }
 
