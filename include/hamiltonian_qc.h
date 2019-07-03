@@ -73,3 +73,6 @@ void QC_read_hamiltonian_from_disk(const hid_t id);
 int QC_consistent_state(int * ts);
 
 void QC_reinit_hamiltonian(void);
+
+void QC_ham_from_integrals(int orbs, int * irreps, double * h1e, double * eri,
+                           double nuc, int su2, int sen);

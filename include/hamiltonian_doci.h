@@ -197,3 +197,5 @@ void DOCI_get_string_of_siteops(char * buffer, int siteop, int site);
  * @return 1 if successful, 0 otherwise.
  */
 int DOCI_consistent_state(int * ts);
+
+void DOCI_ham_from_integrals(int orbs, double * h1e, double * eri, double nuc);

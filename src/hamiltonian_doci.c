@@ -202,6 +202,31 @@ static void prepare_MPOsymsecs(void)
         }
 }
 
+void DOCI_ham_from_integrals(int orbs, double * h1e, double * eri, double nuc)
+{
+        hdat.norb = orbs;
+        const int orb2 = orbs * orbs;
+        hdat.core_energy = nuc;
+        hdat.Vij = safe_malloc(hdat.norb, *hdat.Vij);
+        for (int i = 0; i < hdat.norb; ++i) {
+                hdat.Vij[i] = safe_calloc(hdat.norb, *hdat.Vij[i]);
+        }
+        hdat.Tii = safe_calloc(hdat.norb, *hdat.Tii);
+        for (int i = 0; i < orbs; ++i) { hdat.Tii[i] = h1e[i * (orbs + 1)]; }
+
+        for (int i = 0; i < orbs; ++i) {
+                // Exchange
+                for (int j = 0; j < i; ++j) {
+                        hdat.Vij[i][j] = eri[(i + j * orbs) * (orb2 + 1)];
+                }
+                for (int j = i; j < orbs; ++j) {
+                        hdat.Vij[i][j] = eri[(i + j * orb2) * (orbs + 1)];
+                }
+        }
+
+        prepare_MPOsymsecs();
+}
+
 void DOCI_make_hamiltonian(char hamiltonianfile[])
 {
         printf(" >> Reading FCIDUMP %s\n", hamiltonianfile);

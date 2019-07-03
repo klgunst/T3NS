@@ -380,21 +380,21 @@ void destroy_network(struct network * net)
         safe_free(net->sweep);
 }
 
-void print_network(void)
+void print_network(const struct network * net)
 {
         printf("################################### NETWORK ####################################\n");
         printf("Site to orbital: ");
-        for (int i = 0; i < netw.sites; ++i) {
+        for (int i = 0; i < net->sites; ++i) {
                 if (is_psite (i)) {
-                        printf("%d", netw.sitetoorb[i]);
+                        printf("%d", net->sitetoorb[i]);
                 } else {
                         printf("*");
                 }
-                printf("%c", i < netw.sites - 1 ? ' ' : '\n');
+                printf("%c", i < net->sites - 1 ? ' ' : '\n');
         }
         printf("Bonds : \n");
-        for (int i = 0; i < netw.nr_bonds; ++i) 
-                printf("%d -> %d\n", netw.bonds[i][0], netw.bonds[i][1]);
+        for (int i = 0; i < net->nr_bonds; ++i) 
+                printf("%d -> %d\n", net->bonds[i][0], net->bonds[i][1]);
         printf("################################################################################\n\n");
 }
 

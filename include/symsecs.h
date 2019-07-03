@@ -19,6 +19,7 @@
 #include "macros.h"
 #include "network.h"
 
+extern const int maxsymmetries;
 /**
  * \file symsecs.h
  * \brief Header file for the bookkeeper struct and related methods.
@@ -33,7 +34,7 @@ struct symsecs {
         /// The bond where the symsecs is situated.
         int bond;
         int nrSecs;    /**< The number of different symmetry sectors possible in the bond. */
-        int (*irreps)[MAX_SYMMETRIES];      
+        int (*irreps)[MAX_SYMMETRIES];
                           /**< The irreps that specify every symmetry sector
                            *   Array with length nrSecs * nr_symmetries,
                            *

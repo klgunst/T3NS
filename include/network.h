@@ -97,7 +97,7 @@ void destroy_network(struct network * net);
 /**
  * @brief Prints the network.
  */
-void print_network(void);
+void print_network(const struct network * net);
 
 /// @brief returns 1 if the given site is a physical site, otherwise 0.
 int is_psite(int site);

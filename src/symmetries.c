@@ -23,6 +23,8 @@
 #include "symmetries.h"
 #include "macros.h"
 
+const int maxsymmetries = MAX_SYMMETRIES;
+
 int get_max_irrep(int (*prop1)[MAX_SYMMETRIES], int nr1, 
                   int (*prop2)[MAX_SYMMETRIES], int nr2,
                   enum symmetrygroup sg, int whichsym) { switch(sg) {

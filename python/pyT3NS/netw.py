@@ -1,4 +1,61 @@
 #!/bin/env python3
+from ctypes import cdll, Structure, c_int, POINTER, c_void_p, byref
+
+libt3ns = cdll.LoadLibrary("libT3NS.so")
+
+
+class cNetwork(Structure):
+    _fields_ = [
+        ("nr_bonds", c_int),
+        ("psites", c_int),
+        ("sites", c_int),
+        ("bonds", POINTER(c_int * 2)),
+        ("sitetoorb", POINTER(c_int)),
+        ("nr_left_psites", POINTER(c_int)),
+        ("order_psites", POINTER(c_void_p)),
+        ("sweeplength", c_int),
+        ("sweep", POINTER(c_int))
+    ]
+
+    def __init__(self, network):
+        if not isinstance(network, Network):
+            raise ValueError('network should be a Network instance')
+        nr_bonds = len(network.bonds)
+        toadd = {
+            'P': 0,
+            'B': network.nrP,
+            'Vacuum': -1
+        }
+        bonds = ((c_int * 2) * nr_bonds)(
+            *[(c_int * 2)(*[toadd[s.kind] + s.nr for s in bond])
+              for bond in network.bonds]
+        )
+        sitetoorb = network.sitemap + [-1] * network.nrB
+        sitetoorb = (c_int * len(sitetoorb))(*sitetoorb)
+        if hasattr(network, 'sweep'):
+            sweep = (c_int * len(network.sweep))(*network.sweep)
+            sweeplength = len(network.sweep)
+        else:
+            sweep = None
+            sweeplength = 0
+
+        fillin_network = libt3ns.fillin_network
+        fillin_network.argtypes = [POINTER(cNetwork), c_int, c_int, c_int,
+                                   POINTER((c_int * 2)), POINTER(c_int), c_int,
+                                   POINTER(c_int)]
+
+        fillin_network(byref(self), nr_bonds, network.nrP, network.nrB +
+                       network.nrP, bonds, sitetoorb, sweeplength, sweep)
+
+    def __str__(self):
+        from io import StringIO
+        from contextlib import redirect_stdout
+        print_network = libt3ns.print_network
+        print_network.argtypes = [POINTER(cNetwork)]
+        f = StringIO()
+        with redirect_stdout(f):
+            print_network(byref(self))
+        return f.getvalue()
 
 
 class Site:
@@ -93,10 +150,31 @@ class Network:
             self.join(part3, jointo=self.bonds[0][1])
 
     def __str__(self):
-        result = "nrP = {}, nrB = {}".format(self.nrP, self.nrB)
-        for lel in self.bonds:
-            result += "\n" + str(lel[0]) + "\t" + str(lel[1])
-        return result
+        assert self.nrB + self.nrP == len(self.sites)
+        res = ""
+        res += f"NR_SITES = {self.nrB + self.nrP}\n"
+        res += f"NR_PHYS_SITES = {self.nrP}\n"
+        res += f"NR_BONDS = {len(self.bonds)}\n"
+        if hasattr(self, 'sweep'):
+            res += f"SWEEP_LENGTH = {len(self.sweep)}\n"
+        res += "&END\n"
+        for p in range(self.nrP):
+            res += str(self.sitemap[p]) + " "
+        res += "* " * self.nrB + "\n"
+        res += "&END\n"
+        if hasattr(self, 'sweep'):
+            for swp in self.sweep:
+                res += str(swp) + " "
+            res += "&END\n"
+        toadd = {
+            'P': 0,
+            'B': self.nrP,
+            'Vacuum': -1
+        }
+        for bond in self.bonds:
+            res += f"{toadd[bond[0].kind] + bond[0].nr}\t"
+            res += f"{toadd[bond[1].kind] + bond[1].nr}\n"
+        return res
 
     def readnetworkfile(self, filename):
         with open(filename) as f:
@@ -323,43 +401,6 @@ class Network:
                         break
         self.adapt_numbering(oldnrP, oldnrB)
 
-    def printnetworkfile(self, filename=None):
-        from sys import stdout
-        if filename is None:
-            file = stdout
-        else:
-            file = open(filename, 'w')
-        assert self.nrB + self.nrP == len(self.sites)
-        print("NR_SITES =", self.nrB + self.nrP, file=file)
-        print("NR_PHYS_SITES =", self.nrP, file=file)
-        print("NR_BONDS =", len(self.bonds), file=file)
-        if hasattr(self, 'sweep'):
-            print("SWEEP_LENGTH =", len(self.sweep), file=file)
-        print("&END", file=file)
-        result = ""
-        for p in range(self.nrP):
-            result += str(self.sitemap[p]) + " "
-        print(result + "* " * self.nrB, file=file)
-        print("&END", file=file)
-        result = ""
-        if hasattr(self, 'sweep'):
-            for swp in self.sweep:
-                result += str(swp) + " "
-            print(result, file=file)
-            print("&END", file=file)
-        toadd = {
-            'P': 0,
-            'B': self.nrP,
-            'Vacuum': -1
-        }
-        for bond in self.bonds:
-            result = str(toadd[bond[0].kind] + bond[0].nr) + "\t"
-            result += str(toadd[bond[1].kind] + bond[1].nr)
-            print(result, file=file)
-        if filename is not None:
-            file.flush()
-            file.close()
-
     def calcDistances(self):
         from numpy import ones
         assert self.nrB + self.nrP == len(self.sites)
@@ -412,6 +453,16 @@ class Network:
         assert Iij.shape == Dij.shape
         self.sitemap, cost = montecarlo(Iij, Dij, **kwargs)
         return cost
+
+    def pass_network(self):
+        '''Fills in the static global network structure in the T3NS.so library
+        and puts a pointer to that global network in the network structure
+        '''
+        if hasattr(self, 'cnetwork'):
+            destroy_network = libt3ns.destroy_network
+            destroy_network.argtypes = [POINTER(cNetwork)]
+            destroy_network(byref(self.cnetwork))
+        self.cnetwork = cNetwork(self)
 
 
 def add_one(toadd, distances, currsiteid, sitetoadd):

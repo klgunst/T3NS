@@ -889,3 +889,10 @@ void bookkeeper_get_symsecs_arr(const struct bookkeeper * keeper, int n,
         }
 }
 
+void initbookie(struct bookkeeper * keeper, struct bookkeeper * pbookie,
+                int max_dim, int minocc)
+{
+        int changedSS = 0;
+        preparebookkeeper(pbookie, max_dim, 1, minocc, &changedSS);
+        *keeper = bookie;
+}

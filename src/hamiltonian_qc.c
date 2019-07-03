@@ -160,7 +160,34 @@ void QC_make_hamiltonian(char hamiltonianfile[], int su2, int has_seniority)
 
         printf(">> Preparing hamiltonian...\n");
         form_integrals(one_p_int);
+        safe_free(one_p_int);
 
+
+        if (!check_orbirrep()) {
+                fprintf(stderr,
+                        "ERROR : The irreps given in the fcidump can not be correct irreps for\n"
+                        "        the point group symmetry defined in the inputfile,\n"
+                        "        if there is one inputted at least.\n");
+                exit(EXIT_FAILURE);
+        }
+        prepare_MPOsymsecs();
+        init_opType_array(su2);
+}
+
+void QC_ham_from_integrals(int orbs, int * irreps, double * h1e, double * eri,
+                           double nuc, int su2, int sen)
+{
+        hdat.su2 = su2;
+        hdat.has_seniority = sen;
+        const int orbs4 = orbs * orbs * orbs * orbs;
+        hdat.norb = orbs;
+        hdat.orbirrep = safe_malloc(hdat.norb, int);
+        for (int i = 0; i < orbs; ++i) { hdat.orbirrep[i] = irreps[i]; }
+        hdat.Vijkl = safe_malloc(orbs4, *hdat.Vijkl);
+        for (int i = 0; i < orbs4; ++i) { hdat.Vijkl[i]= eri[i]; }
+        hdat.core_energy = nuc;
+
+        form_integrals(h1e);
 
         if (!check_orbirrep()) {
                 fprintf(stderr,
@@ -927,7 +954,6 @@ static void form_integrals(double* one_p_int)
                                         norb2 * i + norb3 * j] += pref2;
                         }
                 }
-        safe_free(one_p_int);
 }
 
 static void fillin_Vijkl(const int i, const int j, const int k, const int l)

@@ -146,7 +146,7 @@ void print_input(const struct optScheme * scheme)
         printf("Targetstate = %s\n", buffer);
         print_interaction();
         print_optScheme(scheme);
-        print_network();
+        print_network(&netw);
 }
 
 int read_option(const char option[], const char inputfile[], char buffer[])
