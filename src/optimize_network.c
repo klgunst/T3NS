@@ -602,9 +602,17 @@ int init_wave_function(struct siteTensor ** T3NS, int changedSS,
                 // Fill in the sectors
                 change_sectors_tensor(&(*T3NS)[i], prevbookie, &origT3NS[i]);
         }
+        struct symsecs * ss_backup = safe_malloc(bookie.nr_bonds, *ss_backup);
+        for (int i = 0; i < bookie.nr_bonds; ++i) {
+                deep_copy_symsecs(&ss_backup[i], &bookie.v_symsecs[i]);
+        }
 
         fprintf(stderr, "WARNING: The calculation of the overlap is not correct anymore.\n");
         while (norm > 0.05) {
+                for (int i = 0; i < bookie.nr_bonds; ++i) {
+                        destroy_symsecs(&bookie.v_symsecs[i]);
+                        deep_copy_symsecs(&bookie.v_symsecs[i], &ss_backup[i]);
+                }
                 for (int i = 0 ; i < netw.sites; ++i) {
                         destroy_siteTensor(&(*T3NS)[i]);
                 }
@@ -627,6 +635,8 @@ int init_wave_function(struct siteTensor ** T3NS, int changedSS,
                 print_target_state_coeff(*T3NS);
                 noise *= 0.5;
         }
+        for (int i = 0; i < bookie.nr_bonds; ++i) { destroy_symsecs(&ss_backup[i]); }
+        safe_free(ss_backup);
         for (int i = 0 ; i < netw.sites; ++i) {
                 destroy_siteTensor(&origT3NS[i]);
         }
