@@ -20,6 +20,13 @@
 #include <stdbool.h>
 #include <omp.h>
 
+#ifdef T3NS_MKL
+#include "mkl.h"
+#else
+#include <cblas.h>
+#include <lapacke.h>
+#endif
+
 #include "rOperators.h"
 #include "tensorproducts.h"
 #include "bookkeeper.h"
@@ -220,7 +227,7 @@ static struct rOperators init_sum_unique(const struct rOperators * ur,
                 for (int j = 0; j < N + 1; ++j) {
                         nOp->beginblock[j] = oOp->beginblock[j];
                 }
-                nOp->tel = safe_malloc(nOp->beginblock[N], *nOp->tel);
+                nOp->tel = safe_calloc(nOp->beginblock[N], *nOp->tel);
         }
         return res;
 }
@@ -270,23 +277,15 @@ struct rOperators sum_unique_rOperators(const struct rOperators * ur,
                 pinstr = instr;
         }
 
-#pragma omp parallel for schedule(dynamic) default(none) shared(res, nrins, ins)
+#pragma omp parallel for schedule(guided) default(none) shared(res, nrins, ins)
         for (int i = 0; i < res.nrops; ++i) {
                 const int nrbl = nblocks_in_operator(&res, i);
                 struct sparseblocks * const nOp = &res.operators[i];
                 const int N = nOp->beginblock[nrbl];
                 EL_TYPE * nOptel = nOp->tel;
 
-                struct sum_instr * ii = &ins[i][0];
-                EL_TYPE pref = ii->pref;
-                const EL_TYPE * uOp = ii->uOpblock;
-                for (int k = 0; k < N; ++k) { nOptel[k] = pref * uOp[k]; }
-
-                ++ii;
-                for (; ii < &ins[i][nrins[i]]; ++ii) {
-                        pref = ii->pref;
-                        uOp = ii->uOpblock;
-                        for (int k = 0; k < N; ++k) { nOptel[k] += pref * uOp[k]; }
+                for (struct sum_instr * ii = &ins[i][0]; ii < &ins[i][nrins[i]]; ++ii) {
+                        cblas_daxpy(N, ii->pref, ii->uOpblock, 1, nOptel, 1);
                 }
 
                 kick_zero_blocks(nOp, nrbl);
