@@ -1,11 +1,120 @@
 import pyscf
 import numpy
-from pyT3NS import netw, bookkeeper
-from ctypes import c_int, cdll, POINTER, c_double
+from pyT3NS import netw, bookkeeper, tensors
+from ctypes import c_int, cdll, POINTER, c_double, c_char, byref, c_void_p, \
+    cast, Structure, c_char_p, c_bool
 
 libt3ns = cdll.LoadLibrary("libT3NS.so")
 
 supported_pgs = ['D2h', 'C2v', 'C2h', 'D2', 'Cs', 'C2', 'Ci', 'C1']
+
+
+class SvalSelect(Structure):
+    _fields_ = [
+        ("minD", c_int),
+        ("maxD", c_int),
+        ("truncerr", c_double),
+        ("truncType", c_char)
+    ]
+
+    def __init__(self, D):
+        if isinstance(D, tuple):
+            self.minD = D[0]
+            self.maxD = D[1]
+            self.truncerr = D[2]
+        else:
+            self.minD = D
+            self.maxD = D
+            self.truncerr = 0
+        self.truncType = ('E').encode('utf8')
+
+    def __str__(self):
+        return f"(min: {self.minD}, max: {self.maxD}, trunc: {self.truncerr})"
+
+
+class DisentScheme(Structure):
+    _fields_ = [
+        ("max_sweeps", c_int),
+        ("gambling", c_bool),
+        ("beta", c_double),
+        ("svd_sel", SvalSelect)
+    ]
+
+    def __init__(self, D, max_sweeps=30, gambling=True, beta=20):
+        self.max_sweeps = max_sweeps
+        self.gambling = gambling
+        self.beta = beta
+        self.svd_sel = SvalSelect(D)
+
+    def __str__(self):
+        if self.gambling:
+            string = f"Metropolis like acceptance with beta = {self.beta}"
+        else:
+            string = "Accepting of best permutation"
+        string += f" ({self.max_sweeps} sweeps)\n"
+        return string + f"Truncation: {self.svd_sel}\n"
+
+
+class Regime(Structure):
+    _fields_ = [
+        ("svd_sel", SvalSelect),
+        ("sitesize", c_int),
+        ("davidson_rtl", c_double),
+        ("davidson_max_its", c_int),
+        ("max_sweeps", c_int),
+        ("energy_conv", c_double),
+        ("noise", c_double)
+    ]
+
+    def __init__(self, D, sitesize=2, davidson_rtl=1e-5, davidson_max_its=100,
+                 max_sweeps=20, energy_conv=1e-6, noise=0):
+        self.svd_sel = SvalSelect(D)
+        self.sitesize = sitesize
+        self.davidson_rtl = davidson_rtl
+        self.davidson_max_its = davidson_max_its
+        self.max_sweeps = max_sweeps
+        self.energy_conv = energy_conv
+        self.noise = noise
+
+    def __str__(self):
+        one_two_three = {1: 'one', 2: 'two', 3: 'three', 4: 'four'}
+        return f"{one_two_three[self.sitesize]} site optimization\n" + \
+            f"Truncation: {self.svd_sel}\n" + \
+            f"Davidson: (tol: {self.davidson_rtl}, " + \
+            f"its: {self.davidson_max_its})\n" + \
+            f"Maximal sweeps: {self.max_sweeps}\n" + \
+            f"Energy convergence: {self.energy_conv}\n" + \
+            f"Added noise: {self.noise}\n"
+
+
+class OptScheme(Structure):
+    _fields_ = [
+        ("nrRegimes", c_int),
+        ("regimes", POINTER(Regime))
+    ]
+
+    def __init__(self, D, **kwargs):
+        self.nrRegimes = len(D) if isinstance(D, list) else 1
+
+        for k, v in kwargs.items():
+            if isinstance(v, list):
+                assert self.nrRegimes == 1 or self.nrRegimes == len(v)
+                self.nrRegimes = len(v)
+
+        self.regimes = (Regime * self.nrRegimes)()
+
+        for i in range(self.nrRegimes):
+            reg_data = {}
+            reg_data['D'] = D[i] if isinstance(D, list) else D
+            for k, v in kwargs.items():
+                reg_data[k] = v[i] if isinstance(v, list) else v
+            self.regimes[i] = Regime(**reg_data)
+
+    def __str__(self):
+        result = ""
+        for i in range(self.nrRegimes):
+            result += f"Regime {i}:\n{self.regimes[i]}\n"
+        return result
 
 
 class T3NS:
@@ -25,6 +134,7 @@ class T3NS:
         _h1e:
         _eri:
         _pg_irrep:
+        _lastD:
         verbose: The verbosity
     '''
     def __init__(self, mol_or_hdf5, c=None, network=None, verbose=None):
@@ -147,28 +257,10 @@ class T3NS:
                              'been passed to the C library through a call to'
                              ' pass_network()')
 
-        if hasattr(self, "_bookkeeper"):
-            pbookiep = self._bookkeeper
-        else:
-            pbookiep = None
-        if doci:
-            symmetries = ['U1']
-            target = [0]
-            for s, t in zip(self.symmetries, self.target):
-                if s == ['U1']:
-                    target[0] += t
-            target[0] = int(target[0] % 2)
+        pbookie = None
+        self._bookkeeper.init_bookkeeper(pbookie, maxD, mstates)
 
-        self._bookkeeper = bookkeeper.Bookkeeper(symmetries, target, pbookiep,
-                                                 maxD, mstates)
-
-        print(self._bookkeeper)
-        if self._bookkeeper != pbookiep:
-            # Bookkeeper has changed
-            exit(0)
-
-    def kernel(self, D=500, sweeps=20, e_conv=1e-6, sites=2, david_rtl=1e-5,
-               david_its=100, mstates=2, doci=False):
+    def kernel(self, D=500, mstates=2, doci=False, **kwargs):
         '''Optimization of the tensor network.
 
         Args:
@@ -213,6 +305,25 @@ class T3NS:
 
         # Passes the network to the static global in the C library
         self._netw.pass_network()
+
+        # Get global bookkeeper
+        self._bookkeeper = bookkeeper.Bookkeeper.in_dll(libt3ns, "bookie")
+        # fillin symmetries and target state
+        if doci:
+            symmetries = ['U1']
+            target = [0]
+            for s, t in zip(self.symmetries, self.target):
+                if s == 'U1':
+                    target[0] += t
+                if s == 'SU2' and t != 0:
+                    print('Executing DOCI for non-singlet calculation')
+            target[0] = target[0] // 2
+        else:
+            symmetries = self.symmetries
+            target = self.target
+        self._bookkeeper.fill_symmetry_and_target(symmetries, target)
+
+        # Initialize the Hamiltonian
         self.init_hamiltonian(doci)
 
         if hasattr(D, '__iter__') and not isinstance(D, tuple):
@@ -224,6 +335,10 @@ class T3NS:
         else:
             maxD = fD
         self.init_bookkeeper(mstates, maxD, doci)
+        self.init_wave_function(None)
+        self.init_operators()
+        self.energy = self.execute_optimization(D, **kwargs)
+        return self.energy
 
     def init_hamiltonian(self, doci):
         from pyT3NS.bookkeeper import translate_irrep
@@ -273,8 +388,6 @@ class T3NS:
                             *translate_irrep(self._pg_irrep, s)
                         )
 
-            print([i for i in irrep])
-            exit(0)
             libt3ns.QC_ham_from_integrals(
                 norb,
                 irrep,
@@ -284,3 +397,66 @@ class T3NS:
                 int('SU2' in self.symmetries),
                 int('SENIORITY' in self.symmetries),
             )
+
+    def init_wave_function(self, prevbookie):
+        initwav = libt3ns.init_wave_function
+        initwav.argtypes = [POINTER(c_void_p), c_int,
+                            POINTER(bookkeeper.Bookkeeper), c_char]
+        self._T3NS = c_void_p(None)
+
+        initwav(byref(self._T3NS), 0, prevbookie, 'r'.encode('utf8'))
+        self._T3NS = cast(self._T3NS, POINTER(tensors.SiteTensor))
+        T3NS = (tensors.SiteTensor * len(self._netw.sites))()
+        for i in range(len(self._netw.sites)):
+            T3NS[i] = self._T3NS[i]
+        self._T3NS = T3NS
+
+    def init_operators(self):
+        initop = libt3ns.init_operators
+        initop.argtypes = [POINTER(c_void_p), POINTER(tensors.SiteTensor)]
+        rOps = c_void_p(None)
+
+        initop(byref(rOps), self._T3NS)
+        rOps = cast(rOps, POINTER(tensors.ROperators))
+        self._rOps = (tensors.ROperators * len(self._netw.bonds))()
+        for i in range(len(self._netw.bonds)):
+            self._rOps[i] = rOps[i]
+
+    def execute_optimization(self, D, saveloc=None, **kwargs):
+        from sys import stdout
+
+        scheme = OptScheme(D, **kwargs)
+        self._lastD = D[-1] if isinstance(D, list) else D
+
+        execute = libt3ns.execute_optScheme
+        execute.argtypes = [
+            POINTER(tensors.SiteTensor),
+            POINTER(tensors.ROperators),
+            POINTER(OptScheme),
+            c_char_p
+        ]
+        execute.restype = c_double
+        saveloc = saveloc if saveloc is None else saveloc.encode('utf8')
+        energy = execute(self._T3NS, self._rOps, byref(scheme), saveloc)
+        stdout.flush()
+        return energy
+
+    def disentangle(self, D=None, **kwargs):
+        """Disentangles the network.
+        """
+        from sys import stdout
+        if D is None:
+            D = self._lastD
+        scheme = DisentScheme(D, **kwargs)
+
+        disent = libt3ns.disentangle_state
+        disent.argtypes = [
+            POINTER(tensors.SiteTensor),
+            POINTER(DisentScheme),
+            c_int
+        ]
+        disent.restype = c_double
+
+        entanglement = disent(self._T3NS, byref(scheme), self.verbose >= 4)
+        stdout.flush()
+        return entanglement

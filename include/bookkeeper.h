@@ -168,11 +168,3 @@ void bookkeeper_get_symsecs(const struct bookkeeper * keeper,
 
 void bookkeeper_get_symsecs_arr(const struct bookkeeper * keeper, int n, 
                                 struct symsecs * symarr, const int * bonds);
-
-/**
- * @brief This initializes a bookkeeper in a same way as preparebookkeeper,
- * it is actually just some wrapper for that that returns also a shallow copy
- * of the new global bookie in @p keeper
- */
-void initbookie(struct bookkeeper * keeper, struct bookkeeper * pbookie,
-                int max_dim, int minocc);

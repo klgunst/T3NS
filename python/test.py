@@ -12,5 +12,7 @@ mol.build(
     verbose=3
 )
 
-tree = t3ns.T3NS(mol)
-tree.kernel()
+tree = t3ns.T3NS(mol, network='DMRG')
+energy = tree.kernel(D=[300, (300, 500, 1e-3)], max_sweeps=100)
+entanglement = tree.disentangle()
+print(f'E = {energy}, entanglement = {entanglement}')

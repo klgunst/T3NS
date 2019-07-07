@@ -470,8 +470,8 @@ static void init_rops(struct rOperators * const rops,
 
 /* ========================================================================== */
 
-int init_operators(struct rOperators ** rOps, struct siteTensor ** T3NS)
-{ 
+int init_operators(struct rOperators ** rOps, struct siteTensor * T3NS)
+{
         struct timers chrono = init_timers(timernames, timkeys,
                                            sizeof timkeys / sizeof timkeys[0]);
         if (*rOps) { return 0; }
@@ -482,7 +482,7 @@ int init_operators(struct rOperators ** rOps, struct siteTensor ** T3NS)
                 if (siteL == -1) {
                         init_rops(*rOps, NULL, i, &chrono);
                 } else {
-                        init_rops(*rOps, &(*T3NS)[siteL], i, &chrono);
+                        init_rops(*rOps, &T3NS[siteL], i, &chrono);
                 }
         }
         print_timers(&chrono, " * ", true);
@@ -648,7 +648,7 @@ void init_calculation(struct siteTensor ** T3NS, struct rOperators ** rOps,
                       char option)
 {
         if (make_new_T3NS(T3NS, option)) { exit(EXIT_FAILURE); }
-        if (init_operators(rOps, T3NS)) { exit(EXIT_FAILURE); }
+        if (init_operators(rOps, *T3NS)) { exit(EXIT_FAILURE); }
 }
 
 double execute_optScheme(struct siteTensor * const T3NS, struct rOperators * const rops, 

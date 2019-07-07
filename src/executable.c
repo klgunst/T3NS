@@ -354,7 +354,7 @@ static int initialize_program(int argc, char *argv[],
         }
         // Need to initialize operators still.
         tic(&chrono, INIT_OPS);
-        if (init_operators(rops, T3NS)) { return 1; }
+        if (init_operators(rops, *T3NS)) { return 1; }
         toc(&chrono, INIT_OPS);
 
         print_input(scheme);
@@ -398,7 +398,7 @@ int main(int argc, char *argv[])
         clear_instructions();
         reinit_hamiltonian();
 
-        init_operators(&rops, &T3NS);
+        init_operators(&rops, T3NS);
         execute_optScheme(T3NS, rops, &scheme, pbuffer);
         disentangle_state(T3NS, &sch, 0);
         */

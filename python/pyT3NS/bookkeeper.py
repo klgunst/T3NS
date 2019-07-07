@@ -74,24 +74,13 @@ class Bookkeeper(Structure):
         ("p_symsecs", POINTER(Symsecs))
     ]
 
-    def __init__(self, symmetries, target, pbookie=None,
-                 maxD=500, mstates=2):
-        assert len(symmetries) == len(target)
-        # initbookie = libt3ns.initbookkeeper
-        self.nrSyms = len(symmetries)
-        symmetries = translate_symmgroup(symmetries)
-        self.sgs = (c_int * MAX_SYMMETRIES)(*symmetries)
-        self.target_state = (c_int * MAX_SYMMETRIES)(
-            *translate_irrep(target, symmetries)
-        )
-
-        initbookie = libt3ns.initbookie
-        initbookie.argtypes = [POINTER(Bookkeeper), POINTER(Bookkeeper),
-                               c_int, c_int]
-        initbookie(byref(self), None if pbookie is None else byref(pbookie),
-                   maxD, mstates)
-        print(self)
-        # assert Bookkeeper.in_dll(libt3ns, "bookie").value ==
+    def init_bookkeeper(self, pbookie=None, maxD=500, mstates=2):
+        preparebookkeeper = libt3ns.preparebookkeeper
+        preparebookkeeper.argtypes = [POINTER(Bookkeeper), c_int, c_int, c_int,
+                                      POINTER(c_int)]
+        changedSS = c_int(0)
+        preparebookkeeper(None if pbookie is None else byref(pbookie), maxD,
+                          1, mstates, byref(changedSS))
 
     def __str__(self):
         from io import StringIO
@@ -102,3 +91,13 @@ class Bookkeeper(Structure):
         with redirect_stdout(f):
             print_bookkeeper(byref(self), 0)
         return f.getvalue()
+
+    def fill_symmetry_and_target(self, symmetries, target):
+        """Fills in the passed symmetry and target
+        """
+        self.nrSyms = len(symmetries)
+        symmetries = translate_symmgroup(symmetries)
+        self.sgs = (c_int * MAX_SYMMETRIES)(*symmetries)
+        self.target_state = (c_int * MAX_SYMMETRIES)(
+            *translate_irrep(target, symmetries)
+        )

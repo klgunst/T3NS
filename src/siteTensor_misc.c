@@ -118,6 +118,7 @@ static void print_blocks(const struct bookkeeper * keeper,
 void print_siteTensor(const struct bookkeeper * keeper, 
                       const struct siteTensor * tens)
 {
+        if (keeper == NULL) { keeper = &bookie; }
         printf("--------------------------------------------------------------------------------\n");
         print_bonds(tens);
         print_couplings(tens);

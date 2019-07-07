@@ -385,8 +385,13 @@ void print_bookkeeper(struct bookkeeper * keeper, int fci)
                "########################\n"
                "###### BOOKKEEPER ######\n"
                "########################\n"
-               "\n"
-               "# TNS BONDS : \n");
+               "\n");
+        get_sgsstring(bookie.sgs, bookie.nrSyms, str_one);
+        printf("Symmetries  = %s\n", str_one);
+
+        get_tsstring(str_one);
+        printf("Targetstate = %s\n", str_one);
+        printf("# TNS BONDS : \n");
 
         for (int i = 0; i < keeper->nr_bonds; ++i) {
                 int site_one = netw.bonds[i][0];
@@ -887,12 +892,4 @@ void bookkeeper_get_symsecs_arr(const struct bookkeeper * keeper, int n,
         for (int i = 0; i < n; ++i) {
                 bookkeeper_get_symsecs(keeper, &symarr[i], bonds[i]);
         }
-}
-
-void initbookie(struct bookkeeper * keeper, struct bookkeeper * pbookie,
-                int max_dim, int minocc)
-{
-        int changedSS = 0;
-        preparebookkeeper(pbookie, max_dim, 1, minocc, &changedSS);
-        *keeper = bookie;
 }
