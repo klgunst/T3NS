@@ -1,4 +1,4 @@
-#!/bin/env python3
+#!/usr/bin/env python3
 from random import random, sample
 import math
 import numpy as np

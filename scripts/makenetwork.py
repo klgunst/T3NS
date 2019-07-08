@@ -1,4 +1,4 @@
-#!/bin/env python3
+#!/usr/bin/env python3
 from enum import Enum
 import numpy as np
 
@@ -425,9 +425,7 @@ if __name__ == "__main__":
     if argv[1] == "--help" or argv[1] == "-h":
         printhelp()
 
-    if len(argv) == 3 and argv[2] == "DMRG":
-        A = network(sites=int(argv[1]), isDMRG=True)
-    else:
-        A = network(sites=int(argv[1]))
+    isDMRG = len(argv) == 3 and argv[2] == "DMRG"
+    A = network(sites=int(argv[1]), isDMRG=isDMRG)
     A.printnetworkfile()
     exit(0)
