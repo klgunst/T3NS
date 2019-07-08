@@ -1,4 +1,3 @@
-#!/bin/env python3
 from ctypes import cdll, Structure, c_int, POINTER, c_void_p, byref
 
 libt3ns = cdll.LoadLibrary("libT3NS.so")

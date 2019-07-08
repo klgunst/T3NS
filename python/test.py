@@ -1,4 +1,4 @@
-#!/bin/env python3
+#!/usr/bin/env python3
 from pyscf import gto
 from pyT3NS import t3ns
 
