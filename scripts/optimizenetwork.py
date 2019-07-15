@@ -202,7 +202,7 @@ if __name__ == "__main__":
     psites = [site.nr for site in netw.sites if site.kind == kind.P]
     Dij = Dij[psites, :][:, psites]
 
-    Kij = getExchange(argv[2])
+    Kij = abs(getExchange(argv[2]))
     Irreps = getOrbsym(argv[2])
 
     init = [netw.sitemap[i] for i in psites]
