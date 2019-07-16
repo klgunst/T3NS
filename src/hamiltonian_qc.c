@@ -1064,16 +1064,16 @@ static void form_integrals(double* one_p_int)
                                                 fillin_Vijkl(Vijkl, i, j, k, l, true);
                                         }
         }
-        for (i = 0; i < hdat.norb; ++i) {
-                for (j = 0; j <= i; ++j)
-                        for (k = 0; k < hdat.norb; ++k)
-                                for (l = 0; l <= k; ++l) {
-                                        double * Vijkl = &hdat.Vijkl[2 * norb2 * norb2];
-                                        fillin_Vijkl(Vijkl, i, j, k, l, false);
-                                }
-        }
 
         if (hdat.uhf) {
+                for (i = 0; i < hdat.norb; ++i) {
+                        for (j = 0; j <= i; ++j)
+                                for (k = 0; k < hdat.norb; ++k)
+                                        for (l = 0; l <= k; ++l) {
+                                                double * Vijkl = &hdat.Vijkl[2 * norb2 * norb2];
+                                                fillin_Vijkl(Vijkl, i, j, k, l, false);
+                                        }
+                }
                 for (i = 0; i < hdat.norb; ++i)
                         for (j = 0; j < hdat.norb; ++j) {
                                 for (int spinconf = 0; spinconf < 2; ++spinconf) {
