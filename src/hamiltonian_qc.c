@@ -16,6 +16,7 @@
 */
 #include <stdlib.h>
 #include <stdio.h>
+#include <stdbool.h>
 #include <string.h>
 #include <ctype.h>
 #include <math.h>
@@ -35,8 +36,9 @@ static struct hamdata {
         int *orbirrep;      // the pg_irreps of the orbitals.
         double core_energy; // core_energy of the system.
         double* Vijkl;      // interaction terms of the system.
-        int su2;            // has SU(2) turned on or not.
-        int has_seniority;  // Seniority restricted calculation.
+        bool su2;            // has SU(2) turned on or not.
+        bool has_seniority;  // Seniority restricted calculation.
+        bool uhf;            // Unrestriced orbitals or not? uhf and su2 cant both be true
 } hdat;
 
 static const int irreps_QC[13][2] = {
@@ -80,10 +82,13 @@ static void read_header(char hamiltonianfile[]);
 /** reads the integrals from a fcidump file. **/
 static void read_integrals(double **one_p_int, char hamiltonianfile[]);
 
+static void read_uhf_integrals(double **one_p_int, char hamiltonianfile[]);
+
 /** forms the integrals given a vijkl and a one_p_int **/
 static void form_integrals(double* one_p_int);
 
-static void fillin_Vijkl(const int i, const int j, const int k, const int l);
+static void fillin_Vijkl(double * Vijkl, const int i, const int j, 
+                         const int k, const int l, bool eightfold);
 
 /* Checks the irreps of the orbitals */
 static int check_orbirrep(void);
@@ -156,7 +161,15 @@ void QC_make_hamiltonian(char hamiltonianfile[], int su2, int has_seniority)
         hdat.has_seniority = has_seniority;
         printf(">> Reading FCIDUMP %s\n", hamiltonianfile);
         read_header(hamiltonianfile);
-        read_integrals(&one_p_int, hamiltonianfile);
+        if (hdat.su2 && hdat.uhf) {
+                fprintf(stderr, "Can not use SU(2) symmetry in unrestriced calculations.\n");
+                exit(EXIT_FAILURE);
+        }
+        if (hdat.uhf) {
+                read_uhf_integrals(&one_p_int, hamiltonianfile);
+        } else {
+                read_integrals(&one_p_int, hamiltonianfile);
+        }
 
         printf(">> Preparing hamiltonian...\n");
         form_integrals(one_p_int);
@@ -298,8 +311,7 @@ int QC_consistencynetworkinteraction(void)
         return 1;
 }
 
-double QC_el_siteop(const int siteop, const int braindex, const int ketindex)
-{
+double QC_el_siteop(const int siteop, const int braindex, const int ketindex) {
         if (hdat.su2)
                 return su2_el_siteop(siteop, braindex, ketindex);
         else
@@ -612,8 +624,32 @@ static double get_V(const int * const tag1, const int * const tag2,
              (hdat.orbirrep[tag3[1]] ^ hdat.orbirrep[tag4[1]])) != 0)
                 return 0;
 
-        return hdat.Vijkl[tag1[1] + psites * tag4[1] + 
-                psites2 * tag2[1] + psites3 * tag3[1]];
+        if (hdat.uhf) {
+                // uuuu, dddd, uudd
+                const int uhf_id = tag1[2] == tag2[2] ? tag1[2] : 2;
+                if (uhf_id == 2 && tag1[2] == 0) {
+                        return hdat.Vijkl[
+                                psites2 * psites2 * uhf_id +
+                                        tag1[1] + psites * tag4[1] + 
+                                        psites2 * tag2[1] + psites3 * tag3[1]
+                        ];
+                } else if (uhf_id == 2) {
+                        return hdat.Vijkl[
+                                psites2 * psites2 * uhf_id +
+                                        tag2[1] + psites * tag3[1] + 
+                                        psites2 * tag1[1] + psites3 * tag4[1]
+                        ];
+                } else {
+                        return hdat.Vijkl[
+                                psites2 * psites2 * uhf_id +
+                                        tag1[1] + psites * tag4[1] + 
+                                        psites2 * tag2[1] + psites3 * tag3[1]
+                        ];
+                }
+        } else {
+                return hdat.Vijkl[tag1[1] + psites * tag4[1] + 
+                        psites2 * tag2[1] + psites3 * tag3[1]];
+        }
 }
 
 static double B(const int * const tags[4], const int twoJ)
@@ -644,12 +680,14 @@ void QC_write_hamiltonian_to_disk(const hid_t id)
         const int p2 = hdat.norb * hdat.norb;
         const int p4 = p2 * p2;
 
+
         write_attribute(group_id, "norb", &hdat.norb, 1, THDF5_INT);
         write_dataset(group_id, "./orbirrep", hdat.orbirrep, hdat.norb, THDF5_INT);
-        write_dataset(group_id, "./Vijkl", hdat.Vijkl, p4, THDF5_EL_TYPE);
+        write_dataset(group_id, "./Vijkl", hdat.Vijkl, (hdat.uhf ? 3 : 1) * p4, THDF5_EL_TYPE);
         write_attribute(group_id, "core_energy", &hdat.core_energy, 1, THDF5_DOUBLE);
         write_attribute(group_id, "su2", &hdat.su2, 1, THDF5_INT);
         write_attribute(group_id, "has_seniority", &hdat.has_seniority, 1, THDF5_INT);
+        write_attribute(group_id, "uhf", &hdat.uhf, 1, THDF5_INT);
         H5Gclose(group_id);
 }
 
@@ -662,9 +700,11 @@ void QC_read_hamiltonian_from_disk(const hid_t id)
         hdat.orbirrep = safe_malloc(hdat.norb, int);
         read_dataset(group_id, "./orbirrep", hdat.orbirrep);
 
+        hdat.uhf = 0;
+        read_attribute(group_id, "uhf", &hdat.uhf);
         const int p2 = hdat.norb * hdat.norb;
         const int p4 = p2 * p2;
-        hdat.Vijkl = safe_malloc(p4, EL_TYPE);
+        hdat.Vijkl = safe_malloc((hdat.uhf ? 3 : 1) * p4, EL_TYPE);
         read_dataset(group_id, "./Vijkl", hdat.Vijkl);
         read_attribute(group_id, "core_energy", &hdat.core_energy);
         read_attribute(group_id, "su2", &hdat.su2);
@@ -823,6 +863,104 @@ static void read_header(char fil[])
                         ++ops;
                 }
         }
+
+        hdat.uhf = 0;
+        if (read_option("IUHF", fil, buffer) == 1) {
+                hdat.uhf = atoi(buffer);
+        }
+}
+
+static void read_uhf_integrals(double **one_p_int, char fil[])
+{
+        /* open file for reading integrals */
+        FILE *fp = fopen(fil, "r");
+        char buffer[255];
+        int ln_cnt = 1;
+        int norb2 = hdat.norb * hdat.norb;
+        int norb3 = norb2 * hdat.norb;
+
+        /* integrals */
+        double *matrix_el;
+        *one_p_int = safe_calloc(2 * norb2, double);
+        hdat.core_energy = 0;
+        hdat.Vijkl = safe_calloc(3 * norb3 * hdat.norb, double);
+
+        if (fp == NULL) {
+                fprintf(stderr, "ERROR reading fcidump file: %s\n", fil);
+                exit(EXIT_FAILURE);
+        }
+
+        /* Pass through buffer until begin of the integrals, this is typically
+         * typed by "&END", "/END" or "/" */
+        while (fgets(buffer, sizeof buffer, fp) != NULL) {
+                char *stops[] = {"&END", "/END", "/"};
+                int lstops = sizeof stops / sizeof(char*);
+                int i;
+                for (i = 0; i < lstops; ++i) {
+                        char *s = stops[i];
+                        char *b = buffer;
+
+                        while (isspace(*b)) ++b;
+
+                        while (*s && *s == *b) {
+                                ++b;
+                                ++s;
+                        }
+
+                        while (isspace(*b)) ++b;
+                        if (!*b)
+                                break;
+                }
+
+                if (i != lstops)
+                        break;
+        }
+
+        int V_id = 0;
+        int T_id = 0;
+        double * Vijkl = hdat.Vijkl;
+        double * Tij = *one_p_int;
+
+        /* reading the integrals */
+        while (fgets(buffer, sizeof buffer, fp) != NULL) {
+                int i, j, k, l;
+                double value;
+                int cnt = sscanf(buffer, " %lf %d %d %d %d ", &value, 
+                                 &i, &j, &k, &l); /* chemical notation */
+                ++ln_cnt;
+                if (cnt != 5) {
+                        fprintf(stderr, "ERROR: Whilst reading the integrals.\n"
+                                "wrong formatting at line %d!\n", ln_cnt);
+                        exit(EXIT_FAILURE);
+                }
+
+                if (k != 0) {
+                        matrix_el = Vijkl + (l-1) * norb3 + (k-1) * norb2 
+                                + (j-1) * hdat.norb +(i-1);
+                } else if (i != 0) {
+                        matrix_el = Tij + (j-1) * hdat.norb + (i-1);
+                } else {
+                        if (V_id < 3) {
+                                ++V_id;
+                                Vijkl += hdat.norb * norb3;
+                                matrix_el = NULL;
+                        } else if (T_id < 2) {
+                                ++T_id;
+                                Tij += norb2;
+                                matrix_el = NULL;
+                        } else {
+                                matrix_el = &hdat.core_energy;
+                        }
+                }
+
+                if (matrix_el != NULL) {
+                        if (!COMPARE_ELEMENT_TO_ZERO(*matrix_el)) {
+                                fprintf(stderr, "Doubly inputted value at line %d\n", ln_cnt);
+                        }
+                        *matrix_el = value;
+                }
+        }
+        fclose(fp);
 }
 
 static void read_integrals(double **one_p_int, char fil[])
@@ -907,45 +1045,94 @@ static void form_integrals(double* one_p_int)
         int norb2 = hdat.norb * hdat.norb;
         int norb3 = norb2 * hdat.norb;
 
-        for (i = 0; i < hdat.norb; ++i)
-                for (j = 0; j <= i; ++j)
+        for (i = 0; i < hdat.norb; ++i) {
+                for (j = 0; j <= i; ++j) {
                         one_p_int[i*hdat.norb + j] = one_p_int[j*hdat.norb + i];
+                        if (hdat.uhf) {
+                                one_p_int[norb2 + i * hdat.norb + j] = 
+                                        one_p_int[norb2 + j * hdat.norb + i];
+                        }
+                }
+        }
 
-        for (i = 0; i < hdat.norb; ++i)
+        for (i = 0; i < hdat.norb; ++i) {
                 for (j = 0; j <= i; ++j)
                         for (k = 0; k <= i; ++k)
                                 for (l = 0; l <= k; ++l)
-                                        fillin_Vijkl(i, j, k, l);
+                                        for(int id = 0; id < (hdat.uhf ? 2 : 1); ++id) {
+                                                double * Vijkl = &hdat.Vijkl[id * norb2 * norb2];
+                                                fillin_Vijkl(Vijkl, i, j, k, l, true);
+                                        }
+        }
+        for (i = 0; i < hdat.norb; ++i) {
+                for (j = 0; j <= i; ++j)
+                        for (k = 0; k < hdat.norb; ++k)
+                                for (l = 0; l <= k; ++l) {
+                                        double * Vijkl = &hdat.Vijkl[2 * norb2 * norb2];
+                                        fillin_Vijkl(Vijkl, i, j, k, l, false);
+                                }
+        }
 
-        for (i = 0; i < hdat.norb; ++i)
-                for (j = 0; j < hdat.norb; ++j) {
-                        double pref2 = pref * one_p_int[i * hdat.norb + j];
-                        for (k = 0; k < hdat.norb; ++k) {
-                                hdat.Vijkl[i + hdat.norb * j + 
-                                        norb2 * k + norb3 * k] += pref2;
-                                hdat.Vijkl[k + hdat.norb * k + 
-                                        norb2 * i + norb3 * j] += pref2;
+        if (hdat.uhf) {
+                for (i = 0; i < hdat.norb; ++i)
+                        for (j = 0; j < hdat.norb; ++j) {
+                                for (int spinconf = 0; spinconf < 2; ++spinconf) {
+                                        double pref2 = pref * one_p_int[spinconf * norb2 + i * hdat.norb + j];
+                                        for (k = 0; k < hdat.norb; ++k) {
+                                                // uuuu or dddd
+                                                hdat.Vijkl[spinconf * norb2 * norb2 + i + hdat.norb * j + 
+                                                        norb2 * k + norb3 * k] += pref2;
+                                                hdat.Vijkl[spinconf * norb2 * norb2 + k + hdat.norb * k + 
+                                                        norb2 * i + norb3 * j] += pref2;
+                                                // uudd
+                                                if (spinconf == 0) {
+                                                        hdat.Vijkl[2 * norb2 * norb2 + i + hdat.norb * j + 
+                                                                norb2 * k + norb3 * k] += pref2;
+                                                } else {
+                                                        hdat.Vijkl[2 * norb2 * norb2 + k + hdat.norb * k + 
+                                                                norb2 * i + norb3 * j] += pref2;
+                                                }
+                                        }
+                                }
                         }
-                }
+        } else {
+                for (i = 0; i < hdat.norb; ++i)
+                        for (j = 0; j < hdat.norb; ++j) {
+                                double pref2 = pref * one_p_int[i * hdat.norb + j];
+                                for (k = 0; k < hdat.norb; ++k) {
+                                        hdat.Vijkl[i + hdat.norb * j + 
+                                                norb2 * k + norb3 * k] += pref2;
+                                        hdat.Vijkl[k + hdat.norb * k + 
+                                                norb2 * i + norb3 * j] += pref2;
+                                }
+                        }
+        }
         safe_free(one_p_int);
 }
 
-static void fillin_Vijkl(const int i, const int j, const int k, const int l)
+static void fillin_Vijkl(double * Vijkl, const int i, const int j, 
+                         const int k, const int l, bool eightfold)
 {
         const int norb2 = hdat.norb * hdat.norb;
         const int norb3 = norb2 * hdat.norb;
         const int curr_ind = i + hdat.norb * j + norb2 * k + norb3 * l;
-        const double value = hdat.Vijkl[curr_ind];
+        const double value = Vijkl[curr_ind];
 
         if (!COMPARE_ELEMENT_TO_ZERO(value))
         {
-                hdat.Vijkl[k + hdat.norb * l + norb2 * i + norb3 * j] = value;
-                hdat.Vijkl[j + hdat.norb * i + norb2 * l + norb3 * k] = value;
-                hdat.Vijkl[l + hdat.norb * k + norb2 * j + norb3 * i] = value;
-                hdat.Vijkl[j + hdat.norb * i + norb2 * k + norb3 * l] = value;
-                hdat.Vijkl[l + hdat.norb * k + norb2 * i + norb3 * j] = value;
-                hdat.Vijkl[i + hdat.norb * j + norb2 * l + norb3 * k] = value;
-                hdat.Vijkl[k + hdat.norb * l + norb2 * j + norb3 * i] = value;
+                if (eightfold) {
+                        Vijkl[k + hdat.norb * l + norb2 * i + norb3 * j] = value;
+                        Vijkl[j + hdat.norb * i + norb2 * l + norb3 * k] = value;
+                        Vijkl[l + hdat.norb * k + norb2 * j + norb3 * i] = value;
+                        Vijkl[j + hdat.norb * i + norb2 * k + norb3 * l] = value;
+                        Vijkl[l + hdat.norb * k + norb2 * i + norb3 * j] = value;
+                        Vijkl[i + hdat.norb * j + norb2 * l + norb3 * k] = value;
+                        Vijkl[k + hdat.norb * l + norb2 * j + norb3 * i] = value;
+                } else {
+                        Vijkl[j + hdat.norb * i + norb2 * l + norb3 * k] = value;
+                        Vijkl[j + hdat.norb * i + norb2 * k + norb3 * l] = value;
+                        Vijkl[i + hdat.norb * j + norb2 * l + norb3 * k] = value;
+                }
         }
 }
 
