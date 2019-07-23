@@ -272,7 +272,7 @@ static int initialize_program(int argc, char *argv[],
                               struct siteTensor **T3NS, 
                               struct rOperators **rops, 
                               struct optScheme * scheme, 
-                              char ** saveloc)
+                              char ** saveloc, int * lowD, int ** lowDb)
 {
         struct timers chrono = init_timers(timernames, timkeys,
                                            sizeof timkeys / sizeof timkeys[0]);
@@ -325,8 +325,10 @@ static int initialize_program(int argc, char *argv[],
         struct bookkeeper prevbookie = shallow_copy_bookkeeper(&bookie);
 
         tic(&chrono, READ_INPUTS);
+        *lowD = 0;
+        *lowDb = NULL;
         if (read_inputfile(arguments.args[0], scheme, &minocc, 
-                           arguments.h5file == NULL)) {
+                           arguments.h5file == NULL, lowD, lowDb)) {
                 return 1;
         }
         toc(&chrono, READ_INPUTS);
@@ -381,11 +383,12 @@ int main(int argc, char *argv[])
         struct siteTensor *T3NS = NULL;
         struct rOperators *rops = NULL;
         struct optScheme scheme;
-        if (initialize_program(argc, argv, &T3NS, &rops, &scheme, &pbuffer)) {
+        int lowD, *lowDb;
+        if (initialize_program(argc, argv, &T3NS, &rops, &scheme, &pbuffer, &lowD, &lowDb)) {
                 cleanup_before_exit(&T3NS, &rops, &scheme);
                 return EXIT_FAILURE;
         }
-        execute_optScheme(T3NS, rops, &scheme, pbuffer);
+        execute_optScheme(T3NS, rops, &scheme, pbuffer, lowD, lowDb);
         /*
         struct disentScheme sch = {
                 .max_sweeps = 30,

@@ -48,8 +48,8 @@ void init_calculation(struct siteTensor ** T3NS,
  * @param [in] saveloc The location where to save the hdf5 files.
  * @return The lowest found energy during the scheme.
  */
-double execute_optScheme(struct siteTensor * T3NS, struct rOperators * rops, 
-                         const struct optScheme * scheme, const char * saveloc);
+double execute_optScheme(struct siteTensor * const T3NS, struct rOperators * const rops, 
+                         const struct optScheme * const  scheme, const char * saveloc, int lowD, int * lowDb);
 
 /**
  * @brief Prints the weights of the different sectors in the target state.

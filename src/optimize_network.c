@@ -321,7 +321,7 @@ struct sweep_info {
 static struct sweep_info execute_sweep(struct siteTensor * T3NS, 
                                        struct rOperators * rops, 
                                        const struct regime * reg, 
-                                       double trunc_err, const char * saveloc)
+                                       double trunc_err, const char * saveloc, int lowD, int * lowDb)
 {
         struct sweep_info swinfo = {
                 .chrono = init_timers(timernames, timkeys, 
@@ -352,10 +352,22 @@ static struct sweep_info execute_sweep(struct siteTensor * T3NS,
                 add_noise(&o_dat.msiteObj, reg->noise * trunc_err);
                 norm_tensor(&o_dat.msiteObj);
 
+                struct SvalSelect svd_sel = reg->svd_sel;
+                if (lowDb != NULL) {
+                        const int bnd = get_common_bond(o_dat.msiteObj.sites[0], o_dat.msiteObj.sites[1]);
+                        for (int * ii = lowDb; *ii != -1; ++ii) {
+                                if (bnd == *ii) {
+                                        svd_sel.minD = lowD;
+                                        svd_sel.maxD = lowD;
+                                        break;
+                                }
+                        }
+                }
+
                 struct decompose_info d_inf = 
                         decompose_siteTensor(&o_dat.msiteObj, 
                                              o_dat.specs.nCenter,
-                                             T3NS, &reg->svd_sel);
+                                             T3NS, &svd_sel);
 
                 if (d_inf.erflag) { exit(EXIT_FAILURE); }
                 toc(&swinfo.chrono, STENS_DECOMP);
@@ -395,14 +407,14 @@ static void print_sweep_info(struct sweep_info * info, int sw_nr, int regnr)
 static double execute_regime(struct siteTensor * T3NS, struct rOperators * rops, 
                              const struct regime * reg, int regnumber, 
                              double * trunc_err, const char * saveloc, 
-                             struct timers * timings)
+                             struct timers * timings, int lowD, int * lowDb)
 {
         int sweepnrs = 0;
         double energy = 0;
 
         while(sweepnrs < reg->max_sweeps) {
                 struct sweep_info info = execute_sweep(T3NS, rops, reg, 
-                                                       *trunc_err, saveloc);
+                                                       *trunc_err, saveloc, lowD, lowDb);
                 *trunc_err = info.sw_trunc;
                 print_sweep_info(&info, sweepnrs + 1, regnumber);
                 add_timers(timings, &info.chrono);
@@ -652,7 +664,7 @@ void init_calculation(struct siteTensor ** T3NS, struct rOperators ** rOps,
 }
 
 double execute_optScheme(struct siteTensor * const T3NS, struct rOperators * const rops, 
-                         const struct optScheme * const  scheme, const char * saveloc)
+                         const struct optScheme * const  scheme, const char * saveloc, int lowD, int * lowDb)
 {
         struct timers timings = init_timers(timernames, timkeys,
                                             sizeof timkeys / sizeof timkeys[0]);
@@ -664,7 +676,7 @@ double execute_optScheme(struct siteTensor * const T3NS, struct rOperators * con
         printf("============================================================================\n");
         for (int i = 0; i < scheme->nrRegimes; ++i) {
                 double current_energy = execute_regime(T3NS, rops, &scheme->regimes[i], 
-                                                       i + 1, &trunc_err, saveloc, &timings);
+                                                       i + 1, &trunc_err, saveloc, &timings, lowD, lowDb);
                 if (current_energy  < energy) energy = current_energy;
         }
 
