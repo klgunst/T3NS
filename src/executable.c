@@ -389,14 +389,14 @@ int main(int argc, char *argv[])
                 return EXIT_FAILURE;
         }
         execute_optScheme(T3NS, rops, &scheme, pbuffer, lowD, lowDb);
-        /*
         struct disentScheme sch = {
-                .max_sweeps = 30,
+                .max_sweeps = 0,
                 .gambling = true,
                 .beta = 20,
                 .svd_sel = scheme.regimes[0].svd_sel
         };
         disentangle_state(T3NS, &sch, 0);
+        /*
         destroy_all_rops(&rops);
         clear_instructions();
         reinit_hamiltonian();
