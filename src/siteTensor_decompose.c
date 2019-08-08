@@ -547,10 +547,19 @@ int is_orthogonal(struct siteTensor * Q, const int bond)
 
 void print_singular_values(struct Sval * sval) 
 {
+        struct symsecs symm;
+        get_symsecs(&symm, sval->bond);
+        assert(sval->nrblocks == symm.nrSecs);
+
         printf("%d: ", sval->bond);
         for (int i = 0; i < sval->nrblocks; ++i)  {
+                int m = multiplicity(bookie.nrSyms, bookie.sgs, symm.irreps[i]);
+                double multfact = 1 / sqrt(m);
                 for (int j = 0; j < sval->dimS[i][0]; ++j) {
-                        printf("%.12g ", sval->sing[i][j]);
+                        double sing = sval->sing[i][j] * multfact;
+                        for (int k = 0; k < m; ++k) {
+                                printf("%.12g ", sing);
+                        }
                 }
         }
         printf("\n");
