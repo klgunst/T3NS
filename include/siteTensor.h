@@ -573,3 +573,5 @@ struct decompose_info qr_step(struct siteTensor * A, int nCenter,
 struct decompose_info decompose_siteTensor(struct siteTensor * A, int nCenter,
                                            struct siteTensor * T3NS, 
                                            const struct SvalSelect * sel);
+
+void print_singular_values(struct Sval * sval);

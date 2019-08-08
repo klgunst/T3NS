@@ -545,6 +545,17 @@ int is_orthogonal(struct siteTensor * Q, const int bond)
         return orthoflag;
 }
 
+void print_singular_values(struct Sval * sval) 
+{
+        printf("%d: ", sval->bond);
+        for (int i = 0; i < sval->nrblocks; ++i)  {
+                for (int j = 0; j < sval->dimS[i][0]; ++j) {
+                        printf("%.12g ", sval->sing[i][j]);
+                }
+        }
+        printf("\n");
+}
+
 // Destructive on the R matrix
 static struct Sval R_svd(struct Rmatrix * R)
 {
@@ -567,6 +578,7 @@ static struct Sval R_svd(struct Rmatrix * R)
                                           NULL, S.dimS[ss][0]);
                 if (info) { fprintf(stderr, "dgesdd exited with %d.\n", info); }
         }
+        print_singular_values(&S);
 
         return S;
 }
