@@ -93,7 +93,7 @@ static int read_sg_and_ts(const char * inputfile)
 }
 
 int read_inputfile(const char inputfile[], struct optScheme * scheme, 
-                   int * minocc, int firstCalc)
+                   int * minocc, int firstCalc, int * lowD, int ** lowDb)
 {
         assert(!(firstCalc && ham != INVALID_HAM));
         char buffer[MY_STRING_LEN];
@@ -121,8 +121,28 @@ int read_inputfile(const char inputfile[], struct optScheme * scheme,
                 }
         }
 
+        *lowD = 0;
+        *lowDb = NULL;
+        int ro = read_option("lowD", inputfile, buffer);
+        if (ro != -1) {
+                *lowDb = safe_malloc(ro, **lowDb);
+                char * pch = strtok(buffer, STRTOKSEP);
+                int i = -1;
+                while (pch) {
+                        if (i == -1) {
+                                *lowD = atoi(pch);
+                        } else {
+                                (*lowDb)[i] = atoi(pch);
+                        }
+                        ++i;
+                        pch = strtok(NULL, STRTOKSEP);
+                }
+                // Sentinel
+                (*lowDb)[i] = -1;
+        }
+
         char buffer2[MY_STRING_LEN];
-        int ro = read_option("interaction", inputfile, buffer);
+        ro = read_option("interaction", inputfile, buffer);
         strncpy(buffer2, relpath, MY_STRING_LEN);
         strncat(buffer2, buffer, MY_STRING_LEN - strlen(buffer2));
         if (ro == 0 && ham == INVALID_HAM) {

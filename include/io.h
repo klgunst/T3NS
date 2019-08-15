@@ -29,7 +29,7 @@
  * @return 0 for success, 1 for error.
  */
 int read_inputfile(const char inputfile[], struct optScheme * scheme, 
-                   int * minocc, int firstCalc);
+                   int * minocc, int firstCalc, int * lowD, int ** lowDb);
 
 /**
  * \brief Searches for an option in the inputfile and stores the set option 
