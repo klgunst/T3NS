@@ -177,8 +177,8 @@ class T3NS:
             self._c = c
             self._mol = mol
             self._eri = pyscf.ao2mo.kernel(mol, c)
-            self.symmetries = ['Z2', 'U1', 'SU2']
-            self.target = [int(sum(mol.nelec) % 2), sum(mol.nelec), mol.spin]
+            self.symmetries = ['Z2', 'U1', 'U1']
+            self.target = [int(sum(mol.nelec) % 2), mol.nelec[0], mol.nelec[1]]
 
             try:
                 irrep_ids = symm.label_orb_symm(mol, mol.irrep_id,
@@ -205,11 +205,11 @@ class T3NS:
                 self._netw = network
             elif network == 'DMRG' or network == 'T3NS':
                 isDMRG = network == 'DMRG'
-                self._netw = netw.Network(c.shape[0], isDMRG=isDMRG)
+                self._netw = netw.Network(c.shape[1], isDMRG=isDMRG)
 
                 # exchange matrix
-                Kij = numpy.zeros((c.shape[0],) * 2)
-                trids = numpy.tril_indices(c.shape[0], 0)
+                Kij = numpy.zeros((c.shape[1],) * 2)
+                trids = numpy.tril_indices(c.shape[1], 0)
                 for el, r, c in zip(self._eri.diagonal(), trids[0], trids[1]):
                     Kij[r, c] = el
                     Kij[c, r] = el
@@ -365,8 +365,12 @@ class T3NS:
         assert h1e.ctypes.data % 16 == 0  # Check alignment
         h1e = h1e.ctypes.data_as(POINTER(c_double))
 
-        norb = self._c.shape[0]
-        fulleri = pyscf.ao2mo.restore(1, self._eri, norb)
+        norb = self._c.shape[1]
+        if self._eri.size == norb ** 4:
+            fulleri = self._eri
+        else:
+            fulleri = pyscf.ao2mo.restore(1, self._eri, norb)
+
         fulleri = fulleri.astype(numpy.float64).reshape(fulleri.shape,
                                                         order='F')
         assert fulleri.ctypes.data % 16 == 0  # Check alignment

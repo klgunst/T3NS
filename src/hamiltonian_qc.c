@@ -183,11 +183,11 @@ void QC_ham_from_integrals(int orbs, int * irreps, double * h1e, double * eri,
         hdat.norb = orbs;
         hdat.orbirrep = safe_malloc(hdat.norb, int);
         for (int i = 0; i < orbs; ++i) { hdat.orbirrep[i] = irreps[i]; }
-        hdat.Vijkl = safe_malloc(orbs4, *hdat.Vijkl);
-        for (int i = 0; i < orbs4; ++i) { hdat.Vijkl[i]= eri[i]; }
+        hdat.Vijkl = safe_calloc(orbs4, *hdat.Vijkl);
         hdat.core_energy = nuc;
 
         form_integrals(h1e);
+        for (int i = 0; i < orbs4; ++i) { hdat.Vijkl[i] += eri[i]; }
 
         if (!check_orbirrep()) {
                 fprintf(stderr,
