@@ -428,6 +428,7 @@ class T3NS:
 
     def execute_optimization(self, D, saveloc=None, **kwargs):
         from sys import stdout
+        import ctypes
 
         scheme = OptScheme(D, **kwargs)
         self._lastD = D[-1] if isinstance(D, list) else D
@@ -443,9 +444,15 @@ class T3NS:
         ]
         execute.restype = c_double
         saveloc = saveloc if saveloc is None else saveloc.encode('utf8')
+        # Flushing python
+        stdout.flush()
+
         energy = execute(self._T3NS, self._rOps, byref(scheme), saveloc, 0,
                          POINTER(c_int)())
-        stdout.flush()
+        libc = ctypes.CDLL(None)
+        c_stdout = ctypes.c_void_p.in_dll(libc, 'stdout')
+        # Flushing C
+        libc.fflush(c_stdout)
         return energy
 
     def disentangle(self, D=None, **kwargs):
