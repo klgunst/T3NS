@@ -177,8 +177,8 @@ class T3NS:
             self._c = c
             self._mol = mol
             self._eri = pyscf.ao2mo.kernel(mol, c)
-            self.symmetries = ['Z2', 'U1', 'U1']
-            self.target = [int(sum(mol.nelec) % 2), mol.nelec[0], mol.nelec[1]]
+            self.symmetries = ['Z2', 'U1', 'SU2']
+            self.target = [int(mol.nelectron % 2), mol.nelectron, mol.spin]
 
             try:
                 irrep_ids = symm.label_orb_symm(mol, mol.irrep_id,
@@ -437,11 +437,14 @@ class T3NS:
             POINTER(tensors.SiteTensor),
             POINTER(tensors.ROperators),
             POINTER(OptScheme),
-            c_char_p
+            c_char_p,
+            c_int,
+            POINTER(c_int)
         ]
         execute.restype = c_double
         saveloc = saveloc if saveloc is None else saveloc.encode('utf8')
-        energy = execute(self._T3NS, self._rOps, byref(scheme), saveloc)
+        energy = execute(self._T3NS, self._rOps, byref(scheme), saveloc, 0,
+                         POINTER(c_int)())
         stdout.flush()
         return energy
 

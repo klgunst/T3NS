@@ -1443,15 +1443,15 @@ struct SelectRes split_of_site(struct siteTensor * A, int site,
         for (int ssid = 0; ssid < dat.nrSss; ++ssid) {
                 if (!erflag && SVD_copy_from_mem(&dat, ssid)) { erflag = 1; }
         }
-        adapt_UV_tensors_and_kick_empties(&dat);
-        destroy_siteTensor(A);
-
         if (erflag) {
                 fprintf(stderr, "SVD failed.\n");
                 destroy_Sval(S);
                 destroy_siteTensor(U);
                 destroy_siteTensor(V);
         }
+        adapt_UV_tensors_and_kick_empties(&dat);
+        destroy_siteTensor(A);
+
         norm_tensor(U);
         destroy_svddata(&dat);
 #ifdef T3NS_SITETENSOR_DECOMPOSE_DEBUG
