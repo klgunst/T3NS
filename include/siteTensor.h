@@ -418,15 +418,6 @@ struct SvalSelect {
         int maxD;
         /// The asked truncation error on the cost function.
         double truncerr;
-        /** Which kind of cost function that should be used for the truncation.
-         *
-         * Possibilities are:
-         * * 'E' for the Von Neumann Entanglement entropy
-         * \f$S = -Σ_i ω_i \ln ω_i\f$  where \f$ω_i = s_i²\f$, i.e. the 
-         * eigenvalues of the density matrix.
-         * * 'W' for the discarded weight i.e \f$N = Σ_i s_i²\f$.
-         */
-        char truncType;
 };
 
 /** A structure which stores several properties of the singular values and the 
@@ -436,7 +427,7 @@ struct SelectRes {
         int erflag;
         /// Norm of the wavefunction before and after truncation.
         double norm[2];
-        /// Von Neumann Entropy before and after truncation 
+        /// Renyi Entropy at α=0.25 before and after truncation
         //(taking rescaling into account).
         double entropy[2];
 };

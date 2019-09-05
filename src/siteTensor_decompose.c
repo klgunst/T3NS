@@ -1120,12 +1120,30 @@ static bool good_site_to_split(const struct siteTensor * A, int site)
 }
 
 // Calculates the cost function for a given array of singular values.
-static double calculateCostFunction(struct Sval * S, double (*cfunc)(double s), 
-                                    char c)
+
+static double calculateWeight(struct Sval * S, char trunc)
 {
-        assert(c == 'T' || c == 'A');
         double result = 0;
-        const int dimid = c == 'T';
+        const int dimid = trunc == 'T';
+        struct symsecs symm;
+        get_symsecs(&symm, S->bond);
+        assert(S->nrblocks == symm.nrSecs);
+
+        for (int block = 0; block < S->nrblocks; ++block) {
+                const double * s_arr = S->sing[block];
+                const int dim = S->dimS[block][dimid];
+                result += cblas_ddot(dim, s_arr, 1, s_arr, 1);
+        }
+        return result;
+}
+
+// The Renyi entropy is given by: 1 / (1 - α) log(Σω^α)
+static double calculateRenyi(struct Sval * S, double alpha, char trunc)
+{
+        const double dn = 1. / sqrt(calculateWeight(S, trunc));
+
+        double result = 0;
+        const int dimid = trunc == 'T';
         struct symsecs symm;
         get_symsecs(&symm, S->bond);
         assert(S->nrblocks == symm.nrSecs);
@@ -1137,60 +1155,11 @@ static double calculateCostFunction(struct Sval * S, double (*cfunc)(double s),
                 int multipl = multiplicity(bookie.nrSyms, bookie.sgs, irreps);
                 double multfact = 1 / sqrt(multipl);
 
-                double intermres = 0;
                 for (int i = 0; i < dim; ++i) { 
-                        intermres += cfunc(s_arr[i] * multfact); 
+                        result += multipl * pow(s_arr[i] * multfact * dn, 2 * alpha);
                 }
-                result += multipl * intermres;
         }
-        return result;
-}
-
-/* For one singular value it calculates its contribution to the Von Neumann
- * entanglement entropy.
- *
- * i.e S = -Σ_i ω_i \ln ω_i where ω_i = s_i², i.e. the eigenvalues of the
- * density matrix. 
- *
- * The Von Neumann Entropy is equal the the Renyi entropy for a = 1. */
-static double VonNeumannEntropy(const double s)
-{
-        double omega = s * s;
-        // Prevent log(0), make a small error
-        return omega < 1e-20 ? 0 : -omega * log(omega);
-}
-
-/* For one singular value it calculates its contribution to the total norm of
- * the wave function.
- *
- * i.e N = Σ_i s_i². */
-static double TotalWeight(double s) { return s * s; }
-
-static int truncSatisfied(const struct SvalSelect * sel, struct SelectRes * res)
-{
-        if (sel->truncType == 'N') {
-                return res->norm[0] - res->norm[1] < sel->truncerr;
-        } else if (sel->truncType == 'E') {
-                /* In this case you have to correct for the renorming of the 
-                 * singular values.
-                 *
-                 * The truncation error is given by (with s_i² = ω_i)
-                 * Δ = S_old - S_new = - Σ_i ω_i ln ω_i + Σ_j ω'_j ln ω'_j
-                 * where i sums over all the singular values, 
-                 * and j only over those included in the truncation.
-                 *
-                 * ω'_j = ω_j / Σ_j ω_j = ω_j / N
-                 * i.e. The renormalized singular values squared.
-                 *
-                 * Δ = S_old + Σ_j (ω_j ln ω_j) / N - Σ_j (ω_j ln N) / N 
-                 * Δ = S_old - ln N + 1 / N * Σ_j ω_j ln ω_j */
-                return res->entropy[0] - res->entropy[1] / res->norm[1] - 
-                        log(res->norm[1]) < sel->truncerr;
-        }
-
-        fprintf(stderr, "Invalid option in calculateTrunc. truncType %c not recognized.\n",
-                sel->truncType);
-        return -1;
+        return 1. / (1. - alpha) * log(result);
 }
 
 /*
@@ -1206,16 +1175,13 @@ static int truncSatisfied(const struct SvalSelect * sel, struct SelectRes * res)
 static int selectS(struct Sval * S, const struct SvalSelect * sel, 
                    struct SelectRes * res)
 {
-        assert(sel->truncType == 'E' || sel->truncType == 'W');
-        
-        res->entropy[0] = calculateCostFunction(S, VonNeumannEntropy, 'A');
-        res->norm[0] = calculateCostFunction(S, TotalWeight, 'A');
+        res->entropy[0] = calculateRenyi(S, 0.25, 'A');
+        res->norm[0] = calculateWeight(S, 'A');
         assert(fabs(res->norm[0] - 1) < 1e-10);
         
         int totalsings = 0;
         for (int i = 0; i < S->nrblocks; ++i) { totalsings += S->dimS[i][0]; }
         double * tempS = safe_malloc(totalsings, *tempS);
-        int * multipl = safe_malloc(totalsings, *multipl);
         int * origblock = safe_malloc(totalsings, *origblock);
 
         struct symsecs symm;
@@ -1223,12 +1189,9 @@ static int selectS(struct Sval * S, const struct SvalSelect * sel,
         assert(symm.nrSecs == S->nrblocks);
         int cnt = 0;
         for (int i = 0; i < S->nrblocks; ++i) {
-                int * irreps = symm.irreps[i];
-                int mult = multiplicity(bookie.nrSyms, bookie.sgs, irreps);
                 S->dimS[i][1] = 0;
                 for (int j = 0; j < S->dimS[i][0]; ++j, ++cnt) {
                         tempS[cnt] = S->sing[i][j];
-                        multipl[cnt] = mult;
                         origblock[cnt] = i;
                 }
         }
@@ -1241,48 +1204,30 @@ static int selectS(struct Sval * S, const struct SvalSelect * sel,
 
         int ss;
         res->norm[1] = 0;
-        res->entropy[1] = 0;
         // Reach minimal dimension
         for (ss = 0; ss < minimalto; ++ss) {
                 const int idxss = idx[totalsings - ss - 1];
-                const double s = tempS[idxss] / sqrt(multipl[idxss]);
-                res->norm[1] += multipl[idxss] * TotalWeight(s);
-                res->entropy[1] += multipl[idxss] * VonNeumannEntropy(s);
+                res->norm[1] += tempS[idxss] * tempS[idxss];
                 ++S->dimS[origblock[idxss]][1];
         }
 
         // Continue if truncation error not reached
         for (; ss < runupto; ++ss) {
                 const int idxss = idx[totalsings - ss - 1];
-                const double s = tempS[idxss] / sqrt(multipl[idxss]);
-                res->norm[1] += multipl[idxss] * TotalWeight(s);
-                res->entropy[1] += multipl[idxss] * VonNeumannEntropy(s);
+                res->norm[1] += tempS[idxss] * tempS[idxss];
                 ++S->dimS[origblock[idxss]][1];
 
-                const int ts = truncSatisfied(sel, res);
-                if (ts == 1) {
+                if (fabs(res->norm[0] - res->norm[1]) < sel->truncerr) {
+                        res->norm[0] = sqrt(res->norm[0]);
+                        res->norm[1] = sqrt(res->norm[1]);
                         break;
-                } else if (ts == -1) {
-                        safe_free(tempS);
-                        safe_free(multipl);
-                        safe_free(idx);
-                        return 1;
                 }
         }
 
-        const double diffS = fabs(res->entropy[1] - calculateCostFunction(S, VonNeumannEntropy, 'T'));
-        if (diffS > 1e-10) {
-                fprintf(stderr, "ENTROPY DIFF: %g\n", diffS);
-        }
-        const double diffN = fabs(res->norm[1] - calculateCostFunction(S, TotalWeight, 'T'));
-        if (diffN > 1e-10) {
-                fprintf(stderr, "NORM DIFF: %g\n", diffN);
-        }
-
-        res->entropy[1] = res->entropy[1] / res->norm[1] + log(res->norm[1]);
+        res->entropy[1] = calculateRenyi(S, 0.25, 'T');
+        assert(fabs(res->norm[1] - calculateWeight(S, 'T')) < 1e-10);
 
         safe_free(tempS);
-        safe_free(multipl);
         safe_free(idx);
         safe_free(origblock);
         return 0;
@@ -1562,10 +1507,8 @@ struct decompose_info HOSVD(struct siteTensor * A,
                 *A = newA;
 
                 info.cutted_bonds[info.cuts] = S.bond;
-                info.cut_trunc[info.cuts] = sel->truncType == 'E' ? 
-                        res.entropy[0] - res.entropy[1] :
-                        res.norm[0] - res.norm[1];
-                if (info.cut_trunc[info.cuts] < 1e-14) {
+                info.cut_trunc[info.cuts] = res.norm[0] - res.norm[1];
+                if (info.cut_trunc[info.cuts] < 1e-16) {
                         info.cut_trunc[info.cuts] = 0;
                 }
                 info.cut_ent[info.cuts] = res.entropy[1];
@@ -1615,7 +1558,7 @@ struct decompose_info qr_step(struct siteTensor * A, int nCenter,
 
         if (calc_ent) {
                 struct Sval S = R_svd(&R);
-                info.cut_ent[0] = calculateCostFunction(&S, VonNeumannEntropy, 'A');
+                info.cut_ent[0] = calculateRenyi(&S, 0.25, 'A');
                 info.cut_totalent = info.cut_ent[0];
                 select_ls_sigma(&S, &info, 0);
                 destroy_Sval(&S);
