@@ -24,7 +24,7 @@
 #include <sys/types.h>
 #include <assert.h> 
 
-#include "T3NSConfig.h"
+#include "T3NSConfig.h.in"
 #include "io.h"
 #include "io_to_disk.h"
 #include "macros.h"
@@ -147,8 +147,11 @@ static struct argp_option options[] = {
         {"continue", 'c', "HDF5_FILE", 0, "Continue the calculation from a saved hdf5-file. "
                 "If specified, only the optimization scheme in INPUTFILE is read."},
         {"savelocation", -1, "/path/to/directory", OPTION_ARG_OPTIONAL,
-        "Save location for files to disk.\nDefault location is \"" H5_DEFAULT_LOCATION "\"."
-        "You can disable saving by passing this option without an argument."},
+                "Save location for files to disk.\nDefault location is \"" H5_DEFAULT_LOCATION "\"."
+                        "You can disable saving by passing this option without an argument."},
+        {"disentangle", -2, "int", 0,
+                "The amount of times the optimization scheme has to be repeated. "
+                        "Inbetween the optimization schemes, the network is disentangled by permuting sites."},
         {0} /* options struct needs to be closed by a { 0 } option */
 };
 
@@ -156,6 +159,7 @@ static struct argp_option options[] = {
 struct arguments {
         char *h5file;
         char *saveloc;
+        int do_disentangle;
         char *args[1];                /* inputfile */
 };
 
@@ -175,6 +179,13 @@ static error_t parse_opt(int key, char *arg, struct argp_state *state)
                         arguments->saveloc = NULL;
                 else
                         arguments->saveloc = arg;
+                break;
+        case -2:
+                if (arg == NULL || strlen(arg) == 0) {
+                        arguments->do_disentangle = 0;
+                } else {
+                        arguments->do_disentangle = atoi(arg);
+                }
                 break;
         case ARGP_KEY_ARG:
                 /* Too many arguments. */
@@ -272,7 +283,8 @@ static int initialize_program(int argc, char *argv[],
                               struct siteTensor **T3NS, 
                               struct rOperators **rops, 
                               struct optScheme * scheme, 
-                              char ** saveloc, int * lowD, int ** lowDb)
+                              char ** saveloc, int * lowD, int ** lowDb,
+                              int * do_disentangle)
 {
         struct timers chrono = init_timers(timernames, timkeys,
                                            sizeof timkeys / sizeof timkeys[0]);
@@ -292,10 +304,12 @@ static int initialize_program(int argc, char *argv[],
         struct arguments arguments;
         arguments.saveloc = H5_DEFAULT_LOCATION;
         arguments.h5file  = NULL;
+        arguments.do_disentangle = 0;
 
         /* Parse our arguments.
          * Every option seen by parse_opt will be reflected in arguments. */
         argp_parse(&argp, argc, argv, 0, 0, &arguments);
+        *do_disentangle = arguments.do_disentangle;
 
         // Location for saving results.
         if (arguments.saveloc == NULL) {
@@ -380,31 +394,32 @@ int main(int argc, char *argv[])
         /* line by line write-out */
         setvbuf(stdout, NULL, _IOLBF, BUFSIZ);
 
-        struct siteTensor *T3NS = NULL;
-        struct rOperators *rops = NULL;
+        struct siteTensor * T3NS = NULL;
+        struct rOperators * rops = NULL;
         struct optScheme scheme;
-        int lowD, *lowDb;
-        if (initialize_program(argc, argv, &T3NS, &rops, &scheme, &pbuffer, &lowD, &lowDb)) {
+        int do_disentangle, lowD, *lowDb;
+
+        if (initialize_program(argc, argv, &T3NS, &rops, &scheme, &pbuffer,
+                               &lowD, &lowDb, &do_disentangle)) {
                 cleanup_before_exit(&T3NS, &rops, &scheme);
                 return EXIT_FAILURE;
         }
         execute_optScheme(T3NS, rops, &scheme, pbuffer, lowD, lowDb);
-        struct disentScheme sch = {
-                .max_sweeps = 0,
-                .gambling = true,
-                .beta = 20,
-                .svd_sel = scheme.regimes[0].svd_sel
-        };
-        disentangle_state(T3NS, &sch, 0);
-        /*
-        destroy_all_rops(&rops);
-        clear_instructions();
-        reinit_hamiltonian();
+        for (int i = 0; i < do_disentangle; ++i) {
+                struct disentScheme sch = {
+                        .max_sweeps = 30,
+                        .gambling = true,
+                        .beta = 20,
+                        .svd_sel = scheme.regimes[0].svd_sel
+                };
+                disentangle_state(T3NS, &sch, 0);
+                destroy_all_rops(&rops);
+                clear_instructions();
+                reinit_hamiltonian();
 
-        init_operators(&rops, T3NS);
-        execute_optScheme(T3NS, rops, &scheme, pbuffer);
-        disentangle_state(T3NS, &sch, 0);
-        */
+                init_operators(&rops, T3NS);
+                execute_optScheme(T3NS, rops, &scheme, pbuffer, lowD, lowDb);
+        }
         print_target_state_coeff(T3NS);
 
         cleanup_before_exit(&T3NS, &rops, &scheme);

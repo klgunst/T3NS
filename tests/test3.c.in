@@ -79,8 +79,8 @@ static void cleanup_before_exit(struct siteTensor **T3NS,
 int main(int argc, char *argv[])
 {
         static struct regime reg[2] = {
-                {{100, 100, 1e-4, 'E'}, 2, 1e-6, 4, 2, 1e-4},
-                {{140, 140, 1e-4, 'E'}, 2, 1e-6, 100, 10, 1e-6}
+                {{100, 100, 1e-4}, 2, 1e-6, 4, 2, 1e-4},
+                {{140, 140, 1e-4}, 2, 1e-6, 100, 10, 1e-6}
         };
         static struct optScheme scheme = {2, reg};
         const double conv_energy[2] = {-107.1152169273, -106.8754093145};

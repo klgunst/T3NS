@@ -84,8 +84,8 @@ static void cleanup_before_exit(struct siteTensor **T3NS,
 int main(int argc, char *argv[])
 {
         static struct regime reg[2] = {
-                {{1000, 1000, 1e-4, 'E'}, 2, 1e-6, 4, 2, 1e-8},
-                {{1000, 1000, 1e-4, 'E'}, 2, 1e-6, 100, 10, 1e-8}
+                {{1000, 1000, 1e-4}, 2, 1e-6, 4, 2, 1e-8},
+                {{1000, 1000, 1e-4}, 2, 1e-6, 100, 10, 1e-8}
         };
         static struct optScheme scheme = {2, reg};
 

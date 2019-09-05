@@ -123,7 +123,6 @@ static void fill_regimeoptions(char buffer[], struct optScheme * const scheme,
                                 __FILE__, __func__, optionnames[option]);
                 }
                 pch = strtok(NULL, STRTOKSEP);
-                reg->svd_sel.truncType = 'E';
                 ++i;
         }
         assert(i == scheme->nrRegimes);
@@ -217,7 +216,7 @@ void print_optScheme(const struct optScheme * const scheme)
         int useD = 1;
         for (int i = 0; i < scheme->nrRegimes; ++i)
                 if (scheme->regimes[i].svd_sel.minD != scheme->regimes[i].svd_sel.maxD || 
-                    scheme->regimes[i].svd_sel.truncerr != 0) {
+                    scheme->regimes[i].svd_sel.truncerr > 1e-20) {
                         useD = 0;
                         break;
                 }
