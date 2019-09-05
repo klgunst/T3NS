@@ -71,7 +71,7 @@ void print_target_state_coeff(const struct siteTensor * T3NS);
  * @param [in] T3NS The wave function.
  * @return 0 on success, 1 on failure.
  */
-int init_operators(struct rOperators ** rOps, struct siteTensor ** T3NS);
+int init_operators(struct rOperators ** rOps, struct siteTensor * T3NS);
 
 /*
  * @brief Initializes the wave function.

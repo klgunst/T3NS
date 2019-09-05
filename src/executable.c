@@ -24,7 +24,7 @@
 #include <sys/types.h>
 #include <assert.h> 
 
-#include "T3NSConfig.h.in"
+#include "T3NSConfig.h"
 #include "io.h"
 #include "io_to_disk.h"
 #include "macros.h"
@@ -368,7 +368,7 @@ static int initialize_program(int argc, char *argv[],
         }
         // Need to initialize operators still.
         tic(&chrono, INIT_OPS);
-        if (init_operators(rops, T3NS)) { return 1; }
+        if (init_operators(rops, *T3NS)) { return 1; }
         toc(&chrono, INIT_OPS);
 
         print_input(scheme);
@@ -414,7 +414,7 @@ int main(int argc, char *argv[])
                 clear_instructions();
                 reinit_hamiltonian();
 
-                init_operators(&rops, &T3NS);
+                init_operators(&rops, T3NS);
                 execute_optScheme(T3NS, rops, &scheme, pbuffer);
         }
         print_target_state_coeff(T3NS);
