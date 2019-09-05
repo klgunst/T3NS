@@ -24,7 +24,7 @@
 #include <sys/types.h>
 #include <assert.h> 
 
-#include "T3NSConfig.h.in"
+#include "T3NSConfig.h"
 #include "io.h"
 #include "io_to_disk.h"
 #include "macros.h"
