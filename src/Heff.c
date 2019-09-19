@@ -804,12 +804,11 @@ static int find_operator_tel(const int * sb, T3NS_EL_TYPE ** tel,
 {
         for (int i = 0; i < (isdmrg ? 2 : 3); ++i) {
                 assert(Operators[i].nrops > instr[i]);
-                int * start = &Operators[i].operators[instr[i]].beginblock[sb[i]];
+                T3NS_BB_TYPE * start = &Operators[i].operators[instr[i]].beginblock[sb[i]];
                 if (start[0] == start[1]) {
                         tel[i] = NULL;
                         return 0; 
                 }
-
                 tel[i] = Operators[i].operators[instr[i]].tel + start[0];
         }
         return 1;
@@ -958,7 +957,7 @@ static void exec_secondrun(const double * const vec, double * const result,
                 T3NS_EL_TYPE * tels[7];
                 safe_malloc(tels[WORK1], data->sr.worksize[0]);
                 safe_malloc(tels[WORK2], data->sr.worksize[1]);
-                int * bb = data->siteObject.blocks.beginblock;
+                T3NS_BB_TYPE * bb = data->siteObject.blocks.beginblock;
 
 #pragma omp for schedule(dynamic) nowait 
                 for (int ius = 0; ius < n; ++ius) {

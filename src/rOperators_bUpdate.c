@@ -255,7 +255,7 @@ static void init_uniqueOperators(struct rOperators * const uniqueOps, const stru
                                  const instructions)
 {
         int count;
-        int **nkappa_begin;
+        T3NS_BB_TYPE ** nkappa_begin;
         int curr_instr;
 
         init_rOperators(uniqueOps, &nkappa_begin, uniqueOps->bond, uniqueOps->is_left, false);

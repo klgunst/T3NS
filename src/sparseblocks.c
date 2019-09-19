@@ -34,7 +34,8 @@ void init_null_sparseblocks(struct sparseblocks * blocks)
         blocks->tel        = NULL;
 }
 
-void init_sparseblocks(struct sparseblocks * blocks, const int * beginblock, 
+void init_sparseblocks(struct sparseblocks * blocks,
+                       const T3NS_BB_TYPE * beginblock, 
                        int nr_blocks, char o)
 {
         safe_malloc(blocks->beginblock, nr_blocks + 1);
@@ -48,8 +49,7 @@ void init_sparseblocks(struct sparseblocks * blocks, const int * beginblock,
                 safe_malloc(blocks->tel, blocks->beginblock[nr_blocks]);
                 break;
         default:
-                fprintf(stderr, "Error @%s: wrong option (%c) passed.\n", 
-                        __func__, o);
+                fprintf(stderr, "Error @%s: wrong option (%c) passed.\n", __func__, o);
         }
 }
 
@@ -59,10 +59,12 @@ void deep_copy_sparseblocks(struct sparseblocks * copy,
         safe_malloc(copy->beginblock, nrblocks + 1);
         safe_malloc(copy->tel, tocopy->beginblock[nrblocks]);
 
-        for (int i = 0; i < nrblocks + 1; ++i) 
+        for (int i = 0; i < nrblocks + 1; ++i) {
                 copy->beginblock[i] = tocopy->beginblock[i];
-        for (int i = 0; i < tocopy->beginblock[nrblocks]; ++i) 
+        }
+        for (T3NS_BB_TYPE i = 0; i < tocopy->beginblock[nrblocks]; ++i) {
                 copy->tel[i] = tocopy->tel[i];
+        }
 }
 
 void destroy_sparseblocks(struct sparseblocks * blocks)
@@ -73,51 +75,48 @@ void destroy_sparseblocks(struct sparseblocks * blocks)
 
 void kick_zero_blocks(struct sparseblocks * blocks, int nr_blocks)
 {
-        int start = blocks->beginblock[0];
+        T3NS_BB_TYPE start = blocks->beginblock[0];
 #ifndef NDEBUG
-        const int prevsize = blocks->beginblock[nr_blocks];
+        const T3NS_BB_TYPE prevsize = blocks->beginblock[nr_blocks];
 #endif
 
         for (int i = 0; i < nr_blocks; ++i) {
                 int flag = 0;
-                for (int j = start; j < blocks->beginblock[i + 1]; ++j) {
-                        if ((flag = !COMPARE_ELEMENT_TO_ZERO(blocks->tel[j])))
-                                break;
+                for (T3NS_BB_TYPE j = start; j < blocks->beginblock[i + 1]; ++j) {
+                        if ((flag = !COMPARE_ELEMENT_TO_ZERO(blocks->tel[j]))) { break; }
                 }
 
                 /* length of new symsec (is zero if it is a zero-symsec) */
-                const int N = flag * (blocks->beginblock[i + 1] - start);
+                const T3NS_BB_TYPE N = flag * (blocks->beginblock[i + 1] - start);
 
-                for (int j = 0; j < N; ++j) {
-                        blocks->tel[j + blocks->beginblock[i]] = 
-                                blocks->tel[j + start];
+                for (T3NS_BB_TYPE j = 0; j < N; ++j) {
+                        blocks->tel[j + blocks->beginblock[i]] = blocks->tel[j + start];
                 }
                 start = blocks->beginblock[i + 1];
                 blocks->beginblock[i + 1] = blocks->beginblock[i] + N;
         }
         assert(prevsize >= blocks->beginblock[nr_blocks]);
 
-        blocks->tel = realloc(blocks->tel, blocks->beginblock[nr_blocks] * 
-                              sizeof *blocks->tel);
+        blocks->tel = realloc(blocks->tel, blocks->beginblock[nr_blocks] * sizeof *blocks->tel);
 
         if (blocks->tel == NULL && blocks->beginblock[nr_blocks] != 0) {
-                fprintf(stderr, "%s@%s: something went wrong in the reallocation.\n",
-                        __FILE__, __func__);
+                fprintf(stderr, "%s@%s: something went wrong in the reallocation.\n", __FILE__, __func__);
                 exit(EXIT_FAILURE);
         }
 }
 
 int get_size_block(const struct sparseblocks * blocks, int id)
 {
-        return blocks->beginblock[id + 1] - blocks->beginblock[id];
+        return (int) (blocks->beginblock[id + 1] - blocks->beginblock[id]);
 }
 
 T3NS_EL_TYPE * get_tel_block(const struct sparseblocks * blocks, int id)
 {
-        if (get_size_block(blocks, id))
+        if (get_size_block(blocks, id)) {
                 return blocks->tel + blocks->beginblock[id];
-        else
+        } else {
                 return NULL;
+        }
 }
 
 void print_block(const struct sparseblocks * blocks, int id)

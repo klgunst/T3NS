@@ -292,8 +292,9 @@ struct rOperators sum_unique_rOperators(const struct rOperators * ur,
         return res;
 }
 
-static int * nP_make_qnumbers_for_hss(struct rOperators * rops,
-                                      const struct good_sectors * gs, int hss)
+static T3NS_BB_TYPE * nP_make_qnumbers_for_hss(struct rOperators * rops,
+                                               const struct good_sectors * gs,
+                                               int hss)
 {
         const int id0 = 1 + rops->is_left;
         const int id1 = 1 + !rops->is_left;
@@ -310,15 +311,17 @@ static int * nP_make_qnumbers_for_hss(struct rOperators * rops,
                         iter.cid[id1] * gs->ss[id0].nrSecs + 
                         iter.cid[0] * gs->ss[1].nrSecs * gs->ss[2].nrSecs;
                 dimtmp[iter.cnt] = iter.cdim;
+                assert(dimtmp[iter.cnt] >= 0 && "Maybe integer overflow?");
         }
 
         int * idx = quickSort(qntmp, N, SORT_QN_TYPE);
-        int * safe_malloc(bb, N + 1);
+        T3NS_BB_TYPE * safe_malloc(bb, N + 1);
         bb[0] = 0;
         QN_TYPE *qnrOps = rOperators_give_qnumbers_for_hss(rops, hss);
         for (int i = 0; i < N; ++i) {
                 qnrOps[i] = qntmp[idx[i]];
                 bb[i + 1] = dimtmp[idx[i]] + bb[i];
+                assert(bb[i + 1] >= 0 && "Maybe integer overflow?");
         }
         safe_free(qntmp);
         safe_free(dimtmp);
@@ -343,8 +346,8 @@ static struct good_sectors find_good_sectorsMPO(const struct rOperators * rops)
         return find_good_sectors(symarr, 1);
 }
 
-static void init_nP_rOperators(struct rOperators * const rops, int *** tmpbb,
-                               int bond, int is_left)
+static void init_nP_rOperators(struct rOperators * const rops,
+                               T3NS_BB_TYPE *** tmpbb, int bond, int is_left)
 {
         rops->bond = bond;
         rops->is_left = is_left;
@@ -427,9 +430,9 @@ static struct qndarr * make_qndarr(struct rOperators * const rops)
         return res;
 }
 
-static int * P_make_qnumbers_for_hss(struct rOperators * rops,
-                                     const struct good_sectors * intgs, 
-                                     const struct qndarr * qna, int hss)
+static T3NS_BB_TYPE * P_make_qnumbers_for_hss(struct rOperators * rops,
+                                              const struct good_sectors * intgs, 
+                                              const struct qndarr * qna, int hss)
 {
         struct iter_gs iter = init_iter_gs(hss, 0, intgs);
         const int N = rOperators_give_nr_blocks_for_hss(rops, hss);
@@ -466,7 +469,7 @@ static int * P_make_qnumbers_for_hss(struct rOperators * rops,
         assert(cqn == N);
 
         int * idx = quickSort(qntmp, N, SORT_QN_TYPE3);
-        int * safe_malloc(bb, N + 1);
+        T3NS_BB_TYPE * safe_malloc(bb, N + 1);
         bb[0] = 0;
         QN_TYPE *qnrOps = rOperators_give_qnumbers_for_hss(rops, hss);
         for (int i = 0; i < N; ++i) {
@@ -474,6 +477,7 @@ static int * P_make_qnumbers_for_hss(struct rOperators * rops,
                 qnrOps[i * 3 + 1] = qntmp[idx[i] * 3 + 1];
                 qnrOps[i * 3 + 2] = qntmp[idx[i] * 3 + 2];
                 bb[i + 1] = dimtmp[idx[i]] + bb[i];
+                assert(bb[i + 1] >= 0 && "Maybe integer overflow?");
         }
 
         safe_free(idx);
@@ -482,7 +486,7 @@ static int * P_make_qnumbers_for_hss(struct rOperators * rops,
         return bb;
 }
 
-static void init_P_rOperators(struct rOperators * const rops, int *** tmpbb,
+static void init_P_rOperators(struct rOperators * const rops, T3NS_BB_TYPE *** tmpbb,
                               int bond, int is_left)
 {
         rops->bond = bond;
@@ -523,7 +527,7 @@ static void init_P_rOperators(struct rOperators * const rops, int *** tmpbb,
         destroy_good_sectors(&intgs);
 }
 
-void init_rOperators(struct rOperators * rops, int *** tmpbb, int bond,
+void init_rOperators(struct rOperators * rops, T3NS_BB_TYPE *** tmpbb, int bond,
                      int is_left, bool P_operator)
 {
         if (P_operator) {

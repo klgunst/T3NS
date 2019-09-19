@@ -110,6 +110,10 @@ int sparse_eigensolve(double * result, double * energy, int size, int max_vecs,
                       void (*matvec)(const double*, double*, void*), 
                       void * vdat, const char solver[])
 {
+        if (size < 0) {
+                fprintf(stderr, "Invalid size of the problem: %d. Possible integer overflow.\n", size);
+                return 2;
+        }
         if (strcmp(solver, "D") == 0) {
                 return davidson(result, energy, size, max_vecs, keep_deflate, 
                                 tol, max_its, diagonal, matvec, vdat);

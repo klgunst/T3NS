@@ -332,7 +332,7 @@ static void sort_and_make(void)
         const int nb = md.T->nrblocks;
         const int ns = md.T->nrsites;
         QN_TYPE * safe_malloc(new_qn, nb * ns);
-        int * safe_malloc(new_dim, nb + 1);
+        T3NS_BB_TYPE * safe_malloc(new_dim, nb + 1);
         // Sorting
         int * idx = quickSort(md.T->qnumbers, nb, sort_qn[ns]);
 
@@ -373,7 +373,7 @@ static int get_partqn_and_dim(bool counted, int id, int leg, QN_TYPE ** partqn,
 }
 
 static int innerl_qn_dims(bool counted, const int * ids, int k, QN_TYPE ** p_qn, 
-                          int ** p_dims, const struct good_sectors * gs)
+                          T3NS_BB_TYPE ** p_dims, const struct good_sectors * gs)
 {
         QN_TYPE * partqn[STEPSPECS_MSITES] = { NULL, };
         int * partdim[STEPSPECS_MSITES] = { NULL, };
@@ -449,13 +449,13 @@ static void make_qnumbers_and_dims(const struct good_sectors * const gs)
 #pragma omp parallel default(none) shared(md) reduction(+:nrblocks)
         {
                 QN_TYPE * qnumbers = NULL;
-                int * dims = NULL;
+                T3NS_BB_TYPE * dims = NULL;
                 if (counted) {
                         safe_malloc(qnumbers, md.T->nrblocks * md.T->nrsites);
                         safe_malloc(dims, md.T->nrblocks);
                 }
                 QN_TYPE * c_qn = qnumbers;
-                int * c_dims = dims;
+                T3NS_BB_TYPE * c_dims = dims;
                 struct symsecs * intsym  = md.ssarr[md.innersite];
 
 #pragma omp for schedule(static) collapse(2)
@@ -471,9 +471,7 @@ static void make_qnumbers_and_dims(const struct good_sectors * const gs)
                                                 j,
                                                 gsa->sectors[k].id3
                                         };
-                                        nrblocks += innerl_qn_dims(counted, ids,
-                                                                   k, &c_qn,
-                                                                   &c_dims, gs);
+                                        nrblocks += innerl_qn_dims(counted, ids, k, &c_qn, &c_dims, gs);
                                         assert(!counted || nrblocks * md.T->nrsites == c_qn - qnumbers);
                                         assert(!counted || nrblocks == c_dims - dims);
                                 }

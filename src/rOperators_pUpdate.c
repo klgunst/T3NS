@@ -68,7 +68,7 @@ static int * make_oldtonew(const struct symsecs * iss, int bond)
 static struct rOperators init_updated_rOperators(struct rOperators * rops)
 {
         struct rOperators urops;
-        int ** tmpbb;
+        T3NS_BB_TYPE ** tmpbb;
         init_rOperators(&urops, &tmpbb, rops->bond, rops->is_left, false);
         urops.nrops = rops->nrops;
         safe_malloc(urops.hss_of_ops, urops.nrops);
@@ -393,7 +393,7 @@ void update_rOperators_physical(struct rOperators * rops,
 static void init_unique_rOperators(struct rOperators * ur, int bond, bool il,
                                    const struct instructionset * set)
 {
-        int ** tmpbb;
+        T3NS_BB_TYPE ** tmpbb;
         init_rOperators(ur, &tmpbb, bond, il, true);
 
         // counting number of uniquerops

@@ -15,6 +15,7 @@
     along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 #pragma once
+#include <inttypes.h>
 
 #ifdef T3NS_MKL
 #include "mkl.h"
@@ -29,7 +30,10 @@
  * This is a structure for the storage of sparse blocks of a sparse tensor.
  */
 
-/// Type of the elements of the tensors
+/// Type of the beginblock index for the tensors.
+#define T3NS_BB_TYPE int_fast64_t
+#define T3NS_BB_TYPE_H5 H5T_STD_I64LE
+/// Type of the elements of the tensors.
 #define T3NS_EL_TYPE double
 /// Type of the elements of the tensors for HDF5
 #define T3NS_EL_TYPE_H5 H5T_IEEE_F64LE
@@ -45,7 +49,7 @@ struct sparseblocks {
          *
          * Length of this array is equal to <tt>nrblocks + 1</tt>.
          */
-        int * beginblock;
+        T3NS_BB_TYPE * beginblock;
         /** Storage for the different elements of the sparse tensor.
          *
          * Length is <tt>@ref beginblock[nrblocks]</tt>.<br>
@@ -69,7 +73,8 @@ void init_null_sparseblocks(struct sparseblocks * blocks);
  * @param [in] nr_blocks The number of blocks.
  * @param [in] o o is 'c' if calloc, 'm' if malloc for tel.
  */
-void init_sparseblocks(struct sparseblocks * blocks, const int * beginblock, 
+void init_sparseblocks(struct sparseblocks * blocks,
+                       const T3NS_BB_TYPE * beginblock, 
                        int nr_blocks, char o);
 
 /**
@@ -104,7 +109,8 @@ void kick_zero_blocks(struct sparseblocks * blocks, int nr_blocks);
  *
  * @param [in] blocks The sparseblocks structure.
  * @param [in] id The block index.
- * \return The size of the block.
+ * @return The size of the block. Although the block indexes are of type
+ * @ref T3NS_BB_TYPE, the size of the block is still kept as an integer.
  */
 int get_size_block(const struct sparseblocks * blocks, int id);
 
