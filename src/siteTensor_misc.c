@@ -224,7 +224,7 @@ void siteTensor_give_externalbonds(const struct siteTensor * const tens, int ext
   }
 }
 
-int siteTensor_get_size(const struct siteTensor * const tens)
+T3NS_BB_TYPE siteTensor_get_size(const struct siteTensor * const tens)
 {
   return tens->blocks.beginblock[tens->nrblocks];
 }

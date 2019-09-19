@@ -99,8 +99,8 @@ static void make_1sblocks(struct siteTensor * tens)
         tens->blocks.beginblock[0] = 0;
         for (int i = 0; i < tens->nrblocks; ++i) {
                 tens->qnumbers[i] = qnumbers[idx[i]];
-                tens->blocks.beginblock[i + 1] = 
-                        tens->blocks.beginblock[i] + dims[idx[i]];
+                tens->blocks.beginblock[i + 1] = tens->blocks.beginblock[i] + dims[idx[i]];
+                assert(tens->blocks.beginblock[i + 1] >= 0 && "Integer overflow?");
         }
         safe_free(dims);
         safe_free(qnumbers);
@@ -342,6 +342,7 @@ static void sort_and_make(void)
                         new_qn[i * ns + j] = md.T->qnumbers[idx[i] * ns + j];
                 }
                 new_dim[i + 1] = md.T->blocks.beginblock[idx[i]] + new_dim[i];
+                assert(new_dim[i + 1] >= 0 && "Integer overflow?");
         }
 
         safe_free(md.T->blocks.beginblock);

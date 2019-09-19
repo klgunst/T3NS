@@ -147,16 +147,18 @@ static void make_Q(struct qrdata * dat)
                         if (blsize == 0) { continue; }
 
                         assert(N != 0 && M != 0);
-                        const int currM = blsize / N;
+                        const T3NS_BB_TYPE currM = blsize / N;
                         assert(blsize % N == 0);
                         checkM += currM;
                         dat->Q->blocks.beginblock[*id + 1] = currM * minMN;
+                        assert(dat->Q->blocks.beginblock[*id + 1] >= 0 && "Integer overflow?");
                 }
                 assert(checkM == M);
         }
 
         for (int i = 0; i < dat->Q->nrblocks; ++i) {
                 dat->Q->blocks.beginblock[i + 1] += dat->Q->blocks.beginblock[i];
+                assert(dat->Q->blocks.beginblock[i + 1] >= 0 && "Integer overflow?");
         }
         safe_malloc(dat->Q->blocks.tel, dat->Q->blocks.beginblock[dat->Q->nrblocks]);
 }
@@ -396,11 +398,13 @@ static void makeB(const struct siteTensor * const A, const int bondA,
                         assert(sizeA % R->dims[id][bondR] == 0);
                         B->blocks.beginblock[i + 1] = sizeA / 
                                 R->dims[id][bondR] * R->dims[id][!bondR];
+                        assert(B->blocks.beginblock[i + 1] >= 0 && "Integer overflow?");
                 }
         }
 
         for (int i = 0; i < B->nrblocks; ++i) {
                 B->blocks.beginblock[i + 1] += B->blocks.beginblock[i];
+                assert(B->blocks.beginblock[i + 1] >= 0 && "Integer overflow?");
         }
         safe_malloc(B->blocks.tel, B->blocks.beginblock[B->nrblocks]);
 }
@@ -1241,14 +1245,14 @@ static void init_UV_tensors_and_change_symsec(struct svddata * dat)
                 for (int m = 0; m < info.Msecs; ++m) {
                         const int nb = info.idpermU[m];
                         assert(dat->U->blocks.beginblock[nb + 1] == 0);
-                        dat->U->blocks.beginblock[nb + 1] = 
-                                (info.Mstart[m + 1] - info.Mstart[m]) * dimS;
+                        dat->U->blocks.beginblock[nb + 1] = (info.Mstart[m + 1] - info.Mstart[m]) * dimS;
+                        assert(dat->U->blocks.beginblock[nb + 1] >= 0 && "Integer overflow?");
                 }
                 for (int n = 0; n < info.Nsecs; ++n) {
                         const int nb = info.idpermV[n];
                         assert(dat->V->blocks.beginblock[nb + 1] == 0);
-                        dat->V->blocks.beginblock[nb + 1] = 
-                                (info.Nstart[n + 1] - info.Nstart[n]) * dimS;
+                        dat->V->blocks.beginblock[nb + 1] = (info.Nstart[n + 1] - info.Nstart[n]) * dimS;
+                        assert(dat->V->blocks.beginblock[nb + 1] >= 0 && "Integer overflow?");
                 }
 
                 dat->symarr[dat->id_siteV][dat->id_bond].dims[ssid] = dimS;
@@ -1258,9 +1262,11 @@ static void init_UV_tensors_and_change_symsec(struct svddata * dat)
 
         for (int i = 0; i < dat->U->nrblocks; ++i) {
                 dat->U->blocks.beginblock[i+1] += dat->U->blocks.beginblock[i];
+                assert(dat->U->blocks.beginblock[i + 1] >= 0 && "Integer overflow?");
         }
         for (int i = 0; i < dat->V->nrblocks; ++i) {
                 dat->V->blocks.beginblock[i+1] += dat->V->blocks.beginblock[i];
+                assert(dat->V->blocks.beginblock[i + 1] >= 0 && "Integer overflow?");
         }
 
         safe_calloc(dat->U->blocks.tel, siteTensor_get_size(dat->U));

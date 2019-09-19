@@ -96,7 +96,7 @@ static void make_unitOperator(struct rOperators * ops, int op)
 
         safe_calloc(UBlock->tel, totdim);
         for (int block = 0; block < nr_blocks; ++block) {
-                const int D = UBlock->beginblock[block + 1];
+                T3NS_BB_TYPE D = UBlock->beginblock[block + 1];
                 T3NS_EL_TYPE * telcur = UBlock->tel + UBlock->beginblock[block];
                 int ids[3];
                 // only for non-physical rOperators
@@ -115,7 +115,7 @@ static void make_unitOperator(struct rOperators * ops, int op)
                         prefactor_mirror_coupling(irr, bookie.sgs, bookie.nrSyms);
 
                 // diagonal
-                for (int j = 0; j < D; ++j) { telcur[j * D + j] = prefactor; }
+                for (T3NS_BB_TYPE j = 0; j < D; ++j) { telcur[j * D + j] = prefactor; }
                 UBlock->beginblock[block + 1] = UBlock->beginblock[block] + D * D;
         }
 }

@@ -248,7 +248,7 @@ int siteTensor_give_nr_externalbonds(const struct siteTensor * const tens);
  */
 void siteTensor_give_externalbonds(const struct siteTensor * const tens, int externalbonds[]);
 
-int siteTensor_get_size(const struct siteTensor * const tens);
+T3NS_BB_TYPE siteTensor_get_size(const struct siteTensor * const tens);
 
 /**
  * @brief Gives the bondid of a certain @p bond in the tensor @tens.
