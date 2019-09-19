@@ -205,7 +205,7 @@ static void destroy_qrdata(struct qrdata * dat)
         safe_free(dat->idstart);
 }
 
-static void copy_to_R(struct Rmatrix * R, EL_TYPE * mem,
+static void copy_to_R(struct Rmatrix * R, T3NS_EL_TYPE * mem,
                       int M, int N, int Rblock)
 {
         if (R == NULL) { return; }
@@ -225,7 +225,7 @@ static void copy_to_R(struct Rmatrix * R, EL_TYPE * mem,
 
 #define TO_MEMORY 1
 #define FROM_MEMORY 0
-static void QR_copy_fromto_mem(struct qrdata * dat, EL_TYPE * mem, int Rblock, 
+static void QR_copy_fromto_mem(struct qrdata * dat, T3NS_EL_TYPE * mem, int Rblock, 
                                int ldmem, int N, int copy_type)
 {
         assert(copy_type == TO_MEMORY || copy_type == FROM_MEMORY);
@@ -233,10 +233,10 @@ static void QR_copy_fromto_mem(struct qrdata * dat, EL_TYPE * mem, int Rblock,
                 &dat->Q->blocks : &dat->A->blocks;
 
         // Copy the different blocks
-        EL_TYPE * cmem = mem;
+        T3NS_EL_TYPE * cmem = mem;
         for (int * id = &dat->idperm[dat->idstart[Rblock]]; 
              id != &dat->idperm[dat->idstart[Rblock + 1]]; ++id) {
-                EL_TYPE * bl_p   = get_tel_block(T, *id);
+                T3NS_EL_TYPE * bl_p   = get_tel_block(T, *id);
 
                 int (*indic)[3] = &dat->indices[*id];
                 int M = 1;
@@ -278,10 +278,10 @@ static int qrblocks(struct qrdata * dat, int Rblock)
         assert(dat->symarr[dat->bond].dims[Rblock] == N);
 
         const int memsize = M * N;
-        EL_TYPE * mem = safe_malloc(memsize, *mem);
+        T3NS_EL_TYPE * mem = safe_malloc(memsize, *mem);
         QR_copy_fromto_mem(dat, mem, Rblock, M, N, TO_MEMORY);
 
-        EL_TYPE * tau  = safe_malloc(minMN, *tau);
+        T3NS_EL_TYPE * tau  = safe_malloc(minMN, *tau);
         int info = LAPACKE_dgeqrf(LAPACK_COL_MAJOR, M, N, mem, M, tau);
         if (info) {
                 fprintf(stderr, "%d %d %p %p\n", M, N, (void *) mem, (void *) tau);
@@ -447,7 +447,7 @@ int multiplyR(struct siteTensor * A, const int bondA,
                 id[2] = qn / dims[1];
                 assert(id[2] < dims[2]);
 
-                EL_TYPE * tels[] = {
+                T3NS_EL_TYPE * tels[] = {
                         get_tel_block(&A->blocks, block),
                         R->Rels[id[bondA]],
                         get_tel_block(&B->blocks, block)
@@ -498,9 +498,9 @@ static int orthoblock(struct qrdata * dat, int Rblock)
         assert(dat->symarr[dat->bond].dims[Rblock] == N);
 
         const int memsize = M * N;
-        EL_TYPE * mem = safe_malloc(memsize, *mem);
+        T3NS_EL_TYPE * mem = safe_malloc(memsize, *mem);
         QR_copy_fromto_mem(dat, mem, Rblock, M, N, TO_MEMORY);
-        EL_TYPE * isunit = safe_malloc(N *N, *isunit);
+        T3NS_EL_TYPE * isunit = safe_malloc(N *N, *isunit);
         cblas_dsyrk(CblasColMajor, CblasUpper, CblasTrans, N, M, 
                     1, mem, M, 0, isunit, N);
         // Only upper triangle of unit should be stored in isunit.
@@ -626,7 +626,7 @@ struct svd_bond_info {
          * > [0, m[0], m[0] + m[1], m[0] + m[1] + m[2],...] */
         int * Mstart;
         // Allocated memory for U
-        EL_TYPE * memU;
+        T3NS_EL_TYPE * memU;
 
         /* Permutation array which groups the blocks in VT with the same 
          * symmetry sector for the cutted bond. */
@@ -640,7 +640,7 @@ struct svd_bond_info {
          * > [0, n[0], n[0] + n[1], n[0] + n[1] + n[2],...] */
         int * Nstart;
         // Allocated memory for VT
-        EL_TYPE * memVT;
+        T3NS_EL_TYPE * memVT;
 };
 
 static void destroy_svd_bond_info(struct svd_bond_info * info)
@@ -924,13 +924,13 @@ static void get_dims(int * dims, int block, const struct siteTensor * T,
 
 // Copies and permutes a block from A to the working memory
 static void SVD_copy_to_mem(struct svddata * dat, const int ssid, 
-                            EL_TYPE * memA)
+                            T3NS_EL_TYPE * memA)
 {
         const struct svd_bond_info inf = dat->ss_info[ssid];
 
         for (const int * block = inf.idpermA; 
              block < &inf.idpermA[inf.idpermAsize]; ++block) {
-                EL_TYPE * telA = get_tel_block(&dat->A->blocks, *block);
+                T3NS_EL_TYPE * telA = get_tel_block(&dat->A->blocks, *block);
 
                 QN_TYPE * currqn = &dat->A->qnumbers[dat->A->nrsites * *block];
                 QN_TYPE qnU[STEPSPECS_MSITES];
@@ -957,7 +957,7 @@ static void SVD_copy_to_mem(struct svddata * dat, const int ssid,
 
                 const int Mpos = inf.Mstart[idU];
                 const int Npos = inf.Nstart[idV];
-                EL_TYPE * mem = &memA[Mpos + inf.Mstart[inf.Msecs] * Npos];
+                T3NS_EL_TYPE * mem = &memA[Mpos + inf.Mstart[inf.Msecs] * Npos];
 
                 int dims[3] = {1, 1, 1};
                 get_dims(dims, *block, dat->A, dat->id_siteV, -1, 
@@ -988,9 +988,9 @@ static int SVD_copy_from_mem(struct svddata * dat, const int ssid)
 
         for (int idV = 0; idV < inf.Nsecs; ++idV) {
                 const int block = inf.idpermV[idV];
-                EL_TYPE * telV = get_tel_block(&dat->V->blocks, block);
+                T3NS_EL_TYPE * telV = get_tel_block(&dat->V->blocks, block);
 
-                const EL_TYPE * mem = &inf.memVT[inf.Nstart[idV] * origdimS];
+                const T3NS_EL_TYPE * mem = &inf.memVT[inf.Nstart[idV] * origdimS];
 
                 int tdims[3];
                 get_dims(tdims, block, dat->V, 0, dat->id_bond, 
@@ -1017,9 +1017,9 @@ static int SVD_copy_from_mem(struct svddata * dat, const int ssid)
 
         for (int idU = 0; idU < inf.Msecs; ++idU) {
                 const int block = inf.idpermU[idU];
-                EL_TYPE * telU = get_tel_block(&dat->U->blocks, block);
+                T3NS_EL_TYPE * telU = get_tel_block(&dat->U->blocks, block);
 
-                const EL_TYPE * mem = &inf.memU[inf.Mstart[idU]];
+                const T3NS_EL_TYPE * mem = &inf.memU[inf.Mstart[idU]];
 
                 const int id_csite = dat->id_csite - 
                         (dat->id_siteV < dat->id_csite);
@@ -1055,7 +1055,7 @@ static int svdblocks(struct svddata * dat, int ssid)
         const int N = inf.Nstart[inf.Nsecs];
         assert(dat->S->dimS[ssid][0] == (M < N ? M : N));
 
-        EL_TYPE * memA = safe_calloc(M * N, memA);
+        T3NS_EL_TYPE * memA = safe_calloc(M * N, memA);
         SVD_copy_to_mem(dat, ssid, memA);
         int info = LAPACKE_dgesdd(LAPACK_COL_MAJOR, 'S', M, N, memA, M, 
                                   dat->S->sing[ssid], inf.memU, M, 

@@ -42,10 +42,10 @@ void init_sparseblocks(struct sparseblocks * blocks, const int * beginblock,
                 blocks->beginblock[j] = beginblock[j];
         switch(o) {
         case 'c':
-                blocks->tel = safe_calloc(blocks->beginblock[nr_blocks], EL_TYPE);
+                blocks->tel = safe_calloc(blocks->beginblock[nr_blocks], T3NS_EL_TYPE);
                 break;
         case 'm':
-                blocks->tel = safe_malloc(blocks->beginblock[nr_blocks], EL_TYPE);
+                blocks->tel = safe_malloc(blocks->beginblock[nr_blocks], T3NS_EL_TYPE);
         default:
                 fprintf(stderr, "Error @%s: wrong option (%c) passed.\n", 
                         __func__, o);
@@ -56,7 +56,7 @@ void deep_copy_sparseblocks(struct sparseblocks * copy,
                             const struct sparseblocks * tocopy, int nrblocks)
 {
         copy->beginblock = safe_malloc(nrblocks + 1, int);
-        copy->tel = safe_malloc(tocopy->beginblock[nrblocks], EL_TYPE);
+        copy->tel = safe_malloc(tocopy->beginblock[nrblocks], T3NS_EL_TYPE);
 
         for (int i = 0; i < nrblocks + 1; ++i) 
                 copy->beginblock[i] = tocopy->beginblock[i];
@@ -111,7 +111,7 @@ int get_size_block(const struct sparseblocks * blocks, int id)
         return blocks->beginblock[id + 1] - blocks->beginblock[id];
 }
 
-EL_TYPE * get_tel_block(const struct sparseblocks * blocks, int id)
+T3NS_EL_TYPE * get_tel_block(const struct sparseblocks * blocks, int id)
 {
         if (get_size_block(blocks, id))
                 return blocks->tel + blocks->beginblock[id];
@@ -122,7 +122,7 @@ EL_TYPE * get_tel_block(const struct sparseblocks * blocks, int id)
 void print_block(const struct sparseblocks * blocks, int id)
 {
         const int N = get_size_block(blocks, id);
-        EL_TYPE * const tel = get_tel_block(blocks, id);
+        T3NS_EL_TYPE * const tel = get_tel_block(blocks, id);
 
         printf("%d: ", N);
         for (int el = 0; el < N; ++el)
@@ -130,12 +130,12 @@ void print_block(const struct sparseblocks * blocks, int id)
         printf("\n");
 }
 
-void do_contract(const struct contractinfo * cinfo, EL_TYPE ** tel, 
+void do_contract(const struct contractinfo * cinfo, T3NS_EL_TYPE ** tel, 
                  double alpha, double beta)
 {
-        EL_TYPE * A = tel[cinfo->tensneeded[0]];
-        EL_TYPE * B = tel[cinfo->tensneeded[1]];
-        EL_TYPE * C = tel[cinfo->tensneeded[2]];
+        T3NS_EL_TYPE * A = tel[cinfo->tensneeded[0]];
+        T3NS_EL_TYPE * B = tel[cinfo->tensneeded[1]];
+        T3NS_EL_TYPE * C = tel[cinfo->tensneeded[2]];
 
         /* Maybe look at batch dgemm from mkl for this.
          * Although I am not sure this will make a difference 
@@ -157,8 +157,8 @@ void do_contract(const struct contractinfo * cinfo, EL_TYPE ** tel,
         }
 }
 
-void permadd_block(const EL_TYPE * orig, const int * old,
-                   EL_TYPE * perm, const int * nld, const int * ndims, int n,
+void permadd_block(const T3NS_EL_TYPE * orig, const int * old,
+                   T3NS_EL_TYPE * perm, const int * nld, const int * ndims, int n,
                    const double pref)
 {
         // The n >= 2 is needed since I put two for loops explicit in it.
@@ -166,13 +166,13 @@ void permadd_block(const EL_TYPE * orig, const int * old,
         assert(n <= MAX_PERM && n >= 2);
         assert(nld[0] == 1);
         int ids[MAX_PERM] = {0};
-        const EL_TYPE * orig2 = orig;
-        EL_TYPE * perm2 = perm;
+        const T3NS_EL_TYPE * orig2 = orig;
+        T3NS_EL_TYPE * perm2 = perm;
         bool flag = true;
         while (flag) {
                 for (ids[1] = 0; ids[1] < ndims[1]; ++ids[1]) {
-                        const EL_TYPE * orig1 = orig2 + old[1] * ids[1];
-                        EL_TYPE * perm1 = perm2 + nld[1] * ids[1];
+                        const T3NS_EL_TYPE * orig1 = orig2 + old[1] * ids[1];
+                        T3NS_EL_TYPE * perm1 = perm2 + nld[1] * ids[1];
                         for (ids[0] = 0; ids[0] < ndims[0]; ++ids[0]) {
                                 perm1[ids[0]] += pref * orig1[old[0] * ids[0]];
                         }

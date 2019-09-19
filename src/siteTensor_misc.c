@@ -320,8 +320,8 @@ void change_sectors_tensor(struct siteTensor * oldtens,
                         get_offset(&oldss[2], oldid[2])
                 };
 
-                EL_TYPE * oldtel = get_tel_block(&oldtens->blocks, oldblock);
-                EL_TYPE * const newtel = get_tel_block(&newtens->blocks, newblock)
+                T3NS_EL_TYPE * oldtel = get_tel_block(&oldtens->blocks, oldblock);
+                T3NS_EL_TYPE * const newtel = get_tel_block(&newtens->blocks, newblock)
                         + offset[0] + offset[1] * LD[0] + offset[2] * LD[0] * LD[1];
 
                 for (int k = 0; k < MD[2]; ++k) {

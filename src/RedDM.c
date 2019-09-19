@@ -38,7 +38,7 @@
 /// A structure for maing a backup for the T3NS and the @ref bookie.
 struct RDMbackup {
         /// Backup of the coefficients of the @ref siteTensor array.
-        EL_TYPE ** tels;
+        T3NS_EL_TYPE ** tels;
         /** Backup of the symmetry sectors of the @ref bookie.
          * 
          * This is needed since QR decomposition can change the @ref bookie.
@@ -239,7 +239,7 @@ static int make1siteRDM(struct siteTensor * rdm, struct siteTensor * orthoc)
 
 //#pragma omp parallel default(none) shared(crdm,orthoc,symarr,bookie,dims)
         {
-                EL_TYPE * temptel = safe_calloc(N, *temptel);
+                T3NS_EL_TYPE * temptel = safe_calloc(N, *temptel);
 
 //#pragma omp for schedule(static) nowait
                 for (int i = 0; i < orthoc->nrblocks; ++i) {
@@ -257,8 +257,8 @@ static int make1siteRDM(struct siteTensor * rdm, struct siteTensor * orthoc)
 
                         const double pref = prefactor_1siteRDM(&irreps, bookie.sgs, 
                                                                bookie.nrSyms);
-                        EL_TYPE * tenstel = get_tel_block(&orthoc->blocks, i);
-                        EL_TYPE * const rdmtel = temptel + 
+                        T3NS_EL_TYPE * tenstel = get_tel_block(&orthoc->blocks, i);
+                        T3NS_EL_TYPE * const rdmtel = temptel + 
                                 crdm->blocks.beginblock[ids[1]];
                         const int tdims[3] = {
                                 symarr[0].dims[ids[0]], 
@@ -414,11 +414,11 @@ int get_1siteEntanglement(const struct RedDM * rdm, double ** result)
                 double sum = 0;
 #endif
                 for (int j = 0; j < ss.nrSecs; ++j) {
-                        EL_TYPE * tel = get_tel_block(&crdm->blocks, j);
+                        T3NS_EL_TYPE * tel = get_tel_block(&crdm->blocks, j);
                         const int dim = ss.dims[j];
                         assert(dim * dim == get_size_block(&crdm->blocks, j));
-                        EL_TYPE * mem = safe_malloc(dim * dim, *mem);
-                        EL_TYPE * eigvalues = safe_malloc(dim, *eigvalues);
+                        T3NS_EL_TYPE * mem = safe_malloc(dim * dim, *mem);
+                        T3NS_EL_TYPE * eigvalues = safe_malloc(dim, *eigvalues);
                         for (int k = 0; k < dim * dim; ++k) { mem[k] = tel[k]; } 
 
                         int info = LAPACKE_dsyev(LAPACK_COL_MAJOR, 'N', 'U', 

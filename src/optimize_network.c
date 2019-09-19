@@ -210,7 +210,7 @@ static double optimize_siteTensor(const struct regime * reg,
                o_dat.msiteObj.nrblocks, mv_dat.nr_qnB, size, mv_dat.iset.nr_instr);
 
         tic(timings, diag);
-        EL_TYPE * diagonal = make_diagonal(&mv_dat);
+        T3NS_EL_TYPE * diagonal = make_diagonal(&mv_dat);
         toc(timings, diag);
 
         double energy;

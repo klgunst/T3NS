@@ -176,7 +176,7 @@ struct update_data {
         int *irreps[3][3];
 
         int sb_op[3];
-        EL_TYPE * tels[7];
+        T3NS_EL_TYPE * tels[7];
 };
 
 /* ========================================================================== */
@@ -1052,8 +1052,8 @@ static void update_selected_blocks(const struct rOperators * Operator,
         struct contractinfo cinfo[3];
         int worksize[2] = {-1, -1};
         how_to_update(data, cinfo, worksize);
-        data->tels[WORKBRA] = safe_malloc(worksize[BRA], EL_TYPE);
-        data->tels[WORKKET] = safe_malloc(worksize[KET], EL_TYPE);
+        data->tels[WORKBRA] = safe_malloc(worksize[BRA], T3NS_EL_TYPE);
+        data->tels[WORKKET] = safe_malloc(worksize[KET], T3NS_EL_TYPE);
 
         int (*instr_id)[2] = NULL;
         while (find_matching_instr(&instr_id, data)) {

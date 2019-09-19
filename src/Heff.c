@@ -500,7 +500,7 @@ struct indexdata {
                                // (as in the data struct)
         int sb_op[STEPSPECS_MBONDS]; // The symmetry block for the different 
                                // rOperators.
-        EL_TYPE * tel[7];      // Pointers to the elements of the 
+        T3NS_EL_TYPE * tel[7];      // Pointers to the elements of the 
                                // symmetry blocks (for each ttype).
 };
 
@@ -795,7 +795,7 @@ static void find_operator_sb(struct indexdata * idd,
         }
 }
 
-static int find_operator_tel(const int * sb, EL_TYPE ** tel,
+static int find_operator_tel(const int * sb, T3NS_EL_TYPE ** tel,
                              const struct rOperators * Operators, 
                              const int * instr, int isdmrg)
 {
@@ -878,11 +878,11 @@ static void loop_oldqnBs(struct indexdata * idd, struct Heffdata * data,
 
                         int cwsize = cinfo[0].M * cinfo[0].N * cinfo[0].L;
                         if (wsize[0] < cwsize) { wsize[0] = cwsize; }
-                        idd->tel[WORK1] = safe_malloc(cwsize, EL_TYPE);
+                        idd->tel[WORK1] = safe_malloc(cwsize, T3NS_EL_TYPE);
 
                         cwsize = cinfo[1].M * cinfo[1].N * cinfo[1].L * !data->isdmrg;
                         if (wsize[1] < cwsize) { wsize[1] = cwsize; }
-                        idd->tel[WORK2] = safe_malloc(cwsize, EL_TYPE);
+                        idd->tel[WORK2] = safe_malloc(cwsize, T3NS_EL_TYPE);
 
                         ntom->sbops = malloc(nrMPOcombos * sizeof *ntom->sbops);
                         ntom->prefactor = malloc(nrMPOcombos * sizeof *ntom->prefactor);
@@ -916,7 +916,7 @@ static void loop_oldqnBs(struct indexdata * idd, struct Heffdata * data,
 static void execute_heffcontr(int bl, const struct Heffdata * data, 
                               const struct newtooldmatvec * hc, 
                               const struct contractinfo * cinfo,
-                              EL_TYPE ** tels)
+                              T3NS_EL_TYPE ** tels)
 {
         const int MPO = hc->MPO[bl];
         struct instruction * instr = &data->iset.instr[data->iset.MPOc_beg[MPO]];
@@ -953,7 +953,7 @@ static void exec_secondrun(const double * const vec, double * const result,
         int second = 0;
 #pragma omp parallel default(none) shared(map) reduction(+:first,second)
         {
-                EL_TYPE * tels[7];
+                T3NS_EL_TYPE * tels[7];
                 tels[WORK1] = safe_malloc(data->sr.worksize[0], tels);
                 tels[WORK2] = safe_malloc(data->sr.worksize[1], tels);
                 int * bb = data->siteObject.blocks.beginblock;
@@ -1265,10 +1265,10 @@ void destroy_Heffdata(struct Heffdata * const data)
         destroy_secondrun(data);
 }
 
-EL_TYPE * make_diagonal(const struct Heffdata * const data)
+T3NS_EL_TYPE * make_diagonal(const struct Heffdata * const data)
 {
-        EL_TYPE * result = 
-                safe_calloc(siteTensor_get_size(&data->siteObject), EL_TYPE);
+        T3NS_EL_TYPE * result = 
+                safe_calloc(siteTensor_get_size(&data->siteObject), T3NS_EL_TYPE);
 
 #pragma omp parallel for schedule(dynamic) default(none) shared(result)
         for (int newqnB_id = 0; newqnB_id < data->nr_qnB; ++newqnB_id) {
@@ -1294,7 +1294,7 @@ EL_TYPE * make_diagonal(const struct Heffdata * const data)
                         fill_indexes(*sb, &idd, data, OLD, result);
 
                         idd.tel[WORK1] = safe_malloc(idd.dim[OLD][0] * 
-                                                     idd.dim[OLD][1], EL_TYPE);
+                                                     idd.dim[OLD][1], T3NS_EL_TYPE);
                         idd.tel[WORK2] = NULL;
 
                         const int * MPO;

@@ -646,7 +646,7 @@ void QC_write_hamiltonian_to_disk(const hid_t id)
 
         write_attribute(group_id, "norb", &hdat.norb, 1, THDF5_INT);
         write_dataset(group_id, "./orbirrep", hdat.orbirrep, hdat.norb, THDF5_INT);
-        write_dataset(group_id, "./Vijkl", hdat.Vijkl, p4, THDF5_EL_TYPE);
+        write_dataset(group_id, "./Vijkl", hdat.Vijkl, p4, THDF5_T3NS_EL_TYPE);
         write_attribute(group_id, "core_energy", &hdat.core_energy, 1, THDF5_DOUBLE);
         write_attribute(group_id, "su2", &hdat.su2, 1, THDF5_INT);
         write_attribute(group_id, "has_seniority", &hdat.has_seniority, 1, THDF5_INT);
@@ -664,7 +664,7 @@ void QC_read_hamiltonian_from_disk(const hid_t id)
 
         const int p2 = hdat.norb * hdat.norb;
         const int p4 = p2 * p2;
-        hdat.Vijkl = safe_malloc(p4, EL_TYPE);
+        hdat.Vijkl = safe_malloc(p4, T3NS_EL_TYPE);
         read_dataset(group_id, "./Vijkl", hdat.Vijkl);
         read_attribute(group_id, "core_energy", &hdat.core_energy);
         read_attribute(group_id, "su2", &hdat.su2);

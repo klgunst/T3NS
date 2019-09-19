@@ -45,7 +45,7 @@ struct RedDM {
          *
          * **NOTE: This is not implemented yet.**
          */
-        EL_TYPE * chemRDM[2];
+        T3NS_EL_TYPE * chemRDM[2];
 
         /** Stores the site-RDMs.
          *

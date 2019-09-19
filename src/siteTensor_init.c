@@ -596,7 +596,7 @@ enum teltype { SITE1, SITE2, SITE3, SITE4, RESULT, WORK1, WORK2 };
 struct makeinfo {
         bool is_valid;
         // Pointer to the appropriate blocks.
-        EL_TYPE * tel[7];
+        T3NS_EL_TYPE * tel[7];
         // The original dimensions of every leg.
         int odim[STEPSPECS_MSITES][3];
         // The new dimensions of every leg.
@@ -864,7 +864,7 @@ struct permute_helper {
         // Old block index.
         int ob;
         // Pointer to the old block.
-        EL_TYPE * p_ob;
+        T3NS_EL_TYPE * p_ob;
         // Indexes of the old block.
         int oids[STEPSPECS_MSITES][3];
         // the leading dimensions for the outer bonds.
@@ -875,7 +875,7 @@ struct permute_helper {
         // New block index.
         int nb;
         // Pointer to the new block.
-        EL_TYPE * p_nb;
+        T3NS_EL_TYPE * p_nb;
         // Indexes of the new block.
         int nids[STEPSPECS_MSITES][3];
         // For every outer bond, the dimension

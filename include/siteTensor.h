@@ -321,7 +321,7 @@ struct Rmatrix {
          * while N is the actual dimension of the next tensor. */
         int (*dims)[2];
         /// Rmatrix[i] is the R matrix for the i'th sector.
-        EL_TYPE ** Rels;
+        T3NS_EL_TYPE ** Rels;
 };
 
 /**

@@ -197,7 +197,7 @@ struct update_aide {
         bool valid; 
         // Block of the siteTensor, adjoint siteTensor, workmemory,
         // original operator, updated operator
-        EL_TYPE * els[5];
+        T3NS_EL_TYPE * els[5];
 
         // The prefactor from the symmetries
         double pref;
@@ -626,8 +626,8 @@ static void pAppend_block(const struct append_data * dat, int usb)
                         // This function gets the bra(i), ket(i) element of siteoperator
                         const double site_el = pref * el_siteop(so, ids[0][1], ids[1][1]);
 
-                        EL_TYPE * oTel = get_tel_block(oBlock, oblock);
-                        EL_TYPE * uTel = get_tel_block(uBlock, ublock);
+                        T3NS_EL_TYPE * oTel = get_tel_block(oBlock, oblock);
+                        T3NS_EL_TYPE * uTel = get_tel_block(uBlock, ublock);
                         assert(N == 0 || N == get_size_block(uBlock, ublock));
 
                         for (int j = 0; j < N; ++j) { uTel[j] = site_el * oTel[j]; }

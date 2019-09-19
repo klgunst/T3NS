@@ -94,10 +94,10 @@ static void make_unitOperator(struct rOperators * ops, int op)
                 UBlock->beginblock[block + 1] = D;
         }
 
-        UBlock->tel =safe_calloc(totdim, EL_TYPE);
+        UBlock->tel =safe_calloc(totdim, T3NS_EL_TYPE);
         for (int block = 0; block < nr_blocks; ++block) {
                 const int D = UBlock->beginblock[block + 1];
-                EL_TYPE * telcur = UBlock->tel + UBlock->beginblock[block];
+                T3NS_EL_TYPE * telcur = UBlock->tel + UBlock->beginblock[block];
                 int ids[3];
                 // only for non-physical rOperators
                 indexize(ids, qn[block], symarr);
@@ -237,8 +237,8 @@ struct rOperators sum_unique_rOperators(const struct rOperators * ur,
 {
         struct rOperators res = init_sum_unique(ur, set);
         struct sum_instr {
-                const EL_TYPE * uOpblock;
-                EL_TYPE pref;
+                const T3NS_EL_TYPE * uOpblock;
+                T3NS_EL_TYPE pref;
         };
         int * nrins = safe_calloc(res.nrops, *nrins);
         struct sum_instr ** ins = safe_malloc(res.nrops, *ins);
@@ -282,7 +282,7 @@ struct rOperators sum_unique_rOperators(const struct rOperators * ur,
                 const int nrbl = nblocks_in_operator(&res, i);
                 struct sparseblocks * const nOp = &res.operators[i];
                 const int N = nOp->beginblock[nrbl];
-                EL_TYPE * nOptel = nOp->tel;
+                T3NS_EL_TYPE * nOptel = nOp->tel;
 
                 for (struct sum_instr * ii = &ins[i][0]; ii < &ins[i][nrins[i]]; ++ii) {
                         cblas_daxpy(N, ii->pref, ii->uOpblock, 1, nOptel, 1);

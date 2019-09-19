@@ -38,7 +38,7 @@ struct newtooldmatvec {
         int bestorder;
         int nmbr;
         int (*sbops)[3];
-        EL_TYPE * prefactor;
+        T3NS_EL_TYPE * prefactor;
         int * MPO;
 };
 
@@ -182,7 +182,7 @@ void matvecT3NS(const double * vec, double * result, void * vdata);
  * @param data [in] The data needed for the making of the effective Hamiltonian.
  * @return Vector with the diagonal elements.
  */
-EL_TYPE * make_diagonal(const struct Heffdata * data);
+T3NS_EL_TYPE * make_diagonal(const struct Heffdata * data);
 
 /** 
  * Destroys a @ref Heffdata structure.

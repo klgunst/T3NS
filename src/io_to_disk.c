@@ -161,7 +161,7 @@ static void write_sparseblocks_to_disk(const hid_t id,
         write_dataset(group_id, "./beginblock", block->beginblock,
                       nrblocks + 1, THDF5_INT);
         write_dataset(group_id, "./tel", block->tel, 
-                      block->beginblock[nrblocks], THDF5_EL_TYPE);
+                      block->beginblock[nrblocks], THDF5_T3NS_EL_TYPE);
 
         H5Gclose(group_id);
 }
@@ -194,7 +194,7 @@ static void read_sparseblocks_from_disk(const hid_t id,
         if (block->beginblock[nrblocks] == 0) {
                 block->tel = NULL;
         } else {
-                block->tel = safe_malloc(block->beginblock[nrblocks], EL_TYPE);
+                block->tel = safe_malloc(block->beginblock[nrblocks], T3NS_EL_TYPE);
                 read_dataset(group_id, "./tel", block->tel);
         }
 
@@ -490,7 +490,7 @@ void write_attribute(hid_t group_id, const char atrname[], const void * atr,
                      hsize_t size, enum hdf5type kind)
 {
         hid_t datatype_arr[] = {
-                H5T_STD_I32LE, H5T_IEEE_F64LE, EL_TYPE_H5, QN_TYPE_H5
+                H5T_STD_I32LE, H5T_IEEE_F64LE, T3NS_EL_TYPE_H5, QN_TYPE_H5
         };
 
         if (atr == NULL || size == 0) { return; }
@@ -518,7 +518,7 @@ void write_dataset(hid_t id, const char datname[], const void * dat, hsize_t siz
                    enum hdf5type kind)
 {
         hid_t datatype_arr[] = {
-                H5T_STD_I32LE, H5T_IEEE_F64LE, EL_TYPE_H5, QN_TYPE_H5
+                H5T_STD_I32LE, H5T_IEEE_F64LE, T3NS_EL_TYPE_H5, QN_TYPE_H5
         };
 
         if (dat == NULL || size == 0) { return; }

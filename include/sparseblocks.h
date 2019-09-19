@@ -30,9 +30,9 @@
  */
 
 /// Type of the elements of the tensors
-#define EL_TYPE double
+#define T3NS_EL_TYPE double
 /// Type of the elements of the tensors for HDF5
-#define EL_TYPE_H5 H5T_IEEE_F64LE
+#define T3NS_EL_TYPE_H5 H5T_IEEE_F64LE
 
 /**
  * The structure for the sparse blocks of the tensors. 
@@ -51,7 +51,7 @@ struct sparseblocks {
          * Length is <tt>@ref beginblock[nrblocks]</tt>.<br>
          * The order of the elements are defined by the parent-structure.
          */
-        EL_TYPE * tel;
+        T3NS_EL_TYPE * tel;
 };
 
 /**
@@ -116,7 +116,7 @@ int get_size_block(const struct sparseblocks * blocks, int id);
  * @param [in] id The block-id of which to return the tensor elements.
  * \return The pointer to the tensor elements of the asked block.
  */
-EL_TYPE * get_tel_block(const struct sparseblocks * blocks, int id);
+T3NS_EL_TYPE * get_tel_block(const struct sparseblocks * blocks, int id);
 
 /**
  * @brief Prints the given block.
@@ -226,7 +226,7 @@ struct contractinfo {
  * @param [in] alpha α Parameter for dgemm.
  * @param [in] beta β Parameter for dgemm.
  */
-void do_contract(const struct contractinfo * cinfo, EL_TYPE ** tel, 
+void do_contract(const struct contractinfo * cinfo, T3NS_EL_TYPE ** tel, 
                  double alpha, double beta);
 
 /**
@@ -248,8 +248,8 @@ void do_contract(const struct contractinfo * cinfo, EL_TYPE ** tel,
  * @param [in] n The number of indices.
  * @param [in] pref The prefactor.
  */
-void permadd_block(const EL_TYPE * orig, const int * old,
-                   EL_TYPE * perm, const int * nld, const int * ndims, int n,
+void permadd_block(const T3NS_EL_TYPE * orig, const int * old,
+                   T3NS_EL_TYPE * perm, const int * nld, const int * ndims, int n,
                    const double pref);
 
 #ifndef NDEBUG

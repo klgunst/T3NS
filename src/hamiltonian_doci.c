@@ -380,9 +380,9 @@ void DOCI_write_hamiltonian_to_disk(const hid_t id)
                 }
         }
         write_dataset(group_id, "./Vij", Vij, hdat.norb * hdat.norb, 
-                      THDF5_EL_TYPE);
+                      THDF5_T3NS_EL_TYPE);
         safe_free(Vij);
-        write_dataset(group_id, "./Tii", hdat.Tii, hdat.norb, THDF5_EL_TYPE);
+        write_dataset(group_id, "./Tii", hdat.Tii, hdat.norb, THDF5_T3NS_EL_TYPE);
         H5Gclose(group_id);
 }
 
