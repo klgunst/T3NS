@@ -103,11 +103,11 @@ static void read_integrals(char *fil)
         /* integrals */
         double * matrix_el;
         hdat.core_energy = 0;
-        hdat.Vij = safe_malloc(hdat.norb, *hdat.Vij);
+        safe_malloc(hdat.Vij, hdat.norb);
         for (int i = 0; i < hdat.norb; ++i) {
-                hdat.Vij[i] = safe_calloc(hdat.norb, *hdat.Vij[i]);
+                safe_calloc(hdat.Vij[i], hdat.norb);
         }
-        hdat.Tii = safe_calloc(hdat.norb, *hdat.Tii);
+        safe_calloc(hdat.Tii, hdat.norb);
 
         if (fp == NULL) {
                 fprintf(stderr, "ERROR reading fcidump file: %s\n", fil);
@@ -192,9 +192,9 @@ static void read_integrals(char *fil)
 static void prepare_MPOsymsecs(void)
 {
         MPOsymsecs.nrSecs = DOCI_get_nr_hamsymsec();
-        MPOsymsecs.irreps = safe_malloc(MPOsymsecs.nrSecs, *MPOsymsecs.irreps);
-        MPOsymsecs.fcidims = safe_malloc(MPOsymsecs.nrSecs, *MPOsymsecs.fcidims);
-        MPOsymsecs.dims = safe_malloc(MPOsymsecs.nrSecs, *MPOsymsecs.dims);
+        safe_malloc(MPOsymsecs.irreps, MPOsymsecs.nrSecs);
+        safe_malloc(MPOsymsecs.fcidims, MPOsymsecs.nrSecs);
+        safe_malloc(MPOsymsecs.dims, MPOsymsecs.nrSecs);
         for (int i = 0; i < MPOsymsecs.nrSecs; ++i) {
                 MPOsymsecs.irreps[i][0] = irreps_DOCI[i];
                 MPOsymsecs.dims[i] = 1;
@@ -218,9 +218,9 @@ void DOCI_get_physsymsecs(struct symsecs * res)
 
         res->nrSecs    = 2;
         res->totaldims = res->nrSecs;
-        res->irreps    = safe_malloc(res->nrSecs, *res->irreps);
-        res->dims      = safe_malloc(res->nrSecs, *res->dims);
-        res->fcidims   = safe_malloc(res->nrSecs, *res->fcidims);
+        safe_malloc(res->irreps , res->nrSecs);
+        safe_malloc(res->dims   , res->nrSecs);
+        safe_malloc(res->fcidims, res->nrSecs);
 
         for (int i = 0; i < res->nrSecs; ++i) {
                 res->dims   [i] = 1;
@@ -324,7 +324,7 @@ void DOCI_tprods_ham(int * nr_of_prods, int (**possible_prods)[2],
         }
 
         *nr_of_prods    = cnt;
-        *possible_prods = safe_malloc(*nr_of_prods, *possible_prods);
+        safe_malloc(*possible_prods, *nr_of_prods);
 
         cnt = 0;
         for (int i = 0; i < size; ++i) {
@@ -373,7 +373,7 @@ void DOCI_write_hamiltonian_to_disk(const hid_t id)
 
         write_attribute(group_id, "norb", &hdat.norb, 1, THDF5_INT);
         write_attribute(group_id, "core_energy", &hdat.core_energy, 1, THDF5_DOUBLE);
-        double * Vij = safe_malloc(hdat.norb * hdat.norb, *Vij);
+        double * safe_malloc(Vij, hdat.norb * hdat.norb);
         for (int i = 0; i < hdat.norb; ++i) {
                 for (int j = 0; j < hdat.norb; ++j) {
                         Vij[i + j * hdat.norb] = hdat.Vij[i][j];
@@ -392,11 +392,11 @@ void DOCI_read_hamiltonian_from_disk(const hid_t id)
 
         read_attribute(group_id, "norb", &hdat.norb);
 
-        double * Vij = safe_malloc(hdat.norb * hdat.norb, *Vij);
+        double * safe_malloc(Vij, hdat.norb * hdat.norb);
         read_dataset(group_id, "./Vij", Vij);
-        hdat.Vij = safe_malloc(hdat.norb, *hdat.Vij);
+        safe_malloc(hdat.Vij, hdat.norb);
         for (int i = 0; i < hdat.norb; ++i) {
-                hdat.Vij[i] = safe_malloc(hdat.norb, *hdat.Vij[i]);
+                safe_malloc(hdat.Vij[i], hdat.norb);
         }
         for (int i = 0; i < hdat.norb; ++i) {
                 for (int j = 0; j < hdat.norb; ++j) {
@@ -405,7 +405,7 @@ void DOCI_read_hamiltonian_from_disk(const hid_t id)
         }
         safe_free(Vij);
         read_attribute(group_id, "core_energy", &hdat.core_energy);
-        hdat.Tii = safe_malloc(hdat.norb * hdat.norb, *hdat.Tii);
+        safe_malloc(hdat.Tii, hdat.norb * hdat.norb);
         read_dataset(group_id, "./Tii", hdat.Tii);
         H5Gclose(group_id);
 

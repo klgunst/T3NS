@@ -67,8 +67,7 @@ static struct info_rOps make_info_rOps(int bond, int is_left)
             netw.psites - result.nr_passed_sites) {
                 // In this case complementary for all sites.
                 result.nr_compl_sites = netw.psites - result.nr_passed_sites;
-                result.compl_sites = safe_malloc(result.nr_compl_sites,
-                                                 *result.compl_sites);
+                safe_malloc(result.compl_sites, result.nr_compl_sites);
 
                 memcpy(result.compl_sites, get_order_psites(bond, !is_left),
                        result.nr_compl_sites * sizeof *result.compl_sites);
@@ -96,8 +95,7 @@ static struct info_rOps make_info_rOps(int bond, int is_left)
                         }
                 }
 
-                result.compl_sites = safe_malloc(result.nr_compl_sites, 
-                                                 *result.compl_sites);
+                safe_malloc(result.compl_sites, result.nr_compl_sites);
                 int cnt = 0;
                 for (int i = 0; i < 3; ++i) {
                         // The + (currbond < i) is used as a tie-breaker
@@ -261,7 +259,7 @@ static void get_symsec_rOperators(const struct info_rOps * info, int ** hss)
 
         const int nrrOps = 1 + 3 * (info->nr_passed_sites) + 
                 3 * (info->nr_compl_sites) + info->hasH;
-        *hss = safe_malloc(nrrOps, **hss);
+        safe_malloc(*hss, nrrOps);
         int cnt = 0;
 
         // First index : 1
@@ -341,7 +339,7 @@ static void pUpdate_make_r_count(const struct info_rOps * p_info,
         // Find which complementaries that are present in 
         // n_info but not in p_info
         int nr_new_C = 0;
-        int * new_C = safe_malloc(n_info->nr_compl_sites, *new_C);
+        int * safe_malloc(new_C, n_info->nr_compl_sites);
         for (int i = 0; i < n_info->nr_compl_sites; ++i) {
                 int j;
                 const int curr_C = n_info->compl_sites[i];
@@ -467,8 +465,7 @@ void DOCI_fetch_pUpdate(struct instructionset * instructions,
                              netw.sitetoorb[site], instructions);
 
         // Allocate memory
-        instructions->instr = safe_malloc(instructions->nr_instr,
-                                          *instructions->instr);
+        safe_malloc(instructions->instr, instructions->nr_instr);
         // Making the instructions
         pUpdate_make_r_count(&p_info, &s_info, &n_info, addcore,
                              netw.sitetoorb[site], instructions);
@@ -603,8 +600,7 @@ void DOCI_fetch_bUpdate(struct instructionset * instructions,
         bUpdate_make_r_count(p_info, &n_info, instructions);
 
         // Allocate memory
-        instructions->instr = safe_malloc(instructions->nr_instr,
-                                          *instructions->instr);
+        safe_malloc(instructions->instr, instructions->nr_instr);
         // Making the instructions
         bUpdate_make_r_count(p_info, &n_info, instructions);
 
@@ -642,8 +638,7 @@ void DOCI_fetch_merge(struct instructionset * instructions,
                         3 * info[1].nr_compl_sites + info[1].hasH +
                         3 * info[2].nr_compl_sites + info[2].hasH;
         }
-        instructions->instr = safe_malloc(instructions->nr_instr, 
-                                          *instructions->instr);
+        safe_malloc(instructions->instr, instructions->nr_instr);
         start_fill_instruction(instructions, isdmrg ? 2 : 3);
 
         if (isdmrg) {

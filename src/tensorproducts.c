@@ -85,7 +85,7 @@ static struct gsec_arr sel_goodsymsecs(struct symsecs * ss,
                                             sign, bookie.sgs, bookie.nrSyms);
         struct gsec_arr gsa = {
                 .L = iter.total,
-                .sectors = safe_malloc(iter.total, *gsa.sectors)
+                .sectors = malloc(iter.total * sizeof *gsa.sectors)
         };
 
         int valids = 0;
@@ -119,7 +119,7 @@ struct good_sectors find_good_sectors(const struct symsecs * symarr, int sign)
         // On practically all systems calloc will initialize NULL's
         struct good_sectors res = {
                 .ss = {symarr[0], symarr[1], symarr[2]},
-                .sectors = safe_calloc(symarr[0].nrSecs, *res.sectors),
+                .sectors = calloc(symarr[0].nrSecs, sizeof *res.sectors),
                 .total = 0
         };
         int total = 0;
@@ -128,7 +128,7 @@ struct good_sectors find_good_sectors(const struct symsecs * symarr, int sign)
         for (int i = 0; i < res.ss[0].nrSecs; ++i) {
                 res.sectors[i] = NULL;
                 if (res.ss[0].dims[i] == 0) { continue; }
-                res.sectors[i] = safe_malloc(res.ss[1].nrSecs, *res.sectors[i]);
+                safe_malloc(res.sectors[i], res.ss[1].nrSecs);
                 for (int j = 0; j < res.ss[1].nrSecs; ++j) {
                         res.sectors[i][j].L = 0;
                         res.sectors[i][j].sectors = NULL;
@@ -277,7 +277,7 @@ static void build_all_sectors(struct symsecs * res,
                 }
                 ++cnt;
         }
-        res->irreps = safe_malloc(res->nrSecs, *res->irreps);
+        safe_malloc(res->irreps, res->nrSecs);
 
         cnt = 0;
         int cnt2 = 0;
@@ -358,9 +358,11 @@ struct symsecs tensprod_symsecs(const struct symsecs * sectors1,
 
 #pragma omp parallel default(none) shared(ss,res,sign,o,stderr)
         {
-                double * fcidims = safe_calloc(res.nrSecs, *fcidims);
+                double * safe_calloc(fcidims, res.nrSecs);
                 int * dims = NULL;
-                if (o != 'f') { dims = safe_calloc(res.nrSecs, *dims); }
+                if (o != 'f') { 
+                        safe_calloc(dims, res.nrSecs);
+                }
 
 #pragma omp for schedule(dynamic) nowait
                 for (int i = 0; i < ss[0].nrSecs; i++) {

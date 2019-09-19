@@ -37,15 +37,16 @@ void init_null_sparseblocks(struct sparseblocks * blocks)
 void init_sparseblocks(struct sparseblocks * blocks, const int * beginblock, 
                        int nr_blocks, char o)
 {
-        blocks->beginblock = safe_malloc(nr_blocks + 1, int);
+        safe_malloc(blocks->beginblock, nr_blocks + 1);
         for (int j = 0; j < nr_blocks + 1; ++j)
                 blocks->beginblock[j] = beginblock[j];
         switch(o) {
         case 'c':
-                blocks->tel = safe_calloc(blocks->beginblock[nr_blocks], T3NS_EL_TYPE);
+                safe_calloc(blocks->tel, blocks->beginblock[nr_blocks]);
                 break;
         case 'm':
-                blocks->tel = safe_malloc(blocks->beginblock[nr_blocks], T3NS_EL_TYPE);
+                safe_malloc(blocks->tel, blocks->beginblock[nr_blocks]);
+                break;
         default:
                 fprintf(stderr, "Error @%s: wrong option (%c) passed.\n", 
                         __func__, o);
@@ -55,8 +56,8 @@ void init_sparseblocks(struct sparseblocks * blocks, const int * beginblock,
 void deep_copy_sparseblocks(struct sparseblocks * copy, 
                             const struct sparseblocks * tocopy, int nrblocks)
 {
-        copy->beginblock = safe_malloc(nrblocks + 1, int);
-        copy->tel = safe_malloc(tocopy->beginblock[nrblocks], T3NS_EL_TYPE);
+        safe_malloc(copy->beginblock, nrblocks + 1);
+        safe_malloc(copy->tel, tocopy->beginblock[nrblocks]);
 
         for (int i = 0; i < nrblocks + 1; ++i) 
                 copy->beginblock[i] = tocopy->beginblock[i];

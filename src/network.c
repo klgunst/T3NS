@@ -40,7 +40,7 @@ static int check_network(void)
                 return 1;
         }
 
-        int * nr_legs = safe_calloc(netw.sites, int);
+        int * safe_calloc(nr_legs, netw.sites);
         /* calculate number of legs of every site */
         for (int i = 0; i < netw.nr_bonds; ++i) {
                 if (netw.bonds[i][0] != -1 && netw.bonds[i][1] != -1) {
@@ -92,8 +92,8 @@ static int strcmp_ign_ws(const char * s1, const char * s2)
 
 void create_nr_left_psites(void)
 {
-        int * temp = safe_calloc(netw.nr_bonds, int);
-        netw.nr_left_psites = safe_calloc(netw.nr_bonds, int);
+        int * safe_calloc(temp, netw.nr_bonds);
+        safe_calloc(netw.nr_left_psites, netw.nr_bonds);
 
         for (int bond = 0; bond < netw.nr_bonds; ++bond) {
                 if (netw.bonds[bond][0] != -1)
@@ -119,9 +119,9 @@ void create_nr_left_psites(void)
 
 void create_order_psites(void)
 {
-        netw.order_psites = safe_malloc(netw.nr_bonds, int *);
+        safe_malloc(netw.order_psites, netw.nr_bonds);
         for (int i = 0; i < netw.nr_bonds; ++i)
-                netw.order_psites[i] = safe_calloc(netw.psites, int);
+                safe_calloc(netw.order_psites[i], netw.psites);
 
         /* FOR LEFTS */
         for (int bond = 0; bond < netw.nr_bonds; ++bond) {
@@ -246,7 +246,7 @@ void make_network(const char * netwfile)
                         break;
         }
 
-        netw.sitetoorb = safe_calloc(netw.sites, int);
+        safe_calloc(netw.sitetoorb, netw.sites);
         ln_cnt++;
         site_cnt = 0;
         while ((kind = (char) getc(fp)) != '\n') {
@@ -286,7 +286,7 @@ void make_network(const char * netwfile)
         }
 
         if (netw.sweeplength != -1) {
-                netw.sweep = safe_calloc(netw.sweeplength, int);
+                safe_calloc(netw.sweep, netw.sweeplength);
                 ln_cnt++;
                 site_cnt = 0;
                 while (netw.sweeplength != -1 && (kind = (char) getc(fp)) != '\n') {
@@ -819,7 +819,7 @@ int make_simplesweep(bool inclborder, int ** sweep, int * swlength)
 {
         // Maximal amount of sweep instructions.
         // Every bond passed twice, 2 sites per bond.
-        *sweep = safe_malloc(netw.nr_bonds * 4, **sweep);
+        safe_malloc(*sweep, netw.nr_bonds * 4);
         *swlength = 0;
 
         // fetch outgoing bond of the network and store the corresponding site

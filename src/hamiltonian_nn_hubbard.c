@@ -96,9 +96,9 @@ void NN_H_get_physsymsecs(struct symsecs *res)
 
         res->nrSecs = hdat.su2 ? 3 : 4;
         res->totaldims = res->nrSecs;
-        res->irreps = safe_malloc(res->nrSecs, *res->irreps);
-        res->dims = safe_malloc(res->nrSecs, int);
-        res->fcidims = safe_malloc(res->nrSecs, double);
+        safe_malloc(res->irreps, res->nrSecs);
+        safe_malloc(res->dims, res->nrSecs);
+        safe_malloc(res->fcidims, res->nrSecs);
         for (i = 0; i < res->nrSecs; ++i) {
                 res->dims   [i] = 1;
                 res->fcidims[i] = 1;
@@ -228,7 +228,7 @@ void NN_H_tprods_ham(int * const nr_of_prods, int ** const possible_prods,
                                 ++cnt;
 
         *nr_of_prods    = cnt;
-        *possible_prods = safe_malloc(*nr_of_prods * 2, int);
+        safe_malloc(*possible_prods, *nr_of_prods * 2);
 
         cnt = 0;
         for (i = 0; i < size; ++i)
@@ -341,9 +341,9 @@ static void prepare_MPOsymsecs(void)
                 : sizeof irreps_U1 / sizeof irreps_U1[0];
 
         MPOsymsecs.nrSecs = size;
-        MPOsymsecs.irreps = safe_malloc(MPOsymsecs.nrSecs, *MPOsymsecs.irreps);
-        MPOsymsecs.fcidims = safe_malloc(MPOsymsecs.nrSecs, double);
-        MPOsymsecs.dims = safe_malloc(MPOsymsecs.nrSecs, int);
+        safe_malloc(MPOsymsecs.irreps, MPOsymsecs.nrSecs);
+        safe_malloc(MPOsymsecs.fcidims, MPOsymsecs.nrSecs);
+        safe_malloc(MPOsymsecs.dims, MPOsymsecs.nrSecs);
         MPOsymsecs.totaldims = MPOsymsecs.nrSecs;
 
         if (hdat.su2) {

@@ -96,13 +96,13 @@ static const int timkeys[] = {
 
 static void init_null_T3NS(struct siteTensor ** T3NS)
 {
-        *T3NS = safe_malloc(netw.sites, struct siteTensor);
+        safe_malloc(*T3NS, netw.sites);
         for (int i = 0; i < netw.sites; ++i) init_null_siteTensor(&(*T3NS)[i]);
 }
 
 static void init_null_rops(struct rOperators ** rops)
 {
-        *rops = safe_malloc(netw.nr_bonds, struct rOperators);
+        safe_malloc(*rops, netw.nr_bonds);
         for (int i = 0; i < netw.nr_bonds; ++i) {
                 (*rops)[i] = null_rOperators();
         }
@@ -153,7 +153,7 @@ static void preprocess_rOperators(const struct rOperators * rops)
                 struct symsecs * ss = &bookie.v_symsecs[bond];
                 
                 int * tempdim = ss->dims;
-                ss->dims = safe_malloc(ss->nrSecs, *ss->dims);
+                safe_malloc(ss->dims, ss->nrSecs);
                 for (int i = 0; i < ss->nrSecs; ++i) { ss->dims[i] = 1; }
 
                 rOperators_append_phys(&o_dat.operators[!internalbond], &rops[otherbond]);
@@ -440,7 +440,7 @@ static void init_rops(struct rOperators * const rops,
                 int bonds[3];
                 int * tempdim = bookie.v_symsecs[bond].dims;
                 int i;
-                bookie.v_symsecs[bond].dims = safe_malloc(bookie.v_symsecs[bond].nrSecs, int);
+                safe_malloc(bookie.v_symsecs[bond].dims, bookie.v_symsecs[bond].nrSecs);
                 for (i = 0; i < bookie.v_symsecs[bond].nrSecs; ++i)
                         bookie.v_symsecs[bond].dims[i] = 1;
 
@@ -517,7 +517,7 @@ static int make_new_T3NS(struct siteTensor ** T3NS, char option)
 static int recanonicalize_T3NS(struct siteTensor * T3NS, int centersite)
 {
         // The amount of R matrices absorbed by every site
-        int * canonicalized = safe_calloc(netw.sites, *canonicalized);
+        int * safe_calloc(canonicalized, netw.sites);
         int nrcanon = 0;
 
         while (nrcanon < netw.sites - 1) {
@@ -594,7 +594,7 @@ int init_wave_function(struct siteTensor ** T3NS, int changedSS,
 
         double norm = 10;
         double noise = 1;
-        struct siteTensor * origT3NS = safe_malloc(netw.sites, *origT3NS);
+        struct siteTensor * safe_malloc(origT3NS, netw.sites);
         for (int i = 0 ; i < netw.sites; ++i) {
                 assert((*T3NS)[i].nrsites == 1);
                 // Initialize the new site tensor to zero
@@ -602,7 +602,7 @@ int init_wave_function(struct siteTensor ** T3NS, int changedSS,
                 // Fill in the sectors
                 change_sectors_tensor(&(*T3NS)[i], prevbookie, &origT3NS[i]);
         }
-        struct symsecs * ss_backup = safe_malloc(bookie.nr_bonds, *ss_backup);
+        struct symsecs * safe_malloc(ss_backup, bookie.nr_bonds);
         for (int i = 0; i < bookie.nr_bonds; ++i) {
                 deep_copy_symsecs(&ss_backup[i], &bookie.v_symsecs[i]);
         }
@@ -754,10 +754,10 @@ static struct entanglement_info entanglement_state(struct siteTensor * T3NS)
 {
         struct entanglement_info enti = {
                 .nr_bonds = netw.nr_bonds,
-                .entanglement = safe_calloc(netw.nr_bonds, *enti.entanglement),
+                .entanglement = calloc(netw.nr_bonds, sizeof *enti.entanglement),
                 .totent = 0
         };
-        bool * already_touched = safe_calloc(netw.nr_bonds, *already_touched);
+        bool * safe_calloc(already_touched, netw.nr_bonds);
         int * sweep, swlength;
 
         make_simplesweep(true, &sweep, &swlength);

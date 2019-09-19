@@ -349,7 +349,7 @@ static void get_indices_for_qn(QN_TYPE qn, int * indices, const int * dims)
 
 int (*qn_to_indices_1s(const struct siteTensor * tens))[3]
 {
-        int (*indices)[3] = safe_malloc(tens->nrblocks, *indices);
+        int (*indices)[3] = malloc(tens->nrblocks * sizeof *indices);
         int legs[3], dims[3];
         get_bonds_of_site(tens->sites[0], legs);
         get_maxdims_of_bonds(dims, legs, 3);
@@ -362,8 +362,7 @@ int (*qn_to_indices_1s(const struct siteTensor * tens))[3]
 
 int (*qn_to_indices(const struct siteTensor * tens))[STEPSPECS_MSITES][3]
 {
-        int (*indices)[STEPSPECS_MSITES][3] = safe_malloc(tens->nrblocks, 
-                                                          *indices);
+        int (*indices)[STEPSPECS_MSITES][3] = malloc(tens->nrblocks * sizeof *indices);
 
         int legs[STEPSPECS_MSITES][3], dims[STEPSPECS_MSITES][3];
         for (int i = 0; i < tens->nrsites; ++i) {

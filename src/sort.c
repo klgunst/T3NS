@@ -207,7 +207,7 @@ static int (*compareSort[])(const void * a, const void * b, void * base_arr) = {
 
 int * quickSort(void * array, int n, enum sortType st)
 {
-        int * idx = safe_malloc(n, int);
+        int * safe_malloc(idx, n);
         for (int i = 0; i < n; ++i) idx[i] = i;
 
         qsort_r(idx, n, sizeof(int), compareSort[st], array);
@@ -298,7 +298,7 @@ int binSearch(const void * value, const void * array, int n,
 
 int * inverse_permutation(int * perm, const int nrel)
 {
-        int * res = safe_malloc(nrel, int);
+        int * safe_malloc(res, nrel);
         for (int i = 0; i < nrel; ++i) res[perm[i]] = i;
         safe_free(perm);
         return res;

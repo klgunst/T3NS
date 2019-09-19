@@ -40,7 +40,7 @@ void deep_copy_siteTensor(struct siteTensor * copy,
         copy->nrsites = orig->nrsites;
         copy->nrblocks = orig->nrblocks;
 
-        copy->qnumbers = safe_malloc(copy->nrsites * copy->nrblocks, *copy->qnumbers);
+        safe_malloc(copy->qnumbers, copy->nrsites * copy->nrblocks);
         for (int i = 0; i < copy->nrsites; ++i) {
                 copy->sites[i] = orig->sites[i];
         }
@@ -71,8 +71,8 @@ static void make_1sblocks(struct siteTensor * tens)
         struct good_sectors gs = find_good_sectors(symarr, 1);
         tens->nrblocks = gs.total;
 
-        int * dims = safe_malloc(tens->nrblocks, *dims);
-        QN_TYPE * qnumbers = safe_malloc(tens->nrblocks, *qnumbers);
+        int * safe_malloc(dims, tens->nrblocks);
+        QN_TYPE * safe_malloc(qnumbers, tens->nrblocks);
         int cnt = 0;
         for (int i = 0; i < symarr[0].nrSecs; ++i ) {
                 for (int j = 0; j < symarr[1].nrSecs; ++j) {
@@ -93,8 +93,8 @@ static void make_1sblocks(struct siteTensor * tens)
 
         /* Reform leading order, and I could kick this order */
         int * idx = quickSort(qnumbers, tens->nrblocks, sort_qn[tens->nrsites]);
-        tens->qnumbers = safe_malloc(tens->nrblocks, QN_TYPE);
-        tens->blocks.beginblock = safe_malloc(tens->nrblocks + 1, int);
+        safe_malloc(tens->qnumbers, tens->nrblocks);
+        safe_malloc(tens->blocks.beginblock, tens->nrblocks + 1);
 
         tens->blocks.beginblock[0] = 0;
         for (int i = 0; i < tens->nrblocks; ++i) {
@@ -124,7 +124,7 @@ void init_1siteTensor(struct siteTensor * tens, int site, char o)
                 srand(0);
                 break;
         case '0':
-                tens->blocks.tel = safe_calloc(N, *tens->blocks.tel);
+                safe_calloc(tens->blocks.tel, N);
                 return;
         default:
                 fprintf(stderr, "%s@%s: Unknown option \'%c\' was inputted.\n",
@@ -132,7 +132,7 @@ void init_1siteTensor(struct siteTensor * tens, int site, char o)
                 exit(EXIT_FAILURE);
         }
 
-        tens->blocks.tel = safe_malloc(N, *tens->blocks.tel);
+        safe_malloc(tens->blocks.tel, N);
 
         for (int i = 0; i <  N; ++i) {
                 tens->blocks.tel[i] = (rand() - RAND_MAX / 2.) / RAND_MAX;
@@ -331,8 +331,8 @@ static void sort_and_make(void)
 {
         const int nb = md.T->nrblocks;
         const int ns = md.T->nrsites;
-        QN_TYPE * new_qn = safe_malloc(nb * ns, *new_qn);
-        int * new_dim = safe_malloc(nb + 1, *new_dim);
+        QN_TYPE * safe_malloc(new_qn, nb * ns);
+        int * safe_malloc(new_dim, nb + 1);
         // Sorting
         int * idx = quickSort(md.T->qnumbers, nb, sort_qn[ns]);
 
@@ -350,8 +350,7 @@ static void sort_and_make(void)
 
         md.T->blocks.beginblock = new_dim;
         md.T->qnumbers = new_qn;
-        md.T->blocks.tel = safe_calloc(siteTensor_get_size(md.T),
-                                             *md.T->blocks.tel);
+        safe_calloc(md.T->blocks.tel, siteTensor_get_size(md.T));
 }
 
 static int get_partqn_and_dim(bool counted, int id, int leg, QN_TYPE ** partqn, 
@@ -363,8 +362,8 @@ static int get_partqn_and_dim(bool counted, int id, int leg, QN_TYPE ** partqn,
 
         struct iter_gs iter = init_iter_gs(id, bond, &gs[site]);
         if (counted) {
-                partqn[site] = safe_malloc(iter.length, **partqn);
-                partdim[site] = safe_malloc(iter.length, **partdim);
+                safe_malloc(partqn[site], iter.length);
+                safe_malloc(partdim[site], iter.length);
                 while (iterate_gs(&iter)) {
                         partqn[site][iter.cnt] = iter.cqn;
                         partdim[site][iter.cnt] = iter.cdim;
@@ -452,9 +451,8 @@ static void make_qnumbers_and_dims(const struct good_sectors * const gs)
                 QN_TYPE * qnumbers = NULL;
                 int * dims = NULL;
                 if (counted) {
-                        qnumbers = safe_malloc(md.T->nrblocks * 
-                                               md.T->nrsites, *qnumbers);
-                        dims = safe_malloc(md.T->nrblocks, *dims);
+                        safe_malloc(qnumbers, md.T->nrblocks * md.T->nrsites);
+                        safe_malloc(dims, md.T->nrblocks);
                 }
                 QN_TYPE * c_qn = qnumbers;
                 int * c_dims = dims;
@@ -749,9 +747,8 @@ static int init_contractinfo(struct makeinfo * minfo,
 
                 if (i != contracts - 1) {
                         // Allocate working memory.
-                        minfo->tel[cinfo[i].tensneeded[2]] = 
-                                safe_malloc(cinfo[i].M * cinfo[i].N * cinfo[i].L,
-                                            **minfo->tel);
+                        safe_malloc(minfo->tel[cinfo[i].tensneeded[2]],
+                                    cinfo[i].M * cinfo[i].N * cinfo[i].L);
                 } else {
                         cinfo[i].tensneeded[2] = RESULT;
                 }
@@ -1064,7 +1061,7 @@ static void init_pd(const struct siteTensor * T, struct siteTensor * Tp,
                 deep_copy_symsecs(&pd.osyms[i][1], &tempss[1]);
                 deep_copy_symsecs(&pd.osyms[i][2], &tempss[2]);
         }
-        pd.oids = safe_malloc(pd.T->nrblocks, *pd.oids);
+        safe_malloc(pd.oids, pd.T->nrblocks);
         const QN_TYPE * qn = pd.T->qnumbers;
         for (int i = 0; i < pd.T->nrblocks; ++i) {
                 for (int j = 0; j < pd.ns; ++j, ++qn) {
