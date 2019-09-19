@@ -233,7 +233,7 @@ static int make1siteRDM(struct siteTensor * rdm, struct siteTensor * orthoc)
                 crdm->blocks.beginblock[i + 1] = crdm->blocks.beginblock[i] +
                         symarr[1].dims[i] * symarr[1].dims[i];
         }
-        const int N = crdm->blocks.beginblock[crdm->nrblocks];
+        const T3NS_BB_TYPE N = crdm->blocks.beginblock[crdm->nrblocks];
         safe_calloc(crdm->blocks.tel, N);
 
 //#pragma omp parallel default(none) shared(crdm,orthoc,symarr,bookie,dims)
