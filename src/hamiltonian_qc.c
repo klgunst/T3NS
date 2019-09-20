@@ -210,9 +210,9 @@ void QC_get_physsymsecs(struct symsecs *res, int psite)
 
         res->nrSecs = hdat.su2 ? 3 : 4;
         res->totaldims = res->nrSecs;
-        res->irreps = safe_malloc(res->nrSecs, *res->irreps);
-        res->dims = safe_malloc(res->nrSecs, int);
-        res->fcidims = safe_malloc(res->nrSecs, double);
+        safe_malloc(res->irreps, res->nrSecs);
+        safe_malloc(res->dims, res->nrSecs);
+        safe_malloc(res->fcidims, res->nrSecs);
 
         for (int i = 0; i < res->nrSecs; ++i) {
                 int j;
@@ -371,7 +371,7 @@ void QC_tprods_ham(int * const nr_of_prods, int ** const possible_prods,
                                            nr_of_pg);
 
         *nr_of_prods    = cnt;
-        *possible_prods = safe_malloc(*nr_of_prods * 2, int);
+        safe_malloc(*possible_prods, *nr_of_prods * 2);
 
         cnt = 0;
         for (i = 0; i < size; ++i)
@@ -412,14 +412,13 @@ void make_site_opType(int ** begin_opType, int **** tags_opType)
         else
                 u1_get_opTypearr(&nr_opTypearr, &tags);
 
-        *tags_opType = safe_malloc(NR_OPS, int**);
-        *begin_opType = safe_malloc(NR_OPS * 2 + 1, int);
+        safe_malloc(*tags_opType, NR_OPS);
+        safe_malloc(*begin_opType, NR_OPS * 2 + 1);
         (*begin_opType)[0] = 0;
         for(i = 0; i < NR_OPS; ++i) {
                 int j;
-                (*tags_opType)[i] = safe_malloc(2, int*);
-                (*tags_opType)[i][0] = safe_malloc(i * nr_opTypearr[i] * 
-                                                   tagsize, int);
+                safe_malloc((*tags_opType)[i], 2);
+                safe_malloc((*tags_opType)[i][0], i * nr_opTypearr[i] * tagsize);
                 (*tags_opType)[i][1] = NULL;
                 (*begin_opType)[i * 2 + 1] = (*begin_opType)[i * 2] + 
                         nr_opTypearr[i];
@@ -673,7 +672,7 @@ void QC_write_hamiltonian_to_disk(const hid_t id)
 
         write_attribute(group_id, "norb", &hdat.norb, 1, THDF5_INT);
         write_dataset(group_id, "./orbirrep", hdat.orbirrep, hdat.norb, THDF5_INT);
-        write_dataset(group_id, "./Vijkl", hdat.Vijkl, p4, THDF5_EL_TYPE);
+        write_dataset(group_id, "./Vijkl", hdat.Vijkl, p4, THDF5_T3NS_EL_TYPE);
         write_attribute(group_id, "core_energy", &hdat.core_energy, 1, THDF5_DOUBLE);
         write_attribute(group_id, "su2", &hdat.su2, 1, THDF5_INT);
         write_attribute(group_id, "has_seniority", &hdat.has_seniority, 1, THDF5_INT);
@@ -686,12 +685,12 @@ void QC_read_hamiltonian_from_disk(const hid_t id)
 
         read_attribute(group_id, "norb", &hdat.norb);
 
-        hdat.orbirrep = safe_malloc(hdat.norb, int);
+        safe_malloc(hdat.orbirrep, hdat.norb);
         read_dataset(group_id, "./orbirrep", hdat.orbirrep);
 
         const int p2 = hdat.norb * hdat.norb;
         const int p4 = p2 * p2;
-        hdat.Vijkl = safe_malloc(p4, EL_TYPE);
+        safe_malloc(hdat.Vijkl, p4);
         read_dataset(group_id, "./Vijkl", hdat.Vijkl);
         read_attribute(group_id, "core_energy", &hdat.core_energy);
         read_attribute(group_id, "su2", &hdat.su2);
@@ -825,7 +824,7 @@ static void read_header(char fil[])
                 exit(EXIT_FAILURE);
         }
 
-        hdat.orbirrep = safe_calloc(hdat.norb, int);
+        safe_calloc(hdat.orbirrep, hdat.norb);
         if (get_pg_symmetry() != -1) {/* reading ORBSYM */
                 int ops;
                 if ((ops = read_option("ORBSYM", fil, buffer)) != hdat.norb) {
@@ -863,9 +862,9 @@ static void read_integrals(double **one_p_int, char fil[])
 
         /* integrals */
         double *matrix_el;
-        *one_p_int = safe_calloc(norb2, double);
+        safe_calloc(*one_p_int, norb2);
         hdat.core_energy = 0;
-        hdat.Vijkl = safe_calloc(norb3 * hdat.norb, double);
+        safe_calloc(hdat.Vijkl, norb3 * hdat.norb);
 
         if (fp == NULL) {
                 fprintf(stderr, "ERROR reading fcidump file: %s\n", fil);
@@ -1039,9 +1038,9 @@ static void prepare_MPOsymsecs(void)
         assert(bookie.nrSyms == 3 + (pg != -1) + hdat.has_seniority);
 
         MPOsymsecs.nrSecs = nr_of_pg * size;
-        MPOsymsecs.irreps = safe_malloc(MPOsymsecs.nrSecs, *MPOsymsecs.irreps);
-        MPOsymsecs.fcidims = safe_malloc(MPOsymsecs.nrSecs, double);
-        MPOsymsecs.dims = safe_malloc(MPOsymsecs.nrSecs, int);
+        safe_malloc(MPOsymsecs.irreps, MPOsymsecs.nrSecs);
+        safe_malloc(MPOsymsecs.fcidims, MPOsymsecs.nrSecs);
+        safe_malloc(MPOsymsecs.dims, MPOsymsecs.nrSecs);
         MPOsymsecs.totaldims = MPOsymsecs.nrSecs;
 
         for (int i = 0; i < size; ++i) {

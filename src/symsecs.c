@@ -121,14 +121,14 @@ void deep_copy_symsecs(struct symsecs * copy, const struct symsecs * tocopy)
 {
         copy->nrSecs = tocopy->nrSecs;
         copy->bond = tocopy->bond;
-        copy->dims = safe_malloc(copy->nrSecs, int);
+        safe_malloc(copy->dims, copy->nrSecs);
 
-        copy->irreps = safe_malloc(copy->nrSecs, copy->irreps[0]);
+        safe_malloc(copy->irreps, copy->nrSecs);
         for (int i = 0; i < tocopy->nrSecs; ++i) 
                 for (int j = 0; j < bookie.nrSyms; ++j)
                         copy->irreps[i][j] = tocopy->irreps[i][j];
 
-        copy->fcidims   = safe_malloc(copy->nrSecs, double);
+        safe_malloc(copy->fcidims, copy->nrSecs);
         for (int i = 0; i < tocopy->nrSecs; ++i)
                 copy->fcidims[i] = tocopy->fcidims[i];
 
@@ -204,7 +204,7 @@ void compress_symsec(struct symsecs * nss, const struct symsecs * oss)
         nss->irreps = realloc(nss->irreps, nss->nrSecs * sizeof *nss->irreps);
         nss->fcidims = realloc(nss->fcidims, nss->nrSecs * sizeof *nss->fcidims);
         safe_free(nss->dims);
-        nss->dims = safe_calloc(nss->nrSecs, *nss->dims);
+        safe_calloc(nss->dims, nss->nrSecs);
 
         for (int i = 0; i < oss->nrSecs; ++i) {
                 const int id = search_symsec(oss->irreps[i], nss);

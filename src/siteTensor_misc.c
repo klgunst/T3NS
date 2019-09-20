@@ -225,7 +225,7 @@ void siteTensor_give_externalbonds(const struct siteTensor * const tens, int ext
   }
 }
 
-int siteTensor_get_size(const struct siteTensor * const tens)
+T3NS_BB_TYPE siteTensor_get_size(const struct siteTensor * const tens)
 {
   return tens->blocks.beginblock[tens->nrblocks];
 }
@@ -321,8 +321,8 @@ void change_sectors_tensor(struct siteTensor * oldtens,
                         get_offset(&oldss[2], oldid[2])
                 };
 
-                EL_TYPE * oldtel = get_tel_block(&oldtens->blocks, oldblock);
-                EL_TYPE * const newtel = get_tel_block(&newtens->blocks, newblock)
+                T3NS_EL_TYPE * oldtel = get_tel_block(&oldtens->blocks, oldblock);
+                T3NS_EL_TYPE * const newtel = get_tel_block(&newtens->blocks, newblock)
                         + offset[0] + offset[1] * LD[0] + offset[2] * LD[0] * LD[1];
 
                 for (int k = 0; k < MD[2]; ++k) {
@@ -350,7 +350,7 @@ static void get_indices_for_qn(QN_TYPE qn, int * indices, const int * dims)
 
 int (*qn_to_indices_1s(const struct siteTensor * tens))[3]
 {
-        int (*indices)[3] = safe_malloc(tens->nrblocks, *indices);
+        int (*indices)[3] = malloc(tens->nrblocks * sizeof *indices);
         int legs[3], dims[3];
         get_bonds_of_site(tens->sites[0], legs);
         get_maxdims_of_bonds(dims, legs, 3);
@@ -363,8 +363,7 @@ int (*qn_to_indices_1s(const struct siteTensor * tens))[3]
 
 int (*qn_to_indices(const struct siteTensor * tens))[STEPSPECS_MSITES][3]
 {
-        int (*indices)[STEPSPECS_MSITES][3] = safe_malloc(tens->nrblocks, 
-                                                          *indices);
+        int (*indices)[STEPSPECS_MSITES][3] = malloc(tens->nrblocks * sizeof *indices);
 
         int legs[STEPSPECS_MSITES][3], dims[STEPSPECS_MSITES][3];
         for (int i = 0; i < tens->nrsites; ++i) {

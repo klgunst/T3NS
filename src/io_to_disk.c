@@ -44,10 +44,8 @@ static void write_symsec_to_disk(const hid_t id, const struct symsecs * const
         write_attribute(group_id, "bond", &ssec->bond, 1, THDF5_INT);
         write_attribute(group_id, "totaldims", &ssec->totaldims, 1, THDF5_INT);
         write_dataset(group_id, "./dims", ssec->dims, ssec->nrSecs, THDF5_INT);
-        write_dataset(group_id, "./irreps", ssec->irreps, 
-                      ssec->nrSecs * MAX_SYMMETRIES, THDF5_INT);
-        write_dataset(group_id, "./fcidims", ssec->fcidims, ssec->nrSecs, 
-                      THDF5_DOUBLE);
+        write_dataset(group_id, "./irreps", ssec->irreps, ssec->nrSecs * MAX_SYMMETRIES, THDF5_INT);
+        write_dataset(group_id, "./fcidims", ssec->fcidims, ssec->nrSecs, THDF5_DOUBLE);
         H5Gclose(group_id);
 }
 
@@ -63,11 +61,11 @@ static void read_symsec_from_disk(const hid_t id, struct symsecs * const ssec,
         read_attribute(group_id, "bond", &ssec->bond);
         read_attribute(group_id, "totaldims", &ssec->totaldims);
 
-        ssec->dims = safe_malloc(ssec->nrSecs, int);
+        safe_malloc(ssec->dims, ssec->nrSecs);
         read_dataset(group_id, "./dims", ssec->dims);
 
-        int * dummyirreps = safe_malloc(ssec->nrSecs * offset, *dummyirreps);
-        ssec->irreps = safe_malloc(ssec->nrSecs, *ssec->irreps);
+        int * safe_malloc(dummyirreps, ssec->nrSecs * offset);
+        safe_malloc(ssec->irreps, ssec->nrSecs);
         read_dataset(group_id, "./irreps", dummyirreps);
 
         for (int i = 0; i < ssec->nrSecs; ++i) {
@@ -77,7 +75,7 @@ static void read_symsec_from_disk(const hid_t id, struct symsecs * const ssec,
         }
         safe_free(dummyirreps);
         
-        ssec->fcidims = safe_malloc(ssec->nrSecs, double);
+        safe_malloc(ssec->fcidims, ssec->nrSecs);
         read_dataset(group_id, "./fcidims", ssec->fcidims);
         H5Gclose(group_id);
 }
@@ -128,14 +126,14 @@ static void read_bookkeeper_from_disk(const hid_t file_id)
 
         read_attribute(group_id, "nr_bonds", &bookie.nr_bonds);
 
-        bookie.v_symsecs = safe_malloc(bookie.nr_bonds, struct symsecs);
+        safe_malloc(bookie.v_symsecs, bookie.nr_bonds);
         for (int i = 0 ; i < bookie.nr_bonds; ++i) {
                 read_symsec_from_disk(group_id, &bookie.v_symsecs[i], i, 
                                       offset, bookie.nrSyms, 'v');
         }
 
         read_attribute(group_id, "psites", &bookie.psites);
-        bookie.p_symsecs = safe_malloc(bookie.psites, struct symsecs);
+        safe_malloc(bookie.p_symsecs, bookie.psites);
         for (int i = 0 ; i < bookie.psites; ++i) {
                 read_symsec_from_disk(group_id, &bookie.p_symsecs[i], i, 
                                       offset, bookie.nrSyms, 'p');
@@ -158,10 +156,8 @@ static void write_sparseblocks_to_disk(const hid_t id,
                 H5Gclose(group_id);
                 return; 
         }
-        write_dataset(group_id, "./beginblock", block->beginblock,
-                      nrblocks + 1, THDF5_INT);
-        write_dataset(group_id, "./tel", block->tel, 
-                      block->beginblock[nrblocks], THDF5_EL_TYPE);
+        write_dataset(group_id, "./beginblock", block->beginblock, nrblocks + 1, THDF5_BB_TYPE);
+        write_dataset(group_id, "./tel", block->tel, block->beginblock[nrblocks], THDF5_T3NS_EL_TYPE);
 
         H5Gclose(group_id);
 }
@@ -188,13 +184,27 @@ static void read_sparseblocks_from_disk(const hid_t id,
                 return;
         }
 
-        block->beginblock = safe_malloc(nrblocks + 1, int);
-        read_dataset(group_id, "./beginblock", block->beginblock);
+        safe_malloc(block->beginblock, nrblocks + 1);
+        hid_t dataset_id = H5Dopen(group_id, "./beginblock", H5P_DEFAULT);
+        hid_t datatype =  H5Dget_type(dataset_id);
+        const bool sametype = H5Tequal(datatype, T3NS_BB_TYPE_H5) > 0;
+        H5Dclose(dataset_id);
+        // Needed to make it compatible with old hdf5
+        if (sametype) {
+                read_dataset(group_id, "./beginblock", block->beginblock);
+        } else {
+                int * safe_malloc(tempbb, nrblocks + 1);
+                read_dataset(group_id, "./beginblock", tempbb);
+                for (int i = 0; i < nrblocks + 1; ++i) {
+                        block->beginblock[i] = tempbb[i];
+                }
+                safe_free(tempbb);
+        }
 
         if (block->beginblock[nrblocks] == 0) {
                 block->tel = NULL;
         } else {
-                block->tel = safe_malloc(block->beginblock[nrblocks], EL_TYPE);
+                safe_malloc(block->tel, block->beginblock[nrblocks]);
                 read_dataset(group_id, "./tel", block->tel);
         }
 
@@ -230,7 +240,7 @@ static void read_siteTensor_from_disk(const hid_t id, struct siteTensor *
         read_attribute(group_id, "sites", tens->sites);
         read_attribute(group_id, "nrblocks", &tens->nrblocks);
 
-        tens->qnumbers = safe_malloc(tens->nrblocks * tens->nrsites, QN_TYPE);
+        safe_malloc(tens->qnumbers, tens->nrblocks * tens->nrsites);
         read_dataset(group_id, "./qnumbers", tens->qnumbers);
         read_sparseblocks_from_disk(group_id, &tens->blocks, tens->nrblocks, 0);
         H5Gclose(group_id);
@@ -259,7 +269,7 @@ static void read_T3NS_from_disk(const hid_t file_id,
         read_attribute(group_id, "nrSites", &nrsit);
         assert(nrsit == netw.sites);
 
-        *T3NS = safe_malloc(nrsit, struct siteTensor);
+        safe_malloc(*T3NS, nrsit);
 
         for(int i = 0 ; i < netw.sites; ++i) 
                 read_siteTensor_from_disk(group_id, &(*T3NS)[i], i);
@@ -316,19 +326,18 @@ static void read_rOperator_from_disk(const hid_t id,
         read_attribute(group_id, "P_operator", &rOp->P_operator);
         read_attribute(group_id, "nrhss", &rOp->nrhss);
 
-        rOp->begin_blocks_of_hss = safe_malloc(rOp->nrhss + 1, int);
+        safe_malloc(rOp->begin_blocks_of_hss, rOp->nrhss + 1);
         read_dataset(group_id, "./begin_blocks_of_hss", rOp->begin_blocks_of_hss);
 
-        rOp->qnumbers = safe_malloc(rOp->begin_blocks_of_hss[rOp->nrhss] *
-                              rOperators_give_nr_of_couplings(rOp), QN_TYPE);
+        safe_malloc(rOp->qnumbers, rOp->begin_blocks_of_hss[rOp->nrhss] * rOperators_give_nr_of_couplings(rOp));
         read_dataset(group_id, "./qnumbers", rOp->qnumbers);
 
         read_attribute(group_id, "nrops", &rOp->nrops);
 
-        rOp->hss_of_ops = safe_malloc(rOp->nrops, int);
+        safe_malloc(rOp->hss_of_ops, rOp->nrops);
         read_dataset(group_id, "./hss_of_ops", rOp->hss_of_ops);
 
-        rOp->operators = safe_malloc(rOp->nrops, struct sparseblocks);
+        safe_malloc(rOp->operators, rOp->nrops);
         for (int i = 0; i < rOp->nrops; ++i) {
                 const int nr_blocks = nblocks_in_operator(rOp, i);
                 if (nr_blocks == 0) {
@@ -366,7 +375,7 @@ static void read_rOps_from_disk(const hid_t id,
         read_attribute(group_id, "nrOps", &nrbonds);
         assert(nrbonds == netw.nr_bonds);
 
-        *rOps = safe_malloc(nrbonds, struct rOperators);
+        safe_malloc(*rOps, nrbonds);
         for (int i = 0 ; i < netw.nr_bonds; ++i) {
                 read_rOperator_from_disk(group_id, &(*rOps)[i], i);
         }
@@ -406,12 +415,12 @@ static void read_network_from_disk(const hid_t id)
         read_attribute(group_id, "psites", &netw.psites);
         read_attribute(group_id, "sites", &netw.sites);
 
-        netw.sitetoorb = safe_malloc(netw.sites, int);
+        safe_malloc(netw.sitetoorb, netw.sites);
         read_dataset(group_id, "./sitetoorb", netw.sitetoorb);
 
         read_attribute(group_id, "sweeplength", &netw.sweeplength);
 
-        netw.sweep = safe_malloc(netw.sweeplength, int);
+        safe_malloc(netw.sweep, netw.sweeplength);
         read_dataset(group_id, "./sweep", netw.sweep);
 
         H5Gclose(group_id);
@@ -490,7 +499,11 @@ void write_attribute(hid_t group_id, const char atrname[], const void * atr,
                      hsize_t size, enum hdf5type kind)
 {
         hid_t datatype_arr[] = {
-                H5T_STD_I32LE, H5T_IEEE_F64LE, EL_TYPE_H5, QN_TYPE_H5
+                H5T_STD_I32LE,
+                H5T_IEEE_F64LE,
+                T3NS_EL_TYPE_H5,
+                QN_TYPE_H5,
+                T3NS_BB_TYPE_H5
         };
 
         if (atr == NULL || size == 0) { return; }
@@ -518,7 +531,11 @@ void write_dataset(hid_t id, const char datname[], const void * dat, hsize_t siz
                    enum hdf5type kind)
 {
         hid_t datatype_arr[] = {
-                H5T_STD_I32LE, H5T_IEEE_F64LE, EL_TYPE_H5, QN_TYPE_H5
+                H5T_STD_I32LE,
+                H5T_IEEE_F64LE,
+                T3NS_EL_TYPE_H5,
+                QN_TYPE_H5,
+                T3NS_BB_TYPE_H5
         };
 
         if (dat == NULL || size == 0) { return; }

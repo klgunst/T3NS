@@ -142,7 +142,7 @@ struct rOperators vacuum_rOperators(int bond, int is_left);
  * @param [in] is_left Boolean stating if the operator is a left operator.
  * @param [in] P_operator Boolean stating if the operator is a physical one.
  */
-void init_rOperators(struct rOperators * rops, int *** tmpbb, int bond,
+void init_rOperators(struct rOperators * rops, T3NS_BB_TYPE *** tmpbb, int bond,
                      int is_left, bool P_operator);
 
 /**

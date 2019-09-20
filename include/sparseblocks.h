@@ -15,6 +15,7 @@
     along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 #pragma once
+#include <inttypes.h>
 
 #ifdef T3NS_MKL
 #include "mkl.h"
@@ -29,10 +30,13 @@
  * This is a structure for the storage of sparse blocks of a sparse tensor.
  */
 
-/// Type of the elements of the tensors
-#define EL_TYPE double
+/// Type of the beginblock index for the tensors.
+#define T3NS_BB_TYPE int_fast64_t
+#define T3NS_BB_TYPE_H5 H5T_STD_I64LE
+/// Type of the elements of the tensors.
+#define T3NS_EL_TYPE double
 /// Type of the elements of the tensors for HDF5
-#define EL_TYPE_H5 H5T_IEEE_F64LE
+#define T3NS_EL_TYPE_H5 H5T_IEEE_F64LE
 
 /**
  * The structure for the sparse blocks of the tensors. 
@@ -45,13 +49,13 @@ struct sparseblocks {
          *
          * Length of this array is equal to <tt>nrblocks + 1</tt>.
          */
-        int * beginblock;
+        T3NS_BB_TYPE * beginblock;
         /** Storage for the different elements of the sparse tensor.
          *
          * Length is <tt>@ref beginblock[nrblocks]</tt>.<br>
          * The order of the elements are defined by the parent-structure.
          */
-        EL_TYPE * tel;
+        T3NS_EL_TYPE * tel;
 };
 
 /**
@@ -69,7 +73,8 @@ void init_null_sparseblocks(struct sparseblocks * blocks);
  * @param [in] nr_blocks The number of blocks.
  * @param [in] o o is 'c' if calloc, 'm' if malloc for tel.
  */
-void init_sparseblocks(struct sparseblocks * blocks, const int * beginblock, 
+void init_sparseblocks(struct sparseblocks * blocks,
+                       const T3NS_BB_TYPE * beginblock, 
                        int nr_blocks, char o);
 
 /**
@@ -104,7 +109,8 @@ void kick_zero_blocks(struct sparseblocks * blocks, int nr_blocks);
  *
  * @param [in] blocks The sparseblocks structure.
  * @param [in] id The block index.
- * \return The size of the block.
+ * @return The size of the block. Although the block indexes are of type
+ * @ref T3NS_BB_TYPE, the size of the block is still kept as an integer.
  */
 int get_size_block(const struct sparseblocks * blocks, int id);
 
@@ -116,7 +122,7 @@ int get_size_block(const struct sparseblocks * blocks, int id);
  * @param [in] id The block-id of which to return the tensor elements.
  * \return The pointer to the tensor elements of the asked block.
  */
-EL_TYPE * get_tel_block(const struct sparseblocks * blocks, int id);
+T3NS_EL_TYPE * get_tel_block(const struct sparseblocks * blocks, int id);
 
 /**
  * @brief Prints the given block.
@@ -226,7 +232,7 @@ struct contractinfo {
  * @param [in] alpha α Parameter for dgemm.
  * @param [in] beta β Parameter for dgemm.
  */
-void do_contract(const struct contractinfo * cinfo, EL_TYPE ** tel, 
+void do_contract(const struct contractinfo * cinfo, T3NS_EL_TYPE ** tel, 
                  double alpha, double beta);
 
 /**
@@ -248,8 +254,8 @@ void do_contract(const struct contractinfo * cinfo, EL_TYPE ** tel,
  * @param [in] n The number of indices.
  * @param [in] pref The prefactor.
  */
-void permadd_block(const EL_TYPE * orig, const int * old,
-                   EL_TYPE * perm, const int * nld, const int * ndims, int n,
+void permadd_block(const T3NS_EL_TYPE * orig, const int * old,
+                   T3NS_EL_TYPE * perm, const int * nld, const int * ndims, int n,
                    const double pref);
 
 #ifndef NDEBUG

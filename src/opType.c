@@ -94,11 +94,11 @@ static void sort_tags(int ** array, const int nrels, const int n)
         if (n == 0) return;
 
         struct sort_struct sstruct = { .s_struct_array = *array, .s_struct_nrels = nrels };
-        int * idx = safe_malloc(n, int);
+        int * safe_malloc(idx, n);
         for (int i = 0; i < n; ++i) idx[i] = i;
 
         qsort_r(idx, n, sizeof(int), comparetag, &sstruct);
-        int * res = safe_malloc(n * nrels, int);
+        int * safe_malloc(res, n * nrels);
         for (int i = 0; i < n; ++i) {
                 for (int j = 0; j < nrels; ++j) {
                         res[i * nrels + j] = (*array)[idx[i] * nrels + j];
@@ -266,7 +266,7 @@ void init_opType_array(int h)
                 exit(EXIT_FAILURE);
         }
 
-        opType_arr = safe_malloc(2 * netw.nr_bonds, struct opType);
+        safe_malloc(opType_arr, 2 * netw.nr_bonds);
         for(i = 0; i < 2 * netw.nr_bonds; ++i)
                 opType_arr[i] = nullopType;
 
@@ -292,7 +292,7 @@ void symsec_of_operators(int ** const list_of_ss, const int bond,
 {
         struct opType ops;
         get_opType(&ops, bond, is_left);
-        *list_of_ss = safe_malloc(ops.begin_opType[NR_OPS * NR_TYP], int);
+        safe_malloc(*list_of_ss, ops.begin_opType[NR_OPS * NR_TYP]);
         int * ss = *list_of_ss;
         for (int i = 0; i < NR_OPS; ++i) {
                 for (int j = 0; j < NR_TYP; ++j) {
@@ -443,7 +443,7 @@ static void make_opType(struct opType * const ops,
 {
         struct opType initops;
         get_opType(&initops, bond, is_left);
-        int * list = safe_calloc(initops.begin_opType[NR_OPS * NR_TYP], int);
+        int * safe_calloc(list, initops.begin_opType[NR_OPS * NR_TYP]);
         int * plist = list;
 
         for (int i = 0; i < instructions->nr_instr; ++i) {
@@ -451,7 +451,7 @@ static void make_opType(struct opType * const ops,
                         list[instructions->instr[i].instr[2]] = 1;
         }
 
-        ops->begin_opType = safe_calloc(NR_OPS * NR_TYP + 1, int);
+        safe_calloc(ops->begin_opType, NR_OPS * NR_TYP + 1);
         for (int i = 0; i < NR_OPS; ++i) {
                 for (int j = 0; j < NR_TYP; ++j) {
                         const char t = (char) (j ? 'c' : 'n');
@@ -485,14 +485,14 @@ static void make_opType(struct opType * const ops,
 
 static void make_tags(struct opType * const ops)
 {
-        ops->tags_opType = safe_malloc(NR_OPS, int**);
+        safe_malloc(ops->tags_opType, NR_OPS);
         for (int i = 0; i < NR_OPS; ++i) {
-                ops->tags_opType[i] = safe_malloc(NR_TYP, int*);
+                safe_malloc(ops->tags_opType[i], NR_TYP);
                 for (int j = 0; j < NR_TYP; ++j) {
                         const char t = (char) (j ? 'c' : 'n');
                         const int N = amount_opType(ops, i, t) *
                                 nr_basetags[i][j] * base_tag;
-                        ops->tags_opType[i][j] = safe_malloc(N, int);
+                        safe_malloc(ops->tags_opType[i][j], N);
                 }
         }
 }
@@ -644,7 +644,7 @@ static int loop_positions(const int nr, const int creator[nr], int position[nr],
 static void make_begin_opType(struct opType * ops, int (*counter)[NR_TYP])
 {
         int i, j;
-        ops->begin_opType = safe_malloc(NR_OPS * NR_TYP + 1, int);
+        safe_malloc(ops->begin_opType, NR_OPS * NR_TYP + 1);
         ops->begin_opType[0] = 0;
         for (i = 0; i < NR_OPS; ++i) {
                 for (j = 0; j < NR_TYP; ++j) {

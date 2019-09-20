@@ -83,8 +83,8 @@ static void printMPO(const struct Heffdata * const data)
 static void check_diagonal(struct Heffdata * data, const double * diagonal)
 {
         const int size = siteTensor_get_size(&data->siteObject);
-        double * vec = safe_calloc(size, double);
-        double * res = safe_calloc(size, double);
+        double * vec = safe_calloc(size, *vec);
+        double * res = safe_calloc(size, *res);
 
         srand(time(NULL));
         for (int i = 0; i < 20; ++i) {
@@ -122,11 +122,12 @@ static void makeqnumbersarr_count_or_store(int **** qnumbersarray,
         const int couplnr = rOperators_give_nr_of_couplings(Operator);
 
         if (count) {
-                *qnumbersarray = safe_malloc(internaldim ,int **);
+                safe_malloc(*qnumbersarray, internaldim);
                 for (int i = 0; i < internaldim; ++i) {
-                        (*qnumbersarray)[i] = safe_malloc(internaldim ,int *);
-                        for (int j = 0; j < internaldim; ++j)
-                                (*qnumbersarray)[i][j] = safe_calloc(1, int);
+                        safe_malloc((*qnumbersarray)[i], internaldim);
+                        for (int j = 0; j < internaldim; ++j) {
+                                safe_calloc((*qnumbersarray)[i][j], 1);
+                        }
                 }
         } else {
                 for (int i = 0; i < internaldim; ++i) {
@@ -211,7 +212,9 @@ static void count_or_make_MPOcombos(int * nrMPOs, int ** MPO, int n,
         int MPOs[n];
         const int hssdimsq = hssdim * hssdim;
         assert(n == 3);
-        if (MPO != NULL && *nrMPOs != 0) *MPO = safe_malloc(*nrMPOs, int);
+        if (MPO != NULL && *nrMPOs != 0) {
+                safe_malloc(*MPO, *nrMPOs);
+        }
 
         *nrMPOs = 0;
         if (MPOarr[2] == NULL || MPOarr[2][0] == 0) return;
@@ -282,8 +285,8 @@ static int find_next_old(int n, int * indices_old, const int * internaldims,
 static QN_TYPE * make_helperarray(const int nr, const QN_TYPE * const array, 
                                   const QN_TYPE mod, int ** const lastid)
 {
-        QN_TYPE * const result = safe_malloc(nr, QN_TYPE);
-        *lastid = safe_malloc(nr, int);
+        QN_TYPE * const safe_malloc(result, nr);
+        safe_malloc(*lastid, nr);
         for (int i = 0; i < nr; ++i) {
                 (*lastid)[i] = array[i] / mod;
                 result[i] = array[i] % mod;
@@ -301,10 +304,10 @@ static void make_qnB_arrT3NS(struct Heffdata * const data,
         QN_TYPE * helperarray = make_helperarray(data->nr_qnB, data->qnB_arr,
                                                  bigdim, &lastind);
 
-        data->nr_qnBtoqnB  = safe_calloc(data->nr_qnB, int);
-        data->qnBtoqnB_arr = safe_malloc(data->nr_qnB, QN_TYPE*);
-        data->nrMPOcombos  = safe_malloc(data->nr_qnB, int*);
-        data->MPOs         = safe_malloc(data->nr_qnB, int**);
+        safe_calloc(data->nr_qnBtoqnB, data->nr_qnB);
+        safe_malloc(data->qnBtoqnB_arr, data->nr_qnB);
+        safe_malloc(data->nrMPOcombos, data->nr_qnB);
+        safe_malloc(data->MPOs, data->nr_qnB);
 
 #pragma omp parallel for schedule(dynamic) default(none) shared(lastind, helperarray)
         for (int i = 0; i < data->nr_qnB; ++i) {
@@ -332,9 +335,9 @@ static void make_qnB_arrT3NS(struct Heffdata * const data,
                         continue;
                 }
 
-                data->qnBtoqnB_arr[i] = safe_malloc(data->nr_qnB, QN_TYPE);
-                data->nrMPOcombos[i]  = safe_malloc(data->nr_qnB, int);
-                data->MPOs[i]         = safe_malloc(data->nr_qnB, int*);
+                safe_malloc(data->qnBtoqnB_arr[i], data->nr_qnB);
+                safe_malloc(data->nrMPOcombos[i], data->nr_qnB);
+                safe_malloc(data->MPOs[i], data->nr_qnB);
 
                 *cnt = 0;
                 while (find_next_old(3, indicesold, internaldims, qnumbersar, 
@@ -351,9 +354,9 @@ static void make_qnB_arrT3NS(struct Heffdata * const data,
                                 assert(*cnt <= data->nr_qnB);
                         }
                 }
-                data->qnBtoqnB_arr[i] = realloc(data->qnBtoqnB_arr[i], *cnt * sizeof(QN_TYPE));
-                data->nrMPOcombos[i]  = realloc(data->nrMPOcombos[i],  *cnt * sizeof(int));
-                data->MPOs[i]         = realloc(data->MPOs[i],         *cnt * sizeof(int*));
+                data->qnBtoqnB_arr[i] = realloc(data->qnBtoqnB_arr[i], *cnt * sizeof *data->qnBtoqnB_arr[i]);
+                data->nrMPOcombos[i]  = realloc(data->nrMPOcombos[i],  *cnt * sizeof *data->nrMPOcombos[i]);
+                data->MPOs[i]         = realloc(data->MPOs[i],         *cnt * sizeof *data->MPOs[i]);
         }
         safe_free(lastind);
         safe_free(helperarray);
@@ -361,10 +364,10 @@ static void make_qnB_arrT3NS(struct Heffdata * const data,
 
 static void make_qnB_arrDMRG(struct Heffdata * const data)
 {
-        data->nr_qnBtoqnB  = safe_calloc(data->nr_qnB, *data->nr_qnBtoqnB);
-        data->qnBtoqnB_arr = safe_malloc(data->nr_qnB, *data->qnBtoqnB_arr);
-        data->nrMPOcombos  = safe_malloc(data->nr_qnB, *data->nrMPOcombos);
-        data->MPOs         = safe_malloc(data->nr_qnB, *data->MPOs);
+        safe_calloc(data->nr_qnBtoqnB, data->nr_qnB);
+        safe_malloc(data->qnBtoqnB_arr, data->nr_qnB);
+        safe_malloc(data->nrMPOcombos, data->nr_qnB);
+        safe_malloc(data->MPOs, data->nr_qnB);
 
         const int opid = data->Operators[1].P_operator;
         const struct rOperators op = data->Operators[opid];
@@ -374,9 +377,9 @@ static void make_qnB_arrDMRG(struct Heffdata * const data)
 #pragma omp parallel for schedule(dynamic) default(none) shared(stderr)
         for (int i = 0; i < data->nr_qnB; ++i) {
                 const QN_TYPE * qna = op.qnumbers;
-                data->qnBtoqnB_arr[i] = safe_malloc(data->nr_qnB, QN_TYPE);
-                data->nrMPOcombos[i]  = safe_calloc(data->nr_qnB, int);
-                data->MPOs[i]         = safe_malloc(data->nr_qnB, int*);
+                safe_malloc(data->qnBtoqnB_arr[i], data->nr_qnB);
+                safe_calloc(data->nrMPOcombos[i], data->nr_qnB);
+                safe_malloc(data->MPOs[i], data->nr_qnB);
 
                 const QN_TYPE qn = data->qnB_arr[i];
                 int currhss = 0;
@@ -394,7 +397,7 @@ static void make_qnB_arrDMRG(struct Heffdata * const data)
                                         data->qnBtoqnB_arr[i][k] = qna[3 * j + 1];
                                         ++data->nr_qnBtoqnB[i];
 
-                                        data->MPOs[i][k] = safe_calloc(op.nrhss, int);
+                                        safe_calloc(data->MPOs[i][k], op.nrhss);
                                 }
                                 const int chss1 = opid == 1 ?
                                         hermitian_symsec(currhss) : currhss;
@@ -450,7 +453,7 @@ static void make_qnBdatas(struct Heffdata * const data)
                 data->symarr[data->posB][2].nrSecs
         };
 
-        data->qnB_arr = safe_malloc(data->siteObject.nrblocks, *data->qnB_arr);
+        safe_malloc(data->qnB_arr, data->siteObject.nrblocks);
         for (int i = 0; i < data->siteObject.nrblocks; ++i) {
                 data->qnB_arr[i] = 
                         data->siteObject.qnumbers[i * data->siteObject.nrsites 
@@ -500,7 +503,7 @@ struct indexdata {
                                // (as in the data struct)
         int sb_op[STEPSPECS_MBONDS]; // The symmetry block for the different 
                                // rOperators.
-        EL_TYPE * tel[7];      // Pointers to the elements of the 
+        T3NS_EL_TYPE * tel[7];      // Pointers to the elements of the 
                                // symmetry blocks (for each ttype).
 };
 
@@ -795,18 +798,17 @@ static void find_operator_sb(struct indexdata * idd,
         }
 }
 
-static int find_operator_tel(const int * sb, EL_TYPE ** tel,
+static int find_operator_tel(const int * sb, T3NS_EL_TYPE ** tel,
                              const struct rOperators * Operators, 
                              const int * instr, int isdmrg)
 {
         for (int i = 0; i < (isdmrg ? 2 : 3); ++i) {
                 assert(Operators[i].nrops > instr[i]);
-                int * start = &Operators[i].operators[instr[i]].beginblock[sb[i]];
+                T3NS_BB_TYPE * start = &Operators[i].operators[instr[i]].beginblock[sb[i]];
                 if (start[0] == start[1]) {
                         tel[i] = NULL;
                         return 0; 
                 }
-
                 tel[i] = Operators[i].operators[instr[i]].tel + start[0];
         }
         return 1;
@@ -878,19 +880,18 @@ static void loop_oldqnBs(struct indexdata * idd, struct Heffdata * data,
 
                         int cwsize = cinfo[0].M * cinfo[0].N * cinfo[0].L;
                         if (wsize[0] < cwsize) { wsize[0] = cwsize; }
-                        idd->tel[WORK1] = safe_malloc(cwsize, EL_TYPE);
+                        safe_malloc(idd->tel[WORK1], cwsize);
 
                         cwsize = cinfo[1].M * cinfo[1].N * cinfo[1].L * !data->isdmrg;
                         if (wsize[1] < cwsize) { wsize[1] = cwsize; }
-                        idd->tel[WORK2] = safe_malloc(cwsize, EL_TYPE);
+                        safe_malloc(idd->tel[WORK2], cwsize);
 
-                        ntom->sbops = malloc(nrMPOcombos * sizeof *ntom->sbops);
-                        ntom->prefactor = malloc(nrMPOcombos * sizeof *ntom->prefactor);
-                        ntom->MPO = malloc(nrMPOcombos * sizeof *ntom->MPO);
+                        safe_malloc(ntom->sbops, nrMPOcombos);
+                        safe_malloc(ntom->prefactor, nrMPOcombos);
+                        safe_malloc(ntom->MPO, nrMPOcombos);
                         for (int i = 0; i < nrMPOcombos; ++i) {
                                 ntom->MPO[ntom->nmbr] = MPOs[i];
-                                transform_old_to_new_sb(&ntom->nmbr, idd, data, 
-                                                        cinfo, ntom);
+                                transform_old_to_new_sb(&ntom->nmbr, idd, data, cinfo, ntom);
                         }
 
                         ntom->sbops = realloc(ntom->sbops, ntom->nmbr * sizeof *ntom->sbops);
@@ -916,7 +917,7 @@ static void loop_oldqnBs(struct indexdata * idd, struct Heffdata * data,
 static void execute_heffcontr(int bl, const struct Heffdata * data, 
                               const struct newtooldmatvec * hc, 
                               const struct contractinfo * cinfo,
-                              EL_TYPE ** tels)
+                              T3NS_EL_TYPE ** tels)
 {
         const int MPO = hc->MPO[bl];
         struct instruction * instr = &data->iset.instr[data->iset.MPOc_beg[MPO]];
@@ -953,10 +954,10 @@ static void exec_secondrun(const double * const vec, double * const result,
         int second = 0;
 #pragma omp parallel default(none) shared(map) reduction(+:first,second)
         {
-                EL_TYPE * tels[7];
-                tels[WORK1] = safe_malloc(data->sr.worksize[0], tels);
-                tels[WORK2] = safe_malloc(data->sr.worksize[1], tels);
-                int * bb = data->siteObject.blocks.beginblock;
+                T3NS_EL_TYPE * tels[7];
+                safe_malloc(tels[WORK1], data->sr.worksize[0]);
+                safe_malloc(tels[WORK2], data->sr.worksize[1]);
+                T3NS_BB_TYPE * bb = data->siteObject.blocks.beginblock;
 
 #pragma omp for schedule(dynamic) nowait 
                 for (int ius = 0; ius < n; ++ius) {
@@ -1003,9 +1004,9 @@ static void exec_firstrun(const double * const vec, double * const result,
                           struct Heffdata * const data)
 {
         const int n = data->siteObject.nrblocks;
-        data->sr.dimsofsb = safe_malloc(n, *data->sr.dimsofsb);
-        data->sr.nr_oldsb = safe_malloc(n, *data->sr.nr_oldsb);
-        data->sr.ntom = safe_malloc(n, *data->sr.ntom);
+        safe_malloc(data->sr.dimsofsb, n);
+        safe_malloc(data->sr.nr_oldsb, n);
+        safe_malloc(data->sr.ntom, n);
 
         int wsize[2] = {0, 0};
 #pragma omp parallel for schedule(dynamic) default(none) shared(stderr) reduction(max:wsize)
@@ -1015,8 +1016,7 @@ static void exec_firstrun(const double * const vec, double * const result,
 
                 int * newsb = NULL;
                 while (search_block_with_qn(&newsb, newqnB_id, data)) {
-                        data->sr.ntom[*newsb] = safe_malloc(data->siteObject.nrblocks, 
-                                                            *data->sr.ntom[*newsb]);
+                        safe_malloc(data->sr.ntom[*newsb], data->siteObject.nrblocks);
 
                         fill_indexes(*newsb, &idd, data, NEW, result);
                         data->sr.dimsofsb[*newsb][0] = idd.dim[NEW][0];
@@ -1041,7 +1041,7 @@ static void exec_firstrun(const double * const vec, double * const result,
         data->sr.worksize[0] = wsize[0];
         data->sr.worksize[1] = wsize[1];
 
-        data->sr.shufid = safe_malloc(n, *data->sr.shufid);
+        safe_malloc(data->sr.shufid, n);
         for (int i = 0; i < n ; ++i) { data->sr.shufid[i] = i; }
         shuffle(data->sr.shufid, n);
 }
@@ -1137,14 +1137,14 @@ static void adaptMPOcombos(struct Heffdata * data)
 
 static void make_sb_with_qnBid(struct Heffdata * const data)
 {
-        data->sb_with_qnid = safe_malloc(data->nr_qnB, *data->sb_with_qnid);
+        safe_malloc(data->sb_with_qnid, data->nr_qnB);
         const int n = data->siteObject.nrblocks;
         const int ns = data->siteObject.nrsites;
 
 #pragma omp parallel for schedule(static) default(none) shared(stderr)
         for (int i = 0; i < data->nr_qnB; ++i) {
                 int cnt = 0;
-                data->sb_with_qnid[i] = safe_malloc(n, *data->sb_with_qnid[i]);
+                safe_malloc(data->sb_with_qnid[i], n);
                 const QN_TYPE qn = data->qnB_arr[i];
                 const QN_TYPE * pqn = &data->siteObject.qnumbers[data->posB];
 
@@ -1265,10 +1265,9 @@ void destroy_Heffdata(struct Heffdata * const data)
         destroy_secondrun(data);
 }
 
-EL_TYPE * make_diagonal(const struct Heffdata * const data)
+T3NS_EL_TYPE * make_diagonal(const struct Heffdata * const data)
 {
-        EL_TYPE * result = 
-                safe_calloc(siteTensor_get_size(&data->siteObject), EL_TYPE);
+        T3NS_EL_TYPE * safe_calloc(result, siteTensor_get_size(&data->siteObject));
 
 #pragma omp parallel for schedule(dynamic) default(none) shared(result)
         for (int newqnB_id = 0; newqnB_id < data->nr_qnB; ++newqnB_id) {
@@ -1293,8 +1292,7 @@ EL_TYPE * make_diagonal(const struct Heffdata * const data)
                         fill_indexes(*sb, &idd, data, NEW, result);
                         fill_indexes(*sb, &idd, data, OLD, result);
 
-                        idd.tel[WORK1] = safe_malloc(idd.dim[OLD][0] * 
-                                                     idd.dim[OLD][1], EL_TYPE);
+                        safe_malloc(idd.tel[WORK1], idd.dim[OLD][0] * idd.dim[OLD][1]);
                         idd.tel[WORK2] = NULL;
 
                         const int * MPO;

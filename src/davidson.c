@@ -87,17 +87,17 @@ static void init_david_dat(const double * result, const double * diagonal,
         david_dat.max_vecs = max_vecs;
 
         /* The full problem */
-        david_dat.V  = safe_malloc((long long) size * max_vecs, double);
-        david_dat.VA = safe_malloc((long long) size * max_vecs, double);
+        safe_malloc(david_dat.V , (long long) size * max_vecs);
+        safe_malloc(david_dat.VA, (long long) size * max_vecs);
         david_dat.diagonal = diagonal;
         /* vec_t and residue vector */
-        david_dat.vec_t = safe_malloc(size, double);
+        safe_malloc(david_dat.vec_t, size);
         for (int i = 0; i < size; ++i) { david_dat.vec_t[i] = result[i]; }
 
         /* Projected problem */
-        david_dat.sub_matrix = safe_malloc(max_vecs * max_vecs, double);
-        david_dat.eigv       = safe_malloc(max_vecs * max_vecs, double);
-        david_dat.eigvalues  = safe_malloc(max_vecs, double);
+        safe_malloc(david_dat.sub_matrix, max_vecs * max_vecs);
+        safe_malloc(david_dat.eigv      , max_vecs * max_vecs);
+        safe_malloc(david_dat.eigvalues , max_vecs);
 }
 
 #ifndef NDEBUG
@@ -164,7 +164,7 @@ static int do_eigsolve(void)
 static void deflate(int keep_deflate)
 {
         long long size_x_deflate = (long long) david_dat.size * keep_deflate;
-        double * new_result = safe_malloc(size_x_deflate, double);
+        double * safe_malloc(new_result, size_x_deflate);
 
         cblas_dgemm(CblasColMajor, CblasNoTrans, CblasNoTrans, david_dat.size, 
                     keep_deflate, david_dat.max_vecs, 1, david_dat.V, 

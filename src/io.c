@@ -266,8 +266,7 @@ static char* find_option(const char option[], char line[])
 static int * read_symmetries(char line[], int sg)
 {
         bookie.nrSyms = sg;
-        enum symmetrygroup * tempsgs = 
-                safe_malloc(bookie.nrSyms, enum symmetrygroup);
+        enum symmetrygroup * safe_malloc(tempsgs, bookie.nrSyms);
 
         int i = 0;
         char * pch = strtok(line, STRTOKSEP);

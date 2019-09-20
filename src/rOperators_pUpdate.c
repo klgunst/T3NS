@@ -40,7 +40,7 @@ static inline bool equal_irrep(int * ir1, int * ir2)
 // Creates a mapping from internal ss to the new ss
 static int * make_oldtonew(const struct symsecs * iss, int bond)
 {
-        int * result = safe_malloc(iss->nrSecs, int);
+        int * safe_malloc(result, iss->nrSecs);
         struct symsecs newss;
         get_symsecs(&newss, bond);
         assert(iss->nrSecs >= newss.nrSecs);
@@ -68,11 +68,11 @@ static int * make_oldtonew(const struct symsecs * iss, int bond)
 static struct rOperators init_updated_rOperators(struct rOperators * rops)
 {
         struct rOperators urops;
-        int ** tmpbb;
+        T3NS_BB_TYPE ** tmpbb;
         init_rOperators(&urops, &tmpbb, rops->bond, rops->is_left, false);
         urops.nrops = rops->nrops;
-        urops.hss_of_ops = safe_malloc(urops.nrops, *urops.hss_of_ops);
-        urops.operators  = safe_malloc(urops.nrops, *urops.operators);
+        safe_malloc(urops.hss_of_ops, urops.nrops);
+        safe_malloc(urops.operators, urops.nrops);
         for (int i = 0; i < rops->nrops; ++i) {
                 const int chss = rops->hss_of_ops[i];
                 const int nrbl = rOperators_give_nr_blocks_for_hss(&urops, chss);
@@ -115,7 +115,7 @@ static int * make_usb_to_osb(const struct udata * const dat)
 {
         const int N = dat->ur->begin_blocks_of_hss[dat->ur->nrhss];
         const int NN = dat->or->begin_blocks_of_hss[dat->or->nrhss];
-        int * const result = safe_malloc(N + 1, *result);
+        int * const safe_malloc(result, N + 1);
 
         int osb = 0;
         for (int usb = 0; usb < N; ++usb) {
@@ -197,7 +197,7 @@ struct update_aide {
         bool valid; 
         // Block of the siteTensor, adjoint siteTensor, workmemory,
         // original operator, updated operator
-        EL_TYPE * els[5];
+        T3NS_EL_TYPE * els[5];
 
         // The prefactor from the symmetries
         double pref;
@@ -282,7 +282,7 @@ static struct update_aide get_upd_aide(const struct udata * dat, int osb)
 
         const int worksize = dgemm_order ?
                 aide.M[0] * aide.N[1] : aide.N[0] * aide.M[1];
-        aide.els[WORK] = safe_malloc(worksize, *aide.els[WORK]);
+        safe_malloc(aide.els[WORK], worksize);
 
         const struct contractinfo sitetens = {
                 .tensneeded = {
@@ -393,7 +393,7 @@ void update_rOperators_physical(struct rOperators * rops,
 static void init_unique_rOperators(struct rOperators * ur, int bond, bool il,
                                    const struct instructionset * set)
 {
-        int ** tmpbb;
+        T3NS_BB_TYPE ** tmpbb;
         init_rOperators(ur, &tmpbb, bond, il, true);
 
         // counting number of uniquerops
@@ -402,7 +402,7 @@ static void init_unique_rOperators(struct rOperators * ur, int bond, bool il,
         while (get_next_unique_instr(&cinstr, set)) { ++ur->nrops; }
 
         // initializing the hamsymsecs
-        ur->hss_of_ops = safe_malloc(ur->nrops, *ur->hss_of_ops);
+        safe_malloc(ur->hss_of_ops, ur->nrops);
         int count = 0;
         cinstr = -1;
         while (get_next_unique_instr(&cinstr, set)) { 
@@ -412,7 +412,7 @@ static void init_unique_rOperators(struct rOperators * ur, int bond, bool il,
         assert(count == ur->nrops);
 
         // initializing the stensors
-        ur->operators = safe_malloc(ur->nrops, *ur->operators);
+        safe_malloc(ur->operators, ur->nrops);
         for (int i = 0; i < ur->nrops; ++i) {
                 // The current operator and current hamsymsec
                 struct sparseblocks * cBlock = &ur->operators[i];
@@ -429,9 +429,9 @@ static struct instructionset compress_instructions(const struct instructionset *
                                                    int site, const int * phss)
 {
         struct instructionset n_set = {
-                .instr = safe_malloc(set->nr_instr, *n_set.instr),
+                .instr = malloc(set->nr_instr * sizeof *n_set.instr),
                 .nr_instr = 0,
-                .hss_of_new = safe_malloc(set->nr_instr * 3, *n_set.hss_of_new)
+                .hss_of_new = malloc(set->nr_instr * 3 * sizeof *n_set.hss_of_new)
         };
 
         // Save the unique instructions
@@ -626,8 +626,8 @@ static void pAppend_block(const struct append_data * dat, int usb)
                         // This function gets the bra(i), ket(i) element of siteoperator
                         const double site_el = pref * el_siteop(so, ids[0][1], ids[1][1]);
 
-                        EL_TYPE * oTel = get_tel_block(oBlock, oblock);
-                        EL_TYPE * uTel = get_tel_block(uBlock, ublock);
+                        T3NS_EL_TYPE * oTel = get_tel_block(oBlock, oblock);
+                        T3NS_EL_TYPE * uTel = get_tel_block(uBlock, ublock);
                         assert(N == 0 || N == get_size_block(uBlock, ublock));
 
                         for (int j = 0; j < N; ++j) { uTel[j] = site_el * oTel[j]; }

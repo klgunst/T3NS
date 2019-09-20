@@ -24,7 +24,7 @@
 
 struct timers init_timers(const char **names, const int * keys, int n)
 {
-        struct timers tim = { .n = n, .timers = safe_malloc(n, *tim.timers)};
+        struct timers tim = { .n = n, .timers = malloc(n * sizeof *tim.timers)};
         gettimeofday(&tim.inittime, NULL);
 
         for (int i = 0; i < n; ++i) {

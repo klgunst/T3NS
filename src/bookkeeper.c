@@ -53,14 +53,13 @@ static void kick_impossibles(struct symsecs * const sector)
 
         sector->nrSecs = nrSecss;
         sector->irreps  = realloc(sector->irreps, nrSecss * sizeof *sector->irreps);
-        sector->fcidims = realloc(sector->fcidims, nrSecss * sizeof(double));
+        sector->fcidims = realloc(sector->fcidims, nrSecss * sizeof *sector->fcidims);
         if (sector->dims != NULL) {
-                sector->dims = realloc(sector->dims, nrSecss * sizeof(int));
+                sector->dims = realloc(sector->dims, nrSecss * sizeof *sector->dims);
         }
 
         if (!sector->irreps || !sector->fcidims) {
-                fprintf(stderr, "Error @%s: Reallocation of array failed.\n",
-                        __func__);
+                fprintf(stderr, "Error @%s: Reallocation of array failed.\n", __func__);
                 exit(EXIT_FAILURE);
         }
 }
@@ -69,13 +68,13 @@ static void init_vacuumstate(struct symsecs * sectors, char o)
 {
         assert(o == 'f' || o == 'd');
         sectors->nrSecs     = 1;
-        sectors->irreps     = safe_malloc(sectors->nrSecs, *sectors->irreps);
-        sectors->fcidims    = safe_malloc(sectors->nrSecs, double);
+        safe_malloc(sectors->irreps, sectors->nrSecs);
+        safe_malloc(sectors->fcidims, sectors->nrSecs);
         sectors->fcidims[0] = 1;
         if (o == 'f') {
                 sectors->dims = NULL;
         } else if (o == 'd') {
-                sectors->dims    = safe_malloc(sectors->nrSecs, int);
+                safe_malloc(sectors->dims, sectors->nrSecs);
                 sectors->dims[0] = 1;
         }
         for (int i = 0; i < bookie.nrSyms; ++i) 
@@ -90,31 +89,29 @@ void init_targetstate(struct symsecs * sectors, char o)
         if (seniority_id != -1) { bookie.target_state[seniority_id] *= -1; }
 
         if (seniority_id == -1 || bookie.target_state[seniority_id] >= 0) {
-                sectors->nrSecs     = 1;
-                sectors->irreps     = safe_malloc(sectors->nrSecs, 
-                                                  *sectors->irreps);
-                sectors->fcidims    = safe_malloc(sectors->nrSecs, double);
+                sectors->nrSecs = 1;
+                safe_malloc(sectors->irreps, sectors->nrSecs);
+                safe_malloc(sectors->fcidims, sectors->nrSecs);
                 sectors->fcidims[0] = 1;
                 if (o == 'f') {
                         sectors->dims = NULL;
                 } else if (o == 'd') {
-                        sectors->dims    = safe_malloc(sectors->nrSecs, int);
+                        safe_malloc(sectors->dims, sectors->nrSecs);
                         sectors->dims[0] = 1;
                 }
                 for (int i = 0; i < bookie.nrSyms; ++i) 
                         sectors->irreps[0][i] = bookie.target_state[i]; 
         } else {
                 sectors->nrSecs = -bookie.target_state[seniority_id] / 2 + 1;
-                sectors->irreps = safe_malloc(sectors->nrSecs, 
-                                              *sectors->irreps);
-                sectors->fcidims = safe_malloc(sectors->nrSecs, double);
+                safe_malloc(sectors->irreps, sectors->nrSecs);
+                safe_malloc(sectors->fcidims, sectors->nrSecs);
                 for (int i = 0; i < sectors->nrSecs; ++i) {
                         sectors->fcidims[i] = 1;
                 }
                 if (o == 'f') {
                         sectors->dims = NULL;
                 } else if (o == 'd') {
-                        sectors->dims    = safe_malloc(sectors->nrSecs, int);
+                        safe_malloc(sectors->dims, sectors->nrSecs);
                         for (int i = 0; i < sectors->nrSecs; ++i) {
                                 sectors->dims[i] = 1;
                         }
@@ -262,7 +259,7 @@ static void scale_dims(int max_dim, int minocc)
 
                 for (int i = 0; i < sectors->nrSecs; ++i) 
                         totalfcidims += sectors->fcidims[i];
-                sectors->dims = safe_malloc(sectors->nrSecs, int);
+                safe_malloc(sectors->dims, sectors->nrSecs);
                 ratio = max_dim < totalfcidims ? max_dim * 1. / totalfcidims : 1;
                 sectors->totaldims = 0;
 
@@ -284,7 +281,7 @@ static void calc_dims(int max_dim, int minocc)
                 struct symsecs * bookiess = &bookie.v_symsecs[bond];
                 init_null_symsecs(&newSymsec);
                 make_symsec(&newSymsec, bond, 1, 'd');
-                bookiess->dims = safe_malloc(bookiess->nrSecs, int);
+                safe_malloc(bookiess->dims, bookiess->nrSecs);
                 bookiess->totaldims = 0;
                 for (int i = 0; i < bookiess->nrSecs; ++i) {
                         int * irrep = bookiess->irreps[i];
@@ -323,7 +320,7 @@ static void calc_dims(int max_dim, int minocc)
 static void create_p_symsecs(struct bookkeeper * keeper)
 {
         keeper->psites = netw.psites;
-        keeper->p_symsecs = safe_malloc(keeper->psites, *keeper->p_symsecs);
+        safe_malloc(keeper->p_symsecs, keeper->psites);
         for (int i = 0; i < keeper->psites; ++i) {
                 get_physsymsecs(&keeper->p_symsecs[i], i);
                 keeper->p_symsecs[i].bond = netw.nr_bonds * 2 + i;
@@ -333,7 +330,7 @@ static void create_p_symsecs(struct bookkeeper * keeper)
 static void create_v_symsecs(int max_dim, int interm_scale, int minocc)
 {
         bookie.nr_bonds = netw.nr_bonds;
-        bookie.v_symsecs = safe_malloc(bookie.nr_bonds, *bookie.v_symsecs);
+        safe_malloc(bookie.v_symsecs, bookie.nr_bonds);
 
         calc_fcidims();
 
@@ -673,7 +670,7 @@ static int translate_symmetries(struct bookkeeper * prevbookie, int * changedSS)
         if (translate_old_to_new_sym(prevbookie)) { return 1; }
 
         *changedSS = 1;
-        bookie.v_symsecs = safe_malloc(bookie.nr_bonds, *bookie.v_symsecs);
+        safe_malloc(bookie.v_symsecs, bookie.nr_bonds);
         for (int i = 0; i < bookie.nr_bonds; ++i) {
                 // This function makes that equal symmetry sectors
                 // (due to the removal of the seniority e.g.) gets summed into
@@ -744,8 +741,7 @@ static int change_targetstate(struct bookkeeper * prevbookie, int * changedSS)
         if (!*changedSS) {
                 *changedSS = 1;
                 // Copying bookkeeper
-                bookie.v_symsecs = safe_malloc(bookie.nr_bonds, 
-                                               *bookie.v_symsecs);
+                safe_malloc(bookie.v_symsecs, bookie.nr_bonds);
                 for (i = 0; i < bookie.nr_bonds; ++i) {
                         deep_copy_symsecs(&bookie.v_symsecs[i], 
                                           &prevbookie->v_symsecs[i]);
@@ -806,8 +802,7 @@ int preparebookkeeper(struct bookkeeper * prevbookie, int max_dim,
                 if (!*changedSS) {
                         *changedSS = 1;
                         // Copying bookkeeper
-                        bookie.v_symsecs = safe_malloc(bookie.nr_bonds, 
-                                                       *bookie.v_symsecs);
+                        safe_malloc(bookie.v_symsecs, bookie.nr_bonds);
                         for (int i = 0; i < bookie.nr_bonds; ++i) {
                                 deep_copy_symsecs(&bookie.v_symsecs[i], 
                                                   &prevbookie->v_symsecs[i]);

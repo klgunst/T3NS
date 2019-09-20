@@ -56,7 +56,7 @@ static void sort_instructions(struct instructionset * instructions)
 
 static void sortinstructions_merge(struct instructionset *iset, int ** hss_ops)
 {
-        int * temp = safe_malloc(iset->nr_instr, *temp); 
+        int * safe_malloc(temp, iset->nr_instr); 
         const int hssdim = get_nr_hamsymsec();
         for (int i = 0; i < iset->nr_instr; ++i) {
                 temp[i] = 0;
@@ -67,9 +67,9 @@ static void sortinstructions_merge(struct instructionset *iset, int ** hss_ops)
         }
         int * idx = quickSort(temp, iset->nr_instr, SORT_INT);
 
-        struct instruction * newi = safe_malloc(iset->nr_instr, *newi);
-        iset->MPOc_beg = safe_malloc(iset->nr_instr + 1, *iset->MPOc_beg);
-        iset->MPOc = safe_malloc(iset->nr_instr, *iset->MPOc);
+        struct instruction * safe_malloc(newi, iset->nr_instr);
+        safe_malloc(iset->MPOc_beg, iset->nr_instr + 1);
+        safe_malloc(iset->MPOc, iset->nr_instr);
         iset->nrMPOc = 0;
         for (int i = 0; i < iset->nr_instr; ++i) {
                 memcpy(&newi[i], &iset->instr[idx[i]], sizeof newi[i]);
@@ -116,7 +116,7 @@ void destroy_instructionset(struct instructionset * const instructions)
 struct instructionset fetch_pUpdate(int bond, int is_left)
 {
         if (iset_pUpdate == NULL) {
-                iset_pUpdate = safe_malloc(netw.nr_bonds, *iset_pUpdate);
+                safe_malloc(iset_pUpdate, netw.nr_bonds);
                 for (int i = 0; i < netw.nr_bonds; ++i) {
                         iset_pUpdate[i][0] = invalid_instr;
                         iset_pUpdate[i][1] = invalid_instr;
@@ -152,7 +152,7 @@ struct instructionset fetch_pUpdate(int bond, int is_left)
 struct instructionset fetch_bUpdate(int bond, int is_left)
 {
         if (iset_bUpdate == NULL) {
-                iset_bUpdate = safe_malloc(netw.nr_bonds, *iset_bUpdate);
+                safe_malloc(iset_bUpdate, netw.nr_bonds);
                 for (int i = 0; i < netw.nr_bonds; ++i) {
                         iset_bUpdate[i][0] = invalid_instr;
                         iset_bUpdate[i][1] = invalid_instr;
@@ -188,7 +188,7 @@ struct instructionset fetch_bUpdate(int bond, int is_left)
 struct instructionset fetch_merge(const int bond, int isdmrg, int ** hss_ops)
 {
         if (iset_merge == NULL) {
-                iset_merge = safe_malloc(netw.nr_bonds, *iset_merge);
+                safe_malloc(iset_merge, netw.nr_bonds);
                 for (int i = 0; i < netw.nr_bonds; ++i) {
                         iset_merge[i][0] = invalid_instr;
                         iset_merge[i][1] = invalid_instr;

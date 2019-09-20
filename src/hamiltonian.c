@@ -237,7 +237,7 @@ void tprods_ham(int * const nr_prods, int ** const prods,
                 break;
         case DOCI :
                 DOCI_tprods_ham(nr_prods, &tprods, resulting_symsec);
-                *prods = safe_malloc(*nr_prods * 2, **prods);
+                safe_malloc(*prods, *nr_prods * 2);
                 for (int i = 0; i < *nr_prods; ++i) {
                         (*prods)[2 * i + 0] = tprods[i][0];
                         (*prods)[2 * i + 1] = tprods[i][1];

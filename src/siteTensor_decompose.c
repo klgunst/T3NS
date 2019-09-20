@@ -39,7 +39,7 @@
 static int * sort_indices(int (*indices)[3], int n, int b)
 {
         assert(b < 3 && b >= 0);
-        int * relid = safe_malloc(n, *relid);
+        int * safe_malloc(relid, n);
         for (int i = 0; i < n; ++i) { relid[i] = indices[i][b]; }
         int * idx = quickSort(relid, n, SORT_INT);
         safe_free(relid);
@@ -74,7 +74,7 @@ struct qrdata {
 static void makestart(struct qrdata * dat)
 {
         const int size = dat->symarr[dat->bond].nrSecs;
-        dat->idstart = safe_malloc(size + 1, *dat->idstart);
+        safe_malloc(dat->idstart, size + 1);
 
         dat->idstart[0] = 0;
         for (int block = 0; block < size; ++block) {
@@ -128,15 +128,13 @@ static void make_Q(struct qrdata * dat)
                 dat->Q->sites[i] = dat->A->sites[i]; 
         }
         dat->Q->nrblocks = dat->A->nrblocks;
-        dat->Q->qnumbers = safe_malloc(dat->Q->nrblocks * dat->Q->nrsites, 
-                                       *dat->Q->qnumbers);
+        safe_malloc(dat->Q->qnumbers, dat->Q->nrblocks * dat->Q->nrsites);
         for (int i = 0; i < dat->Q->nrsites * dat->Q->nrblocks; ++i) {
                 dat->Q->qnumbers[i] = dat->A->qnumbers[i];
         }
 
         // Initialize the sparseblocks of Q
-        dat->Q->blocks.beginblock = safe_calloc(dat->Q->nrblocks + 1,
-                                                *dat->Q->blocks.beginblock);
+        safe_calloc(dat->Q->blocks.beginblock, dat->Q->nrblocks + 1);
 
 #pragma omp parallel for schedule(dynamic) shared(dat)
         for (int block = 0; block < dat->nrRblocks; ++block) {
@@ -149,20 +147,20 @@ static void make_Q(struct qrdata * dat)
                         if (blsize == 0) { continue; }
 
                         assert(N != 0 && M != 0);
-                        const int currM = blsize / N;
+                        const T3NS_BB_TYPE currM = blsize / N;
                         assert(blsize % N == 0);
                         checkM += currM;
                         dat->Q->blocks.beginblock[*id + 1] = currM * minMN;
+                        assert(dat->Q->blocks.beginblock[*id + 1] >= 0 && "Integer overflow?");
                 }
                 assert(checkM == M);
         }
 
         for (int i = 0; i < dat->Q->nrblocks; ++i) {
                 dat->Q->blocks.beginblock[i + 1] += dat->Q->blocks.beginblock[i];
+                assert(dat->Q->blocks.beginblock[i + 1] >= 0 && "Integer overflow?");
         }
-        dat->Q->blocks.tel = 
-                safe_malloc(dat->Q->blocks.beginblock[dat->Q->nrblocks],
-                            *dat->Q->blocks.tel);
+        safe_malloc(dat->Q->blocks.tel, dat->Q->blocks.beginblock[dat->Q->nrblocks]);
 }
 
 static struct qrdata init_qrdata(struct siteTensor * A, struct siteTensor * Q, 
@@ -181,8 +179,8 @@ static struct qrdata init_qrdata(struct siteTensor * A, struct siteTensor * Q,
         if (dat.R != NULL) {
                 dat.R->bond = dat.legs[dat.bond];
                 dat.R->nrblocks = dat.nrRblocks;
-                dat.R->dims = safe_calloc(dat.R->nrblocks, *dat.R->dims);
-                dat.R->Rels = safe_calloc(dat.R->nrblocks, *dat.R->Rels);
+                safe_calloc(dat.R->dims, dat.R->nrblocks);
+                safe_calloc(dat.R->Rels, dat.R->nrblocks);
                 for (int i = 0; i < dat.R->nrblocks; ++i) { 
                         dat.R->dims[i][0] = 0;
                         dat.R->dims[i][1] = 0;
@@ -205,7 +203,7 @@ static void destroy_qrdata(struct qrdata * dat)
         safe_free(dat->idstart);
 }
 
-static void copy_to_R(struct Rmatrix * R, EL_TYPE * mem,
+static void copy_to_R(struct Rmatrix * R, T3NS_EL_TYPE * mem,
                       int M, int N, int Rblock)
 {
         if (R == NULL) { return; }
@@ -214,7 +212,7 @@ static void copy_to_R(struct Rmatrix * R, EL_TYPE * mem,
 
         R->dims[Rblock][0] = minMN;
         R->dims[Rblock][1] = N;
-        R->Rels[Rblock] = safe_calloc(minMN * N, *R->Rels[Rblock]);
+        safe_calloc(R->Rels[Rblock], minMN * N);
         // Copy only upper triangular part
         for (int j = 0; j < N; ++j) {
                 const int maxi = (j + 1 < minMN) ?  j + 1 : minMN;
@@ -225,7 +223,7 @@ static void copy_to_R(struct Rmatrix * R, EL_TYPE * mem,
 
 #define TO_MEMORY 1
 #define FROM_MEMORY 0
-static void QR_copy_fromto_mem(struct qrdata * dat, EL_TYPE * mem, int Rblock, 
+static void QR_copy_fromto_mem(struct qrdata * dat, T3NS_EL_TYPE * mem, int Rblock, 
                                int ldmem, int N, int copy_type)
 {
         assert(copy_type == TO_MEMORY || copy_type == FROM_MEMORY);
@@ -233,10 +231,10 @@ static void QR_copy_fromto_mem(struct qrdata * dat, EL_TYPE * mem, int Rblock,
                 &dat->Q->blocks : &dat->A->blocks;
 
         // Copy the different blocks
-        EL_TYPE * cmem = mem;
+        T3NS_EL_TYPE * cmem = mem;
         for (int * id = &dat->idperm[dat->idstart[Rblock]]; 
              id != &dat->idperm[dat->idstart[Rblock + 1]]; ++id) {
-                EL_TYPE * bl_p   = get_tel_block(T, *id);
+                T3NS_EL_TYPE * bl_p   = get_tel_block(T, *id);
 
                 int (*indic)[3] = &dat->indices[*id];
                 int M = 1;
@@ -278,10 +276,10 @@ static int qrblocks(struct qrdata * dat, int Rblock)
         assert(dat->symarr[dat->bond].dims[Rblock] == N);
 
         const int memsize = M * N;
-        EL_TYPE * mem = safe_malloc(memsize, *mem);
+        T3NS_EL_TYPE * safe_malloc(mem, memsize);
         QR_copy_fromto_mem(dat, mem, Rblock, M, N, TO_MEMORY);
 
-        EL_TYPE * tau  = safe_malloc(minMN, *tau);
+        T3NS_EL_TYPE * safe_malloc(tau, minMN);
         int info = LAPACKE_dgeqrf(LAPACK_COL_MAJOR, M, N, mem, M, tau);
         if (info) {
                 fprintf(stderr, "%d %d %p %p\n", M, N, (void *) mem, (void *) tau);
@@ -381,11 +379,11 @@ static void makeB(const struct siteTensor * const A, const int bondA,
         B->nrsites = A->nrsites;
         for (int i = 0; i < B->nrsites; ++i) { B->sites[i] = A->sites[i]; }
         B->nrblocks = A->nrblocks;
-        B->qnumbers = safe_malloc(B->nrblocks * B->nrsites, *B->qnumbers);
+        safe_malloc(B->qnumbers, B->nrblocks * B->nrsites);
         for (int i = 0; i < B->nrblocks * B->nrsites; ++i) {
                 B->qnumbers[i] = A->qnumbers[i];
         }
-        B->blocks.beginblock = safe_malloc(B->nrblocks + 1, *B->blocks.beginblock);
+        safe_malloc(B->blocks.beginblock, B->nrblocks + 1);
         B->blocks.beginblock[0] = 0;
 #pragma omp parallel for schedule(static) shared(divide,B,symarr)
         for (int i = 0; i < B->nrblocks; ++i) {
@@ -400,14 +398,15 @@ static void makeB(const struct siteTensor * const A, const int bondA,
                         assert(sizeA % R->dims[id][bondR] == 0);
                         B->blocks.beginblock[i + 1] = sizeA / 
                                 R->dims[id][bondR] * R->dims[id][!bondR];
+                        assert(B->blocks.beginblock[i + 1] >= 0 && "Integer overflow?");
                 }
         }
 
         for (int i = 0; i < B->nrblocks; ++i) {
                 B->blocks.beginblock[i + 1] += B->blocks.beginblock[i];
+                assert(B->blocks.beginblock[i + 1] >= 0 && "Integer overflow?");
         }
-        B->blocks.tel = safe_malloc(B->blocks.beginblock[B->nrblocks],
-                                    *B->blocks.tel);
+        safe_malloc(B->blocks.tel, B->blocks.beginblock[B->nrblocks]);
 }
 
 // It is possible to do this bit more efficient by using dtrmm instead of dgemm
@@ -447,7 +446,7 @@ int multiplyR(struct siteTensor * A, const int bondA,
                 id[2] = qn / dims[1];
                 assert(id[2] < dims[2]);
 
-                EL_TYPE * tels[] = {
+                T3NS_EL_TYPE * tels[] = {
                         get_tel_block(&A->blocks, block),
                         R->Rels[id[bondA]],
                         get_tel_block(&B->blocks, block)
@@ -498,9 +497,9 @@ static int orthoblock(struct qrdata * dat, int Rblock)
         assert(dat->symarr[dat->bond].dims[Rblock] == N);
 
         const int memsize = M * N;
-        EL_TYPE * mem = safe_malloc(memsize, *mem);
+        T3NS_EL_TYPE * safe_malloc(mem, memsize);
         QR_copy_fromto_mem(dat, mem, Rblock, M, N, TO_MEMORY);
-        EL_TYPE * isunit = safe_malloc(N *N, *isunit);
+        T3NS_EL_TYPE * safe_malloc(isunit, N *N);
         cblas_dsyrk(CblasColMajor, CblasUpper, CblasTrans, N, M, 
                     1, mem, M, 0, isunit, N);
         // Only upper triangle of unit should be stored in isunit.
@@ -571,8 +570,8 @@ static struct Sval R_svd(struct Rmatrix * R)
         struct Sval S = {
                 .bond = R->bond,
                 .nrblocks = R->nrblocks,
-                .dimS = safe_malloc(R->nrblocks, *S.dimS),
-                .sing = safe_malloc(R->nrblocks, *S.sing),
+                .dimS = malloc(R->nrblocks * sizeof *S.dimS),
+                .sing = malloc(R->nrblocks * sizeof *S.sing),
         };
 
         for (int ss = 0; ss < S.nrblocks; ++ss) {
@@ -580,7 +579,7 @@ static struct Sval R_svd(struct Rmatrix * R)
                 const int N = R->dims[ss][1];
                 S.dimS[ss][0] = M > N ?  N : M;
                 S.dimS[ss][1] = S.dimS[ss][0];
-                S.sing[ss] = safe_malloc(S.dimS[ss][0], *S.sing[ss]);
+                safe_malloc(S.sing[ss], S.dimS[ss][0]);
                 if (M == 0 || N == 0) { continue; }
                 int info = LAPACKE_dgesdd(LAPACK_COL_MAJOR, 'N', M, N, 
                                           R->Rels[ss], M, S.sing[ss], NULL, M,
@@ -647,7 +646,7 @@ struct svd_bond_info {
          * > [0, m[0], m[0] + m[1], m[0] + m[1] + m[2],...] */
         int * Mstart;
         // Allocated memory for U
-        EL_TYPE * memU;
+        T3NS_EL_TYPE * memU;
 
         /* Permutation array which groups the blocks in VT with the same 
          * symmetry sector for the cutted bond. */
@@ -661,7 +660,7 @@ struct svd_bond_info {
          * > [0, n[0], n[0] + n[1], n[0] + n[1] + n[2],...] */
         int * Nstart;
         // Allocated memory for VT
-        EL_TYPE * memVT;
+        T3NS_EL_TYPE * memVT;
 };
 
 static void destroy_svd_bond_info(struct svd_bond_info * info)
@@ -695,8 +694,7 @@ static struct siteTensor init_splitted_tens(const struct siteTensor * A,
         }
 
         // First worst case guess
-        result.qnumbers = safe_malloc(A->nrblocks * result.nrsites, 
-                                      *result.qnumbers);
+        safe_malloc(result.qnumbers, A->nrblocks * result.nrsites);
         result.nrblocks = A->nrblocks;
         // Copy all
         for (int i = 0; i < A->nrblocks; ++i) {
@@ -801,10 +799,10 @@ static void make_r_count_svdinfos(struct svddata * dat, int make)
 static void make_svdinfos(struct svddata * dat)
 {
         dat->nrSss = dat->symarr[dat->id_csite][dat->id_cbond].nrSecs;
-        dat->ss_info = safe_malloc(dat->nrSss, *dat->ss_info);
+        safe_malloc(dat->ss_info, dat->nrSss);
         dat->S->nrblocks = dat->nrSss;
-        dat->S->dimS = safe_calloc(dat->S->nrblocks, *dat->S->dimS);
-        dat->S->sing = safe_calloc(dat->S->nrblocks, *dat->S->sing);
+        safe_calloc(dat->S->dimS, dat->S->nrblocks);
+        safe_calloc(dat->S->sing, dat->S->nrblocks);
         for (int ss = 0; ss < dat->nrSss; ++ss) {
                 struct svd_bond_info * inf = &dat->ss_info[ss];
                 inf->idpermAsize = 0;
@@ -814,11 +812,11 @@ static void make_svdinfos(struct svddata * dat)
         make_r_count_svdinfos(dat, 0);
         for (int ss = 0; ss < dat->nrSss; ++ss) {
                 struct svd_bond_info * inf = &dat->ss_info[ss];
-                inf->idpermA = safe_malloc(inf->idpermAsize, *inf->idpermA);
-                inf->idpermU = safe_malloc(inf->Msecs, *inf->idpermU);
-                inf->Mstart = safe_calloc(inf->Msecs + 1, *inf->Mstart);
-                inf->idpermV = safe_malloc(inf->Nsecs, *inf->idpermV);
-                inf->Nstart = safe_calloc(inf->Nsecs + 1, *inf->Nstart);
+                safe_malloc(inf->idpermA, inf->idpermAsize);
+                safe_malloc(inf->idpermU, inf->Msecs);
+                safe_calloc(inf->Mstart, inf->Msecs + 1);
+                safe_malloc(inf->idpermV, inf->Nsecs);
+                safe_calloc(inf->Nstart, inf->Nsecs + 1);
                 inf->idpermAsize = 0;
                 inf->Msecs = 0;
                 inf->Nsecs = 0;
@@ -837,9 +835,9 @@ static void make_svdinfos(struct svddata * dat)
                 const int dimS = M < N ? M : N;
                 dat->S->dimS[ss][0] = dimS;
                 dat->S->dimS[ss][1] = 0;
-                dat->S->sing[ss] = safe_malloc(dimS, *dat->S->sing[ss]);
-                inf->memU = safe_malloc(dimS * M, *inf->memU);
-                inf->memVT = safe_malloc(dimS * N, *inf->memVT);
+                safe_malloc(dat->S->sing[ss], dimS);
+                safe_malloc(inf->memU, dimS * M);
+                safe_malloc(inf->memVT, dimS * N);
         }
 }
 
@@ -945,13 +943,13 @@ static void get_dims(int * dims, int block, const struct siteTensor * T,
 
 // Copies and permutes a block from A to the working memory
 static void SVD_copy_to_mem(struct svddata * dat, const int ssid, 
-                            EL_TYPE * memA)
+                            T3NS_EL_TYPE * memA)
 {
         const struct svd_bond_info inf = dat->ss_info[ssid];
 
         for (const int * block = inf.idpermA; 
              block < &inf.idpermA[inf.idpermAsize]; ++block) {
-                EL_TYPE * telA = get_tel_block(&dat->A->blocks, *block);
+                T3NS_EL_TYPE * telA = get_tel_block(&dat->A->blocks, *block);
 
                 QN_TYPE * currqn = &dat->A->qnumbers[dat->A->nrsites * *block];
                 QN_TYPE qnU[STEPSPECS_MSITES];
@@ -978,7 +976,7 @@ static void SVD_copy_to_mem(struct svddata * dat, const int ssid,
 
                 const int Mpos = inf.Mstart[idU];
                 const int Npos = inf.Nstart[idV];
-                EL_TYPE * mem = &memA[Mpos + inf.Mstart[inf.Msecs] * Npos];
+                T3NS_EL_TYPE * mem = &memA[Mpos + inf.Mstart[inf.Msecs] * Npos];
 
                 int dims[3] = {1, 1, 1};
                 get_dims(dims, *block, dat->A, dat->id_siteV, -1, 
@@ -1009,9 +1007,9 @@ static int SVD_copy_from_mem(struct svddata * dat, const int ssid)
 
         for (int idV = 0; idV < inf.Nsecs; ++idV) {
                 const int block = inf.idpermV[idV];
-                EL_TYPE * telV = get_tel_block(&dat->V->blocks, block);
+                T3NS_EL_TYPE * telV = get_tel_block(&dat->V->blocks, block);
 
-                const EL_TYPE * mem = &inf.memVT[inf.Nstart[idV] * origdimS];
+                const T3NS_EL_TYPE * mem = &inf.memVT[inf.Nstart[idV] * origdimS];
 
                 int tdims[3];
                 get_dims(tdims, block, dat->V, 0, dat->id_bond, 
@@ -1038,9 +1036,9 @@ static int SVD_copy_from_mem(struct svddata * dat, const int ssid)
 
         for (int idU = 0; idU < inf.Msecs; ++idU) {
                 const int block = inf.idpermU[idU];
-                EL_TYPE * telU = get_tel_block(&dat->U->blocks, block);
+                T3NS_EL_TYPE * telU = get_tel_block(&dat->U->blocks, block);
 
-                const EL_TYPE * mem = &inf.memU[inf.Mstart[idU]];
+                const T3NS_EL_TYPE * mem = &inf.memU[inf.Mstart[idU]];
 
                 const int id_csite = dat->id_csite - 
                         (dat->id_siteV < dat->id_csite);
@@ -1076,7 +1074,7 @@ static int svdblocks(struct svddata * dat, int ssid)
         const int N = inf.Nstart[inf.Nsecs];
         assert(dat->S->dimS[ssid][0] == (M < N ? M : N));
 
-        EL_TYPE * memA = safe_calloc(M * N, memA);
+        T3NS_EL_TYPE * safe_calloc(memA, M * N);
         SVD_copy_to_mem(dat, ssid, memA);
         int info = LAPACKE_dgesdd(LAPACK_COL_MAJOR, 'S', M, N, memA, M, 
                                   dat->S->sing[ssid], inf.memU, M, 
@@ -1202,8 +1200,8 @@ static int selectS(struct Sval * S, const struct SvalSelect * sel,
         
         int totalsings = 0;
         for (int i = 0; i < S->nrblocks; ++i) { totalsings += S->dimS[i][0]; }
-        double * tempS = safe_malloc(totalsings, *tempS);
-        int * origblock = safe_malloc(totalsings, *origblock);
+        double * safe_malloc(tempS, totalsings);
+        int * safe_malloc(origblock, totalsings);
 
         struct symsecs symm;
         get_symsecs(&symm, S->bond);
@@ -1256,10 +1254,8 @@ static int selectS(struct Sval * S, const struct SvalSelect * sel,
 
 static void init_UV_tensors_and_change_symsec(struct svddata * dat)
 {
-        dat->U->blocks.beginblock = safe_calloc(dat->U->nrblocks + 1,
-                                                *dat->U->blocks.beginblock);
-        dat->V->blocks.beginblock = safe_calloc(dat->V->nrblocks + 1,
-                                                *dat->V->blocks.beginblock);
+        safe_calloc(dat->U->blocks.beginblock, dat->U->nrblocks + 1);
+        safe_calloc(dat->V->blocks.beginblock, dat->V->nrblocks + 1);
 
         int totaldims = 0;
 #pragma omp parallel for schedule(dynamic) default(none) shared(dat) reduction(+:totaldims)
@@ -1270,14 +1266,14 @@ static void init_UV_tensors_and_change_symsec(struct svddata * dat)
                 for (int m = 0; m < info.Msecs; ++m) {
                         const int nb = info.idpermU[m];
                         assert(dat->U->blocks.beginblock[nb + 1] == 0);
-                        dat->U->blocks.beginblock[nb + 1] = 
-                                (info.Mstart[m + 1] - info.Mstart[m]) * dimS;
+                        dat->U->blocks.beginblock[nb + 1] = (info.Mstart[m + 1] - info.Mstart[m]) * dimS;
+                        assert(dat->U->blocks.beginblock[nb + 1] >= 0 && "Integer overflow?");
                 }
                 for (int n = 0; n < info.Nsecs; ++n) {
                         const int nb = info.idpermV[n];
                         assert(dat->V->blocks.beginblock[nb + 1] == 0);
-                        dat->V->blocks.beginblock[nb + 1] = 
-                                (info.Nstart[n + 1] - info.Nstart[n]) * dimS;
+                        dat->V->blocks.beginblock[nb + 1] = (info.Nstart[n + 1] - info.Nstart[n]) * dimS;
+                        assert(dat->V->blocks.beginblock[nb + 1] >= 0 && "Integer overflow?");
                 }
 
                 dat->symarr[dat->id_siteV][dat->id_bond].dims[ssid] = dimS;
@@ -1287,15 +1283,15 @@ static void init_UV_tensors_and_change_symsec(struct svddata * dat)
 
         for (int i = 0; i < dat->U->nrblocks; ++i) {
                 dat->U->blocks.beginblock[i+1] += dat->U->blocks.beginblock[i];
+                assert(dat->U->blocks.beginblock[i + 1] >= 0 && "Integer overflow?");
         }
         for (int i = 0; i < dat->V->nrblocks; ++i) {
                 dat->V->blocks.beginblock[i+1] += dat->V->blocks.beginblock[i];
+                assert(dat->V->blocks.beginblock[i + 1] >= 0 && "Integer overflow?");
         }
 
-        dat->U->blocks.tel = safe_calloc(siteTensor_get_size(dat->U),
-                                         *dat->U->blocks.tel);
-        dat->V->blocks.tel = safe_calloc(siteTensor_get_size(dat->V),
-                                         *dat->V->blocks.tel);
+        safe_calloc(dat->U->blocks.tel, siteTensor_get_size(dat->U));
+        safe_calloc(dat->V->blocks.tel, siteTensor_get_size(dat->V));
 }
 
 static void reform_tensor(struct siteTensor * tens, const int * nd, 
@@ -1341,7 +1337,7 @@ static void adapt_UV_tensors_and_kick_empties(struct svddata * dat)
                 dat->symarr[dat->id_siteV][1].nrSecs,
                 dat->symarr[dat->id_siteV][2].nrSecs
         };
-        int * newid = safe_malloc(olddimU[dat->id_cbond], *newid);
+        int * safe_malloc(newid, olddimU[dat->id_cbond]);
         int cnt = 0;
         for (int i = 0; i < olddimU[dat->id_cbond]; ++i) {
                 if (dat->symarr[dat->id_csite][dat->id_cbond].dims[i] == 0) {

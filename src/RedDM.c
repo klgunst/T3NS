@@ -38,7 +38,7 @@
 /// A structure for maing a backup for the T3NS and the @ref bookie.
 struct RDMbackup {
         /// Backup of the coefficients of the @ref siteTensor array.
-        EL_TYPE ** tels;
+        T3NS_EL_TYPE ** tels;
         /** Backup of the symmetry sectors of the @ref bookie.
          * 
          * This is needed since QR decomposition can change the @ref bookie.
@@ -68,11 +68,11 @@ struct RDMinterm {
 static struct RDMbackup backup(struct siteTensor * T3NS)
 {
         struct RDMbackup backupv;
-        backupv.tels = safe_malloc(netw.sites, *backupv.tels);
-        backupv.ss = safe_malloc(netw.nr_bonds, *backupv.ss);
+        safe_malloc(backupv.tels, netw.sites);
+        safe_malloc(backupv.ss, netw.nr_bonds);
         for (int i = 0; i < netw.sites; ++i) {
                 const int N = siteTensor_get_size(&T3NS[i]);
-                backupv.tels[i] = safe_malloc(N, *backupv.tels[i]);
+                safe_malloc(backupv.tels[i], N);
                 for (int j = 0; j < N; ++j) {
                         backupv.tels[i][j] = T3NS[i].blocks.tel[j];
                 }
@@ -176,7 +176,7 @@ static int initialize_rdm(struct RedDM * rdm, int mrdm, int chemRDM)
 
         for (int i = 0; i < mrdm; ++i) {
                 const int N = combination(rdm->sites, i + 1);
-                rdm->sRDMs[i] = safe_malloc(N, *rdm->sRDMs[i]);
+                safe_malloc(rdm->sRDMs[i], N);
                 for (int j = 0; j < N; ++j) {
                         init_null_siteTensor(&rdm->sRDMs[i][j]); 
                 }
@@ -225,21 +225,20 @@ static int make1siteRDM(struct siteTensor * rdm, struct siteTensor * orthoc)
         get_maxdims_of_bonds(dims, bonds, 3);
 
         crdm->nrblocks = symarr[1].nrSecs;
-        crdm->qnumbers = safe_malloc(crdm->nrblocks, *crdm->qnumbers);
-        crdm->blocks.beginblock = 
-                safe_malloc(crdm->nrblocks + 1, *crdm->blocks.beginblock);
+        safe_malloc(crdm->qnumbers, crdm->nrblocks);
+        safe_malloc(crdm->blocks.beginblock, crdm->nrblocks + 1);
         crdm->blocks.beginblock[0] = 0;
         for (int i = 0; i < crdm->nrblocks; ++i) {
                 crdm->qnumbers[i] = i * (crdm->nrblocks + 1);
                 crdm->blocks.beginblock[i + 1] = crdm->blocks.beginblock[i] +
                         symarr[1].dims[i] * symarr[1].dims[i];
         }
-        const int N = crdm->blocks.beginblock[crdm->nrblocks];
-        crdm->blocks.tel = safe_calloc(N, *crdm->blocks.tel);
+        const T3NS_BB_TYPE N = crdm->blocks.beginblock[crdm->nrblocks];
+        safe_calloc(crdm->blocks.tel, N);
 
 //#pragma omp parallel default(none) shared(crdm,orthoc,symarr,bookie,dims)
         {
-                EL_TYPE * temptel = safe_calloc(N, *temptel);
+                T3NS_EL_TYPE * safe_calloc(temptel, N);
 
 //#pragma omp for schedule(static) nowait
                 for (int i = 0; i < orthoc->nrblocks; ++i) {
@@ -257,8 +256,8 @@ static int make1siteRDM(struct siteTensor * rdm, struct siteTensor * orthoc)
 
                         const double pref = prefactor_1siteRDM(&irreps, bookie.sgs, 
                                                                bookie.nrSyms);
-                        EL_TYPE * tenstel = get_tel_block(&orthoc->blocks, i);
-                        EL_TYPE * const rdmtel = temptel + 
+                        T3NS_EL_TYPE * tenstel = get_tel_block(&orthoc->blocks, i);
+                        T3NS_EL_TYPE * const rdmtel = temptel + 
                                 crdm->blocks.beginblock[ids[1]];
                         const int tdims[3] = {
                                 symarr[0].dims[ids[0]], 
@@ -398,7 +397,7 @@ int get_1siteEntanglement(const struct RedDM * rdm, double ** result)
                 return 1;
         }
 
-        *result = safe_calloc(rdm->sites, **result);
+        safe_calloc(*result, rdm->sites);
         int flag = 0;
 //#pragma omp parallel for schedule(static) default(none) shared(result, rdm, stderr,flag,bookie)
         for (int i = 0; i < rdm->sites; ++i) {
@@ -414,11 +413,11 @@ int get_1siteEntanglement(const struct RedDM * rdm, double ** result)
                 double sum = 0;
 #endif
                 for (int j = 0; j < ss.nrSecs; ++j) {
-                        EL_TYPE * tel = get_tel_block(&crdm->blocks, j);
+                        T3NS_EL_TYPE * tel = get_tel_block(&crdm->blocks, j);
                         const int dim = ss.dims[j];
                         assert(dim * dim == get_size_block(&crdm->blocks, j));
-                        EL_TYPE * mem = safe_malloc(dim * dim, *mem);
-                        EL_TYPE * eigvalues = safe_malloc(dim, *eigvalues);
+                        T3NS_EL_TYPE * safe_malloc(mem, dim * dim);
+                        T3NS_EL_TYPE * safe_malloc(eigvalues, dim);
                         for (int k = 0; k < dim * dim; ++k) { mem[k] = tel[k]; } 
 
                         int info = LAPACKE_dsyev(LAPACK_COL_MAJOR, 'N', 'U', 

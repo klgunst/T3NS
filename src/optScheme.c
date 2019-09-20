@@ -150,7 +150,7 @@ static void read_bonddim(const char inputfile[], struct optScheme * scheme)
                         fprintf(stderr, errormessage, inputfile);
                         exit(EXIT_FAILURE);
                 }
-                scheme->regimes = safe_malloc(scheme->nrRegimes, struct regime);
+                safe_malloc(scheme->regimes, scheme->nrRegimes);
                 fill_regimeoptions(buffer, scheme, MIN_D);
 
                 if (read_option(optionnames[MAX_D], inputfile, buffer) != scheme->nrRegimes) {
@@ -165,7 +165,7 @@ static void read_bonddim(const char inputfile[], struct optScheme * scheme)
                 }
                 fill_regimeoptions(buffer, scheme, TRUNCERR);
         } else {
-                scheme->regimes = safe_malloc(scheme->nrRegimes, struct regime);
+                safe_malloc(scheme->regimes, scheme->nrRegimes);
                 fill_regimeoptions(buffer, scheme, D);
                 if (read_option(optionnames[MIN_D], inputfile, buffer) != -1) {
                         fprintf(stderr, errormessage, inputfile);

@@ -34,34 +34,37 @@ void init_null_sparseblocks(struct sparseblocks * blocks)
         blocks->tel        = NULL;
 }
 
-void init_sparseblocks(struct sparseblocks * blocks, const int * beginblock, 
+void init_sparseblocks(struct sparseblocks * blocks,
+                       const T3NS_BB_TYPE * beginblock, 
                        int nr_blocks, char o)
 {
-        blocks->beginblock = safe_malloc(nr_blocks + 1, int);
+        safe_malloc(blocks->beginblock, nr_blocks + 1);
         for (int j = 0; j < nr_blocks + 1; ++j)
                 blocks->beginblock[j] = beginblock[j];
         switch(o) {
         case 'c':
-                blocks->tel = safe_calloc(blocks->beginblock[nr_blocks], EL_TYPE);
+                safe_calloc(blocks->tel, blocks->beginblock[nr_blocks]);
                 break;
         case 'm':
-                blocks->tel = safe_malloc(blocks->beginblock[nr_blocks], EL_TYPE);
+                safe_malloc(blocks->tel, blocks->beginblock[nr_blocks]);
+                break;
         default:
-                fprintf(stderr, "Error @%s: wrong option (%c) passed.\n", 
-                        __func__, o);
+                fprintf(stderr, "Error @%s: wrong option (%c) passed.\n", __func__, o);
         }
 }
 
 void deep_copy_sparseblocks(struct sparseblocks * copy, 
                             const struct sparseblocks * tocopy, int nrblocks)
 {
-        copy->beginblock = safe_malloc(nrblocks + 1, int);
-        copy->tel = safe_malloc(tocopy->beginblock[nrblocks], EL_TYPE);
+        safe_malloc(copy->beginblock, nrblocks + 1);
+        safe_malloc(copy->tel, tocopy->beginblock[nrblocks]);
 
-        for (int i = 0; i < nrblocks + 1; ++i) 
+        for (int i = 0; i < nrblocks + 1; ++i) {
                 copy->beginblock[i] = tocopy->beginblock[i];
-        for (int i = 0; i < tocopy->beginblock[nrblocks]; ++i) 
+        }
+        for (T3NS_BB_TYPE i = 0; i < tocopy->beginblock[nrblocks]; ++i) {
                 copy->tel[i] = tocopy->tel[i];
+        }
 }
 
 void destroy_sparseblocks(struct sparseblocks * blocks)
@@ -72,57 +75,54 @@ void destroy_sparseblocks(struct sparseblocks * blocks)
 
 void kick_zero_blocks(struct sparseblocks * blocks, int nr_blocks)
 {
-        int start = blocks->beginblock[0];
+        T3NS_BB_TYPE start = blocks->beginblock[0];
 #ifndef NDEBUG
-        const int prevsize = blocks->beginblock[nr_blocks];
+        const T3NS_BB_TYPE prevsize = blocks->beginblock[nr_blocks];
 #endif
 
         for (int i = 0; i < nr_blocks; ++i) {
                 int flag = 0;
-                for (int j = start; j < blocks->beginblock[i + 1]; ++j) {
-                        if ((flag = !COMPARE_ELEMENT_TO_ZERO(blocks->tel[j])))
-                                break;
+                for (T3NS_BB_TYPE j = start; j < blocks->beginblock[i + 1]; ++j) {
+                        if ((flag = !COMPARE_ELEMENT_TO_ZERO(blocks->tel[j]))) { break; }
                 }
 
                 /* length of new symsec (is zero if it is a zero-symsec) */
-                const int N = flag * (blocks->beginblock[i + 1] - start);
+                const T3NS_BB_TYPE N = flag * (blocks->beginblock[i + 1] - start);
 
-                for (int j = 0; j < N; ++j) {
-                        blocks->tel[j + blocks->beginblock[i]] = 
-                                blocks->tel[j + start];
+                for (T3NS_BB_TYPE j = 0; j < N; ++j) {
+                        blocks->tel[j + blocks->beginblock[i]] = blocks->tel[j + start];
                 }
                 start = blocks->beginblock[i + 1];
                 blocks->beginblock[i + 1] = blocks->beginblock[i] + N;
         }
         assert(prevsize >= blocks->beginblock[nr_blocks]);
 
-        blocks->tel = realloc(blocks->tel, blocks->beginblock[nr_blocks] * 
-                              sizeof *blocks->tel);
+        blocks->tel = realloc(blocks->tel, blocks->beginblock[nr_blocks] * sizeof *blocks->tel);
 
         if (blocks->tel == NULL && blocks->beginblock[nr_blocks] != 0) {
-                fprintf(stderr, "%s@%s: something went wrong in the reallocation.\n",
-                        __FILE__, __func__);
+                fprintf(stderr, "%s@%s: something went wrong in the reallocation.\n", __FILE__, __func__);
                 exit(EXIT_FAILURE);
         }
 }
 
 int get_size_block(const struct sparseblocks * blocks, int id)
 {
-        return blocks->beginblock[id + 1] - blocks->beginblock[id];
+        return (int) (blocks->beginblock[id + 1] - blocks->beginblock[id]);
 }
 
-EL_TYPE * get_tel_block(const struct sparseblocks * blocks, int id)
+T3NS_EL_TYPE * get_tel_block(const struct sparseblocks * blocks, int id)
 {
-        if (get_size_block(blocks, id))
+        if (get_size_block(blocks, id)) {
                 return blocks->tel + blocks->beginblock[id];
-        else
+        } else {
                 return NULL;
+        }
 }
 
 void print_block(const struct sparseblocks * blocks, int id)
 {
         const int N = get_size_block(blocks, id);
-        EL_TYPE * const tel = get_tel_block(blocks, id);
+        T3NS_EL_TYPE * const tel = get_tel_block(blocks, id);
 
         printf("%d: ", N);
         for (int el = 0; el < N; ++el)
@@ -130,12 +130,12 @@ void print_block(const struct sparseblocks * blocks, int id)
         printf("\n");
 }
 
-void do_contract(const struct contractinfo * cinfo, EL_TYPE ** tel, 
+void do_contract(const struct contractinfo * cinfo, T3NS_EL_TYPE ** tel, 
                  double alpha, double beta)
 {
-        EL_TYPE * A = tel[cinfo->tensneeded[0]];
-        EL_TYPE * B = tel[cinfo->tensneeded[1]];
-        EL_TYPE * C = tel[cinfo->tensneeded[2]];
+        T3NS_EL_TYPE * A = tel[cinfo->tensneeded[0]];
+        T3NS_EL_TYPE * B = tel[cinfo->tensneeded[1]];
+        T3NS_EL_TYPE * C = tel[cinfo->tensneeded[2]];
 
         /* Maybe look at batch dgemm from mkl for this.
          * Although I am not sure this will make a difference 
@@ -157,8 +157,8 @@ void do_contract(const struct contractinfo * cinfo, EL_TYPE ** tel,
         }
 }
 
-void permadd_block(const EL_TYPE * orig, const int * old,
-                   EL_TYPE * perm, const int * nld, const int * ndims, int n,
+void permadd_block(const T3NS_EL_TYPE * orig, const int * old,
+                   T3NS_EL_TYPE * perm, const int * nld, const int * ndims, int n,
                    const double pref)
 {
         // The n >= 2 is needed since I put two for loops explicit in it.
@@ -166,13 +166,13 @@ void permadd_block(const EL_TYPE * orig, const int * old,
         assert(n <= MAX_PERM && n >= 2);
         assert(nld[0] == 1);
         int ids[MAX_PERM] = {0};
-        const EL_TYPE * orig2 = orig;
-        EL_TYPE * perm2 = perm;
+        const T3NS_EL_TYPE * orig2 = orig;
+        T3NS_EL_TYPE * perm2 = perm;
         bool flag = true;
         while (flag) {
                 for (ids[1] = 0; ids[1] < ndims[1]; ++ids[1]) {
-                        const EL_TYPE * orig1 = orig2 + old[1] * ids[1];
-                        EL_TYPE * perm1 = perm2 + nld[1] * ids[1];
+                        const T3NS_EL_TYPE * orig1 = orig2 + old[1] * ids[1];
+                        T3NS_EL_TYPE * perm1 = perm2 + nld[1] * ids[1];
                         for (ids[0] = 0; ids[0] < ndims[0]; ++ids[0]) {
                                 perm1[ids[0]] += pref * orig1[old[0] * ids[0]];
                         }

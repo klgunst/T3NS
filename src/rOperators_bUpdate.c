@@ -176,7 +176,7 @@ struct update_data {
         int *irreps[3][3];
 
         int sb_op[3];
-        EL_TYPE * tels[7];
+        T3NS_EL_TYPE * tels[7];
 };
 
 /* ========================================================================== */
@@ -255,7 +255,7 @@ static void init_uniqueOperators(struct rOperators * const uniqueOps, const stru
                                  const instructions)
 {
         int count;
-        int **nkappa_begin;
+        T3NS_BB_TYPE ** nkappa_begin;
         int curr_instr;
 
         init_rOperators(uniqueOps, &nkappa_begin, uniqueOps->bond, uniqueOps->is_left, false);
@@ -268,7 +268,7 @@ static void init_uniqueOperators(struct rOperators * const uniqueOps, const stru
         uniqueOps->nrops = count;
 
         /* initializing the hamsymsecs */
-        uniqueOps->hss_of_ops = safe_malloc(uniqueOps->nrops, int);
+        safe_malloc(uniqueOps->hss_of_ops, uniqueOps->nrops);
         count = 0;
         curr_instr = -1;
         while (get_next_unique_instr(&curr_instr, instructions))
@@ -276,7 +276,7 @@ static void init_uniqueOperators(struct rOperators * const uniqueOps, const stru
         assert(count == uniqueOps->nrops);
 
         /* initializing the stensors */
-        uniqueOps->operators = safe_malloc(uniqueOps->nrops, struct sparseblocks);
+        safe_malloc(uniqueOps->operators, uniqueOps->nrops);
         for (count = 0; count < uniqueOps->nrops; ++count) {
                 /* The current operator and current hamsymsec */
                 struct sparseblocks * const blocks = &uniqueOps->operators[count];
@@ -315,7 +315,7 @@ static int prepare_update_branching(struct rOperators * const newops, const stru
 
 static void make_qntens(const struct siteTensor * tens)
 {
-        QN_TYPE * qntenshelper = safe_malloc(tens->nrblocks, QN_TYPE);
+        QN_TYPE * safe_malloc(qntenshelper, tens->nrblocks);
         if (idh.looptype) {
                 idh.divide = idh.maxdims[0][KET] * idh.maxdims[1][KET];
                 for (int i = 0; i < tens->nrblocks; ++i) {
@@ -328,8 +328,8 @@ static void make_qntens(const struct siteTensor * tens)
                 }
         }
 
-        QN_TYPE * qnumbertenshelper2 = safe_malloc(tens->nrblocks, QN_TYPE);
-        int * nrsbhelper = safe_calloc(tens->nrblocks, int);
+        QN_TYPE * safe_malloc(qnumbertenshelper2, tens->nrblocks);
+        int * safe_calloc(nrsbhelper, tens->nrblocks);
         idh.nrqnumbertens = 0;
         for (int i = 0; i < tens->nrblocks; ++i) {
                 const QN_TYPE qn = qntenshelper[i];
@@ -342,8 +342,8 @@ static void make_qntens(const struct siteTensor * tens)
                 idh.nrqnumbertens += j == idh.nrqnumbertens;
         }
         int * idx = quickSort(qnumbertenshelper2, idh.nrqnumbertens, SORT_QN_TYPE);
-        idh.qnumbertens = safe_malloc(idh.nrqnumbertens, QN_TYPE);
-        int * nrsbhelper3 = safe_malloc(idh.nrqnumbertens, int);
+        safe_malloc(idh.qnumbertens, idh.nrqnumbertens);
+        int * safe_malloc(nrsbhelper3, idh.nrqnumbertens);
         for (int i = 0; i < idh.nrqnumbertens; ++i) {
                 idh.qnumbertens[i] = qnumbertenshelper2[idx[i]];
                 nrsbhelper3[i] = nrsbhelper[idx[i]];
@@ -353,12 +353,12 @@ static void make_qntens(const struct siteTensor * tens)
         safe_free(idx);
         nrsbhelper = nrsbhelper3;
 
-        idh.sbqnumbertens = safe_malloc(idh.nrqnumbertens, int*);
+        safe_malloc(idh.sbqnumbertens, idh.nrqnumbertens);
         for (int i = 0; i < idh.nrqnumbertens; ++i) {
-                idh.sbqnumbertens[i] = safe_malloc(nrsbhelper[i] + 1, int);
+                safe_malloc(idh.sbqnumbertens[i], nrsbhelper[i] + 1);
         }
 
-        int * nrsbhelper2 = safe_calloc(tens->nrblocks, int);
+        int * safe_calloc(nrsbhelper2, tens->nrblocks);
         for (int i = 0; i < tens->nrblocks; ++i) {
                 const QN_TYPE qn = qntenshelper[i];
                 int j;
@@ -391,8 +391,8 @@ static void init_helperdiv(struct nextshelper * help, const QN_TYPE * todiv,
         }
 
         /* todiv is sorted.. */
-        help->qns = safe_malloc(n, QN_TYPE);
-        help->helper = safe_malloc(n, *help->helper);
+        safe_malloc(help->qns, n);
+        safe_malloc(help->helper, n);
 
         QN_TYPE prevqndiv = -1;
         int ch = -1;
@@ -418,7 +418,7 @@ static void init_helperdiv(struct nextshelper * help, const QN_TYPE * todiv,
                         currhelpers = 0;
                         prevqndiv = currdiv;
                         help->qns[ch] = currdiv;
-                        help->helper[ch] = safe_malloc(n - i, *help->helper[ch]);
+                        safe_malloc(help->helper[ch], n - i);
                 }
                 help->helper[ch][currhelpers][0] = i;
                 help->helper[ch][currhelpers][1] = currmod;
@@ -455,7 +455,7 @@ static void init_instrhelper(const struct instructionset * instructions,
 {
         const int dimhss = get_nr_hamsymsec();
 
-        int *instrunique = safe_malloc(instructions->nr_instr, int);
+        int * safe_malloc(instrunique, instructions->nr_instr);
         int curr_instr = -1;
         int nrunique = 0;
         // List with all unique instructions
@@ -464,8 +464,8 @@ static void init_instrhelper(const struct instructionset * instructions,
                 ++nrunique;
         }
 
-        QN_TYPE * MPO_c_unsort = safe_malloc(nrunique, QN_TYPE);
-        int * nrinstrhelper = safe_calloc(nrunique, int);
+        QN_TYPE * safe_malloc(MPO_c_unsort, nrunique);
+        int * safe_calloc(nrinstrhelper, nrunique);
         idh.nrMPO_combos = 0;
         for (int i = 0; i < nrunique; ++i) {
                 int * currinstr = &instructions->instr[instrunique[i]].instr[0];
@@ -482,8 +482,8 @@ static void init_instrhelper(const struct instructionset * instructions,
         }
 
         int * idx = quickSort(MPO_c_unsort, idh.nrMPO_combos, SORT_QN_TYPE);
-        idh.MPO_combos_arr   = safe_malloc(idh.nrMPO_combos, QN_TYPE);
-        int * nrinstrhelper2 = safe_malloc(idh.nrMPO_combos, int);
+        safe_malloc(idh.MPO_combos_arr, idh.nrMPO_combos);
+        int * safe_malloc(nrinstrhelper2, idh.nrMPO_combos);
         for (int i = 0; i < idh.nrMPO_combos; ++i) {
                 idh.MPO_combos_arr[i] = MPO_c_unsort[idx[i]];
                 nrinstrhelper2[i] = nrinstrhelper[idx[i]];
@@ -493,10 +493,9 @@ static void init_instrhelper(const struct instructionset * instructions,
         safe_free(idx);
         nrinstrhelper= nrinstrhelper2;
 
-        idh.instrhelper = safe_malloc(idh.nrMPO_combos, *idh.instrhelper);
+        safe_malloc(idh.instrhelper, idh.nrMPO_combos);
         for (int i = 0; i < idh.nrMPO_combos; ++i) {
-                idh.instrhelper[i] = safe_malloc(nrinstrhelper[i] + 1, 
-                                                 *idh.instrhelper[i]);
+                safe_malloc(idh.instrhelper[i], nrinstrhelper[i] + 1);
         }
 
         for (int i = 0; i < idh.nrMPO_combos; ++i) {
@@ -558,7 +557,7 @@ static void initialize_indexhelper(int updateCase, int site,
         const struct rOperators * operator = &operators[second_op];
         const QN_TYPE divid = idh.maxdims[idh.id_ops[second_op]][BRA];
         const int hssdim = get_nr_hamsymsec();
-        idh.sop = safe_malloc(hssdim, *idh.sop);
+        safe_malloc(idh.sop, hssdim);
         for (int mpod = 0; mpod < hssdim; ++mpod) {
                 const int nr = rOperators_give_nr_blocks_for_hss(operator, mpod);
                 const QN_TYPE * qn = rOperators_give_qnumbers_for_hss(operator, mpod);
@@ -1052,8 +1051,8 @@ static void update_selected_blocks(const struct rOperators * Operator,
         struct contractinfo cinfo[3];
         int worksize[2] = {-1, -1};
         how_to_update(data, cinfo, worksize);
-        data->tels[WORKBRA] = safe_malloc(worksize[BRA], EL_TYPE);
-        data->tels[WORKKET] = safe_malloc(worksize[KET], EL_TYPE);
+        safe_malloc(data->tels[WORKBRA], worksize[BRA]);
+        safe_malloc(data->tels[WORKKET], worksize[KET]);
 
         int (*instr_id)[2] = NULL;
         while (find_matching_instr(&instr_id, data)) {

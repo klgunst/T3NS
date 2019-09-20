@@ -248,7 +248,7 @@ int siteTensor_give_nr_externalbonds(const struct siteTensor * const tens);
  */
 void siteTensor_give_externalbonds(const struct siteTensor * const tens, int externalbonds[]);
 
-int siteTensor_get_size(const struct siteTensor * const tens);
+T3NS_BB_TYPE siteTensor_get_size(const struct siteTensor * const tens);
 
 /**
  * @brief Gives the bondid of a certain @p bond in the tensor @tens.
@@ -321,7 +321,7 @@ struct Rmatrix {
          * while N is the actual dimension of the next tensor. */
         int (*dims)[2];
         /// Rmatrix[i] is the R matrix for the i'th sector.
-        EL_TYPE ** Rels;
+        T3NS_EL_TYPE ** Rels;
 };
 
 /**

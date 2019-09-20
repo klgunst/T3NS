@@ -22,7 +22,7 @@
 
 #define H5_DEFAULT_LOCATION "./"
 
-enum hdf5type { THDF5_INT, THDF5_DOUBLE, THDF5_EL_TYPE, THDF5_QN_TYPE };
+enum hdf5type { THDF5_INT, THDF5_DOUBLE, THDF5_T3NS_EL_TYPE, THDF5_QN_TYPE, THDF5_BB_TYPE };
 
 void write_to_disk(const char * hdf5_loc, const struct siteTensor * const T3NS, 
                    const struct rOperators * const ops);

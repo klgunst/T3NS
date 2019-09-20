@@ -67,10 +67,9 @@ static struct instruction_data get_instruction_data(const struct opType * ops,
         struct instruction_data result;
         const int (*operator_array)[3];
         result.size = get_combine_array(&operator_array);
-        result.offset = safe_malloc(result.size, *result.offset);
-        result.amount = safe_malloc(result.size, *result.amount);
-        result.start_combine = safe_malloc(result.size + 1, 
-                                           *result.start_combine);
+        safe_malloc(result.offset, result.size);
+        safe_malloc(result.amount, result.size);
+        safe_malloc(result.start_combine, result.size + 1);
 
         // Get the maximal number of instructions. Really worst case scenario.
         result.start_combine[0] = 0;
@@ -189,7 +188,7 @@ static void combine_all_operators(const struct opType * const ops, const char c,
                 // for the instructions.
                 int meml = max_instr > MEMINSTR ?  MEMINSTR : max_instr;
 
-                struct instruction * t_instr = safe_malloc(meml, *t_instr);
+                struct instruction * safe_malloc(t_instr, meml);
                 int t_nr = 0;
 
 #pragma omp for schedule(guided)

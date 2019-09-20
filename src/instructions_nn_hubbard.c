@@ -27,7 +27,7 @@ along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
 static int * get_hss_of_rops(void)
 {
-        int * result = safe_malloc(6, int);
+        int * safe_malloc(result, 6);
         result[0] = NN_H_symsec_siteop(0);
         result[1] = NN_H_symsec_siteop(10);
         result[2] = NN_H_symsec_siteop(11);
@@ -46,8 +46,7 @@ static void H_fetch_DMRG(struct instructionset * instructions,
 
         NN_H_get_interactions(&t, &U);
         instructions->nr_instr = 6 + !is_border * 5;
-        instructions->instr = safe_malloc(instructions->nr_instr, 
-                                          *instructions->instr);
+        safe_malloc(instructions->instr, instructions->nr_instr);
 
         start_fill_instruction(instructions, 3);
 
@@ -75,8 +74,7 @@ static void H_fetch_merge(struct instructionset * instructions, int isdmrg)
 
         if (isdmrg) {
                 instructions->nr_instr = 6;
-                instructions->instr = safe_malloc(instructions->nr_instr, 
-                                                  *instructions->instr);
+                safe_malloc(instructions->instr, instructions->nr_instr);
 
                 start_fill_instruction(instructions, 2);
                 fill_instruction(0, 5, 0, 1);
@@ -87,8 +85,7 @@ static void H_fetch_merge(struct instructionset * instructions, int isdmrg)
                 fill_instruction(5, 0, 0, 1);
         } else {
                 instructions->nr_instr = 15;
-                instructions->instr = safe_malloc(instructions->nr_instr, 
-                                                  *instructions->instr);
+                safe_malloc(instructions->instr, instructions->nr_instr);
 
                 start_fill_instruction(instructions, 3);
                 fill_instruction(0, 0, 5, 1);
@@ -119,8 +116,7 @@ static void H_fetch_T3NS(struct instructionset * instructions, int updateCase)
 
         instructions->nr_instr = 15;
 
-        instructions->instr = safe_malloc(instructions->nr_instr,
-                                          *instructions->instr);
+        safe_malloc(instructions->instr, instructions->nr_instr);
         start_fill_instruction(instructions, 3);
 
         fill_instruction(0, 0, 0, 1);
@@ -148,7 +144,7 @@ static void H_fetch_T3NS(struct instructionset * instructions, int updateCase)
 
 static int * get_hss_of_rops_su2(void)
 {
-        int * result = safe_malloc(4, int);
+        int * safe_malloc(result, 4);
         result[0] = NN_H_symsec_siteop(0);
         result[1] = NN_H_symsec_siteop(1);
         result[2] = NN_H_symsec_siteop(2);
@@ -166,8 +162,7 @@ static void H_fetch_DMRG_su2(struct instructionset * instructions,
         t *= sqrt(2);
 
         instructions->nr_instr = 4 + !is_border * 3;
-        instructions->instr = safe_malloc(instructions->nr_instr,
-                                          *instructions->instr);
+        safe_malloc(instructions->instr, instructions->nr_instr);
 
         start_fill_instruction(instructions, 3);
 
@@ -193,8 +188,7 @@ static void H_fetch_merge_su2(struct instructionset * instructions, int isdmrg)
 
         if (isdmrg) {
                 instructions->nr_instr = 4;
-                instructions->instr = safe_malloc(instructions->nr_instr, 
-                                                  *instructions->instr);
+                safe_malloc(instructions->instr, instructions->nr_instr);
 
                 start_fill_instruction(instructions, 2);
                 fill_instruction(0, 3, 0, 1);
@@ -203,8 +197,7 @@ static void H_fetch_merge_su2(struct instructionset * instructions, int isdmrg)
                 fill_instruction(3, 0, 0, 1);
         } else {
                 instructions->nr_instr = 9;
-                instructions->instr = safe_malloc(instructions->nr_instr, 
-                                                  *instructions->instr);
+                safe_malloc(instructions->instr, instructions->nr_instr);
 
                 start_fill_instruction(instructions, 3);
                 fill_instruction(0, 0, 3, 1);
@@ -228,8 +221,7 @@ static void H_fetch_T3NS_su2(struct instructionset * instructions, int updateCas
         t *= sqrt(2);
 
         instructions->nr_instr = 9;
-        instructions->instr = safe_malloc(instructions->nr_instr,
-                                          *instructions->instr);
+        safe_malloc(instructions->instr, instructions->nr_instr);
 
         start_fill_instruction(instructions, 3);
 
