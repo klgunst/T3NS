@@ -165,13 +165,6 @@ void DOCI_write_hamiltonian_to_disk(const hid_t id);
 void DOCI_read_hamiltonian_from_disk(const hid_t id);
 
 /**
- * @brief checks the consistency of the network with the hamiltonian.
- *
- * @return 1 if consistent, 0 otherwise.
- */
-int DOCI_consistencynetworkinteraction(void);
-
-/**
  * @brief Returns a printable string of the renormalized operator.
  *
  * @param buffer [out] The string to be printed.

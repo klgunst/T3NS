@@ -42,10 +42,8 @@ static int interactval_update(const int ids[3], const struct opType ops[3],
 
 /* ========================================================================== */
 
-void set_ham(int h)
-{
-        ham = h;
-}
+
+void set_ham(int h) { ham = h; }
 
 void get_todo_and_creator_array(const int (**todo)[2], 
                                 const int (**creator_array)[2][3][2])

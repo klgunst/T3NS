@@ -29,12 +29,13 @@
 #include "macros.h"
 #include "opType.h"
 #include "io_to_disk.h"
+#include "qcH.h"
 
 static struct hamdata {
-        int norb;           // number of orbitals.
-        int *orbirrep;      // the pg_irreps of the orbitals.
-        double core_energy; // core_energy of the system.
-        double* Vijkl;      // interaction terms of the system.
+        int target_particle;// The number of particles targeted.
+        struct qcH H;       // The stored hamiltonian
+        int pg;             /* The point group used.
+                             * Same as in the symmetry_pg.h header. */
         int su2;            // has SU(2) turned on or not.
         int has_seniority;  // Seniority restricted calculation.
 } hdat;
@@ -60,6 +61,16 @@ static struct symsecs MPOsymsecs = {
 /* ==================== DECLARATION STATIC FUNCTIONS ======================== */
 /* ========================================================================== */
 
+static int get_pgirrep(int orbital) {
+        if (hdat.pg == -1) { return 0; }
+
+        const int nirr = PG_get_max_irrep(hdat.pg - C1);
+        // Irrep as found in the FCIDUMP
+        // The modulo is needed for if you use C1 or another subgroup of the PG
+        const int irr = qcH_pg_irrep_orbital(&hdat.H, orbital) % nirr;
+        return fcidump_to_psi4(irr, hdat.pg - C1);
+}
+
 static double B(const int * const tags[4], const int twoJ);
 
 static double B_tilde(const int * const tags[4], const int twoJ);
@@ -73,20 +84,6 @@ static int correct_tags_4p(const int * tags[3], const int nr_tags[3],
 
 static int equaltags(const int *tag1, const int *tag2, 
                      const int nr1, const int nr2, const int size_tag);
-
-/** reads the header of fcidump, ignores nelec, ms2 and isym. **/
-static void read_header(char hamiltonianfile[]);
-
-/** reads the integrals from a fcidump file. **/
-static void read_integrals(double **one_p_int, char hamiltonianfile[]);
-
-/** forms the integrals given a vijkl and a one_p_int **/
-static void form_integrals(double* one_p_int);
-
-static void fillin_Vijkl(const int i, const int j, const int k, const int l);
-
-/* Checks the irreps of the orbitals */
-static int check_orbirrep(void);
 
 /* Checks if the given tensor products are valid */
 static int valid_tprod(const int i, const int j, const int other_irr,
@@ -142,60 +139,24 @@ void QC_destroy_hamiltonian(void)
         safe_free(MPOsymsecs.irreps);
         safe_free(MPOsymsecs.fcidims);
         safe_free(MPOsymsecs.dims);
-        safe_free(hdat.orbirrep);
-        safe_free(hdat.Vijkl);
-
+        destroy_qcH(&hdat.H);
         opType_destroy_all();
 }
 
 void QC_make_hamiltonian(char hamiltonianfile[], int su2, int has_seniority)
 {
-        double *one_p_int;
-
+        hdat.pg = get_pg_symmetry();
         hdat.su2 = su2;
         hdat.has_seniority = has_seniority;
+        hdat.target_particle = get_particlestarget();
+
         printf(">> Reading FCIDUMP %s\n", hamiltonianfile);
-        read_header(hamiltonianfile);
-        read_integrals(&one_p_int, hamiltonianfile);
+        if (read_FCIDUMP(&hdat.H, hamiltonianfile)) {
+                fprintf(stderr, "Something went wrong while reading the FCIDUMP.\n");
+                exit(EXIT_FAILURE);
+        }
 
         printf(">> Preparing hamiltonian...\n");
-        form_integrals(one_p_int);
-        safe_free(one_p_int);
-
-
-        if (!check_orbirrep()) {
-                fprintf(stderr,
-                        "ERROR : The irreps given in the fcidump can not be correct irreps for\n"
-                        "        the point group symmetry defined in the inputfile,\n"
-                        "        if there is one inputted at least.\n");
-                exit(EXIT_FAILURE);
-        }
-        prepare_MPOsymsecs();
-        init_opType_array(su2);
-}
-
-void QC_ham_from_integrals(int orbs, int * irreps, double * h1e, double * eri,
-                           double nuc, int su2, int sen)
-{
-        hdat.su2 = su2;
-        hdat.has_seniority = sen;
-        const int orbs4 = orbs * orbs * orbs * orbs;
-        hdat.norb = orbs;
-        hdat.orbirrep = safe_malloc(hdat.norb, int);
-        for (int i = 0; i < orbs; ++i) { hdat.orbirrep[i] = irreps[i]; }
-        hdat.Vijkl = safe_calloc(orbs4, *hdat.Vijkl);
-        hdat.core_energy = nuc;
-
-        form_integrals(h1e);
-        for (int i = 0; i < orbs4; ++i) { hdat.Vijkl[i] += eri[i]; }
-
-        if (!check_orbirrep()) {
-                fprintf(stderr,
-                        "ERROR : The irreps given in the fcidump can not be correct irreps for\n"
-                        "        the point group symmetry defined in the inputfile,\n"
-                        "        if there is one inputted at least.\n");
-                exit(EXIT_FAILURE);
-        }
         prepare_MPOsymsecs();
         init_opType_array(su2);
 }
@@ -206,7 +167,7 @@ void QC_get_physsymsecs(struct symsecs *res, int psite)
         int irrep_su2[3][3] = {{0,0,0}, {1,1,1}, {0,2,0}};
         int (*irreparr)[3]    = hdat.su2 ? irrep_su2 : irrep;
 
-        assert(bookie.nrSyms == 3 + (get_pg_symmetry() != -1) + hdat.has_seniority);
+        assert(bookie.nrSyms == 3 + (hdat.pg != -1) + hdat.has_seniority);
 
         res->nrSecs = hdat.su2 ? 3 : 4;
         res->totaldims = res->nrSecs;
@@ -222,10 +183,8 @@ void QC_get_physsymsecs(struct symsecs *res, int psite)
                         res->irreps[i][j] = irreparr[i][j];
 
                 /* trivial if even parity, otherwise irrep of orbital */
-                if (get_pg_symmetry() != -1) {
-                        res->irreps[i][j] = res->irreps[i][0] ?  
-                                hdat.orbirrep[psite] : 0;
-                        ++j;
+                if (hdat.pg != -1) {
+                        res->irreps[i][j++] = res->irreps[i][0] ? get_pgirrep(psite) : 0;
                 }
                 if (hdat.has_seniority) {
                         // Seniority equals parity for orbital
@@ -255,28 +214,26 @@ int QC_get_nr_hamsymsec(void)
          * -2 2, -2 0, -1 1, 0 2, 0 0, 1 1, 2 0, 2 2
          * thus 8 * NR_OF_PG
          */
-        const int pg       = get_pg_symmetry();
-        const int nr_of_pg = pg == -1 ? 1 : get_max_irrep(NULL, 0, NULL, 0, 
-                                                          (enum symmetrygroup) pg, 0);
+        const int nr_of_pg = (hdat.pg == -1) ? 1 : PG_get_max_irrep(hdat.pg - C1);
 
-        if (hdat.su2)
+        if (hdat.su2) {
                 return sizeof irreps_QCSU2 / sizeof irreps_QCSU2[0] * nr_of_pg;
-        else
+        } else {
                 return sizeof irreps_QC / sizeof irreps_QC[0] * nr_of_pg;
+        }
 }
 
 int QC_get_trivialhamsymsec(void)
 {
-        const int pg       = get_pg_symmetry();
-        const int nr_of_pg = pg == -1 ? 1 : get_max_irrep(NULL, 0, NULL, 0, 
-                                                          (enum symmetrygroup) pg, 0);
+        const int nr_of_pg = (hdat.pg == -1) ? 1 : PG_get_max_irrep(hdat.pg - C1);
         const int * irreps = hdat.su2 ? &irreps_QCSU2[0][0] : &irreps_QC[0][0];
         const int size = QC_get_nr_hamsymsec() / nr_of_pg;
 
-        int i;
-        for (i = 0; i < size; ++i)
-                if (irreps[i*2 + 0] == 0 && irreps[i*2 + 1] == 0)
+        for (int i = 0; i < size; ++i) {
+                if (irreps[i*2 + 0] == 0 && irreps[i*2 + 1] == 0) {
                         return nr_of_pg * i;
+                }
+        }
         return -1;
 }
 
@@ -291,38 +248,25 @@ int QC_hermitian_symsec(const int orig_symsec)
          * -2 2, -2 0, -1 1, 0 2, 0 0, 1 1, 2 0, 2 2
          * thus 8 * NR_OF_PG
          */
-        const int pg       = get_pg_symmetry();
-        const int nr_of_pg = pg == -1 ? 1 : get_max_irrep(NULL, 0, NULL, 0, 
-                                                          (enum symmetrygroup) pg, 0);
+        const int nr_of_pg = (hdat.pg == -1) ? 1 : PG_get_max_irrep(hdat.pg - C1);
         const int * irreps = hdat.su2 ? &irreps_QCSU2[0][0] : &irreps_QC[0][0];
         const int size     = QC_get_nr_hamsymsec() / nr_of_pg;
 
         const int pg_irrep  = orig_symsec % nr_of_pg;
         const int other_irr = orig_symsec / nr_of_pg;
-        const int herm_irr[2] = {-1 * irreps[other_irr*2 + 0], 
-                irreps[other_irr*2 + 1]  * (hdat.su2 ? 1 : -1)};
+        const int herm_irr[2] = {
+                -1 * irreps[other_irr*2 + 0], 
+                irreps[other_irr*2 + 1]  * (hdat.su2 ? 1 : -1)
+        };
         assert(other_irr < size);
 
-        int i;
-        for (i = 0; i < size; ++i)
-                if (irreps[i*2 + 0] == herm_irr[0] 
-                    && irreps[i*2 + 1] == herm_irr[1])
-                        break;
-
-        assert(i < size);
-        return i * nr_of_pg + pg_irrep;
-}
-
-int QC_consistencynetworkinteraction(void)
-{
-        if (hdat.norb != netw.psites) {
-                fprintf(stderr, 
-                        "ERROR : number of orbitals in the fcidump is not equal with\n"
-                        "number of physical tensors in the network. (%d neq %d)\n", 
-                        hdat.norb, netw.psites);
-                return 0;
+        for (int i = 0; i < size; ++i) {
+                if (irreps[i * 2 + 0] == herm_irr[0] && irreps[i * 2 + 1] == herm_irr[1]) {
+                        return i * nr_of_pg + pg_irrep;
+                }
         }
-        return 1;
+        assert(0 && "Should not reach this place");
+        return -1;
 }
 
 double QC_el_siteop(const int siteop, const int braindex, const int ketindex)
@@ -333,10 +277,7 @@ double QC_el_siteop(const int siteop, const int braindex, const int ketindex)
                 return u1_el_siteop(siteop, braindex, ketindex);
 }
 
-double get_core(void)
-{
-        return hdat.core_energy;
-}
+double get_core(void) { return hdat.H.E0; }
 
 void QC_tprods_ham(int * const nr_of_prods, int ** const possible_prods, 
                    const int resulting_symsec, const int site)
@@ -350,9 +291,7 @@ void QC_tprods_ham(int * const nr_of_prods, int ** const possible_prods,
          * -2 2, -2 0, -1 1, 0 2, 0 0, 1 1, 2 0, 2 2
          * thus 8 * NR_OF_PG
          */
-        const int pg        = get_pg_symmetry();
-        const int nr_of_pg = pg == -1 ? 1 : get_max_irrep(NULL, 0, NULL, 0, 
-                                                          (enum symmetrygroup) pg, 0);
+        const int nr_of_pg = (hdat.pg == -1) ? 1 : PG_get_max_irrep(hdat.pg - C1);
         const int size  = hdat.su2 
                 ? sizeof irreps_QCSU2 / sizeof irreps_QCSU2[0]
                 : sizeof irreps_QC / sizeof irreps_QC[0];
@@ -360,37 +299,35 @@ void QC_tprods_ham(int * const nr_of_prods, int ** const possible_prods,
         const int pg_irr    = resulting_symsec % nr_of_pg;
         const int other_irr = resulting_symsec / nr_of_pg;
 
-        int i,j;
         int cnt = 0;
 
         assert(other_irr < size);
 
-        for (i = 0; i < size; ++i)
-                for (j = 0; j < size; ++j)
-                        cnt += add_product(NULL, i, j, other_irr, pg_irr, site,
-                                           nr_of_pg);
+        for (int i = 0; i < size; ++i) {
+                for (int j = 0; j < size; ++j) {
+                        cnt += add_product(NULL, i, j, other_irr, pg_irr, site, nr_of_pg);
+                }
+        }
 
-        *nr_of_prods    = cnt;
+        *nr_of_prods = cnt;
         safe_malloc(*possible_prods, *nr_of_prods * 2);
-
         cnt = 0;
-        for (i = 0; i < size; ++i)
-                for (j = 0; j < size; ++j)
+        for (int i = 0; i < size; ++i) {
+                for (int j = 0; j < size; ++j) {
                         cnt += add_product(&(*possible_prods)[2 * cnt], i, j, 
                                            other_irr, pg_irr, site, nr_of_pg);
+                }
+        }
 }
 
 int QC_MPO_couples_to_singlet(const int n, const int MPO[n])
 {
         assert(n == 3);
-        const int pg       = get_pg_symmetry();
-        const int nr_of_pg = pg == -1 ? 1 : get_max_irrep(NULL, 0, NULL, 0, 
-                                                          (enum symmetrygroup) pg, 0);
+        const int nr_of_pg = (hdat.pg == -1) ? 1 : PG_get_max_irrep(hdat.pg - C1);
 
-        int pg_irrep[n];
-        int other_irr[n];
-        int i;
-        for (i = 0; i < n; ++i) {
+        int pg_irrep[3];
+        int other_irr[3];
+        for (int i = 0; i < n; ++i) {
                 pg_irrep[i]  = MPO[i] % nr_of_pg;
                 other_irr[i] = MPO[i] / nr_of_pg;
         }
@@ -624,31 +561,21 @@ int fuse_value(const int * tags[3], const int nr_tags[3], const int base_tag,
 static double get_V(const int * const tag1, const int * const tag2,
                     const int * const tag3, const int * const tag4)
 {
-        const int psites  = hdat.norb;
-        const int psites2 = psites * psites;
-        const int psites3 = psites * psites2;
+        if (tag1[0] != 1 || tag2[0] != 1 || tag3[0] != 0 || tag4[0] != 0) { return 0; }
+        if (!hdat.su2 && (tag1[2] != tag4[2] || tag2[2] != tag3[2])) { return 0; }
 
-        if (tag1[0] != 1 || tag2[0] != 1 || tag3[0] != 0 || tag4[0] != 0)
-                return 0;
-        if (!hdat.su2 && (tag1[2] != tag4[2] || tag2[2] != tag3[2]))
-                return 0;
-
-        if (get_pg_symmetry() != -1 && 
-            ((hdat.orbirrep[tag1[1]] ^ hdat.orbirrep[tag2[1]]) ^ 
-             (hdat.orbirrep[tag3[1]] ^ hdat.orbirrep[tag4[1]])) != 0)
-                return 0;
-
-        return hdat.Vijkl[tag1[1] + psites * tag4[1] + 
-                psites2 * tag2[1] + psites3 * tag3[1]];
+        const double pr = 1. / (hdat.target_particle - 1.);
+        double val = getV(&hdat.H, tag1[1], tag4[1], tag2[1], tag3[1], 0, 0);
+        val += pr * (tag1[1] == tag4[1]) * getT(&hdat.H, tag2[1], tag3[1], 0);
+        val += pr * (tag2[1] == tag3[1]) * getT(&hdat.H, tag1[1], tag4[1], 0);
+        return val;
 }
 
 static double B(const int * const tags[4], const int twoJ)
 {
-        double result = -sqrt(twoJ + 1);
-        double V1 = get_V(tags[0], tags[1], tags[3], tags[2]);
-        double V2 = (twoJ == 2 ? -1 : 1) * 
-                get_V(tags[0], tags[1], tags[2], tags[3]);
-        return result * (V1 + V2);
+        const double V1 = get_V(tags[0], tags[1], tags[3], tags[2]);
+        const double V2 = (twoJ == 2 ? -1 : 1) * get_V(tags[0], tags[1], tags[2], tags[3]);
+        return -sqrt(twoJ + 1) * (V1 + V2);
 }
 
 static double B_tilde(const int * const tags[4], const int twoJ)
@@ -667,13 +594,7 @@ void QC_write_hamiltonian_to_disk(const hid_t id)
 {
         const hid_t group_id = H5Gcreate(id, "./hamiltonian_data", H5P_DEFAULT, 
                                          H5P_DEFAULT, H5P_DEFAULT);
-        const int p2 = hdat.norb * hdat.norb;
-        const int p4 = p2 * p2;
 
-        write_attribute(group_id, "norb", &hdat.norb, 1, THDF5_INT);
-        write_dataset(group_id, "./orbirrep", hdat.orbirrep, hdat.norb, THDF5_INT);
-        write_dataset(group_id, "./Vijkl", hdat.Vijkl, p4, THDF5_T3NS_EL_TYPE);
-        write_attribute(group_id, "core_energy", &hdat.core_energy, 1, THDF5_DOUBLE);
         write_attribute(group_id, "su2", &hdat.su2, 1, THDF5_INT);
         write_attribute(group_id, "has_seniority", &hdat.has_seniority, 1, THDF5_INT);
         H5Gclose(group_id);
@@ -681,18 +602,9 @@ void QC_write_hamiltonian_to_disk(const hid_t id)
 
 void QC_read_hamiltonian_from_disk(const hid_t id)
 {
+        assert(0);
         const hid_t group_id = H5Gopen(id, "./hamiltonian_data", H5P_DEFAULT);
 
-        read_attribute(group_id, "norb", &hdat.norb);
-
-        safe_malloc(hdat.orbirrep, hdat.norb);
-        read_dataset(group_id, "./orbirrep", hdat.orbirrep);
-
-        const int p2 = hdat.norb * hdat.norb;
-        const int p4 = p2 * p2;
-        safe_malloc(hdat.Vijkl, p4);
-        read_dataset(group_id, "./Vijkl", hdat.Vijkl);
-        read_attribute(group_id, "core_energy", &hdat.core_energy);
         read_attribute(group_id, "su2", &hdat.su2);
         read_attribute(group_id, "has_seniority", &hdat.has_seniority);
         H5Gclose(group_id);
@@ -793,8 +705,7 @@ static int equaltags(const int *tag1, const int *tag2,
         } else {
                 for (i = 0; i < nr1; ++i) {
                         for(j = 0; j < maxj; ++j)
-                                if(tag1[i * size_tag + j] != 
-                                   tag2[i * size_tag + j])
+                                if(tag1[i * size_tag + j] != tag2[i * size_tag + j])
                                         return 0;
                 }
                 if (hdat.su2) {
@@ -804,195 +715,6 @@ static int equaltags(const int *tag1, const int *tag2,
                         return 1;
                 }
         }
-}
-
-static void read_header(char fil[])
-{
-        char buffer[MY_STRING_LEN];
-        char *pch;
-
-        if (read_option("&FCI NORB", fil, buffer) < 1) {
-                fprintf(stderr, "Error in reading %s. File is wrongly formatted.\n"
-                        "We expect \"&FCI NORB = \" at the first line.\n", fil);
-                exit(EXIT_FAILURE);
-        }
-
-        pch = strtok(buffer, " ,");
-        hdat.norb = atoi(pch);
-        if (hdat.norb == 0) {
-                fprintf(stderr, "ERROR while reading NORB in %s.\n", fil);
-                exit(EXIT_FAILURE);
-        }
-
-        safe_calloc(hdat.orbirrep, hdat.norb);
-        if (get_pg_symmetry() != -1) {/* reading ORBSYM */
-                int ops;
-                if ((ops = read_option("ORBSYM", fil, buffer)) != hdat.norb) {
-                        fprintf(stderr, "ERROR while reading ORBSYM in %s. %d orbitals found.\n"
-                                "Fix the FCIDUMP or turn of point group symmetry!\n", fil, ops);
-                        exit(EXIT_FAILURE);
-                }
-
-                pch = strtok(buffer, " ,\n");
-                ops = 0;
-                while (pch) {
-                        hdat.orbirrep[ops] = atoi(pch);
-                        if (hdat.orbirrep[ops] == 0) {
-                                fprintf(stderr, "Error while reading ORBSYM in %s.\n", fil);
-                                exit(EXIT_FAILURE);
-                        } else {
-                                hdat.orbirrep[ops] = fcidump_to_psi4(hdat.orbirrep[ops] - 1, 
-                                                                     get_pg_symmetry() - C1);
-                        }
-
-                        pch = strtok(NULL, " ,\n");
-                        ++ops;
-                }
-        }
-}
-
-static void read_integrals(double **one_p_int, char fil[])
-{
-        /* open file for reading integrals */
-        FILE *fp = fopen(fil, "r");
-        char buffer[255];
-        int ln_cnt = 1;
-        int norb2 = hdat.norb * hdat.norb;
-        int norb3 = norb2 * hdat.norb;
-
-        /* integrals */
-        double *matrix_el;
-        safe_calloc(*one_p_int, norb2);
-        hdat.core_energy = 0;
-        safe_calloc(hdat.Vijkl, norb3 * hdat.norb);
-
-        if (fp == NULL) {
-                fprintf(stderr, "ERROR reading fcidump file: %s\n", fil);
-                exit(EXIT_FAILURE);
-        }
-
-        /* Pass through buffer until begin of the integrals, this is typically
-         * typed by "&END", "/END" or "/" */
-        while (fgets(buffer, sizeof buffer, fp) != NULL) {
-                char *stops[] = {"&END", "/END", "/"};
-                int lstops = sizeof stops / sizeof(char*);
-                int i;
-                for (i = 0; i < lstops; ++i) {
-                        char *s = stops[i];
-                        char *b = buffer;
-
-                        while (isspace(*b)) ++b;
-
-                        while (*s && *s == *b) {
-                                ++b;
-                                ++s;
-                        }
-
-                        while (isspace(*b)) ++b;
-                        if (!*b)
-                                break;
-                }
-
-                if (i != lstops)
-                        break;
-        }
-
-        /* reading the integrals */
-        while (fgets(buffer, sizeof buffer, fp) != NULL) {
-                int i, j, k, l;
-                double value;
-                int cnt = sscanf(buffer, " %lf %d %d %d %d ", &value, 
-                                 &i, &j, &k, &l); /* chemical notation */
-                ++ln_cnt;
-                if (cnt != 5) {
-                        fprintf(stderr, "ERROR: Whilst reading the integrals.\n"
-                                "wrong formatting at line %d!\n", ln_cnt);
-                        exit(EXIT_FAILURE);
-                }
-
-                if (k != 0)
-                        matrix_el = hdat.Vijkl + (l-1) * norb3 + (k-1) * norb2 
-                                + (j-1) * hdat.norb +(i-1);
-                else if (i != 0)
-                        matrix_el = *one_p_int + (j-1) * hdat.norb + (i-1);
-                else
-                        matrix_el = &hdat.core_energy;
-
-                if (!COMPARE_ELEMENT_TO_ZERO(*matrix_el))
-                        fprintf(stderr, "Doubly inputted value at line %d\n", 
-                                ln_cnt);
-                *matrix_el = value;
-        }
-        fclose(fp);
-}
-
-static void form_integrals(double* one_p_int)
-{
-        int i, j, k, l;
-        double pref = 1 / (get_particlestarget() * 1. - 1);
-        int norb2 = hdat.norb * hdat.norb;
-        int norb3 = norb2 * hdat.norb;
-
-        for (i = 0; i < hdat.norb; ++i)
-                for (j = 0; j <= i; ++j)
-                        one_p_int[i*hdat.norb + j] = one_p_int[j*hdat.norb + i];
-
-        for (i = 0; i < hdat.norb; ++i)
-                for (j = 0; j <= i; ++j)
-                        for (k = 0; k <= i; ++k)
-                                for (l = 0; l <= k; ++l)
-                                        fillin_Vijkl(i, j, k, l);
-
-        for (i = 0; i < hdat.norb; ++i)
-                for (j = 0; j < hdat.norb; ++j) {
-                        double pref2 = pref * one_p_int[i * hdat.norb + j];
-                        for (k = 0; k < hdat.norb; ++k) {
-                                hdat.Vijkl[i + hdat.norb * j + 
-                                        norb2 * k + norb3 * k] += pref2;
-                                hdat.Vijkl[k + hdat.norb * k + 
-                                        norb2 * i + norb3 * j] += pref2;
-                        }
-                }
-}
-
-static void fillin_Vijkl(const int i, const int j, const int k, const int l)
-{
-        const int norb2 = hdat.norb * hdat.norb;
-        const int norb3 = norb2 * hdat.norb;
-        const int curr_ind = i + hdat.norb * j + norb2 * k + norb3 * l;
-        const double value = hdat.Vijkl[curr_ind];
-
-        if (!COMPARE_ELEMENT_TO_ZERO(value))
-        {
-                hdat.Vijkl[k + hdat.norb * l + norb2 * i + norb3 * j] = value;
-                hdat.Vijkl[j + hdat.norb * i + norb2 * l + norb3 * k] = value;
-                hdat.Vijkl[l + hdat.norb * k + norb2 * j + norb3 * i] = value;
-                hdat.Vijkl[j + hdat.norb * i + norb2 * k + norb3 * l] = value;
-                hdat.Vijkl[l + hdat.norb * k + norb2 * i + norb3 * j] = value;
-                hdat.Vijkl[i + hdat.norb * j + norb2 * l + norb3 * k] = value;
-                hdat.Vijkl[k + hdat.norb * l + norb2 * j + norb3 * i] = value;
-        }
-}
-
-static int check_orbirrep(void)
-{
-        int pg_symm;
-        int max_pg;
-        int i;
-        if ((pg_symm = get_pg_symmetry()) == -1) {
-                for (i = 0; i < hdat.norb; ++i)
-                        if (hdat.orbirrep[i] != 0)
-                                return 0;
-                return 1;
-        }
-
-        max_pg = get_max_irrep(NULL, 0, NULL, 0, (enum symmetrygroup) pg_symm,0);
-        for (i = 0; i < hdat.norb; ++i) {
-                if (hdat.orbirrep[i] < 0 || hdat.orbirrep[i] >= max_pg)
-                        return 0;
-        }
-
-        return 1;
 }
 
 static int valid_tprod(const int i, const int j, const int irr, const int psite)
@@ -1019,23 +741,21 @@ static int valid_tprod(const int i, const int j, const int irr, const int psite)
 
 static int double_operator(const int operator)
 {
-        if (hdat.su2)
+        if (hdat.su2) {
                 return abs(irreps_QCSU2[operator][0]) % 2 == 0;
-        else
-                return abs(irreps_QC[operator][0] + 
-                           irreps_QC[operator][1]) % 2 == 0;
+        } else {
+                return abs(irreps_QC[operator][0] + irreps_QC[operator][1]) % 2 == 0;
+        }
 }
 
 static void prepare_MPOsymsecs(void)
 {
-        const int pg        = get_pg_symmetry();
-        const int nr_of_pg = pg == -1 ? 1 : get_max_irrep(NULL, 0, NULL, 0, 
-                                                          (enum symmetrygroup) pg, 0);
+        const int nr_of_pg = (hdat.pg == -1) ? 1 : PG_get_max_irrep(hdat.pg - C1);
         const int * irreps = hdat.su2 ? &irreps_QCSU2[0][0] : &irreps_QC[0][0];
         const int size  = hdat.su2 
                 ? sizeof irreps_QCSU2 / sizeof irreps_QCSU2[0]
                 : sizeof irreps_QC / sizeof irreps_QC[0];
-        assert(bookie.nrSyms == 3 + (pg != -1) + hdat.has_seniority);
+        assert(bookie.nrSyms == 3 + (hdat.pg != -1) + hdat.has_seniority);
 
         MPOsymsecs.nrSecs = nr_of_pg * size;
         safe_malloc(MPOsymsecs.irreps, MPOsymsecs.nrSecs);
@@ -1049,18 +769,18 @@ static void prepare_MPOsymsecs(void)
                         int k = 0;
                         /* Z2 */
                         if (hdat.su2) {
-                                MPOsymsecs.irreps[cnt][k++] = 
-                                        abs(irreps[i * 2]) % 2;
+                                MPOsymsecs.irreps[cnt][k++] = abs(irreps[i * 2]) % 2;
                         } else {
                                 MPOsymsecs.irreps[cnt][k++] = 
-                                        abs(irreps[i * 2] + 
-                                            irreps[i * 2 + 1]) % 2;
+                                        abs(irreps[i * 2] + irreps[i * 2 + 1]) % 2;
                         }
                         /* U1 */
                         MPOsymsecs.irreps[cnt][k++] = irreps[i * 2];
                         /* U1 or SU2 */
                         MPOsymsecs.irreps[cnt][k++] = irreps[i * 2 + 1];
-                        if (pg != -1) { MPOsymsecs.irreps[cnt][k++] = j; }
+                        if (hdat.pg != -1) {
+                                MPOsymsecs.irreps[cnt][k++] = j;
+                        }
                         if (hdat.has_seniority) {
                                 MPOsymsecs.irreps[cnt][k++] = -1;
                         }
@@ -1083,8 +803,7 @@ static int add_product(int * const res, const int i, const int j,
                 return psite ? 1 : nr_of_pg;
 
         if (psite) {
-                const int pg_1 = hdat.orbirrep[netw.sitetoorb[site]] * 
-                        (double_operator(i) == 0);
+                const int pg_1 = double_operator(i) ? 0 : get_pgirrep(netw.sitetoorb[site]);
                 const int pg_2 = pg_1 ^ pg_irr;
                 res[0] = i * nr_of_pg + pg_1;
                 res[1] = j * nr_of_pg + pg_2;
@@ -1231,18 +950,15 @@ static double u1_el_siteop(const int siteop, const int braid, const int ketid)
 static int u1_symsec_tag(const int * tag, const int nr_tags, const int tagsize) 
 {
         assert(tagsize == 3);
-        const int pg       = get_pg_symmetry();
-        const int nr_of_pg = pg == -1 ? 1 : get_max_irrep(NULL, 0, NULL, 0, 
-                                                          (enum symmetrygroup) pg, 0);
+        const int nr_of_pg = (hdat.pg == -1) ? 1 : PG_get_max_irrep(hdat.pg - C1);
         const int size = sizeof irreps_QC / sizeof irreps_QC[0];
 
         int i;
         int hss[2] = {0, 0};
         int pg_new = 0;
         for (i = 0 ; i < nr_tags ; ++i) {
-
                 const int sign = tag[i * tagsize + 0] ? 1 : -1;
-                pg_new = pg_new ^ hdat.orbirrep[tag[i * tagsize + 1]];
+                pg_new = pg_new ^ get_pgirrep(tag[i * tagsize + 1]);
                 const int spin = tag[i * tagsize + 2];
                 hss[spin] += sign;
         }
@@ -1396,9 +1112,7 @@ static int su2_symsec_tag(const int * tag, const int nr_tags, const int tagsize)
         if (nr_tags == 0)
                 return QC_get_trivialhamsymsec();
 
-        const int pg       = get_pg_symmetry();
-        const int nr_of_pg = pg == -1 ? 1 : get_max_irrep(NULL, 0, NULL, 0, 
-                                                          (enum symmetrygroup) pg, 0);
+        const int nr_of_pg = (hdat.pg == -1) ? 1 : PG_get_max_irrep(hdat.pg - C1);
         const int size = sizeof irreps_QCSU2 / sizeof irreps_QCSU2[0];
 
         int i;
@@ -1406,7 +1120,7 @@ static int su2_symsec_tag(const int * tag, const int nr_tags, const int tagsize)
         int pg_new = 0;
         for (i = 0 ; i < nr_tags ; ++i) {
                 hss[0] += tag[i * tagsize + 0] ? 1 : -1;
-                pg_new = pg_new ^ hdat.orbirrep[tag[i * tagsize + 1]];
+                pg_new = pg_new ^ get_pgirrep(tag[i * tagsize + 1]);
         }
 
         assert(abs(hss[0]) % 2 == hss[1] % 2);

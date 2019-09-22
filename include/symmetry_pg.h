@@ -34,14 +34,14 @@
  *  \hline
  *    Group Number \& Name & 0  & 1   & 2   & 3   & 4  & 5   & 6   & 7   \\
  *  \hline
- *    0: c1                & A  &     &     &     &    &     &     &     \\
- *    1: ci                & Ag & Au  &     &     &    &     &     &     \\
- *    2: c2                & A  & B   &     &     &    &     &     &     \\
- *    3: cs                & A' & A'' &     &     &    &     &     &     \\
- *    4: d2                & A  & B1  & B2  & B3  &    &     &     &     \\
- *    5: c2v               & A1 & A2  & B1  & B2  &    &     &     &     \\
- *    6: c2h               & Ag & Bg  & Au  & Bu  &    &     &     &     \\
- *    7: d2h               & Ag & B1g & B2g & B3g & Au & B1u & B2u & B3u \\
+ *    0: C1                & A  &     &     &     &    &     &     &     \\
+ *    1: Ci                & Ag & Au  &     &     &    &     &     &     \\
+ *    2: C2                & A  & B   &     &     &    &     &     &     \\
+ *    3: Cs                & A' & A'' &     &     &    &     &     &     \\
+ *    4: D2                & A  & B1  & B2  & B3  &    &     &     &     \\
+ *    5: C2v               & A1 & A2  & B1  & B2  &    &     &     &     \\
+ *    6: C2h               & Ag & Bg  & Au  & Bu  &    &     &     &     \\
+ *    7: D2h               & Ag & B1g & B2g & B3g & Au & B1u & B2u & B3u \\
  *  \hline
  *  \end{tabular}
  *  \endlatexonly
@@ -49,14 +49,14 @@
  *  <table border="1">
  *  <tr><td> Symmetry Conventions </td><td colspan="8"> Irrep Number & Name </td></tr>
  *  <tr><td> Group Number & Name </td><td> 0  </td><td> 1   </td><td> 2   </td><td> 3   </td><td> 4  </td><td> 5   </td><td> 6   </td><td> 7   </td></tr>
- *  <tr><td> 0: c1               </td><td> A  </td><td>     </td><td>     </td><td>     </td><td>    </td><td>     </td><td>     </td><td>     </td></tr>
- *  <tr><td> 1: ci               </td><td> Ag </td><td> Au  </td><td>     </td><td>     </td><td>    </td><td>     </td><td>     </td><td>     </td></tr>
- *  <tr><td> 2: c2               </td><td> A  </td><td> B   </td><td>     </td><td>     </td><td>    </td><td>     </td><td>     </td><td>     </td></tr>
- *  <tr><td> 3: cs               </td><td> A' </td><td> A'' </td><td>     </td><td>     </td><td>    </td><td>     </td><td>     </td><td>     </td></tr>
- *  <tr><td> 4: d2               </td><td> A  </td><td> B1  </td><td> B2  </td><td> B3  </td><td>    </td><td>     </td><td>     </td><td>     </td></tr>
- *  <tr><td> 5: c2v              </td><td> A1 </td><td> A2  </td><td> B1  </td><td> B2  </td><td>    </td><td>     </td><td>     </td><td>     </td></tr>
- *  <tr><td> 6: c2h              </td><td> Ag </td><td> Bg  </td><td> Au  </td><td> Bu  </td><td>    </td><td>     </td><td>     </td><td>     </td></tr>
- *  <tr><td> 7: d2h              </td><td> Ag </td><td> B1g </td><td> B2g </td><td> B3g </td><td> Au </td><td> B1u </td><td> B2u </td><td> B3u </td></tr>
+ *  <tr><td> 0: C1               </td><td> A  </td><td>     </td><td>     </td><td>     </td><td>    </td><td>     </td><td>     </td><td>     </td></tr>
+ *  <tr><td> 1: Ci               </td><td> Ag </td><td> Au  </td><td>     </td><td>     </td><td>    </td><td>     </td><td>     </td><td>     </td></tr>
+ *  <tr><td> 2: C2               </td><td> A  </td><td> B   </td><td>     </td><td>     </td><td>    </td><td>     </td><td>     </td><td>     </td></tr>
+ *  <tr><td> 3: Cs               </td><td> A' </td><td> A'' </td><td>     </td><td>     </td><td>    </td><td>     </td><td>     </td><td>     </td></tr>
+ *  <tr><td> 4: D2               </td><td> A  </td><td> B1  </td><td> B2  </td><td> B3  </td><td>    </td><td>     </td><td>     </td><td>     </td></tr>
+ *  <tr><td> 5: C2v              </td><td> A1 </td><td> A2  </td><td> B1  </td><td> B2  </td><td>    </td><td>     </td><td>     </td><td>     </td></tr>
+ *  <tr><td> 6: C2h              </td><td> Ag </td><td> Bg  </td><td> Au  </td><td> Bu  </td><td>    </td><td>     </td><td>     </td><td>     </td></tr>
+ *  <tr><td> 7: D2h              </td><td> Ag </td><td> B1g </td><td> B2g </td><td> B3g </td><td> Au </td><td> B1u </td><td> B2u </td><td> B3u </td></tr>
  *  </table>
  *  \endhtmlonly
  *  Note that these conventions allow to use the XOR operation for irrep multiplication.

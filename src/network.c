@@ -860,12 +860,12 @@ void fillin_network(struct network * res, int nr_bonds, int psites, int sites,
         netw.nr_bonds = nr_bonds;
         netw.psites = psites;
         netw.sites = sites;
-        netw.bonds = safe_malloc(nr_bonds, *netw.bonds);
+        safe_malloc(netw.bonds, nr_bonds);
         for (int i = 0; i < nr_bonds; ++i) {
                 netw.bonds[i][0] = bonds[i][0];
                 netw.bonds[i][1] = bonds[i][1];
         }
-        netw.sitetoorb = safe_malloc(sites, *netw.sitetoorb);
+        safe_malloc(netw.sitetoorb, sites);
         for (int i = 0; i < sites; ++i) {
                 netw.sitetoorb[i] = sitetoorb[i];
         }
@@ -884,7 +884,7 @@ void fillin_network(struct network * res, int nr_bonds, int psites, int sites,
                 }
         } else {
                 netw.sweeplength = sweeplength;
-                netw.sweep = safe_malloc(sweeplength, *netw.sweep);
+                safe_malloc(netw.sweep, sweeplength);
                 for (int i = 0; i < sweeplength; ++i) {
                         netw.sweep[i] = sweep[i];
                 }

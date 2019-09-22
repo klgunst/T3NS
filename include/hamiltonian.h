@@ -52,12 +52,6 @@ void get_physsymsecs(struct symsecs *res, int bond);
 void get_hamiltoniansymsecs(struct symsecs * const res, const int bond);
 
 /**
- * \brief Checks consistency of the made hamiltonian and the network (e.g. nr of sites).
- * \return 1 if successful, 0 otherwise.
- */
-int consistencynetworkinteraction(void);
-
-/**
  * \brief Returns the matrix-element of the given siteoperator for the given bra- and ket-index.
  *
  * \param [in] siteoperator The siteoperator.

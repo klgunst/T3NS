@@ -40,6 +40,7 @@ set(T3NSLIB_SOURCE_FILES
     "wrapper_solvers.c"
     "RedDM.c"
     "timers.c"
+    "qcH.c"
     )
 
 add_library(T3NS-shared SHARED ${T3NSLIB_SOURCE_FILES})

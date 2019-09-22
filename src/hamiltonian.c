@@ -176,22 +176,6 @@ int hermitian_symsec(const int orig_symsec)
         }
 }
 
-int consistencynetworkinteraction(void)
-{
-        switch(ham) {
-        case QC:
-                return QC_consistencynetworkinteraction();
-        case NN_HUBBARD:
-                return 1;
-        case DOCI:
-                return DOCI_consistencynetworkinteraction();
-        default:
-                fprintf(stderr, "%s@%s: Unrecognized Hamiltonian.\n", 
-                        __FILE__, __func__);
-                return 0;
-        }
-}
-
 int symsec_siteop(const int siteoperator, const int site)
 {
         switch(ham) {

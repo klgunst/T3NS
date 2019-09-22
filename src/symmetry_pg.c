@@ -46,6 +46,8 @@ const char *irrepnames[][8] = {
  * C2v : A1 B1 B2 A2
  * C2h : Ag Au Bu Bg
  * D2h : Ag B3u B2u B1g B1u B2g B3g Au 
+ *
+ * This ordering also has the XOR operation as tensor product.
  */
 const int fcidumptopsi4[5][8] = {
         {0},    // for C1
@@ -57,6 +59,7 @@ const int fcidumptopsi4[5][8] = {
 
 int PG_get_max_irrep(int pg)
 {
+        assert(pg >= 0 && pg < 8);
         return nr_irreps_pg[pg];
 }
 

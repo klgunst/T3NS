@@ -41,8 +41,6 @@ int QC_get_trivialhamsymsec(void);
 
 int QC_hermitian_symsec(const int orig_symsec);
 
-int QC_consistencynetworkinteraction(void);
-
 double QC_el_siteop(const int siteop, const int braindex, const int ketindex);
 
 double get_core(void);
@@ -73,6 +71,3 @@ void QC_read_hamiltonian_from_disk(const hid_t id);
 int QC_consistent_state(int * ts);
 
 void QC_reinit_hamiltonian(void);
-
-void QC_ham_from_integrals(int orbs, int * irreps, double * h1e, double * eri,
-                           double nuc, int su2, int sen);

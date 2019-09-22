@@ -125,7 +125,7 @@ int read_inputfile(const char inputfile[], struct optScheme * scheme,
         *lowDb = NULL;
         int ro = read_option("lowD", inputfile, buffer);
         if (ro != -1) {
-                *lowDb = safe_malloc(ro, **lowDb);
+                safe_malloc(*lowDb, ro);
                 char * pch = strtok(buffer, STRTOKSEP);
                 int i = -1;
                 while (pch) {
@@ -151,7 +151,6 @@ int read_inputfile(const char inputfile[], struct optScheme * scheme,
         }
         if (ro) { readinteraction(buffer2); }
         read_optScheme(inputfile, scheme);
-        if (!consistencynetworkinteraction()) { return 1; }
 
         return 0;
 }
