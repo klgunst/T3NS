@@ -466,8 +466,8 @@ class Network:
             destroy_network(byref(self.cnetwork))
         self.cnetwork = cNetwork(self)
 
-    def plotGraph(self, filename, grid=None):
-        """Saves a graphical depiction of the network to a file.
+    def plotGraph(self, grid=None):
+        """Plots a graph to the current pyplot scope
 
         Arguments:
             grid: If a tuple (x,y), this will put the physical sites on grid
@@ -475,7 +475,6 @@ class Network:
             (i % x, i // x).
         """
         import networkx as nx
-        import matplotlib.pyplot as plt
 
         G = nx.Graph()
         G.add_nodes_from(self.sites)
@@ -493,7 +492,8 @@ class Network:
             fixed_positions = {}
             for s in self.sites:
                 if s.kind == 'P':
-                    fixed_positions[s] = (s.nr % grid[0], s.nr // grid[0])
+                    nr = self.sitemap[s.nr]
+                    fixed_positions[s] = (nr % grid[0], nr // grid[0])
             pos = nx.spring_layout(G, pos=fixed_positions,
                                    fixed=fixed_positions.keys())
 
@@ -508,10 +508,14 @@ class Network:
                 prev = edge[1]
             pos[prev] = (count, 0)
 
-        color_map = ['lightblue' if s.kind == 'P' else 'green' for s in G]
-        nx.draw(G, pos=pos, node_color=color_map, with_labels=True)
+        labels = {}
+        for s in self.sites:
+            if s.kind == 'P':
+                labels[s] = self.sitemap[s.nr]
 
-        plt.savefig(filename)
+        color_map = ['lightblue' if s.kind == 'P' else 'green' for s in G]
+        nx.draw(G, pos=pos, node_color=color_map,
+                labels=labels, with_labels=True)
 
 
 def add_one(toadd, distances, currsiteid, sitetoadd):
