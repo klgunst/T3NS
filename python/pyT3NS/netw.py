@@ -73,6 +73,9 @@ class Site:
     def __eq__(self, s):
         return self.kind == s.kind and self.nr == s.nr
 
+    def __hash__(self):
+        return hash(str(self))
+
 
 class Network:
     def __init__(self, sites=None, layers=0, isMET=True, isDMRG=False):
@@ -462,6 +465,53 @@ class Network:
             destroy_network.argtypes = [POINTER(cNetwork)]
             destroy_network(byref(self.cnetwork))
         self.cnetwork = cNetwork(self)
+
+    def plotGraph(self, filename, grid=None):
+        """Saves a graphical depiction of the network to a file.
+
+        Arguments:
+            grid: If a tuple (x,y), this will put the physical sites on grid
+            with size (x,y). Site with order number `i` will be put on position
+            (i % x, i // x).
+        """
+        import networkx as nx
+        import matplotlib.pyplot as plt
+
+        G = nx.Graph()
+        G.add_nodes_from(self.sites)
+        G.add_edges_from([b for b in self.bonds if
+                          b[0].kind != "Vacuum" and b[1].kind != "Vacuum"])
+        pos = None
+        if grid is not None:
+            if not isinstance(grid, tuple):
+                raise ValueError('grid should be a tuple')
+            if grid[0] * grid[1] != self.nrP:
+                raise ValueError(
+                    'Dimension of grid ({grid[0] * grid[1]}) should correspond'
+                    ' with nr physical sites ({self.nrP}).'
+                )
+            fixed_positions = {}
+            for s in self.sites:
+                if s.kind == 'P':
+                    fixed_positions[s] = (s.nr % grid[0], s.nr // grid[0])
+            pos = nx.spring_layout(G, pos=fixed_positions,
+                                   fixed=fixed_positions.keys())
+
+        elif self.nrB == 0:
+            count = 0
+            pos = {}
+            prev = None
+            for edge in G.edges:
+                assert prev is None or prev == edge[0]
+                pos[edge[0]] = (count, 0)
+                count += 1
+                prev = edge[1]
+            pos[prev] = (count, 0)
+
+        color_map = ['lightblue' if s.kind == 'P' else 'green' for s in G]
+        nx.draw(G, pos=pos, node_color=color_map, with_labels=True)
+
+        plt.savefig(filename)
 
 
 def add_one(toadd, distances, currsiteid, sitetoadd):
