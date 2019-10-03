@@ -71,3 +71,11 @@ void QC_read_hamiltonian_from_disk(const hid_t id);
 int QC_consistent_state(int * ts);
 
 void QC_reinit_hamiltonian(void);
+
+/**
+ * Makes the QC hamiltonian from the integrals passed by pyscf.
+ *
+ * Both h1e and eri need to be full.
+ */
+void QC_ham_from_integrals(int norb, int * irrep, double * h1e, double * eri,
+                           double enuc, int ps, int su2, int has_seniority);

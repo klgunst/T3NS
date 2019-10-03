@@ -14,7 +14,6 @@ class SvalSelect(Structure):
         ("minD", c_int),
         ("maxD", c_int),
         ("truncerr", c_double),
-        ("truncType", c_char)
     ]
 
     def __init__(self, D):
@@ -26,7 +25,6 @@ class SvalSelect(Structure):
             self.minD = D
             self.maxD = D
             self.truncerr = 0
-        self.truncType = ('E').encode('utf8')
 
     def __str__(self):
         return f"(min: {self.minD}, max: {self.maxD}, trunc: {self.truncerr})"
@@ -383,7 +381,7 @@ class T3NS:
         else:
             libt3ns.QC_ham_from_integrals.argtypes = \
                 [c_int, POINTER(c_int), POINTER(c_double), POINTER(c_double),
-                 c_double, c_int, c_int]
+                 c_double, c_int, c_int, c_int]
             irrep = None
             if self._pg_irrep is not None:
                 for s in self.symmetries:
@@ -398,6 +396,7 @@ class T3NS:
                 h1e,
                 fulleri,
                 self._nuc,
+                3,
                 int('SU2' in self.symmetries),
                 int('SENIORITY' in self.symmetries),
             )

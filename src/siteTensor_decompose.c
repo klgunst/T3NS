@@ -586,7 +586,6 @@ static struct Sval R_svd(struct Rmatrix * R)
                                           NULL, S.dimS[ss][0]);
                 if (info) { fprintf(stderr, "dgesdd exited with %d.\n", info); }
         }
-        print_singular_values(&S);
 
         return S;
 }

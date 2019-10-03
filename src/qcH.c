@@ -3,11 +3,15 @@
 #include <assert.h>
 #include <string.h>
 #include <ctype.h>
+#include <math.h>
 
 #include "qcH.h"
 #include "macros.h"
 #include "io.h"
 #include "sort.h"
+#include "io_to_disk.h"
+
+#define COMPARE_INTEGRAL_TO_ZERO(X) (fabs(X) < 1e-12)
 
 // The orders are: i < j, k < l, i < k
 static const bool used_order_array [4][3] = {
@@ -134,6 +138,9 @@ static double * VindexOK(double **** Vp, const struct qcH * H,
 
         // Do we have i < k ordering?
         int ijkl = used_order[2] && irk == iri ? TRIFLAT(ij, kl, sij) : FULLFLAT(ij, kl, sij, skl);
+
+        if (Vp[central_irrep] == NULL || Vp[central_irrep][iri] == NULL ||
+            Vp[central_irrep][iri][irk] == NULL) { return NULL; }
         return &Vp[central_irrep][iri][irk][ijkl];
 }
 
@@ -191,14 +198,19 @@ static void setV(const struct qcH * H, double val,
                  int ii, int jj, int kk, int ll, int t1, int t2)
 {
         double * p = getpV(H, ii, jj, kk, ll, t1, t2);
+        if (p == NULL && !COMPARE_INTEGRAL_TO_ZERO(val)) {
+                fprintf(stderr, "According to the passed irreps, V[%d, %d, %d, %d] should be 0, not %g.\n",
+                        ii, jj, kk, ll, val);
+        } else if (p != NULL) {
 #ifndef NDEBUG
-        if (!COMPARE_ELEMENT_TO_ZERO(*p) && !COMPARE_ELEMENT_TO_ZERO(*p - val)) {
-                fprintf(stderr, "WARNING: element %d %d %d %d for Vijkl set to %lf is overwritten by %lf.\n",
-                        ii, jj, kk, ll, *p, val);
-                exit(EXIT_FAILURE);
-        }
+                if (!COMPARE_INTEGRAL_TO_ZERO(*p) && !COMPARE_INTEGRAL_TO_ZERO(*p - val)) {
+                        fprintf(stderr, "WARNING: element %d %d %d %d for Vijkl set to %lf is overwritten by %lf.\n",
+                                ii, jj, kk, ll, *p, val);
+                        exit(EXIT_FAILURE);
+                }
 #endif
-        *p = val;
+                *p = val;
+        }
 }
 
 // All indices are int correct order. Asking for the value now.
@@ -215,6 +227,7 @@ static double * TindexOK(double ** Tp, const struct qcH * H, int ii, int jj)
 
         // i < j
         assert(si == sj);
+        if (Tp[iri] == NULL) { return NULL; }
         return &Tp[iri][TRIFLAT(idi, idj, si)];
 }
 
@@ -248,13 +261,17 @@ double getT(const struct qcH * H, int ii, int jj, int t)
 static void setT(const struct qcH * H, double val, int ii, int jj, int t)
 {
         double * p = getpT(H, ii, jj, t);
+        if (p == NULL && !COMPARE_INTEGRAL_TO_ZERO(val)) {
+                fprintf(stderr, "According to the passed irreps, T[%d, %d] should be 0, not %g.\n", ii, jj, val);
+        } else if (p != NULL) {
 #ifndef NDEBUG
-        if (!COMPARE_ELEMENT_TO_ZERO(*p) && !COMPARE_ELEMENT_TO_ZERO(*p - val)) {
-                fprintf(stderr, "WARNING: element %d %d for Tij set to %lf is overwritten by %lf.\n",
-                        ii, jj, *p, val);
-        }
+                if (!COMPARE_INTEGRAL_TO_ZERO(*p) && !COMPARE_INTEGRAL_TO_ZERO(*p - val)) {
+                        fprintf(stderr, "WARNING: element %d %d for Tij set to %lf is overwritten by %lf.\n",
+                                ii, jj, *p, val);
+                }
 #endif
-        *p = val;
+                *p = val;
+        }
 }
 
 void destroy_qcH(struct qcH * H)
@@ -293,6 +310,20 @@ void destroy_qcH(struct qcH * H)
         H->L = 0;
         H->ps = INVALID_PERM;
         H->particles = 0;
+}
+
+/// The offset is 0 for FCIDUMPS, -1 for pyscf
+static void read_irrep_info(struct qcH * H, int * irrep, int offset)
+{
+        // Now sort the irrep array for orbital mapping
+        int * idx = quickSort(irrep, H->L, SORT_INT);
+        H->nirrep = irrep[idx[H->L - 1]] - offset;  // Largest value
+        safe_calloc(H->birrep, H->nirrep + 1);
+        for (int i = 0; i < H->L; ++i) { ++H->birrep[irrep[idx[i]] - offset]; }
+        for (int i = 0; i < H->nirrep; ++i) { H->birrep[i + 1] += H->birrep[i]; }
+
+        // This function frees idx!!
+        H->map = inverse_permutation(idx, H->L);
 }
 
 // Reads the header of the fcidump file
@@ -340,23 +371,14 @@ static int read_header(struct qcH * H, const char * dumpfile)
                 ++ops;
         }
 
-        // Now sort the irrep array for orbital mapping
-        int * idx = quickSort(irrep, H->L, SORT_INT);
-        H->nirrep = irrep[idx[H->L - 1]];  // Largest value
-        safe_calloc(H->birrep, H->nirrep + 1);
-        for (int i = 0; i < H->L; ++i) { ++H->birrep[irrep[idx[i]]]; }
-        for (int i = 0; i < H->nirrep; ++i) { H->birrep[i + 1] += H->birrep[i]; }
-
-        // This function frees idx!!
-        H->map = inverse_permutation(idx, H->L);
+        read_irrep_info(H, irrep, 0);
         safe_free(irrep);
-
         return 0;
 }
 
 // Reads the integrals for a FCIDUMP file.
 // Will have to adapt this for unrestricted case.
-static int read_integrals(struct qcH * H, const char * dumpfile)
+static int read_integrals_from_DUMP(struct qcH * H, const char * dumpfile)
 {
         // open dumpfile for reading integrals
         FILE *fp = fopen(dumpfile, "r");
@@ -418,6 +440,129 @@ static int read_integrals(struct qcH * H, const char * dumpfile)
         return 0;
 }
 
+// Reads the integrals from the memory.
+static int read_integrals_from_mem(struct qcH * H, double * h1e, double * eri,
+                                   double enuc)
+{
+        H->E0 = enuc;
+        assert(H->ps == EIGHTFOLD);
+        for (int i = 0; i < H->L; ++i) {
+                for (int j = i; j < H->L; ++j) {
+                        const double val = h1e[i + H->L * j];
+                        if (!COMPARE_INTEGRAL_TO_ZERO(val)) {
+                                setT(H, val, i, j, 0);
+                        }
+                }
+        }
+        for (int i = 0; i < H->L; ++i) {
+                for (int j = i; j < H->L; ++j) {
+                        for (int k = i; k < H->L; ++k) {
+                                for (int l = k; l < H->L; ++l) {
+                                        const double val = eri[i +
+                                                H->L * j +
+                                                H->L * H->L * k + 
+                                                H->L * H->L * H->L * l
+                                        ];
+                                        if (!COMPARE_INTEGRAL_TO_ZERO(val)) {
+                                                setV(H, val, i, j, k, l, 0, 0);
+                                        }
+                                }
+                        }
+                }
+        }
+        return 0;
+}
+
+/* Iterates over the different sparse blocks of the one-body integral
+ * 
+ * It returns the next [p][i] index and 
+ * the size of the corresponding H->T[p][i] block.
+ *
+ * Starting iterating happens by setting *p to a negative value.
+ *
+ * Returns True if you should continue iterating, False if iterations finished.
+ */
+static bool iterate_one_body(const struct qcH * H, int * p, int * i, int * size)
+{
+        // You have always twofold symmetry for T
+        if (*p < 0) {
+                // First iteration
+                *p = 0; *i = 0; 
+        } else {
+                // Increase one step
+                ++*i;
+                if (*i == H->nirrep) { ++*p; *i = 0; }
+        }
+        assert(*p >= 0 && *i >= 0);
+
+        const int N = num_irreps(H, *i);
+        // You have for each irrep 'nirrep * (nirrep + 1) / 2' different values
+        *size = (N * (N + 1)) / 2;
+        return *p != H->particles;
+}
+
+/* Iterates over the different sparse blocks of the two-body integral
+ * 
+ * It returns the next [p][c][i][k] index and 
+ * the size of the corresponding H->V[p][c][i][k] block.
+ *
+ * Starting iterating happens by setting *p to a negative value.
+ *
+ * Returns True if you should continue iterating, False if iterations finished.
+ */
+static bool iterate_two_body(const struct qcH * H,
+                             int * p, int * c, int * i, int * k, int * size)
+{
+        const int max_c = maximum_centralirrep(H) + 1;
+        const bool * used_order = used_order_array[H->ps];
+        // Particles are always sorted.
+        if (*p < 0) {
+                // First iteration
+                *p = 0; *c = 0; *i = 0; *k = 0;
+        } else {
+                // Increase one step
+                ++*k;
+                if (*k == H->nirrep) { ++*i; *k = 0; }
+                if (*i == H->nirrep) { ++*c; *i = 0; }
+                if (*c == max_c) { ++*p; *c = 0; }
+        }
+        assert(*p >= 0 && *c >= 0 && *i >= 0 && *k >= 0);
+        // End of iterations
+        if (*p >= TRIDIM(H->particles)) { return false; }
+
+        // Number of orbitals with irrep of orbital i
+        const int si = num_irreps(H, *i);
+        // Irrep of orbital j
+        const int j = (*i) ^ (*c);
+        const int sj = num_irreps(H, j);
+        // Do we have i < j ordering and are we in the same irrep block?
+        const int sij = (used_order[0] && *i == j) ? TRIDIM(si) : FULLDIM(si, sj);
+        if (sij == 0 || (used_order[0] && *i > j)) {
+                // -1 since it will be set to zero in the beginning of
+                // the next call of this function
+                *k = -1; 
+                ++*i;
+                if (*i == H->nirrep) { ++*c; *i = 0; }
+                if (*c == max_c) { ++*p; *c = 0; }
+                return iterate_two_body(H, p, c, i, k, size);
+        }
+        // Number of orbitals with irrep of orbital k
+        const int sk = num_irreps(H, *k);
+        // Irrep of orbital l
+        const int l = (*k) ^ (*c);
+        const int sl = num_irreps(H, l);
+        // Do we have k < l ordering and are we in the same irrep block?
+        const int skl = used_order[1] && *k == l ? TRIDIM(sk) : FULLDIM(sk, sl);
+        // Do we have i < k ordering?
+        const int sijkl = (used_order[2] && *i == *k) ? TRIDIM(sij) : FULLDIM(sij, skl);
+        if (sijkl == 0 || (used_order[1] && *k > l) || (used_order[2] && *i > *k)) {
+                // Next iteration instead.
+                return iterate_two_body(H, p, c, i, k, size);
+        }
+        *size = sijkl;
+        return true;
+}
+
 // Allocates the memory for storing the one-body integrals.
 static void allocate_T(struct qcH * H)
 {
@@ -426,17 +571,13 @@ static void allocate_T(struct qcH * H)
         // You have n particles.
         // You have for each irrep 'nirrep * (nirrep + 1) / 2' different values
         safe_malloc(H->T, H->particles);
-        for(int i = 0; i < H->particles; ++i) {
-                safe_malloc(H->T[i], H->nirrep);
-                for (int j = 0; j < H->nirrep; ++j) {
-                        const int N = num_irreps(H, j);
-                        // No irreps of this kind in the orbitals.
-                        if (N == 0) { 
-                                H->T[i][j] = NULL;
-                        } else {
-                                safe_calloc(H->T[i][j], (N * (N + 1)) / 2);
-                        }
-                }
+        for (int p = 0; p < H->particles; ++p) {
+                safe_malloc(H->T[p], H->nirrep);
+                for (int i = 0; i < H->nirrep; ++i) { H->T[p][i] = NULL; }
+        }
+        int p = -1, i, size;
+        while (iterate_one_body(H, &p, &i, &size)) {
+                safe_calloc(H->T[p][i], size);
         }
 }
 
@@ -446,9 +587,8 @@ static void allocate_V(struct qcH * H)
 #ifndef NDEBUG
         unsigned long long cursize = 0;
 #endif
-
         const int max_c = maximum_centralirrep(H) + 1;
-        const bool * used_order = used_order_array[H->ps];
+
         // Particles are always sorted.
         safe_malloc(H->V, TRIDIM(H->particles));
         for (int p = 0; p < TRIDIM(H->particles); ++p) {
@@ -457,59 +597,225 @@ static void allocate_V(struct qcH * H)
                 for (int c = 0 ; c < max_c; ++c) {
                         safe_malloc(H->V[p][c], H->nirrep);
                         for (int i = 0; i < H->nirrep; ++i) {
-                                // Number of orbitals with irrep of orbital i
-                                const int si = num_irreps(H, i);
-                                // Irrep of orbital j
-                                const int j = i ^ c;
-                                const int sj = num_irreps(H, j);
-                                // Do we have i < j ordering and are we in the same irrep block?
-                                const int sij = (used_order[0] && i == j) ? TRIDIM(si) : FULLDIM(si, sj);
-                                if (sij == 0 || (used_order[0] && i > j)) {
-                                        H->V[p][c][i] = NULL;
-                                        continue;
-                                }
                                 safe_malloc(H->V[p][c][i], H->nirrep);
                                 for (int k = 0; k < H->nirrep; ++k) {
-                                        // Number of orbitals with irrep of orbital k
-                                        const int sk = num_irreps(H, k);
-                                        // Irrep of orbital l
-                                        const int l = k ^ c;
-                                        const int sl = num_irreps(H, l);
-                                        // Do we have k < l ordering and are we in the same irrep block?
-                                        const int skl = used_order[1] && k == l ? TRIDIM(sk) : FULLDIM(sk, sl);
-                                        // Do we have i < k ordering?
-                                        const int sijkl = (used_order[2] && i == k) ? TRIDIM(sij) : FULLDIM(sij, skl);
-                                        if (sijkl == 0 || (used_order[1] && k > l)|| (used_order[2] && i > k)) {
-                                                H->V[p][c][i][k] = NULL;
-                                                continue;
-                                        }
-                                        safe_calloc(H->V[p][c][i][k], sijkl);
-#ifndef NDEBUG
-                                        cursize += sijkl;
-#endif
+                                        H->V[p][c][i][k] = NULL;
                                 }
                         }
                 }
         }
 
+        int p = -1, c, i, k, size;
+        while (iterate_two_body(H, &p, &c, &i, &k, &size)) {
+                safe_calloc(H->V[p][c][i][k], size);
+#ifndef NDEBUG
+                cursize += size;
+#endif
+        }
 #ifndef NDEBUG
         unsigned long long fullsize = H->L * H->L * H->L * H->L * TRIDIM(H->particles);
         printf("Two-body integrals compressed from %.3g MB to %.3g MB due to permutation and irrep symmetry.\n", fullsize * 8 / 1e6, cursize * 8 / 1e6);
 #endif
 }
 
+// Allocates the memory for storing the one-body integrals.
+static void allocate(struct qcH * H, char kind)
+{
+        assert(kind == 'T' || kind == 'V');
+        
+        switch (kind) {
+        case 'T':
+                allocate_T(H);
+                break;
+        case 'V':
+                allocate_V(H);
+                break;
+        default:
+                fprintf(stderr, "%s::%s: Invalid option kind (%c)\n", __FILE__, __func__, kind);
+        }
+}
+
 int read_FCIDUMP(struct qcH * H, const char * dumpfile)
 {
         if (read_header(H, dumpfile)) { return 1; }
-        allocate_T(H);
-        allocate_V(H);
-        print_qcH(H);
+        allocate(H, 'T');
+        allocate(H, 'V');
 
-        if (read_integrals(H, dumpfile)) {
+        if (read_integrals_from_DUMP(H, dumpfile)) {
                 destroy_qcH(H);
                 return 1;
         }
         return 0;
+}
+
+int read_integrals(struct qcH * H, int norb, int * irreps, double * h1e,
+                   double * eri, double enuc, enum permsym ps)
+{
+        // For unrestricted orbitals this would be 2
+        H->particles = 1;
+        H->ps = ps;
+        H->L = norb;
+        read_irrep_info(H, irreps, -1);
+        allocate(H, 'T');
+        allocate(H, 'V');
+
+        if (read_integrals_from_mem(H, h1e, eri, enuc)) {
+                destroy_qcH(H);
+                return 1;
+        }
+
+        return 0;
+}
+
+int qcH_pg_irrep_orbital(const struct qcH * H, int orbital)
+{
+        assert(orbital >= 0 && orbital < H->L);
+        int ir, s, id;
+        getirrepinfo(H, H->map[orbital], &ir, &s, &id);
+        return ir;
+}
+
+// Calculates the storage size for either one-body ('T') or two-body ('V')
+static long long flattened_size(const struct qcH * H, char kind)
+{
+        assert(kind == 'T' || kind == 'V');
+        
+        long long size = 0;
+        int p = -1, c, i, k, csize;
+        switch (kind) {
+        case 'T':
+                while (iterate_one_body(H, &p, &i, &csize)) { size += csize; }
+                break;
+        case 'V':
+                while (iterate_two_body(H, &p, &c, &i, &k, &csize)) { size += csize; }
+                break;
+        default:
+                size = -1;
+                fprintf(stderr, "%s::%s: Invalid option kind (%c)\n", __FILE__, __func__, kind);
+        }
+        return size;
+}
+
+static long long flatten(double ** pflattened, const struct qcH * H, char kind)
+{
+        assert(kind == 'T' || kind == 'V');
+        const long long lsize = flattened_size(H, kind);
+        double * safe_malloc(flattened, lsize);
+        // sizeof element
+        const int sel = sizeof *flattened;
+        *pflattened = flattened;
+        
+        long long size = 0;
+        int p = -1, c, i, k, csize;
+        switch (kind) {
+        case 'T':
+                while (iterate_one_body(H, &p, &i, &csize)) {
+                        memcpy(&flattened[size], H->T[p][i], csize * sel);
+                        assert(csize >= 0);
+                        size += csize;
+                }
+                break;
+        case 'V':
+                while (iterate_two_body(H, &p, &c, &i, &k, &csize)) {
+                        memcpy(&flattened[size], H->V[p][c][i][k], csize * sel);
+                        assert(csize >= 0);
+                        size += csize;
+                }
+                break;
+        default:
+                size = -1;
+                fprintf(stderr, "%s::%s: Invalid option kind (%c)\n", __FILE__, __func__, kind);
+        }
+
+        assert(lsize == size);
+        return lsize;
+}
+
+static int fill(const double * flattened, const struct qcH * H, char kind)
+{
+        assert(kind == 'T' || kind == 'V');
+        // sizeof element
+        const int sel = sizeof *flattened;
+
+        long long size = 0;
+        int p = -1, c, i, k, csize;
+        switch (kind) {
+        case 'T':
+                while (iterate_one_body(H, &p, &i, &csize)) {
+                        memcpy(H->T[p][i], &flattened[size], csize * sel);
+                        assert(csize >= 0);
+                        size += csize;
+                }
+                break;
+        case 'V':
+                while (iterate_two_body(H, &p, &c, &i, &k, &csize)) {
+                        memcpy(H->V[p][c][i][k], &flattened[size], csize * sel);
+                        assert(csize >= 0);
+                        size += csize;
+                }
+                break;
+        default:
+                fprintf(stderr, "%s::%s: Invalid option kind (%c)\n", __FILE__, __func__, kind);
+                return 1;
+        }
+        return 0;
+}
+
+void write_qcH_to_disk(const hid_t id, const struct qcH * H)
+{
+        const hid_t group_id = H5Gcreate(id, "./qcH", H5P_DEFAULT, 
+                                         H5P_DEFAULT, H5P_DEFAULT);
+
+        write_attribute(group_id, "L", &H->L, 1, THDF5_INT);
+        write_attribute(group_id, "ps", &H->ps, 1, THDF5_INT);
+        write_attribute(group_id, "particles", &H->particles, 1, THDF5_INT);
+        write_attribute(group_id, "nirrep", &H->nirrep, 1, THDF5_INT);
+        write_attribute(group_id, "core_energy", &H->E0, 1, THDF5_DOUBLE);
+
+        write_dataset(group_id, "./map", H->map, H->L, THDF5_INT);
+        write_dataset(group_id, "./birrep", H->birrep, H->nirrep + 1, THDF5_INT);
+
+        double * Tflat, * Vflat;
+        const long long Tsize = flatten(&Tflat, H, 'T');
+        const long long Vsize = flatten(&Vflat, H, 'V');
+        write_dataset(group_id, "./T", Tflat, Tsize, THDF5_DOUBLE);
+        write_dataset(group_id, "./V", Vflat, Vsize, THDF5_DOUBLE);
+        safe_free(Tflat);
+        safe_free(Vflat);
+
+        H5Gclose(group_id);
+}
+
+void read_qcH_from_disk(const hid_t id, struct qcH * H)
+{
+        const hid_t group_id = H5Gopen(id, "./qcH", H5P_DEFAULT);
+
+        read_attribute(group_id, "L", &H->L);
+        read_attribute(group_id, "ps", &H->ps);
+        read_attribute(group_id, "particles", &H->particles);
+        read_attribute(group_id, "nirrep", &H->nirrep);
+        read_attribute(group_id, "core_energy", &H->E0);
+
+        safe_malloc(H->map, H->L);
+        read_dataset(group_id, "./map", H->map);
+        safe_malloc(H->birrep, H->nirrep + 1);
+        read_dataset(group_id, "./birrep", H->birrep);
+
+        allocate(H, 'T');
+        allocate(H, 'V');
+        const long long Tsize = flattened_size(H, 'T');
+        const long long Vsize = flattened_size(H, 'V');
+        double * safe_malloc(Tflat, Tsize);
+        double * safe_malloc(Vflat, Vsize);
+        read_dataset(group_id, "./T", Tflat);
+        read_dataset(group_id, "./V", Vflat);
+
+        fill(Tflat, H, 'T');
+        fill(Vflat, H, 'V');
+        safe_free(Tflat);
+        safe_free(Vflat);
+
+        H5Gclose(group_id);
 }
 
 void print_qcH(const struct qcH * H)
@@ -534,12 +840,11 @@ void print_qcH(const struct qcH * H)
                 printf("%d%s", H->birrep[i + 1] - H->birrep[i], i == H->nirrep - 1 ? "\n" : ",");
         }
         printf("\n");
-}
 
-int qcH_pg_irrep_orbital(const struct qcH * H, int orbital)
-{
-        assert(orbital >= 0 && orbital < H->L);
-        int ir, s, id;
-        getirrepinfo(H, H->map[orbital], &ir, &s, &id);
-        return ir;
+        const long long Tsize = flattened_size(H, 'T');
+        const long long Vsize = flattened_size(H, 'V');
+
+        printf("Core energy: %lf.\n", H->E0);
+        printf("One-body interaction: %lld elements.\n", Tsize);
+        printf("Two-body interaction: %lld elements.\n", Vsize);
 }

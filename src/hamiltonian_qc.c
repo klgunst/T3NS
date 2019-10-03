@@ -32,7 +32,6 @@
 #include "qcH.h"
 
 static struct hamdata {
-        int target_particle;// The number of particles targeted.
         struct qcH H;       // The stored hamiltonian
         int pg;             /* The point group used.
                              * Same as in the symmetry_pg.h header. */
@@ -148,11 +147,27 @@ void QC_make_hamiltonian(char hamiltonianfile[], int su2, int has_seniority)
         hdat.pg = get_pg_symmetry();
         hdat.su2 = su2;
         hdat.has_seniority = has_seniority;
-        hdat.target_particle = get_particlestarget();
 
         printf(">> Reading FCIDUMP %s\n", hamiltonianfile);
         if (read_FCIDUMP(&hdat.H, hamiltonianfile)) {
                 fprintf(stderr, "Something went wrong while reading the FCIDUMP.\n");
+                exit(EXIT_FAILURE);
+        }
+
+        printf(">> Preparing hamiltonian...\n");
+        prepare_MPOsymsecs();
+        init_opType_array(su2);
+}
+
+void QC_ham_from_integrals(int norb, int * irrep, double * h1e, double * eri,
+                           double enuc, int ps, int su2, int has_seniority)
+{
+        hdat.pg = get_pg_symmetry();
+        hdat.su2 = su2;
+        hdat.has_seniority = has_seniority;
+
+        if (read_integrals(&hdat.H, norb, irrep, h1e, eri, enuc, (enum permsym) ps)) {
+                fprintf(stderr, "Something went wrong while reading the integrals.\n");
                 exit(EXIT_FAILURE);
         }
 
@@ -198,8 +213,7 @@ void QC_get_physsymsecs(struct symsecs *res, int psite)
         }
 }
 
-void QC_get_hamiltoniansymsecs(struct symsecs * const res)
-{
+void QC_get_hamiltoniansymsecs(struct symsecs * const res) {
         *res = MPOsymsecs;
 }
 
@@ -564,7 +578,7 @@ static double get_V(const int * const tag1, const int * const tag2,
         if (tag1[0] != 1 || tag2[0] != 1 || tag3[0] != 0 || tag4[0] != 0) { return 0; }
         if (!hdat.su2 && (tag1[2] != tag4[2] || tag2[2] != tag3[2])) { return 0; }
 
-        const double pr = 1. / (hdat.target_particle - 1.);
+        const double pr = 1. / (get_particlestarget() - 1.);
         double val = getV(&hdat.H, tag1[1], tag4[1], tag2[1], tag3[1], 0, 0);
         val += pr * (tag1[1] == tag4[1]) * getT(&hdat.H, tag2[1], tag3[1], 0);
         val += pr * (tag2[1] == tag3[1]) * getT(&hdat.H, tag1[1], tag4[1], 0);
@@ -595,6 +609,8 @@ void QC_write_hamiltonian_to_disk(const hid_t id)
         const hid_t group_id = H5Gcreate(id, "./hamiltonian_data", H5P_DEFAULT, 
                                          H5P_DEFAULT, H5P_DEFAULT);
 
+        write_qcH_to_disk(group_id, &hdat.H);
+        write_attribute(group_id, "pg", &hdat.pg, 1, THDF5_INT);
         write_attribute(group_id, "su2", &hdat.su2, 1, THDF5_INT);
         write_attribute(group_id, "has_seniority", &hdat.has_seniority, 1, THDF5_INT);
         H5Gclose(group_id);
@@ -602,11 +618,12 @@ void QC_write_hamiltonian_to_disk(const hid_t id)
 
 void QC_read_hamiltonian_from_disk(const hid_t id)
 {
-        assert(0);
         const hid_t group_id = H5Gopen(id, "./hamiltonian_data", H5P_DEFAULT);
 
+        read_attribute(group_id, "pg", &hdat.pg);
         read_attribute(group_id, "su2", &hdat.su2);
         read_attribute(group_id, "has_seniority", &hdat.has_seniority);
+        read_qcH_from_disk(group_id, &hdat.H);
         H5Gclose(group_id);
 
         prepare_MPOsymsecs();

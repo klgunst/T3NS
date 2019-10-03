@@ -41,6 +41,7 @@
  */
 
 #include <stdbool.h>
+#include <hdf5.h>
 
 /// Defines the different types of permutation symmetries supported.
 enum permsym {
@@ -154,3 +155,17 @@ void print_qcH(const struct qcH * H);
  */
 int qcH_pg_irrep_orbital(const struct qcH * H, int orbital);
 
+/// Writes the qcH structure in the HDF5 file.
+void write_qcH_to_disk(const hid_t id, const struct qcH * H);
+
+/// Reads the qcH structure from a HDF5 file.
+void read_qcH_from_disk(const hid_t id, struct qcH * H);
+
+/**
+ * Reads the integrals and stores them in the qcH structure.
+ *
+ * The integrals should be passed in a flattened form of the compressed arrays,
+ * i.e.
+ */
+int read_integrals(struct qcH * H, int norb, int * irreps, double * h1e,
+                   double * eri, double enuc, enum permsym ps);
