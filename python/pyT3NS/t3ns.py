@@ -236,29 +236,7 @@ class T3NS:
                 'Expects a Mole instance or a path to a hdf5 file'
             )
 
-    def init_bookkeeper(self, mstates, maxD, doci=False):
-        '''This initializes a bookkeeper.
-
-        The self._network object should already been made and should have
-        a cnetwork attribute (so to know that the network was already
-        communicated to the C library).
-
-        If a bookkeeper was already initialized for the T3NS isnstance, than
-        it will check if symmetries or target state are changed or if a new
-        mstates is given. If so, the bookkeeper will be appropriately changed
-        and the T3NS itself also, if already initialized.If _rOps exists, it
-        will be deleted!
-        '''
-        if not hasattr(self, "_netw") or \
-                not hasattr(self._netw, "cnetwork"):
-            raise ValueError('No network initialized yet. Make sure it has '
-                             'been passed to the C library through a call to'
-                             ' pass_network()')
-
-        pbookie = None
-        self._bookkeeper.init_bookkeeper(pbookie, maxD, mstates)
-
-    def kernel(self, D=500, mstates=2, doci=False, **kwargs):
+    def kernel(self, D=500, mstates=None, doci=False, **kwargs):
         '''Optimization of the tensor network.
 
         Args:
@@ -300,6 +278,9 @@ class T3NS:
             The level of noise is scaled as
             0.5 * noise * (discarded weight last sweep)
         '''
+        pbookie = self._bookkeeper if hasattr(self, '_bookkeeper') else None
+        if mstates is None:
+            mstates = 2 if pbookie is None else 0
 
         # Passes the network to the static global in the C library
         self._netw.pass_network()
@@ -332,8 +313,9 @@ class T3NS:
             maxD = fD[1]
         else:
             maxD = fD
-        self.init_bookkeeper(mstates, maxD, doci)
-        self.init_wave_function(None)
+
+        self._bookkeeper.init_bookkeeper(pbookie, maxD, mstates)
+        self.init_wave_function(pbookie)
         self.init_operators()
         self.energy = self.execute_optimization(D, **kwargs)
         return self.energy
@@ -401,29 +383,33 @@ class T3NS:
                 int('SENIORITY' in self.symmetries),
             )
 
-    def init_wave_function(self, prevbookie):
+    def init_wave_function(self, pbookie=None):
         initwav = libt3ns.init_wave_function
         initwav.argtypes = [POINTER(c_void_p), c_int,
                             POINTER(bookkeeper.Bookkeeper), c_char]
-        self._T3NS = c_void_p(None)
 
-        initwav(byref(self._T3NS), 0, prevbookie, 'r'.encode('utf8'))
-        self._T3NS = cast(self._T3NS, POINTER(tensors.SiteTensor))
-        T3NS = (tensors.SiteTensor * len(self._netw.sites))()
-        for i in range(len(self._netw.sites)):
-            T3NS[i] = self._T3NS[i]
-        self._T3NS = T3NS
+        ppbookie = None if pbookie is None else byref(pbookie)
+
+        if not hasattr(self, '_T3NS'):
+            self._T3NS = c_void_p(None)
+
+        initwav(cast(byref(self._T3NS), POINTER(c_void_p)), 0, ppbookie,
+                'r'.encode('utf8'))
+        self._T3NS = \
+            cast(self._T3NS, POINTER(tensors.SiteTensor))[:self._netw.nrsites]
+        self._T3NS = (tensors.SiteTensor * len(self._T3NS))(*self._T3NS)
 
     def init_operators(self):
         initop = libt3ns.init_operators
         initop.argtypes = [POINTER(c_void_p), POINTER(tensors.SiteTensor)]
-        rOps = c_void_p(None)
 
-        initop(byref(rOps), self._T3NS)
-        rOps = cast(rOps, POINTER(tensors.ROperators))
-        self._rOps = (tensors.ROperators * len(self._netw.bonds))()
-        for i in range(len(self._netw.bonds)):
-            self._rOps[i] = rOps[i]
+        if not hasattr(self, '_rOps') or self._rOps is None:
+            self._rOps = c_void_p(None)
+
+        initop(byref(self._rOps), self._T3NS)
+        self._rOps = \
+            cast(self._rOps, POINTER(tensors.ROperators))[:self._netw.nrbonds]
+        self._rOps = (tensors.ROperators * len(self._rOps))(*self._rOps)
 
     def execute_optimization(self, D, saveloc=None, **kwargs):
         from sys import stdout
@@ -472,4 +458,13 @@ class T3NS:
 
         entanglement = disent(self._T3NS, byref(scheme), self.verbose >= 4)
         stdout.flush()
+        self._netw = netw.Network(get_global=True)
+        self._bookkeeper = bookkeeper.Bookkeeper.in_dll(libt3ns, "bookie")
+        for rops in self._rOps:
+            rops.delete()
+        self._rOps = None
+
+        libt3ns.clear_instructions()
+        libt3ns.reinit_hamiltonian()
+
         return entanglement

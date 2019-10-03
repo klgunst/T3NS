@@ -54,3 +54,6 @@ class ROperators(Structure):
         with redirect_stdout(f):
             print_rOperators(byref(self), 1)
         return f.getvalue()
+
+    def delete(self):
+        libt3ns.destroy_rOperators(byref(self))

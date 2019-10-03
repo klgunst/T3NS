@@ -200,5 +200,5 @@ int  make_simplesweep(bool inclborder, int ** sweep, int * swlength);
 
 int get_outgoing_bond(void);
 
-void fillin_network(struct network * res, int nr_bonds, int psites, int sites,
-                    int (*bonds)[2], int * sitetoorb, int sweeplength, int * sweep);
+void fillin_network(int nr_bonds, int psites, int sites, int (*bonds)[2],
+                    int * sitetoorb, int sweeplength, int * sweep);

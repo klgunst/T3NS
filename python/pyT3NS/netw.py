@@ -1,4 +1,4 @@
-from ctypes import cdll, Structure, c_int, POINTER, c_void_p, byref
+from ctypes import cdll, c_int, POINTER, Structure, c_void_p, byref
 
 libt3ns = cdll.LoadLibrary("libT3NS.so")
 
@@ -15,36 +15,6 @@ class cNetwork(Structure):
         ("sweeplength", c_int),
         ("sweep", POINTER(c_int))
     ]
-
-    def __init__(self, network):
-        if not isinstance(network, Network):
-            raise ValueError('network should be a Network instance')
-        nr_bonds = len(network.bonds)
-        toadd = {
-            'P': 0,
-            'B': network.nrP,
-            'Vacuum': -1
-        }
-        bonds = ((c_int * 2) * nr_bonds)(
-            *[(c_int * 2)(*[toadd[s.kind] + s.nr for s in bond])
-              for bond in network.bonds]
-        )
-        sitetoorb = network.sitemap + [-1] * network.nrB
-        sitetoorb = (c_int * len(sitetoorb))(*sitetoorb)
-        if hasattr(network, 'sweep'):
-            sweep = (c_int * len(network.sweep))(*network.sweep)
-            sweeplength = len(network.sweep)
-        else:
-            sweep = None
-            sweeplength = 0
-
-        fillin_network = libt3ns.fillin_network
-        fillin_network.argtypes = [POINTER(cNetwork), c_int, c_int, c_int,
-                                   POINTER((c_int * 2)), POINTER(c_int), c_int,
-                                   POINTER(c_int)]
-
-        fillin_network(byref(self), nr_bonds, network.nrP, network.nrB +
-                       network.nrP, bonds, sitetoorb, sweeplength, sweep)
 
     def __str__(self):
         from io import StringIO
@@ -64,9 +34,21 @@ class Site:
         self.kind = kind
         self.nr = nr
 
+    @property
+    def is_physical(self):
+        return self.kind == 'P'
+
+    @property
+    def is_branching(self):
+        return self.kind == 'B'
+
+    @property
+    def is_vacuum(self):
+        return self.kind == 'Vacuum'
+
     def __str__(self):
-        if self.kind == 'Vacuum':
-            return self.kind
+        if self.is_vacuum:
+            return 'Vacuum'
         else:
             return f'{self.kind}{self.nr}'
 
@@ -78,85 +60,119 @@ class Site:
 
 
 class Network:
-    def __init__(self, sites=None, layers=0, isMET=True, isDMRG=False):
-        self.nrP = 0
-        self.nrB = 0
-        self.bonds = []
-        self.sites = []
-        self.sitemap = []
-        if sites is not None and not isDMRG:
-            from math import ceil, log
-            layers = int(ceil(log(ceil(sites / 3 + 1), 2)))
+    def __init__(self, sites=None, layers=0, isMET=True, isDMRG=False,
+                 get_global=False):
+        if get_global:
+            cnetwork = cNetwork.in_dll(libt3ns, "netw")
+            self.sites = []
+            for s in cnetwork.sitetoorb[:cnetwork.sites]:
+                self.sites.append(Site('B' if s == -1 else 'P',
+                                       self.nrB if s == -1 else self.nrP))
 
-            part1 = Network()
-            part1.make_branch(layers)
-            part2 = Network()
-            part2.make_branch(layers)
-            part1.join(part2)
-            self.make_branch(layers, True)
-            self.join(part1, jointo=self.bonds[0][1])
+            self.sitemap = [
+                s for s in cnetwork.sitetoorb[:cnetwork.sites] if s != -1
+            ]
+            self.sweep = [s for s in cnetwork.sweep[:cnetwork.sweeplength]]
 
-            toremove = 3 * (2 ** layers - 1) - sites
-            assert toremove >= 0
+            sites = [Site()] + self.sites
+            self.bonds = [[sites[b + 1] for b in bond] for bond in
+                          cnetwork.bonds[:cnetwork.nr_bonds]]
+        else:
+            self.bonds = []
+            self.sites = []
+            self.sitemap = []
+            if sites is not None and not isDMRG:
+                from math import ceil, log
+                layers = int(ceil(log(ceil(sites / 3 + 1), 2)))
 
-            Premove = []
-            Bremove = []
-            self.sitemap = list(range(self.nrP))
-            for bond in self.bonds:
-                if len(Premove) == toremove:
-                    break
-                if bond[0] == Site():
-                    Premove += [bond[1]]
-            for bond in self.bonds:
-                if len(Bremove) == toremove:
-                    break
-                for psit in Premove:
-                    if psit == bond[0]:
-                        Bremove += [bond[1]]
+                part1 = Network()
+                part1.make_branch(layers)
+                part2 = Network()
+                part2.make_branch(layers)
+                part1.join(part2)
+                self.make_branch(layers, True)
+                self.join(part1, jointo=self.bonds[0][1])
+
+                toremove = 3 * (2 ** layers - 1) - sites
+                assert toremove >= 0
+
+                Premove = []
+                Bremove = []
+                self.sitemap = list(range(self.nrP))
+                for bond in self.bonds:
+                    if len(Premove) == toremove:
                         break
-            assert len(Premove) == len(Bremove) == toremove
+                    if bond[0] == Site():
+                        Premove.append(bond[1])
+                for bond in self.bonds:
+                    if len(Bremove) == toremove:
+                        break
+                    for psit in Premove:
+                        if psit == bond[0]:
+                            Bremove.append(bond[1])
+                            break
+                assert len(Premove) == len(Bremove) == toremove
 
-            for i in range(toremove):
-                self.cut([Premove[i], Bremove[i]])
+                for i in range(toremove):
+                    self.cut([Premove[i], Bremove[i]])
 
-            self.remove_redundantbranch()
-            self.sitemap = list(range(self.nrP))
-        elif sites is not None and isDMRG:
-            self.nrP = sites
-            self.sites = [Site('P', i) for i in range(sites)]
-            self.bonds = [[Site(), self.sites[0]]] + \
-                [[self.sites[i - 1], self.sites[i]] for i in range(1, sites)] \
-                + [[self.sites[sites - 1], Site()]]
-            self.sitemap = list(range(self.nrP))
-        elif layers != 0 and isMET:
-            part1 = Network()
-            part1.make_branch(layers)
-            part2 = Network()
-            part2.make_branch(layers)
-            part1.join(part2)
-            self.make_branch(layers, True)
-            self.join(part1, jointo=self.bonds[0][1])
-        elif layers != 0:
-            part1 = Network()
-            part1.make_branch(layers)
-            part2 = Network()
-            part2.make_branch(layers)
-            part1.join(part2)
-            part3 = Network()
-            part3.make_branch(1, True)
-            part3.join(part1, jointo=part3.bonds[0][1])
-            part4 = Network()
-            part4.make_branch(layers)
-            part3.join(part4)
-            self.make_branch(layers, True)
-            self.join(part3, jointo=self.bonds[0][1])
+                self.remove_redundantbranch()
+                self.sitemap = list(range(self.nrP))
+            elif sites is not None and isDMRG:
+                self.sites = [Site('P', i) for i in range(sites)]
+                sites = [Site()] + self.sites + [Site()]
+                self.bonds = [[s1, s2] for s1, s2 in zip(sites, sites[1:])]
+                self.sitemap = list(range(self.nrP))
+            elif layers != 0 and isMET:
+                part1 = Network()
+                part1.make_branch(layers)
+                part2 = Network()
+                part2.make_branch(layers)
+                part1.join(part2)
+                self.make_branch(layers, True)
+                self.join(part1, jointo=self.bonds[0][1])
+            elif layers != 0:
+                part1 = Network()
+                part1.make_branch(layers)
+                part2 = Network()
+                part2.make_branch(layers)
+                part1.join(part2)
+                part3 = Network()
+                part3.make_branch(1, True)
+                part3.join(part1, jointo=part3.bonds[0][1])
+                part4 = Network()
+                part4.make_branch(layers)
+                part3.join(part4)
+                self.make_branch(layers, True)
+                self.join(part3, jointo=self.bonds[0][1])
+
+    @property
+    def nrP(self):
+        return sum([s.is_physical for s in self.sites])
+
+    @property
+    def nrB(self):
+        return sum([s.is_branching for s in self.sites])
+
+    @property
+    def nrsites(self):
+        return len(self.sites)
+
+    @property
+    def nrbonds(self):
+        return len(self.bonds)
+
+    @property
+    def net_bonds(self):
+        toadd = {'P': 0, 'B': self.nrP, 'Vacuum': -1}
+        return [[s.nr + toadd[s.kind] for s in b] for b in self.bonds]
 
     def __str__(self):
-        assert self.nrB + self.nrP == len(self.sites)
+        assert self.nrB + self.nrP == self.nrsites
         res = ""
-        res += f"NR_SITES = {self.nrB + self.nrP}\n"
+        res += f"NR_SITES = {self.nrsites}\n"
         res += f"NR_PHYS_SITES = {self.nrP}\n"
-        res += f"NR_BONDS = {len(self.bonds)}\n"
+        res += f"NR_BONDS = {self.nrbonds}\n"
         if hasattr(self, 'sweep'):
             res += f"SWEEP_LENGTH = {len(self.sweep)}\n"
         res += "&END\n"
@@ -167,16 +183,8 @@ class Network:
         if hasattr(self, 'sweep'):
             for swp in self.sweep:
                 res += str(swp) + " "
-            res += "&END\n"
-        toadd = {
-            'P': 0,
-            'B': self.nrP,
-            'Vacuum': -1
-        }
-        for bond in self.bonds:
-            res += f"{toadd[bond[0].kind] + bond[0].nr}\t"
-            res += f"{toadd[bond[1].kind] + bond[1].nr}\n"
-        return res
+            res += "\n&END\n"
+        return res + "".join([f"{b[0]}\t{b[1]}\n" for b in self.net_bonds])
 
     def readnetworkfile(self, filename):
         with open(filename) as f:
@@ -192,19 +200,15 @@ class Network:
             line = next(f)
             self.sitemap = []
             self.sites = []
-            self.nrP = 0
-            self.nrB = 0
             for sit in line.split():
                 if sit == '*':
                     self.sites.append(Site('B', self.nrB))
-                    self.nrB += 1
                 else:
                     self.sites.append(Site('P', self.nrP))
-                    self.nrP += 1
                     self.sitemap.append(int(sit))
+
             assert self.nrP == header_info['NR_PHYS_SITES']
-            assert self.nrB == header_info['NR_SITES'] - \
-                header_info['NR_PHYS_SITES']
+            assert self.nrsites == header_info['NR_SITES']
 
             line = next(f)
             words = line.split()
@@ -234,18 +238,14 @@ class Network:
             return
         site_ct.append(self.bonds[ind][not first])
         self.bonds[ind][not first] = Site()
-        nrP = self.nrP
-        nrB = self.nrB
+        nrP, nrB = self.nrP, self.nrB
+
         for s in site_ct:
             self.remove_Site(s, site_ct)
         self.adapt_numbering(nrP, nrB)
 
     def remove_Site(self, s, site_ct):
         self.sites.remove(s)
-        if s.kind == 'P':
-            self.nrP -= 1
-        elif s.kind == 'B':
-            self.nrB -= 1
         for bond in self.bonds:
             if bond[0] == s:
                 if bond[1] != Site():
@@ -275,11 +275,8 @@ class Network:
             self.bonds.append([self.bonds[-1][1], jointo])
             self.bonds.append([Site(), jointo])
             self.bonds.append([jointo, Site()])
-            self.nrB += 1
 
         tojoin.adapt_sites(self.nrP, self.nrB)
-        self.nrP = tojoin.nrP
-        self.nrB = tojoin.nrB
         tojoin.bonds.pop()
         indxs = self.search_bond([Site(), jointo])
         jointo = self.bonds[indxs][1]
@@ -293,14 +290,7 @@ class Network:
         self.adapt_numbering()
 
     def adapt_sites(self, addP, addB):
-        toadd = {
-            'P': addP,
-            'B': addB,
-            'Vacuum': 0,
-
-        }
-        self.nrP += addP
-        self.nrB += addB
+        toadd = {'P': addP, 'B': addB, 'Vacuum': 0}
         for sit in self.sites:
             sit.nr += toadd[sit.kind]
 
@@ -329,7 +319,7 @@ class Network:
         for site in self.sites:
             site.nr = newnumber[site.kind][site.nr]
 
-    def make_branch(self, layers, outgoing=False, firstcall=1):
+    def make_branch(self, layers, outgoing=False, firstcall=True):
         if firstcall and outgoing:
             p = Site('P', self.nrP)
             self.sites.append(p)
@@ -340,44 +330,33 @@ class Network:
                 b = Site('B', self.nrB)
                 self.sites.append(b)
                 self.bonds += [[self.bonds[-1][1], b]]
-                self.nrP += 1
-                self.nrB += 1
-                self.make_branch(layers - 1, firstcall=0)
+                self.make_branch(layers - 1, firstcall=False)
                 self.bonds += [[self.bonds[-1][1], b]]
 
-                self.nrP += 1
                 p = Site('P', self.nrP)
                 self.sites.append(p)
                 self.bonds += [[b, p]]
-                self.make_branch(layers - 1, outgoing, firstcall=0)
+                self.make_branch(layers - 1, outgoing, firstcall=False)
             else:
-                self.make_branch(layers - 1, firstcall=0)
+                self.make_branch(layers - 1, firstcall=False)
                 b = Site('B', self.nrB)
                 self.sites.append(b)
                 self.bonds += [[self.bonds[-1][1], b]]
-                self.nrP += 1
-                self.nrB += 1
 
-                self.make_branch(layers - 1, firstcall=0)
+                self.make_branch(layers - 1, firstcall=False)
                 self.bonds += [[self.bonds[-1][1], b]]
-                self.nrP += 1
                 p = Site('P', self.nrP)
                 self.sites.append(p)
                 self.bonds += [[b, p]]
         else:
             if outgoing:
                 self.bonds.append([self.bonds[-1][1], Site()])
-                self.nrP += 1
             else:
                 p = Site('P', self.nrP)
                 self.sites.append(p)
                 self.bonds.append([Site(), p])
 
         if firstcall and not outgoing:
-            if self.bonds[-1][1].kind == 'P':
-                self.nrP += 1
-            elif self.bonds[-1][1].kind == 'B':
-                self.nrB += 1
             self.bonds.append([self.bonds[-1][1], Site()])
 
     def add_branch(self, layers, jointo=None):
@@ -389,12 +368,11 @@ class Network:
         oldnrB = self.nrB
         oldnrP = self.nrP
         for bd in self.bonds:
-            if bd[0] == Site() and bd[1].kind == 'B':
+            if bd[0] == Site() and bd[1].is_branching:
                 b = bd[1]
                 self.bonds.remove(bd)
                 self.sites.remove(b)
-                self.nrB -= 1
-                for i in range(len(self.bonds)):
+                for i in range(self.nrbonds):
                     bond = self.bonds[i]
                     if bond[1] == b:
                         assert self.bonds[i + 1][0] == b
@@ -405,24 +383,14 @@ class Network:
 
     def calcDistances(self):
         from numpy import ones
-        assert self.nrB + self.nrP == len(self.sites)
-
-        nrsites = self.nrB + self.nrP
-        distances = ones((nrsites, nrsites)) * -1
-
-        toadd = {
-            'P': 0,
-            'B': self.nrP,
-            'Vacuum': -1
-        }
-        for bond in self.bonds:
-            if bond[1].kind == 'P':
+        distances = ones((self.nrsites,) * 2) * -1
+        for b, nb in zip(self.bonds, self.net_bonds):
+            if b[1].is_physical:
                 # when attaching a Physical tensor
                 # add distance one to all the previous bonds
-                currsiteid = toadd[bond[1].kind] + bond[1].nr
-                distances[currsiteid, currsiteid] = 0
-                add_one(toadd, distances, currsiteid, bond[0])
-            elif bond[1].kind == 'B':
+                distances[nb[1], nb[1]] = 0
+                add_one(distances, nb[1], nb[0])
+            elif b[1].is_branching:
                 # When attaching branching tensor:
                 # Search two previous physical tensors.
                 # distances that are not not None, in both arrays,
@@ -431,15 +399,14 @@ class Network:
                 # And once this is done, take the array distances[currsiteid]
                 # Double loop over all elements i,j and do:
                 #    if distances is not set jet, set distance to [i] + [j]
-                currsiteid = toadd[bond[1].kind] + bond[1].nr
-                distances[currsiteid, currsiteid] = 0
-                add_one(toadd, distances, currsiteid, bond[0])
+                distances[nb[1], nb[1]] = 0
+                add_one(distances, nb[1], nb[0])
 
-                currsitedist = distances[currsiteid, :]
-                for i in range(nrsites):
+                currsitedist = distances[nb[1], :]
+                for i in range(self.nrsites):
                     if currsitedist[i] == -1:
                         continue
-                    for j in range(i + 1, nrsites):
+                    for j in range(i + 1, self.nrsites):
                         if currsitedist[j] == -1 or distances[i, j] != -1:
                             continue
                         assert distances[i, j] == -1
@@ -450,9 +417,11 @@ class Network:
 
     def optimize(self, Iij, **kwargs):
         Dij = self.calcDistances()
-        psites = [site.nr for site in self.sites if site.kind == 'P']
+        psites = [site.nr for site in self.sites if site.is_physical]
         Dij = Dij[psites, :][:, psites]
         assert Iij.shape == Dij.shape
+        assert Dij.size == self.nrP ** 2
+
         self.sitemap, cost = montecarlo(Iij, Dij, **kwargs)
         return cost
 
@@ -460,11 +429,24 @@ class Network:
         '''Fills in the static global network structure in the T3NS.so library
         and puts a pointer to that global network in the network structure
         '''
-        if hasattr(self, 'cnetwork'):
-            destroy_network = libt3ns.destroy_network
-            destroy_network.argtypes = [POINTER(cNetwork)]
-            destroy_network(byref(self.cnetwork))
-        self.cnetwork = cNetwork(self)
+        bonds = ((c_int * 2) * self.nrbonds)(
+            *[(c_int * 2)(*bond) for bond in self.net_bonds]
+        )
+        sitetoorb = self.sitemap + [-1] * self.nrB
+        sitetoorb = (c_int * len(sitetoorb))(*sitetoorb)
+        if hasattr(self, 'sweep'):
+            sweep = (c_int * len(self.sweep))(*self.sweep)
+            sweeplength = len(self.sweep)
+        else:
+            sweep = None
+            sweeplength = 0
+
+        fillin_network = libt3ns.fillin_network
+        fillin_network.argtypes = [c_int, c_int, c_int, POINTER((c_int * 2)),
+                                   POINTER(c_int), c_int, POINTER(c_int)]
+
+        fillin_network(self.nrbonds, self.nrP, self.nrsites, bonds, sitetoorb,
+                       sweeplength, sweep)
 
     def plotGraph(self, grid=None):
         """Plots a graph to the current pyplot scope
@@ -479,7 +461,7 @@ class Network:
         G = nx.Graph()
         G.add_nodes_from(self.sites)
         G.add_edges_from([b for b in self.bonds if
-                          b[0].kind != "Vacuum" and b[1].kind != "Vacuum"])
+                          not b[0].is_vacuum and not b[1].is_vacuum])
         pos = None
         if grid is not None:
             if not isinstance(grid, tuple):
@@ -491,7 +473,7 @@ class Network:
                 )
             fixed_positions = {}
             for s in self.sites:
-                if s.kind == 'P':
+                if s.is_physical:
                     nr = self.sitemap[s.nr]
                     fixed_positions[s] = (nr % grid[0], nr // grid[0])
             pos = nx.spring_layout(G, pos=fixed_positions,
@@ -510,19 +492,18 @@ class Network:
 
         labels = {}
         for s in self.sites:
-            if s.kind == 'P':
+            if s.is_physical:
                 labels[s] = self.sitemap[s.nr]
 
-        color_map = ['lightblue' if s.kind == 'P' else 'green' for s in G]
+        color_map = ['lightblue' if s.is_physical else 'green' for s in G]
         nx.draw(G, pos=pos, node_color=color_map,
                 labels=labels, with_labels=True)
 
 
-def add_one(toadd, distances, currsiteid, sitetoadd):
+def add_one(distances, currsiteid, prevsiteid):
     from copy import deepcopy
-    prevsiteid = toadd[sitetoadd.kind] + sitetoadd.nr
     previousdistances = deepcopy(distances[prevsiteid, :])
-    if sitetoadd == Site():
+    if prevsiteid == -1:
         return
     for i, val in enumerate(previousdistances):
         if val != -1:

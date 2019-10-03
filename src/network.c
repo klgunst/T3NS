@@ -19,12 +19,14 @@
 #include <ctype.h>
 #include <string.h>
 #include <assert.h>
+#include <stdbool.h>
 
 #include "network.h"
 #include "io.h"
 #include "macros.h"
 
-struct network netw;
+
+struct network netw = {0};
 
 static int check_network(void)
 {
@@ -88,6 +90,20 @@ static int strcmp_ign_ws(const char * s1, const char * s2)
 
         if (*p2) return -1;
         return 0;
+}
+
+static bool is_nullnet(const struct network * net)
+{
+        const struct network nullnet = {0};
+        return (net->nr_bonds == nullnet.nr_bonds) &&
+                (net->psites == nullnet.psites) &&
+                (net->sites == nullnet.sites) &&
+                (net->bonds == nullnet.bonds) &&
+                (net->sitetoorb == nullnet.sitetoorb) &&
+                (net->nr_left_psites == nullnet.nr_left_psites) &&
+                (net->order_psites == nullnet.order_psites) &&
+                (net->sweeplength == nullnet.sweeplength) &&
+                (net->sweep == nullnet.sweep);
 }
 
 void create_nr_left_psites(void)
@@ -199,6 +215,7 @@ void create_order_psites(void)
 }
 
 /* ========================================================================== */
+
 
 void read_network(const char * inputfile, const char * relpath)
 {
@@ -378,6 +395,9 @@ void destroy_network(struct network * net)
                 safe_free(net->order_psites[i]);
         safe_free(net->order_psites);
         safe_free(net->sweep);
+
+        const struct network nullnet = {0};
+        *net = nullnet;
 }
 
 void print_network(const struct network * net)
@@ -854,9 +874,11 @@ int get_outgoing_bond(void)
         return -1;
 }
 
-void fillin_network(struct network * res, int nr_bonds, int psites, int sites,
-                    int (*bonds)[2], int * sitetoorb, int sweeplength, int * sweep)
+void fillin_network(int nr_bonds, int psites, int sites, int (*bonds)[2],
+                    int * sitetoorb, int sweeplength, int * sweep)
 {
+        if (!is_nullnet(&netw)) {destroy_network(&netw);}
+
         netw.nr_bonds = nr_bonds;
         netw.psites = psites;
         netw.sites = sites;
@@ -889,5 +911,4 @@ void fillin_network(struct network * res, int nr_bonds, int psites, int sites,
                         netw.sweep[i] = sweep[i];
                 }
         }
-        *res = netw;
 }
