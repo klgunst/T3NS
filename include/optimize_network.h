@@ -48,8 +48,10 @@ void init_calculation(struct siteTensor ** T3NS,
  * @param [in] saveloc The location where to save the hdf5 files.
  * @return The lowest found energy during the scheme.
  */
-double execute_optScheme(struct siteTensor * const T3NS, struct rOperators * const rops, 
-                         const struct optScheme * const  scheme, const char * saveloc, int lowD, int * lowDb);
+double execute_optScheme(struct siteTensor * const T3NS,
+                         struct rOperators * const rops, 
+                         const struct optScheme * const  scheme,
+                         const char * saveloc, int lowD, int * lowDb);
 
 /**
  * @brief Prints the weights of the different sectors in the target state.
@@ -129,3 +131,5 @@ double disentangle_state(struct siteTensor * T3NS,
                          const struct disentScheme * scheme,
                          int verbosity);
 
+/// Prints for every bond in the network the singular values of the wave func.
+int print_singular_values_wav(struct siteTensor * T3NS);

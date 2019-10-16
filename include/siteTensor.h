@@ -565,4 +565,9 @@ struct decompose_info decompose_siteTensor(struct siteTensor * A, int nCenter,
                                            struct siteTensor * T3NS, 
                                            const struct SvalSelect * sel);
 
+/// Prints the singular values stored in Sval to stdout.
 void print_singular_values(struct Sval * sval);
+
+/// Returns the singular values of an Rmatrix.
+/// This method is destructive on R but does not free it.
+struct Sval R_svd(struct Rmatrix * R);

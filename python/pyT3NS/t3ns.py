@@ -468,3 +468,25 @@ class T3NS:
         libt3ns.reinit_hamiltonian()
 
         return entanglement
+
+    def singular_values(self):
+        """Returns the singular values for the different bonds in network.
+        """
+        from pyT3NS.c_stdout_filter import stdout_redirector
+        import io
+        print_sval = libt3ns.print_singular_values_wav
+        print_sval.argtypes = [POINTER(tensors.SiteTensor)]
+
+        f = io.BytesIO()
+        with stdout_redirector(f):
+            print_sval(self._T3NS)
+        outpstring = f.getvalue().decode('utf8')
+        svals = [l.split() for l in outpstring.split('\n')[:-1]]
+        maxbond = max([len(s) for s in svals])
+        result = numpy.zeros((self._netw.nrbonds, maxbond))
+
+        for l in svals:
+            index = int(l[0][:-1])
+            sval_bonds = numpy.asarray([float(el) for el in l[1:]])
+            result[index][:sval_bonds.size] = sval_bonds
+        return result

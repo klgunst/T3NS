@@ -1149,3 +1149,72 @@ double disentangle_state(struct siteTensor * T3NS,
         create_order_psites();
         return enti.totent;
 }
+
+int print_singular_values_wav(struct siteTensor * T3NS)
+{
+        // Making backup
+        struct siteTensor * safe_malloc(T3NS_backup, netw.sites);
+        for (int i = 0; i < netw.sites; ++i) {
+                deep_copy_siteTensor(&T3NS_backup[i], &T3NS[i]);
+        }
+
+        struct bookkeeper bookie_backup;
+        deep_copy_bookkeeper(&bookie_backup, &bookie);
+
+        // Sweep through network do QR decomposition and print the singular
+        // values every step.
+        bool * safe_malloc(touched, netw.nr_bonds);
+        for (int i = 0; i < netw.nr_bonds; ++i) { touched[i] = false; }
+
+        struct stepSpecs specs;
+
+        int * sweep = netw.sweep;
+        int sweeplength = netw.sweeplength;
+        make_simplesweep(true, &netw.sweep, &netw.sweeplength);
+        while (next_opt_step(1, &specs)) {
+                assert(specs.nr_sites_opt == 1);
+                const int site = specs.sites_opt[0];
+                struct siteTensor A = T3NS[site];
+                assert(A.sites[0] == site);
+                const int bond = specs.bonds_opt[specs.common_next[0]];
+                const int nCenter = netw.bonds[bond][netw.bonds[bond][0] == site];
+                const int oc_id = siteTensor_give_bondid(&A, bond);
+                const int o_id = siteTensor_give_bondid(&T3NS[nCenter], bond);
+                assert(oc_id != -1 && o_id != -1);
+
+                // Do QR
+                struct siteTensor Q;
+                struct Rmatrix R;
+                if(qr(&A, oc_id, &Q, &R)) { return 0; }
+                destroy_siteTensor(&A);
+                T3NS[site] = Q;
+
+                // Contract R
+                struct siteTensor B;
+                if(multiplyR(&T3NS[nCenter], o_id, &R, 1, &B)) { return 0; }
+                destroy_siteTensor(&T3NS[nCenter]);
+                T3NS[nCenter] = B;
+
+                if (!touched[bond]) {
+                        struct Sval S = R_svd(&R);
+                        print_singular_values(&S);
+                        destroy_Sval(&S);
+                }
+                touched[bond] = true;
+                destroy_Rmatrix(&R);
+        }
+        safe_free(netw.sweep);
+        netw.sweep = sweep;
+        netw.sweeplength = sweeplength;
+        safe_free(touched);
+
+        // Putting back backup
+        destroy_bookkeeper(&bookie);
+        bookie = bookie_backup;
+        for (int i = 0; i < netw.sites; ++i) {
+                destroy_siteTensor(&T3NS[i]);
+                T3NS[i] = T3NS_backup[i];
+        }
+        safe_free(T3NS_backup);
+        return 0;
+}

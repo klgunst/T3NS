@@ -168,3 +168,6 @@ void bookkeeper_get_symsecs(const struct bookkeeper * keeper,
 
 void bookkeeper_get_symsecs_arr(const struct bookkeeper * keeper, int n, 
                                 struct symsecs * symarr, const int * bonds);
+
+/// Makes a deep copy of a bookkeeper structure.
+void deep_copy_bookkeeper(struct bookkeeper * copy, const struct bookkeeper * tocopy);

@@ -564,8 +564,7 @@ void print_singular_values(struct Sval * sval)
         printf("\n");
 }
 
-// Destructive on the R matrix
-static struct Sval R_svd(struct Rmatrix * R)
+struct Sval R_svd(struct Rmatrix * R)
 {
         struct Sval S = {
                 .bond = R->bond,

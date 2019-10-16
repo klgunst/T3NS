@@ -147,18 +147,13 @@ void get_string_of_bond(char * buffer, int bond);
 /**
  * @brief Returns the information for the next optimization step.
  *
- * This function has an internal state, and is thus not threadsafe, but you won't use this in a
- * thread normally.
+ * This function has an internal state, and is thus not threadsafe, but you
+ * won't use this in a thread normally.
  *
- * @param [in] maxsites The maximal number of sites updated this step, if larger than 4,
- * 4 is assumed.
- * @param [out] bonds_involved The outward bonds of the siteTensor to be optimized.
- * @param [out] sites_opt The sites to optimize this step.
- * This is always a 4-element array, if less than 4 sites should be optimized, the surpluss is 
- * filled with -1.
- * @param [out] common_nxt The sites that are common with the next step to be executed.
+ * @param [in] maxsites The maximal number of sites updated this step, if
+ * larger than 4, 4 is assumed.
  *
- * \return Returns 1 if sweep is not finished yet, 0 if sweep is finished.
+ * @return Returns 1 if sweep is not finished yet, 0 if sweep is finished.
  */
 int next_opt_step(int maxsites, struct stepSpecs * specs);
 

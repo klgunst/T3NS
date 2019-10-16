@@ -888,3 +888,24 @@ void bookkeeper_get_symsecs_arr(const struct bookkeeper * keeper, int n,
                 bookkeeper_get_symsecs(keeper, &symarr[i], bonds[i]);
         }
 }
+
+void deep_copy_bookkeeper(struct bookkeeper * copy, const struct bookkeeper * tocopy)
+{
+        copy->nrSyms = tocopy->nrSyms;
+        for (int i = 0; i < MAX_SYMMETRIES; ++i) {
+                copy->sgs[i] = tocopy->sgs[i];
+        }
+        for (int i = 0; i < MAX_SYMMETRIES; ++i) {
+                copy->target_state[i] = tocopy->target_state[i];
+        }
+        copy->nr_bonds = tocopy->nr_bonds;
+        safe_malloc(copy->v_symsecs, copy->nr_bonds);
+        for (int i = 0; i < copy->nr_bonds; ++i) {
+                deep_copy_symsecs(&copy->v_symsecs[i], &tocopy->v_symsecs[i]);
+        }
+        copy->psites = tocopy->psites;
+        safe_malloc(copy->p_symsecs, copy->psites);
+        for (int i = 0; i < copy->psites; ++i) {
+                deep_copy_symsecs(&copy->p_symsecs[i], &tocopy->p_symsecs[i]);
+        }
+}
