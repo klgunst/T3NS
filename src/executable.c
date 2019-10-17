@@ -420,7 +420,7 @@ int main(int argc, char *argv[])
                 init_operators(&rops, T3NS);
                 execute_optScheme(T3NS, rops, &scheme, pbuffer, lowD, lowDb);
         }
-        write_to_disk(buffer, T3NS, rops);
+        if (pbuffer != NULL) { write_to_disk(buffer, T3NS, rops); }
         print_target_state_coeff(T3NS);
 
         cleanup_before_exit(&T3NS, &rops, &scheme);
