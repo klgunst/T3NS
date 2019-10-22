@@ -482,7 +482,7 @@ class T3NS:
             print_sval(self._T3NS)
         outpstring = f.getvalue().decode('utf8')
         svals = [l.split() for l in outpstring.split('\n')[:-1]]
-        maxbond = max([len(s) for s in svals])
+        maxbond = max([len(s) - 1 for s in svals])
         result = numpy.zeros((self._netw.nrbonds, maxbond))
 
         for l in svals:
