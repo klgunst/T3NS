@@ -1,0 +1,25 @@
+diff --git src/bookkeeper.c src/bookkeeper.c
+index afad612..9e87973 100644
+--- src/bookkeeper.c
++++ src/bookkeeper.c
+@@ -339,6 +339,20 @@ static void create_v_symsecs(int max_dim, int interm_scale, int minocc)
+         } else {
+                 scale_dims(max_dim, minocc);
+         }
++
++        // Dirty fix for all charges same bond dimension given by max_dim
++        for (int i = 0; i < bookie.nr_bonds; ++i) {
++                struct symsecs * this_symsec = &bookie.v_symsecs[i];
++                this_symsec->totaldims = 0;
++                for (int j = 0; j < this_symsec->nrSecs; ++j) {
++                        if (this_symsec->fcidims[j] < max_dim) {
++                                this_symsec->dims[j] = (int) this_symsec->fcidims[j];
++                        } else {
++                                this_symsec->dims[j] = max_dim;
++                        }
++                        this_symsec->totaldims += this_symsec->dims[j];
++                }
++        }
+ }
+ 
+ void destroy_bookkeeper(struct bookkeeper * keeper)
