@@ -475,7 +475,7 @@ void write_to_disk(const char * hdf5_loc, const struct siteTensor * const T3NS,
 }
 
 int read_from_disk(const char filename[], struct siteTensor ** const T3NS, 
-                    struct rOperators ** const ops)
+                   struct rOperators ** const ops, bool init)
 {
         if (access(filename, F_OK) != 0) {
                 fprintf(stderr, "Error in %s: Can not read from disk.\n"
@@ -487,9 +487,11 @@ int read_from_disk(const char filename[], struct siteTensor ** const T3NS,
 
         read_network_from_disk(file_id);
         read_bookkeeper_from_disk(file_id);
-        read_hamiltonian_from_disk(file_id);
         read_T3NS_from_disk(file_id, T3NS);
-        read_rOps_from_disk(file_id, ops);
+        if (!init) {
+                read_hamiltonian_from_disk(file_id);
+                read_rOps_from_disk(file_id, ops);
+        }
 
         H5Fclose(file_id);
         return 0;

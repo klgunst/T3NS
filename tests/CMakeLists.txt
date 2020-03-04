@@ -1,6 +1,6 @@
 set(TESTDIR ${CMAKE_BINARY_DIR}/tests)
 
-set(TESTLIST "test1" "test2" "test3" "test4")
+set(TESTLIST "test1" "test2" "test3" "test4" "test5")
 if(PERFORMANCETEST)
     set(TEST_INIT_OPTION c)
     set(TEST_PREFIX performance)

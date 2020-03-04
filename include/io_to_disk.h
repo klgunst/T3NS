@@ -28,7 +28,7 @@ void write_to_disk(const char * hdf5_loc, const struct siteTensor * const T3NS,
                    const struct rOperators * const ops);
 
 int read_from_disk(const char filename[], struct siteTensor ** const T3NS, 
-                   struct rOperators ** const ops);
+                   struct rOperators ** const ops, bool init);
 
 void write_dataset(hid_t id, const char datname[], const void * dat, 
                    hsize_t size, enum hdf5type kind);

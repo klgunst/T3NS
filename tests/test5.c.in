@@ -1,0 +1,141 @@
+/*
+    T3NS: an implementation of the Three-Legged Tree Tensor Network algorithm
+    Copyright (C) 2018-2019 Klaas Gunst <Klaas.Gunst@UGent.be>
+    
+    This program is free software: you can redistribute it and/or modify
+    it under the terms of the GNU General Public License as published by
+    the Free Software Foundation, version 3.
+    
+    This program is distributed in the hope that it will be useful,
+    but WITHOUT ANY WARRANTY; without even the implied warranty of
+    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+    GNU General Public License for more details.
+    
+    You should have received a copy of the GNU General Public License
+    along with this program.  If not, see <https://www.gnu.org/licenses/>.
+*/
+#include <stdlib.h>
+#include <stdio.h>
+#include <math.h>
+
+#include "options.h"
+#include "io.h"
+#include "macros.h"
+#include "network.h"
+#include "hamiltonian.h"
+#include "hamiltonian_qc.h"
+#include "bookkeeper.h"
+#include "optimize_network.h"
+#include "instructions.h"
+
+static void initialize_program(struct siteTensor **T3NS, 
+                               struct rOperators **rops, 
+                               struct optScheme * scheme)
+{
+        static int tstate[4] = {0, 14, 0, 0};
+        static enum symmetrygroup sgs[4] = {Z2, U1, SU2, D2h};
+        static int nrsyms = 4;
+
+        bookie.nrSyms = nrsyms;
+        for (int i = 0; i < bookie.nrSyms; ++i) { 
+                bookie.target_state[i] = tstate[i];
+                bookie.sgs[i] = sgs[i];
+        }
+
+        make_network("${CMAKE_SOURCE_DIR}/tests/networks/10_DMRG.netw");
+        readinteraction("${CMAKE_SOURCE_DIR}/tests/fcidumps/N2_STO3G_113.FCIDUMP");
+        preparebookkeeper(NULL, scheme->regimes[0].svd_sel.minD, 1, 
+                          DEFAULT_MINSTATES, NULL);
+        init_calculation(T3NS, rops, '${TEST_INIT_OPTION}');
+}
+
+static void destroy_T3NS(struct siteTensor **T3NS)
+{
+        int i;
+        for (i = 0; i < netw.sites; ++i)
+                destroy_siteTensor(&(*T3NS)[i]);
+        safe_free(*T3NS);
+}
+
+static void destroy_all_rops(struct rOperators **rops)
+{
+        int i;
+        for (i = 0; i < netw.nr_bonds; ++i)
+                destroy_rOperators(&(*rops)[i]);
+        safe_free(*rops);
+}
+
+static void cleanup_before_exit(struct siteTensor **T3NS, 
+                                struct rOperators **rops)
+{
+        destroy_bookkeeper(&bookie);
+        destroy_network(&netw);
+        destroy_T3NS(T3NS);
+        destroy_all_rops(rops);
+        destroy_hamiltonian();
+        clear_instructions();
+}
+
+int main(int argc, char *argv[])
+{
+        // First calculate for Nitrogen dimer at 1.13 Angstrom distance
+        static struct regime reg[2] = {
+                {
+                        .svd_sel = {100, 100, 1e-4},
+                        .sitesize = 2,
+                        .davidson_rtl = 1e-6,
+                        .davidson_max_its = 100,
+                        .max_sweeps = 2,
+                        .energy_conv = 1e-4
+                },
+                {
+                        .svd_sel = {400, 400, 1e-4},
+                        .sitesize = 2,
+                        .davidson_rtl = 1e-9,
+                        .davidson_max_its = 100,
+                        .max_sweeps = 100,
+                        .energy_conv = 1e-9
+                },
+        };
+        static struct optScheme scheme = {2, reg};
+        static struct regime reg2[2] = {
+                {
+                        .svd_sel = {400, 400, 1e-4},
+                        .sitesize = 2,
+                        .davidson_rtl = 1e-9,
+                        .davidson_max_its = 100,
+                        .max_sweeps = 1,
+                        .energy_conv = 1e-9
+                },
+        };
+        static struct optScheme scheme2 = {1, reg2};
+        const double fci_113 = -107.6673785798841;
+        const double fci_120 = -107.67733974921187;
+
+        struct siteTensor *T3NS = NULL;
+        struct rOperators *rops = NULL;
+
+        initialize_program(&T3NS, &rops, &scheme);
+        double energy_113 = execute_optScheme(T3NS, rops, &scheme, NULL, 0, NULL);
+
+        // Destroy rOperators and Hamiltonian and reread with new ones.
+        destroy_all_rops(&rops);
+        destroy_hamiltonian();
+        clear_instructions();
+
+        readinteraction("${CMAKE_SOURCE_DIR}/tests/fcidumps/N2_STO3G_120.FCIDUMP");
+        init_operators(&rops, T3NS);
+
+        double energy_120 = execute_optScheme(T3NS, rops, &scheme2, NULL, 0, NULL);
+
+        const int OK_113 = fabs(energy_113 - fci_113) < 1e-9;
+        const int OK_120 = fabs(energy_120 - fci_120) < 1e-9;
+
+        if (OK_113 && OK_120) {
+                printf("\t==> Test passed\n");
+                return 0;
+        } else {
+                printf("\t==> Test failed\n");
+                return 1;
+        }
+}

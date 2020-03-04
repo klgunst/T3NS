@@ -23,6 +23,7 @@
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <assert.h> 
+#include <stdbool.h>
 
 #include "T3NSConfig.h"
 #include "io.h"
@@ -146,6 +147,8 @@ static char args_doc[] = "INPUT_FILE";
 static struct argp_option options[] = {
         {"continue", 'c', "HDF5_FILE", 0, "Continue the calculation from a saved hdf5-file. "
                 "If specified, only the optimization scheme in INPUTFILE is read."},
+        {"initialize", 'i', "HDF5_FILE", 0, "Initialize the wave function (Tensor network) with a network from a previous calculation. "
+                "Hamiltonian is reinitialized from the input file and renormalized operators are recalculated."},
         {"savelocation", -1, "/path/to/directory", OPTION_ARG_OPTIONAL,
                 "Save location for files to disk.\nDefault location is \"" H5_DEFAULT_LOCATION "\"."
                         "You can disable saving by passing this option without an argument."},
@@ -158,6 +161,7 @@ static struct argp_option options[] = {
 // Used by main to communicate with parse_opt.
 struct arguments {
         char *h5file;
+        bool inith5;
         char *saveloc;
         int do_disentangle;
         char *args[1];                /* inputfile */
@@ -172,7 +176,9 @@ static error_t parse_opt(int key, char *arg, struct argp_state *state)
 
         switch (key) {
         case 'c':
+        case 'i':
                 arguments->h5file = arg;
+                arguments->inith5 = key == 'i';
                 break;
         case -1:
                 if (arg == NULL || strlen(arg) == 0)
@@ -330,7 +336,7 @@ static int initialize_program(int argc, char *argv[],
         if (arguments.h5file) {
                 tic(&chrono, READ_HDF5);
                 printf(">> Reading %s...\n", arguments.h5file);
-                if(read_from_disk(arguments.h5file, T3NS, rops)) { return 1; }
+                if(read_from_disk(arguments.h5file, T3NS, rops, arguments.inith5)) { return 1; }
                 minocc = 0;
                 toc(&chrono, READ_HDF5);
         }
