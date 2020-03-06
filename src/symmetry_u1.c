@@ -60,9 +60,15 @@ int U1_which_irrep(char * buffer, int *irr, int seniority)
                 *irr = buffer[0] == '=' ? -1 : 1;
                 while (*buffer == '=' || *buffer == ' ') { ++buffer; }
         }
-        *irr *= atoi(buffer);
+        char * endptr;
+        *irr *= strtol(buffer, &endptr, 10);
+        if (seniority && endptr[0] == '-') {
+                if (seniority < 0) return 0;
+                *irr *= 100;
+                *irr += strtol(&endptr[1], &endptr, 10);
+        }
         /* no error in reading buffer */
-        if ((*irr != 0) ^ (buffer[0] == '0')) {
+        if ((*irr != 0) && (endptr[0] == '\0')) {
                 return *irr >= 0 || seniority;
         }
         return 0;

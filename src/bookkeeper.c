@@ -102,7 +102,10 @@ void init_targetstate(struct symsecs * sectors, char o)
                 for (int i = 0; i < bookie.nrSyms; ++i) 
                         sectors->irreps[0][i] = bookie.target_state[i]; 
         } else {
-                sectors->nrSecs = -bookie.target_state[seniority_id] / 2 + 1;
+                int bsen = (-bookie.target_state[seniority_id]) / 100;
+                int esen = -(bookie.target_state[seniority_id]) % 100;
+                bsen += get_particlestarget() % 2 == bsen % 2 ? 0 : 1;
+                sectors->nrSecs = (esen - bsen) / 2 + 1;
                 safe_malloc(sectors->irreps, sectors->nrSecs);
                 safe_malloc(sectors->fcidims, sectors->nrSecs);
                 for (int i = 0; i < sectors->nrSecs; ++i) {
@@ -116,15 +119,13 @@ void init_targetstate(struct symsecs * sectors, char o)
                                 sectors->dims[i] = 1;
                         }
                 }
-                int sen = -bookie.target_state[seniority_id] % 2;
                 for (int i = 0; i < sectors->nrSecs; ++i) {
                         for (int j = 0; j < bookie.nrSyms; ++j) {
                                 sectors->irreps[i][j] = bookie.target_state[j]; 
                         }
-                        sectors->irreps[i][seniority_id] = sen;
-                        sen += 2;
+                        sectors->irreps[i][seniority_id] = bsen;
+                        bsen += 2;
                 }
-                assert(sen == -bookie.target_state[seniority_id] + 2);
         }
         if (seniority_id != -1) { bookie.target_state[seniority_id] *= -1; }
 }
