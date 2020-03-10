@@ -15,6 +15,7 @@
     along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 #pragma once
+#include <stdbool.h>
 
 /**
  * \file instructions.h
@@ -77,10 +78,15 @@ int get_next_unique_instr(int * curr_instr,
 void destroy_instructionset(struct instructionset * instructions);
 
 void print_instructions(struct instructionset * instructions, int bond, 
-                        int is_left, char kind, int isdmrg);
+                        int is_left, char kind, int isdmrg, bool name);
 
 void start_fill_instruction(struct instructionset * instructions, int step);
 
 void fill_instruction(int id1, int id2, int id3, double pref);
 
 void clear_instructions(void);
+
+/// Fills in the instructionsets in the static variables in `instructions.c`.
+void shallow_copy_instructionsets(struct instructionset (*pinstr)[2],
+                                  struct instructionset (*binstr)[2], 
+                                  struct instructionset (*minstr)[2]);

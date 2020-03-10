@@ -439,13 +439,13 @@ static double execute_regime(struct siteTensor * T3NS, struct rOperators * rops,
 
 static void init_rops(struct rOperators * const rops, 
                       const struct siteTensor * const tens, const int bond,
-                      struct timers * chrono)
+                      struct timers * chrono, bool tilltheend)
 {
         const int siteL = netw.bonds[bond][0];
         const int siteR = netw.bonds[bond][1];
         struct rOperators * const curr_rops = &rops[bond];
 
-        if (siteL == -1 || siteR == -1) {
+        if (siteL == -1 || (!tilltheend && siteR == -1)) {
                 *curr_rops = vacuum_rOperators(bond, siteL == -1);
         } else if (is_psite(siteL)) { /* physical tensor, DMRG update needed */
                 assert(tens != NULL);
@@ -482,7 +482,8 @@ static void init_rops(struct rOperators * const rops,
 
 /* ========================================================================== */
 
-int init_operators(struct rOperators ** rOps, struct siteTensor * T3NS)
+int init_operators(struct rOperators ** rOps, const struct siteTensor * T3NS,
+                   bool tilltheend)
 {
         struct timers chrono = init_timers(timernames, timkeys,
                                            sizeof timkeys / sizeof timkeys[0]);
@@ -492,9 +493,9 @@ int init_operators(struct rOperators ** rOps, struct siteTensor * T3NS)
         for (int i = 0; i < netw.nr_bonds; ++i) {
                 const int siteL = netw.bonds[i][0];
                 if (siteL == -1) {
-                        init_rops(*rOps, NULL, i, &chrono);
+                        init_rops(*rOps, NULL, i, &chrono, tilltheend);
                 } else {
-                        init_rops(*rOps, &T3NS[siteL], i, &chrono);
+                        init_rops(*rOps, &T3NS[siteL], i, &chrono, tilltheend);
                 }
         }
         print_timers(&chrono, " * ", true);
@@ -660,7 +661,7 @@ void init_calculation(struct siteTensor ** T3NS, struct rOperators ** rOps,
                       char option)
 {
         if (make_new_T3NS(T3NS, option)) { exit(EXIT_FAILURE); }
-        if (init_operators(rOps, *T3NS)) { exit(EXIT_FAILURE); }
+        if (init_operators(rOps, *T3NS, false)) { exit(EXIT_FAILURE); }
 }
 
 double execute_optScheme(struct siteTensor * const T3NS, struct rOperators * const rops, 

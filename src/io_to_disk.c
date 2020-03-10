@@ -455,8 +455,7 @@ static void make_h5f_name(const char * hdf5_loc, const char hdf5file[],
 void write_to_disk(const char * hdf5_loc, const struct siteTensor * const T3NS, 
                    const struct rOperators * const ops)
 {
-        if (hdf5_loc == NULL)
-                return;
+        if (hdf5_loc == NULL) { return; }
 
         hid_t file_id;
         const char hdf5nam[] = "T3NScalc.h5";
@@ -490,7 +489,7 @@ int read_from_disk(const char filename[], struct siteTensor ** const T3NS,
         read_T3NS_from_disk(file_id, T3NS);
         if (!init) {
                 read_hamiltonian_from_disk(file_id);
-                read_rOps_from_disk(file_id, ops);
+                if (ops != NULL) { read_rOps_from_disk(file_id, ops); }
         }
 
         H5Fclose(file_id);

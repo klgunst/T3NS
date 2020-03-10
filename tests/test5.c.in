@@ -49,31 +49,12 @@ static void initialize_program(struct siteTensor **T3NS,
         init_calculation(T3NS, rops, '${TEST_INIT_OPTION}');
 }
 
-static void destroy_T3NS(struct siteTensor **T3NS)
-{
-        int i;
-        for (i = 0; i < netw.sites; ++i)
-                destroy_siteTensor(&(*T3NS)[i]);
-        safe_free(*T3NS);
-}
-
 static void destroy_all_rops(struct rOperators **rops)
 {
         int i;
         for (i = 0; i < netw.nr_bonds; ++i)
                 destroy_rOperators(&(*rops)[i]);
         safe_free(*rops);
-}
-
-static void cleanup_before_exit(struct siteTensor **T3NS, 
-                                struct rOperators **rops)
-{
-        destroy_bookkeeper(&bookie);
-        destroy_network(&netw);
-        destroy_T3NS(T3NS);
-        destroy_all_rops(rops);
-        destroy_hamiltonian();
-        clear_instructions();
 }
 
 int main(int argc, char *argv[])
@@ -124,7 +105,7 @@ int main(int argc, char *argv[])
         clear_instructions();
 
         readinteraction("${CMAKE_SOURCE_DIR}/tests/fcidumps/N2_STO3G_120.FCIDUMP");
-        init_operators(&rops, T3NS);
+        init_operators(&rops, T3NS, false);
 
         double energy_120 = execute_optScheme(T3NS, rops, &scheme2, NULL, 0, NULL);
 

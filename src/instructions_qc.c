@@ -17,6 +17,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <assert.h>
+#include <math.h>
 #include <omp.h>
 
 #include "instructions.h"
@@ -321,5 +322,81 @@ void QC_fetch_merge(struct instructionset * instructions, int bond, int isdmrg)
                 destroy_opType(&ops[0], bonds[0], 1);
                 destroy_opType(&ops[1], bonds[1], 1);
                 destroy_opType(&ops[2], bonds[2], 0);
+        }
+}
+
+void QC_seniority_instructions(struct instructionset * instructions)
+{
+        bool hassu2 = false;
+        for (int i = 0; i < bookie.nrSyms; ++i) {
+                if (bookie.sgs[i] == SU2) {
+                        hassu2 = true;
+                        break;
+                }
+        }
+
+        instructions->nr_instr = hassu2 ? 5 : 7;
+        instructions->step = 3;
+        safe_malloc(instructions->instr, instructions->nr_instr);
+        if (hassu2) {
+                instructions->instr[0].instr[0] = 0;
+                instructions->instr[0].instr[1] = 0 ;
+                instructions->instr[0].instr[2] = 0 ;
+                instructions->instr[0].pref = 1.;
+
+                instructions->instr[1].instr[0] = 0;
+                instructions->instr[1].instr[1] = 5 ;
+                instructions->instr[1].instr[2] = 0 ;
+                instructions->instr[1].pref = -sqrt(2);
+
+                instructions->instr[2].instr[0] = 0;
+                instructions->instr[2].instr[1] = 9 ;
+                instructions->instr[2].instr[2] = 0 ;
+                instructions->instr[2].pref = -4.;
+
+                instructions->instr[3].instr[0] = 0;
+                instructions->instr[3].instr[1] = 5 ;
+                instructions->instr[3].instr[2] = 1 ;
+                instructions->instr[3].pref = sqrt(2);
+
+                instructions->instr[4].instr[0] = 0;
+                instructions->instr[4].instr[1] = 9 ;
+                instructions->instr[4].instr[2] = 1 ;
+                instructions->instr[4].pref = 4.;
+        } else {
+                instructions->instr[0].instr[0] = 0;
+                instructions->instr[0].instr[1] = 0 ;
+                instructions->instr[0].instr[2] = 0 ;
+                instructions->instr[0].pref = 1.;
+
+                instructions->instr[1].instr[0] = 0;
+                instructions->instr[1].instr[1] = 7 ;
+                instructions->instr[1].instr[2] = 0 ;
+                instructions->instr[1].pref = -1.;
+
+                instructions->instr[2].instr[0] = 0;
+                instructions->instr[2].instr[1] = 10 ;
+                instructions->instr[2].instr[2] = 0 ;
+                instructions->instr[2].pref = -1.;
+
+                instructions->instr[3].instr[0] = 0;
+                instructions->instr[3].instr[1] = 15 ;
+                instructions->instr[3].instr[2] = 0 ;
+                instructions->instr[3].pref = -2.;
+
+                instructions->instr[4].instr[0] = 0;
+                instructions->instr[4].instr[1] = 7;
+                instructions->instr[4].instr[2] = 1;
+                instructions->instr[4].pref = 1.;
+
+                instructions->instr[5].instr[0] = 0;
+                instructions->instr[5].instr[1] = 10;
+                instructions->instr[5].instr[2] = 1;
+                instructions->instr[5].pref = 1.;
+
+                instructions->instr[6].instr[0] = 0;
+                instructions->instr[6].instr[1] = 15;
+                instructions->instr[6].instr[2] = 1;
+                instructions->instr[6].pref = 2.;
         }
 }

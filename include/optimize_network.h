@@ -71,9 +71,11 @@ void print_target_state_coeff(const struct siteTensor * T3NS);
  *
  * @param [in,out] rOps The calculated renormalized operators.
  * @param [in] T3NS The wave function.
+ * @param [in] tilltheend True for calculation of operators (contraction till the end)
  * @return 0 on success, 1 on failure.
  */
-int init_operators(struct rOperators ** rOps, struct siteTensor * T3NS);
+int init_operators(struct rOperators ** rOps, const struct siteTensor * T3NS,
+                   bool tilltheend);
 
 /*
  * @brief Initializes the wave function.

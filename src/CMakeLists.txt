@@ -41,6 +41,7 @@ set(T3NSLIB_SOURCE_FILES
     "RedDM.c"
     "timers.c"
     "qcH.c"
+    "operators.c"
     )
 
 add_library(T3NS-shared SHARED ${T3NSLIB_SOURCE_FILES})

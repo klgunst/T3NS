@@ -16,6 +16,7 @@
 */
 #include <stdio.h>
 #include <stdlib.h>
+#include <stdbool.h>
 #include <assert.h>
 #include <string.h>
 
@@ -144,7 +145,7 @@ struct instructionset fetch_pUpdate(int bond, int is_left)
                 instr->MPOc_beg = NULL;
         }
 #ifdef PRINT_INSTRUCTIONS
-        print_instructions(&iset_pUpdate[bond][is_left], bond, is_left, 'd', 0);
+        print_instructions(&iset_pUpdate[bond][is_left], bond, is_left, 'd', 0, true);
 #endif
         return iset_pUpdate[bond][is_left];
 }
@@ -180,7 +181,7 @@ struct instructionset fetch_bUpdate(int bond, int is_left)
                 instr->MPOc_beg = NULL;
         }
 #ifdef PRINT_INSTRUCTIONS
-        print_instructions(&iset_bUpdate[bond][is_left], bond, is_left, 't', 0);
+        print_instructions(&iset_bUpdate[bond][is_left], bond, is_left, 't', 0, true);
 #endif
         return iset_bUpdate[bond][is_left];
 }
@@ -216,7 +217,7 @@ struct instructionset fetch_merge(const int bond, int isdmrg, int ** hss_ops)
         }
 
 #ifdef PRINT_INSTRUCTIONS
-        print_instructions(&iset_merge[bond][isdmrg], bond, 0, 'm', isdmrg);
+        print_instructions(&iset_merge[bond][isdmrg], bond, 0, 'm', isdmrg, true);
 #endif
         return iset_merge[bond][isdmrg];
 }
@@ -251,7 +252,7 @@ int get_next_unique_instr(int * curr_instr, const struct instructionset * set)
 }
 
 static void print_DMRG_instructions(struct instructionset * instructions, 
-                                    const int bond, const int is_left)
+                                    const int bond, const int is_left, bool name)
 {
         const int site = netw.sitetoorb[netw.bonds[bond][is_left]];
         int bonds[3];
@@ -262,21 +263,29 @@ static void print_DMRG_instructions(struct instructionset * instructions,
         assert(bond == bonds[2 * !is_left]);
 
         printf("================================================================================\n" 
-               "Printing DMRG instructions for bond %d going %s.\n", 
+               "Printing DMRG instructions for bond %d from %s.\n", 
                bond, is_left ? "left" : "right");
 
         for (int i = 0; i < instructions->nr_instr; ++i) {
                 char buffer[MY_STRING_LEN];
-                get_string_of_rops(buffer, instructions->instr[i].instr[0], 
-                                   bond, is_left, 'e');
+                if (name) {
+                        get_string_of_rops(buffer, instructions->instr[i].instr[0], 
+                                           bond, is_left, 'e');
+                } else {
+                        sprintf(buffer, "%d", instructions->instr[i].instr[0]);
+                }
                 printf("%14.8g * %-16s + ", instructions->instr[i].pref, buffer);
                 get_string_of_siteops(buffer, instructions->instr[i].instr[1], site);
                 printf("%-32s --> ", buffer);
                 get_sectorstring(&MPO, instructions->hss_of_new[
                                  instructions->instr[i].instr[2]], buffer);
                 printf("(%s)", buffer);
-                get_string_of_rops(buffer, instructions->instr[i].instr[2], 
-                                   bonds[2 * is_left], is_left, 'c');
+                if (name) {
+                        get_string_of_rops(buffer, instructions->instr[i].instr[2], 
+                                           bonds[2 * is_left], is_left, 'c');
+                } else {
+                        sprintf(buffer, "%d", instructions->instr[i].instr[2]);
+                }
                 printf("\t%s\n", buffer);
         }
 
@@ -284,7 +293,7 @@ static void print_DMRG_instructions(struct instructionset * instructions,
 }
 
 static void print_T3NS_instructions(struct instructionset * instructions, 
-                                    int bond, int is_left)
+                                    int bond, int is_left, bool name)
 {
         int bonds[3];
         int bond1, bond2, left1, left2;
@@ -319,17 +328,29 @@ static void print_T3NS_instructions(struct instructionset * instructions,
 
         for (int i = 0; i < instructions->nr_instr; ++i) {
                 char buffer[255];
-                get_string_of_rops(buffer, instructions->instr[i].instr[0],
-                                   bond1, left1, 'e');
+                if (name) {
+                        get_string_of_rops(buffer, instructions->instr[i].instr[0],
+                                           bond1, left1, 'e');
+                } else {
+                        sprintf(buffer, "%d", instructions->instr[i].instr[0]);
+                }
                 printf("%14.8g * %-16s + ", instructions->instr[i].pref, buffer);
-                get_string_of_rops(buffer, instructions->instr[i].instr[1], 
-                                   bond2, left2, 'e');
+                if (name) {
+                        get_string_of_rops(buffer, instructions->instr[i].instr[1], 
+                                           bond2, left2, 'e');
+                } else {
+                        sprintf(buffer, "%d", instructions->instr[i].instr[1]);
+                }
                 printf("%-32s --> ", buffer);
                 get_sectorstring(&MPO, instructions->hss_of_new[
                                  instructions->instr[i].instr[2]], buffer);
                 printf("(%s)", buffer);
-                get_string_of_rops(buffer, instructions->instr[i].instr[2], 
-                                   bond, is_left, 'c');
+                if (name) {
+                        get_string_of_rops(buffer, instructions->instr[i].instr[2], 
+                                           bond, is_left, 'c');
+                } else {
+                        sprintf(buffer, "%d", instructions->instr[i].instr[2]);
+                }
                 printf("\t%s\n", buffer);
         }
 
@@ -375,18 +396,18 @@ static void print_merge_instructions(struct instructionset * instructions,
 }
 
 void print_instructions(struct instructionset * instructions, int bond, 
-                        int is_left, char kind, int isdmrg)
+                        int is_left, char kind, int isdmrg, bool name)
 {
         printf("#START INSTR\n");
         switch(kind) {
         case 'd':
-                print_DMRG_instructions(instructions, bond, is_left);
+                print_DMRG_instructions(instructions, bond, is_left, name);
                 break;
         case 'm':
                 print_merge_instructions(instructions, bond, isdmrg);
                 break;
         case 't':
-                print_T3NS_instructions(instructions, bond, is_left);
+                print_T3NS_instructions(instructions, bond, is_left, name);
                 break;
         default:
                 fprintf(stderr, "%s@%s: Unknown option (%c)\n", __FILE__, __func__, kind);
@@ -423,4 +444,13 @@ void fill_instruction(int id1, int id2, int id3, double pref)
                 instr->instr[insrno] = newinstr;
                 ++insrno;
         }
+}
+
+void shallow_copy_instructionsets(struct instructionset (*pinstr)[2],
+                                  struct instructionset (*binstr)[2], 
+                                  struct instructionset (*minstr)[2])
+{
+        iset_pUpdate = pinstr;
+        iset_bUpdate = binstr;
+        iset_merge = minstr;
 }

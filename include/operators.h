@@ -15,16 +15,25 @@
     along with this program.  If not, see <https://www.gnu.org/licenses/>.
 */
 #pragma once
+#include <stdbool.h>
 
-#include "instructions.h"
+/** 
+ * @file operators.h
+ *
+ * The header file for the calculation of preprogrammed operators.
+ *
+ * At this moment only the weight of the different seniority sectors of a wave
+ * function are calculated.
+ */
 
-void QC_fetch_pUpdate(struct instructionset * instructions, 
-                      int bond, int is_left);
-
-void QC_fetch_bUpdate(struct instructionset * instructions, 
-                      int bond, int is_left);
-
-void QC_fetch_merge(struct instructionset * instructions, int bond, int isdmrg);
-
-/// Fetches the instructions for the calculation of the seniority weights.
-void QC_seniority_instructions(struct instructionset * instructions);
+/**
+ * @brief Calculates the expectation value of a given operator and prints it.
+ *
+ * @param [in] operator Name of the operator to calculate.
+ * At this moment, only 'seniority' is allowed.
+ *
+ * @param [in] h5file The location of the HDF5-file with the wave function.
+ *
+ * @returns SUCCESS or FAILURE.
+ */
+bool calculate_operator(const char * operator, const char * h5file);

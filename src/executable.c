@@ -39,6 +39,7 @@
 #include "options.h"
 #include "RedDM.h"
 #include "timers.h"
+#include "operators.h"
 
 static const char *timernames[] = {
         "Reading HDF5", 
@@ -138,7 +139,9 @@ T3NS_DESCRIPTION
 "                  Level of Noise : 0.5 * NOISE * W_disc(last_sweep)\n"
 "                  Default : %.0e\n"
 "\n"
-"##############################################################################\n";
+"##############################################################################\n"
+"\n"
+"In the case of the option --operator the \'INPUT_FILE\' should be a HDF5 file.";
 
 // A description of the arguments we accept.
 static char args_doc[] = "INPUT_FILE";
@@ -155,6 +158,11 @@ static struct argp_option options[] = {
         {"disentangle", -2, "int", 0,
                 "The amount of times the optimization scheme has to be repeated. "
                         "Inbetween the optimization schemes, the network is disentangled by permuting sites."},
+        {"operator", 'o', "STRING", 0,
+                "Calculates the value of a certain implemented operator. "
+                        "At this moment you can calculate the weight of different seniority sectors of a wave function."
+                        "The nameless argument \'INPUT_FILE\' is now the HDF5 file where the wave function is stored."
+        },
         {0} /* options struct needs to be closed by a { 0 } option */
 };
 
@@ -164,7 +172,8 @@ struct arguments {
         bool inith5;
         char *saveloc;
         int do_disentangle;
-        char *args[1];                /* inputfile */
+        char *operator;
+        char *args[1];                /* inputfile or hdf5 file */
 };
 
 // Parse a single option.
@@ -175,6 +184,9 @@ static error_t parse_opt(int key, char *arg, struct argp_state *state)
         struct arguments *arguments = state->input;
 
         switch (key) {
+        case 'o':
+                arguments->operator = arg;
+                break;
         case 'c':
         case 'i':
                 arguments->h5file = arg;
@@ -285,51 +297,16 @@ static void cleanup_before_exit(struct siteTensor **T3NS,
 }
 
 
-static int initialize_program(int argc, char *argv[], 
+static int initialize_program(struct arguments arguments,
                               struct siteTensor **T3NS, 
                               struct rOperators **rops, 
                               struct optScheme * scheme, 
-                              char ** saveloc, int * lowD, int ** lowDb,
-                              int * do_disentangle)
+                              int * lowD, int ** lowDb)
 {
         struct timers chrono = init_timers(timernames, timkeys,
                                            sizeof timkeys / sizeof timkeys[0]);
-        char buffer_symm[MY_STRING_LEN];
-        int buffersize = sizeof doc / sizeof doc[0] + MY_STRING_LEN + 100;
-        char buffer[buffersize];
-
-        get_allsymstringnames(buffer_symm);
-        snprintf(buffer, buffersize, doc, buffer_symm, MAX_SYMMETRIES,
-                 DEFAULT_MINSTATES, DEFAULT_SWEEPS, DEFAULT_E_CONV,
-                 DEFAULT_SITESIZE, DEFAULT_SOLVER_TOL, DEFAULT_SOLVER_MAX_ITS,
-                 DEFAULT_NOISE);
-
-        struct argp argp = {options, parse_opt, args_doc, buffer};
-
-        // Defaults:
-        struct arguments arguments;
-        arguments.saveloc = H5_DEFAULT_LOCATION;
-        arguments.h5file  = NULL;
-        arguments.do_disentangle = 0;
-
-        /* Parse our arguments.
-         * Every option seen by parse_opt will be reflected in arguments. */
-        argp_parse(&argp, argc, argv, 0, 0, &arguments);
-        *do_disentangle = arguments.do_disentangle;
 
         // Location for saving results.
-        if (arguments.saveloc == NULL) {
-                *saveloc = NULL;
-        } else {
-                strncpy(*saveloc, arguments.saveloc, MY_STRING_LEN - 1);
-                (*saveloc)[MY_STRING_LEN - 1] = '\0';
-                recursive_mkdir(*saveloc, 0750);
-                if (access(*saveloc, F_OK) != 0) {
-                        fprintf(stderr, "Error at %s: Making of directory \"%s\" failed.\n",
-                                __func__, *saveloc);
-                        exit(EXIT_FAILURE);
-                }
-        }
 
         int minocc = DEFAULT_MINSTATES;
         // Read and continue previous calculation.
@@ -376,7 +353,7 @@ static int initialize_program(int argc, char *argv[],
         }
         // Need to initialize operators still.
         tic(&chrono, INIT_OPS);
-        if (init_operators(rops, *T3NS)) { return 1; }
+        if (init_operators(rops, *T3NS, false)) { return 1; }
         toc(&chrono, INIT_OPS);
 
         print_input(scheme);
@@ -392,8 +369,6 @@ static int initialize_program(int argc, char *argv[],
 int main(int argc, char *argv[])
 {
         struct timeval t_start, t_end;
-        char buffer[MY_STRING_LEN];
-        char * pbuffer = buffer;
 
         gettimeofday(&t_start, NULL);
 
@@ -403,15 +378,50 @@ int main(int argc, char *argv[])
         struct siteTensor * T3NS = NULL;
         struct rOperators * rops = NULL;
         struct optScheme scheme;
-        int do_disentangle, lowD, *lowDb;
+        int lowD, *lowDb;
+        
+        char buffer_symm[MY_STRING_LEN];
+        int buffersize = sizeof doc / sizeof doc[0] + MY_STRING_LEN + 100;
+        char buffer[buffersize];
 
-        if (initialize_program(argc, argv, &T3NS, &rops, &scheme, &pbuffer,
-                               &lowD, &lowDb, &do_disentangle)) {
+        get_allsymstringnames(buffer_symm);
+        snprintf(buffer, buffersize, doc, buffer_symm, MAX_SYMMETRIES,
+                 DEFAULT_MINSTATES, DEFAULT_SWEEPS, DEFAULT_E_CONV,
+                 DEFAULT_SITESIZE, DEFAULT_SOLVER_TOL, DEFAULT_SOLVER_MAX_ITS,
+                 DEFAULT_NOISE);
+
+        struct argp argp = {options, parse_opt, args_doc, buffer};
+
+        // Defaults:
+        struct arguments arguments;
+        arguments.saveloc = H5_DEFAULT_LOCATION;
+        arguments.h5file  = NULL;
+        arguments.do_disentangle = 0;
+        arguments.operator = NULL;
+
+        /* Parse our arguments.
+         * Every option seen by parse_opt will be reflected in arguments. */
+        argp_parse(&argp, argc, argv, 0, 0, &arguments);
+        
+        if (arguments.operator != NULL) {
+                return calculate_operator(arguments.operator, arguments.args[0]);
+        }
+
+        if (arguments.saveloc != NULL) {
+                recursive_mkdir(arguments.saveloc, 0750);
+                if (access(arguments.saveloc, F_OK) != 0) {
+                        fprintf(stderr, "Error at %s: Making of directory \"%s\" failed.\n",
+                                __func__, arguments.saveloc);
+                        exit(EXIT_FAILURE);
+                }
+        }
+        if (initialize_program(arguments, &T3NS, &rops, &scheme, &lowD, &lowDb)) {
                 cleanup_before_exit(&T3NS, &rops, &scheme);
                 return EXIT_FAILURE;
         }
-        execute_optScheme(T3NS, rops, &scheme, pbuffer, lowD, lowDb);
-        for (int i = 0; i < do_disentangle; ++i) {
+
+        execute_optScheme(T3NS, rops, &scheme, arguments.saveloc, lowD, lowDb);
+        for (int i = 0; i < arguments.do_disentangle; ++i) {
                 struct disentScheme sch = {
                         .max_sweeps = 30,
                         .gambling = true,
@@ -423,10 +433,10 @@ int main(int argc, char *argv[])
                 clear_instructions();
                 reinit_hamiltonian();
 
-                init_operators(&rops, T3NS);
-                execute_optScheme(T3NS, rops, &scheme, pbuffer, lowD, lowDb);
+                init_operators(&rops, T3NS, false);
+                execute_optScheme(T3NS, rops, &scheme, arguments.saveloc, lowD, lowDb);
         }
-        if (pbuffer != NULL) { write_to_disk(buffer, T3NS, rops); }
+        write_to_disk(arguments.saveloc, T3NS, rops);
         print_target_state_coeff(T3NS);
 
         cleanup_before_exit(&T3NS, &rops, &scheme);
