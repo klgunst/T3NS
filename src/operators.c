@@ -157,7 +157,7 @@ static void calculate_seniority(const struct siteTensor * T3NS)
                 struct sparseblocks * block = &endop.operators[i];
                 const int firstblock = get_size_block(block, 0);
                 if (firstblock == 1) {
-                        printf("%d\t%.14f\n", i, pref * block->tel[0]);
+                        printf("%d\t%.14g\n", i, pref * block->tel[0]);
                 } else if(firstblock != 0)  {
                         fprintf(stderr, "Operator evaluated to block of size %d\n", firstblock);
                 }
