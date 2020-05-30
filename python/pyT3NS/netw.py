@@ -564,6 +564,8 @@ def montecarlo(Iij, Dij, iterations=1000, β=1, initstate=None, **kwargs):
 
     currstate = [el for el in initstate]
     beststate = [el for el in initstate]
+    costfunction.Dij_η = None
+    costfunction.Dij_sort_id = None
     oldcost = costfunction(currstate, Iij, Dij, **kwargs)
     bestcost = oldcost
 

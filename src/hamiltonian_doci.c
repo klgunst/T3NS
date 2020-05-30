@@ -202,10 +202,22 @@ static void prepare_MPOsymsecs(void)
         }
 }
 
+static double get_el(double * eri, int i, int j, int k, int l, int orbs)
+{
+        // Getting orbital from C shape 4-fold
+        // [(orbs) * (orbs + 1) // 2, (orbs) * (orbs + 1) // 2] - integral
+        if (j > i) { int temp = i; i = j; j = temp; }
+        const int fid = i * (i + 1) / 2 + j;
+        if (l > k) { int temp = k; k = l; l = temp; }
+        const int sid = k * (k + 1) / 2 + l;
+        const int dim = orbs * (orbs + 1) / 2;
+        return eri[fid * dim + sid];
+}
+
 void DOCI_ham_from_integrals(int orbs, double * h1e, double * eri, double nuc)
 {
+        // C-like read
         hdat.norb = orbs;
-        const int orb2 = orbs * orbs;
         hdat.core_energy = nuc;
         safe_malloc(hdat.Vij, hdat.norb);
         for (int i = 0; i < hdat.norb; ++i) {
@@ -217,10 +229,10 @@ void DOCI_ham_from_integrals(int orbs, double * h1e, double * eri, double nuc)
         for (int i = 0; i < orbs; ++i) {
                 // Exchange
                 for (int j = 0; j < i; ++j) {
-                        hdat.Vij[i][j] = eri[(i + j * orbs) * (orb2 + 1)];
+                        hdat.Vij[i][j] = get_el(eri, i, j, i, j, orbs);
                 }
                 for (int j = i; j < orbs; ++j) {
-                        hdat.Vij[i][j] = eri[(i + j * orb2) * (orbs + 1)];
+                        hdat.Vij[i][j] = get_el(eri, i, i, j, j, orbs);
                 }
         }
 

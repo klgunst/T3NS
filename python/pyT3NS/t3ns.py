@@ -196,7 +196,7 @@ class T3NS:
                 ]
                 self.symmetries.append(newsym)
                 self.target.append(symm.irrep_id2name(newsym, 0))
-            except ValueError:
+            except (ValueError, TypeError):
                 self._pg_irrep = None
 
             if isinstance(network, netw.Network):
@@ -235,6 +235,15 @@ class T3NS:
             raise ValueError(
                 'Expects a Mole instance or a path to a hdf5 file'
             )
+
+    def __del__(self):
+        libt3ns.destroy_hamiltonian()
+        libt3ns.clear_instructions()
+        for rops in self._rOps:
+            rops.delete()
+        bookie = bookkeeper.Bookkeeper.in_dll(libt3ns, "bookie")
+        libt3ns.destroy_bookkeeper.argtypes = [POINTER(bookkeeper.Bookkeeper)]
+        libt3ns.destroy_bookkeeper(byref(bookie))
 
     def kernel(self, D=500, mstates=None, doci=False, **kwargs):
         '''Optimization of the tensor network.
@@ -346,13 +355,14 @@ class T3NS:
         h1e = h1e.ctypes.data_as(POINTER(c_double))
 
         norb = self._c.shape[1]
-        if self._eri.size == norb ** 4:
+        if self._eri.size == norb ** 4 or doci:
             fulleri = self._eri
         else:
             fulleri = pyscf.ao2mo.restore(1, self._eri, norb)
 
-        fulleri = fulleri.astype(numpy.float64).reshape(fulleri.shape,
-                                                        order='F')
+        if not doci:
+            fulleri = fulleri.astype(numpy.float64).reshape(fulleri.shape,
+                                                            order='F')
         assert fulleri.ctypes.data % 16 == 0  # Check alignment
         fulleri = fulleri.ctypes.data_as(POINTER(c_double))
 
@@ -405,6 +415,8 @@ class T3NS:
 
         if not hasattr(self, '_rOps') or self._rOps is None:
             self._rOps = c_void_p(None)
+        else:
+            self._rOps = cast(self._rOps, c_void_p)
 
         initop(byref(self._rOps), self._T3NS)
         self._rOps = \
