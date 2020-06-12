@@ -854,11 +854,11 @@ int make_simplesweep(bool inclborder, int ** sweep, int * swlength)
                 safe_free(*sweep);
                 return 1;
         }
-        if (!is_psite((*sweep)[*swlength - 1])) {
-                fprintf(stderr, "Site corresponding to the outgoing bond should be a physical site.\n");
-                safe_free(*sweep);
-                return 1;
-        }
+        //if (!is_psite((*sweep)[*swlength - 1])) {
+        //        fprintf(stderr, "Site corresponding to the outgoing bond should be a physical site.\n");
+        //        safe_free(*sweep);
+        //        return 1;
+        //}
 
         if (recursive_stepping(inclborder, *sweep, swlength)) { return 1; }
 

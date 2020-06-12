@@ -34,6 +34,8 @@
 #include <lapacke.h>
 #endif
 
+#define ALPHA 0.25
+
 //#define T3NS_SITETENSOR_DECOMPOSE_DEBUG
 
 static int * sort_indices(int (*indices)[3], int n, int b)
@@ -1154,9 +1156,40 @@ static double calculateWeight(struct Sval * S, char trunc)
         return result;
 }
 
+static double calculateNeumann(struct Sval * S, char trunc)
+{
+        const double dn = 1. / sqrt(calculateWeight(S, trunc));
+
+        double result = 0;
+        const int dimid = trunc == 'T';
+        struct symsecs symm;
+        get_symsecs(&symm, S->bond);
+        assert(S->nrblocks == symm.nrSecs);
+
+        for (int block = 0; block < S->nrblocks; ++block) {
+                const double * s_arr = S->sing[block];
+                const int dim = S->dimS[block][dimid];
+                int * irreps = symm.irreps[block];
+                int multipl = multiplicity(bookie.nrSyms, bookie.sgs, irreps);
+                double multfact = 1 / sqrt(multipl);
+
+                for (int i = 0; i < dim; ++i) { 
+                        const double s = s_arr[i] * multfact * dn;
+                        const double omega = s * s;
+                        if (omega > 1e-20) {
+                                result -= multipl * omega * log(omega);
+                        }
+                }
+        }
+        return result;
+}
+
 // The Renyi entropy is given by: 1 / (1 - α) log(Σω^α)
 static double calculateRenyi(struct Sval * S, double alpha, char trunc)
 {
+        if (COMPARE_ELEMENT_TO_ZERO(alpha - 1.)) {
+                return calculateNeumann(S, trunc);
+        }
         const double dn = 1. / sqrt(calculateWeight(S, trunc));
 
         double result = 0;
@@ -1192,7 +1225,7 @@ static double calculateRenyi(struct Sval * S, double alpha, char trunc)
 static int selectS(struct Sval * S, const struct SvalSelect * sel, 
                    struct SelectRes * res)
 {
-        res->entropy[0] = calculateRenyi(S, 0.25, 'A');
+        res->entropy[0] = calculateRenyi(S, ALPHA, 'A');
         res->norm[0] = calculateWeight(S, 'A');
         assert(fabs(res->norm[0] - 1) < 1e-10);
         
@@ -1241,7 +1274,7 @@ static int selectS(struct Sval * S, const struct SvalSelect * sel,
                 }
         }
 
-        res->entropy[1] = calculateRenyi(S, 0.25, 'T');
+        res->entropy[1] = calculateRenyi(S, ALPHA, 'T');
         assert(fabs(res->norm[1] - calculateWeight(S, 'T')) < 1e-10);
 
         safe_free(tempS);
@@ -1573,7 +1606,7 @@ struct decompose_info qr_step(struct siteTensor * A, int nCenter,
 
         if (calc_ent) {
                 struct Sval S = R_svd(&R);
-                info.cut_ent[0] = calculateRenyi(&S, 0.25, 'A');
+                info.cut_ent[0] = calculateRenyi(&S, ALPHA, 'A');
                 info.cut_totalent = info.cut_ent[0];
                 select_ls_sigma(&S, &info, 0);
                 destroy_Sval(&S);
