@@ -369,6 +369,7 @@ static void write_rOps_to_disk(const hid_t id,
 static void read_rOps_from_disk(const hid_t id,
                                struct rOperators ** const rOps)
 {
+        if (!H5Lexists(id, "/rOps", H5P_DEFAULT)) { return; }
         const hid_t group_id = H5Gopen(id, "/rOps", H5P_DEFAULT);
         int nrbonds;
 
