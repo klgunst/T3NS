@@ -108,7 +108,7 @@ int sparse_eigensolve(double * result, double * energy, int size, int max_vecs,
                       int keep_deflate, double tol, int max_its, 
                       const double * diagonal, 
                       void (*matvec)(const double*, double*, void*), 
-                      void * vdat, const char solver[])
+                      void * vdat, const char solver[], const int verbosity)
 {
         if (size < 0) {
                 fprintf(stderr, "Invalid size of the problem: %d. Possible integer overflow.\n", size);
@@ -116,7 +116,7 @@ int sparse_eigensolve(double * result, double * energy, int size, int max_vecs,
         }
         if (strcmp(solver, "D") == 0) {
                 return davidson(result, energy, size, max_vecs, keep_deflate, 
-                                tol, max_its, diagonal, matvec, vdat);
+                                tol, max_its, diagonal, matvec, vdat, verbosity);
 #ifdef T3NS_WITH_PRIMME
         } else if (strcmp(solver, "PRIMME") == 0) {
                 return primme_solve(result, energy, size, tol, max_its, vdat,
@@ -127,6 +127,6 @@ int sparse_eigensolve(double * result, double * energy, int size, int max_vecs,
                         "Will continue with the default davidson solver.\n", 
                         __func__, solver);
                 return davidson(result, energy, size, max_vecs, keep_deflate, 
-                                tol, max_its, diagonal, matvec, vdat);
+                                tol, max_its, diagonal, matvec, vdat, verbosity);
         }
 }

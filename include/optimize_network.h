@@ -51,7 +51,8 @@ void init_calculation(struct siteTensor ** T3NS,
 double execute_optScheme(struct siteTensor * const T3NS,
                          struct rOperators * const rops, 
                          const struct optScheme * const  scheme,
-                         const char * saveloc, int lowD, int * lowDb);
+                         const char * saveloc, int lowD, int * lowDb,
+                         const int verbosity);
 
 /**
  * @brief Prints the weights of the different sectors in the target state.

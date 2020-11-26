@@ -469,7 +469,7 @@ void write_to_disk(const char * hdf5_loc, const struct siteTensor * const T3NS,
         write_bookkeeper_to_disk(file_id);
         write_hamiltonian_to_disk(file_id);
         write_T3NS_to_disk(file_id, T3NS);
-        write_rOps_to_disk(file_id, ops);
+        //write_rOps_to_disk(file_id, ops);
 
         H5Fclose(file_id);
 }

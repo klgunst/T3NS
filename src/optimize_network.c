@@ -186,7 +186,7 @@ static void add_noise(struct siteTensor * tens, double noiseLevel)
 }
 
 static double optimize_siteTensor(const struct regime * reg,
-                                  struct timers * timings)
+                                  struct timers * timings, const int verbosity)
 {
         assert(o_dat.specs.nr_bonds_opt == 2 || o_dat.specs.nr_bonds_opt == 3);
         const int isdmrg = o_dat.specs.nr_bonds_opt == 2;
@@ -201,13 +201,15 @@ static double optimize_siteTensor(const struct regime * reg,
         init_Heffdata(&mv_dat, o_dat.operators, &o_dat.msiteObj);
         toc(timings, prep_heff);
 
-        printf(">> Optimize site%s", o_dat.msiteObj.nrsites == 1 ? "" : "s");
-        for (int i = 0; i < o_dat.msiteObj.nrsites; ++i) {
-                printf(" %d%s", o_dat.msiteObj.sites[i], 
-                       i == o_dat.msiteObj.nrsites - 1 ? ": " : " &");
+        if (verbosity > 0) {
+                printf(">> Optimize site%s", o_dat.msiteObj.nrsites == 1 ? "" : "s");
+                for (int i = 0; i < o_dat.msiteObj.nrsites; ++i) {
+                        printf(" %d%s", o_dat.msiteObj.sites[i], 
+                               i == o_dat.msiteObj.nrsites - 1 ? ": " : " &");
+                }
+                printf("(blocks: %d, qns: %d, dim: %d, instr: %d)\n", 
+                       o_dat.msiteObj.nrblocks, mv_dat.nr_qnB, size, mv_dat.iset.nr_instr);
         }
-        printf("(blocks: %d, qns: %d, dim: %d, instr: %d)\n", 
-               o_dat.msiteObj.nrblocks, mv_dat.nr_qnB, size, mv_dat.iset.nr_instr);
 
         tic(timings, diag);
         T3NS_EL_TYPE * diagonal = make_diagonal(&mv_dat);
@@ -218,7 +220,7 @@ static double optimize_siteTensor(const struct regime * reg,
         sparse_eigensolve(o_dat.msiteObj.blocks.tel, &energy, size, 
                           DAVIDSON_MAX_VECS, DAVIDSON_KEEP_DEFLATE, 
                           reg->davidson_rtl, reg->davidson_max_its, 
-                          diagonal, matvecT3NS, &mv_dat, SOLVER_STRING);
+                          diagonal, matvecT3NS, &mv_dat, SOLVER_STRING, verbosity);
         toc(timings, heff);
         destroy_Heffdata(&mv_dat);
         safe_free(diagonal);
@@ -321,7 +323,8 @@ struct sweep_info {
 static struct sweep_info execute_sweep(struct siteTensor * T3NS, 
                                        struct rOperators * rops, 
                                        const struct regime * reg, 
-                                       double trunc_err, const char * saveloc, int lowD, int * lowDb)
+                                       double trunc_err, const char * saveloc,
+                                       int lowD, int * lowDb, int verbosity)
 {
         struct sweep_info swinfo = {
                 .chrono = init_timers(timernames, timkeys, 
@@ -344,8 +347,8 @@ static struct sweep_info execute_sweep(struct siteTensor * T3NS,
                 toc(&swinfo.chrono, ROP_APPEND);
                 set_internal_symsecs();
 
-                double energy = optimize_siteTensor(reg, &swinfo.chrono);
-                printf("   * Energy: %.12lf\n", energy);
+                double energy = optimize_siteTensor(reg, &swinfo.chrono, verbosity);
+                if (verbosity > 0) { printf("   * Energy: %.12lf\n", energy); }
 
                 tic(&swinfo.chrono, STENS_DECOMP);
                 /* same noise as CheMPS2 */
@@ -371,7 +374,7 @@ static struct sweep_info execute_sweep(struct siteTensor * T3NS,
 
                 if (d_inf.erflag) { exit(EXIT_FAILURE); }
                 toc(&swinfo.chrono, STENS_DECOMP);
-                print_decompose_info(&d_inf, "   * ");
+                if (verbosity > 0 ) { print_decompose_info(&d_inf, "   * "); }
 
                 postprocess_rOperators(rops, T3NS, &swinfo.chrono);
 
@@ -382,7 +385,7 @@ static struct sweep_info execute_sweep(struct siteTensor * T3NS,
                 if (first || swinfo.sw_maxdim < d_inf.cut_Mdim) 
                         swinfo.sw_maxdim = d_inf.cut_Mdim;
                 first = 0;
-                printf("\n");
+                if (verbosity > 0) { printf("\n"); }
         }
 
         tic(&swinfo.chrono, IO_DISK);
@@ -407,16 +410,18 @@ static void print_sweep_info(struct sweep_info * info, int sw_nr, int regnr)
 static double execute_regime(struct siteTensor * T3NS, struct rOperators * rops, 
                              const struct regime * reg, int regnumber, 
                              double * trunc_err, const char * saveloc, 
-                             struct timers * timings, int lowD, int * lowDb)
+                             struct timers * timings, int lowD, int * lowDb,
+                             const int verbosity)
 {
         int sweepnrs = 0;
         double energy = 0;
 
         while(sweepnrs < reg->max_sweeps) {
                 struct sweep_info info = execute_sweep(T3NS, rops, reg, 
-                                                       *trunc_err, saveloc, lowD, lowDb);
+                                                       *trunc_err, saveloc, lowD,
+                                                       lowDb, verbosity - 1);
                 *trunc_err = info.sw_trunc;
-                print_sweep_info(&info, sweepnrs + 1, regnumber);
+                if(verbosity > 0) { print_sweep_info(&info, sweepnrs + 1, regnumber); }
                 add_timers(timings, &info.chrono);
                 destroy_timers(&info.chrono);
 
@@ -426,13 +431,13 @@ static double execute_regime(struct siteTensor * T3NS, struct rOperators * rops,
                 ++sweepnrs;
                 if (flag) { break; }
         }
-        printf("============================================================================\n"  );
-        printf("END OF REGIME %d AFTER %d/%d SWEEPS.\n", regnumber, sweepnrs, reg->max_sweeps);
-        if (sweepnrs == reg->max_sweeps) {
+        if (verbosity > 0) { printf("============================================================================\n"  ); }
+        if (verbosity > 0) { printf("END OF REGIME %d AFTER %d/%d SWEEPS.\n", regnumber, sweepnrs, reg->max_sweeps);} 
+        if (sweepnrs == reg->max_sweeps && verbosity > 0) {
                 printf("THE ENERGY DID NOT CONVERGE UP TO ASKED TOLERANCE OF %e\n", reg->energy_conv);
         }
-        printf("MINIMUM ENERGY ENCOUNTERED : %.16lf\n", energy                                  );
-        printf("============================================================================\n\n");
+        if (verbosity > 0) { printf("MINIMUM ENERGY ENCOUNTERED : %.16lf\n", energy                                  ); }
+        if (verbosity > 0) { printf("============================================================================\n\n"); }
 
         return energy;
 }
@@ -665,7 +670,8 @@ void init_calculation(struct siteTensor ** T3NS, struct rOperators ** rOps,
 }
 
 double execute_optScheme(struct siteTensor * const T3NS, struct rOperators * const rops, 
-                         const struct optScheme * const  scheme, const char * saveloc, int lowD, int * lowDb)
+                         const struct optScheme * const  scheme, const char * saveloc,
+                         int lowD, int * lowDb, const int verbosity)
 {
         struct timers timings = init_timers(timernames, timkeys,
                                             sizeof timkeys / sizeof timkeys[0]);
@@ -674,21 +680,22 @@ double execute_optScheme(struct siteTensor * const T3NS, struct rOperators * con
         double energy = 3000;
         double trunc_err = scheme->regimes[0].svd_sel.truncerr;
 
-        printf("============================================================================\n");
+        if (verbosity > 0) { printf("============================================================================\n"); }
         for (int i = 0; i < scheme->nrRegimes; ++i) {
                 double current_energy = execute_regime(T3NS, rops, &scheme->regimes[i], 
-                                                       i + 1, &trunc_err, saveloc, &timings, lowD, lowDb);
+                                                       i + 1, &trunc_err, saveloc, &timings,
+                                                       lowD, lowDb, verbosity - 1);
                 if (current_energy  < energy) energy = current_energy;
         }
 
-        printf("============================================================================\n"
-               "END OF CONVERGENCE SCHEME.\n"
-               "MINIMUM ENERGY ENCOUNTERED : %.16lf\n"
-               "============================================================================\n", energy);
+        if (verbosity > 0) { printf("============================================================================\n"
+                                    "END OF CONVERGENCE SCHEME.\n"
+                                    "MINIMUM ENERGY ENCOUNTERED : %.16lf\n"
+                                    "============================================================================\n", energy); }
  
-        printf("TIMERS FOR OPTIMIZATION SCHEME\n");
-        print_timers(&timings, " * ", true);
-        printf("============================================================================\n\n");
+        if (verbosity > 0) { printf("TIMERS FOR OPTIMIZATION SCHEME\n"); }
+        if (verbosity > 0) { print_timers(&timings, " * ", true); }
+        if (verbosity > 0) { printf("============================================================================\n\n"); }
         destroy_timers(&timings);
         return energy;
 }

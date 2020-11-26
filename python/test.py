@@ -26,17 +26,23 @@ mol.build(
     atom="N 0 0 0; N 0 0 1.1208",
     spin=0,
     basis='sto3g',
-    symmetry=True,
+    symmetry='C1',
     verbose=3
 )
 
-# tree = t3ns.T3NS(mol, network='DMRG')
+tree = t3ns.T3NS(mol, network='DMRG')
+energy = tree.kernel(D=3, sitesize=1, max_sweeps=100, verbosity=1)
+print(tree._bookkeeper)
+print(f'E = {energy}')
+exit()
+
 tree = t3ns.T3NS(mol)
 energy = tree.kernel(D=[300, (300, 500, 1e-3)], max_sweeps=100)
 svds_prev = tree.singular_values()
 entanglement = tree.disentangle()
 
 energy = tree.kernel(D=[300, (300, 500, 1e-3)], max_sweeps=100)
+print(tree._bookkeeper)
 svds_after = tree.singular_values()
 print(f'E = {energy}, entanglement = {entanglement}')
 

@@ -260,7 +260,7 @@ int davidson(double * result, double * energy, int size, int max_vecs,
              int keep_deflate, double davidson_tol, int max_its, 
              const double * diagonal, 
              void (*matvec)(const double*, double*, void*), 
-             void * vdat)
+             void * vdat, const int verbosity)
 {
         int its = 0;
         double residue_norm = davidson_tol * 10;
@@ -318,10 +318,12 @@ int davidson(double * result, double * energy, int size, int max_vecs,
         long long t_elapsed = (t_end.tv_sec - t_start.tv_sec) * 1000000LL + 
                 t_end.tv_usec - t_start.tv_usec;
         double d_elapsed = t_elapsed * 1e-6;
-        printf("   * Davidson: (iter: %d), (d_eig: %.1e), (trunc: %.1e), (time: %.3g sec)\n",
-               its, d_energy, residue_norm, d_elapsed);
-        if (residue_norm > davidson_tol) {
-                printf("     - Davidson stopped before converging.\n");
+        if (verbosity > 0) {
+                printf("   * Davidson: (iter: %d), (d_eig: %.1e), (trunc: %.1e), (time: %.3g sec)\n", 
+                       its, d_energy, residue_norm, d_elapsed);
+                if (residue_norm > davidson_tol) {
+                        printf("     - Davidson stopped before converging.\n");
+                }
         }
         clean_david_dat();
         return its >= max_its;

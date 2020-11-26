@@ -89,7 +89,7 @@ int main(int argc, char *argv[])
         struct rOperators *rops = NULL;
 
         initialize_program(&T3NS, &rops, &scheme);
-        double energy = execute_optScheme(T3NS, rops, &scheme, NULL, 0, NULL);
+        double energy = execute_optScheme(T3NS, rops, &scheme, NULL, 0, NULL, 2);
         cleanup_before_exit(&T3NS, &rops);
         const int OK = fabs(energy - conv_energy) < 1e-5;
 

@@ -97,7 +97,7 @@ int main(int argc, char *argv[])
         struct rOperators *rops = NULL;
 
         initialize_program(&T3NS, &rops, &scheme);
-        double energy_113 = execute_optScheme(T3NS, rops, &scheme, NULL, 0, NULL);
+        double energy_113 = execute_optScheme(T3NS, rops, &scheme, NULL, 0, NULL, 2);
 
         // Destroy rOperators and Hamiltonian and reread with new ones.
         destroy_all_rops(&rops);
@@ -107,7 +107,7 @@ int main(int argc, char *argv[])
         readinteraction("${CMAKE_SOURCE_DIR}/tests/fcidumps/N2_STO3G_120.FCIDUMP");
         init_operators(&rops, T3NS, false);
 
-        double energy_120 = execute_optScheme(T3NS, rops, &scheme2, NULL, 0, NULL);
+        double energy_120 = execute_optScheme(T3NS, rops, &scheme2, NULL, 0, NULL, 2);
 
         const int OK_113 = fabs(energy_113 - fci_113) < 1e-9;
         const int OK_120 = fabs(energy_120 - fci_120) < 1e-9;

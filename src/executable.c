@@ -420,7 +420,7 @@ int main(int argc, char *argv[])
                 return EXIT_FAILURE;
         }
 
-        execute_optScheme(T3NS, rops, &scheme, arguments.saveloc, lowD, lowDb);
+        execute_optScheme(T3NS, rops, &scheme, arguments.saveloc, lowD, lowDb, 3);
         for (int i = 0; i < arguments.do_disentangle; ++i) {
                 struct disentScheme sch = {
                         .max_sweeps = 30,
@@ -434,7 +434,7 @@ int main(int argc, char *argv[])
                 reinit_hamiltonian();
 
                 init_operators(&rops, T3NS, false);
-                execute_optScheme(T3NS, rops, &scheme, arguments.saveloc, lowD, lowDb);
+                execute_optScheme(T3NS, rops, &scheme, arguments.saveloc, lowD, lowDb, 3);
         }
         write_to_disk(arguments.saveloc, T3NS, rops);
         print_target_state_coeff(T3NS);

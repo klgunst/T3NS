@@ -206,14 +206,14 @@ class T3NS:
                 self._netw = netw.Network(c.shape[1], isDMRG=isDMRG)
 
                 # exchange matrix
-                Kij = numpy.zeros((c.shape[1],) * 2)
-                trids = numpy.tril_indices(c.shape[1], 0)
-                for el, r, c in zip(self._eri.diagonal(), trids[0], trids[1]):
-                    Kij[r, c] = el
-                    Kij[c, r] = el
-                cost = self._netw.optimize(Kij)
-                if self.verbose >= 2:
-                    print(f'Optimization Exchange-cost: {cost}')
+                # Kij = numpy.zeros((c.shape[1],) * 2)
+                # trids = numpy.tril_indices(c.shape[1], 0)
+                # for el, r, c in zip(self._eri.diagonal(), trids[0], trids[1]):
+                #     Kij[r, c] = el
+                #     Kij[c, r] = el
+                # cost = self._netw.optimize(Kij)
+                # if self.verbose >= 2:
+                #     print(f'Optimization Exchange-cost: {cost}')
             elif isinstance(network, str):
                 self._netw = netw.Network()
                 self._netw.readnetworkfile(network)
@@ -411,19 +411,19 @@ class T3NS:
 
     def init_operators(self):
         initop = libt3ns.init_operators
-        initop.argtypes = [POINTER(c_void_p), POINTER(tensors.SiteTensor)]
+        initop.argtypes = [POINTER(c_void_p), POINTER(tensors.SiteTensor), c_bool]
 
         if not hasattr(self, '_rOps') or self._rOps is None:
             self._rOps = c_void_p(None)
         else:
             self._rOps = cast(self._rOps, c_void_p)
 
-        initop(byref(self._rOps), self._T3NS)
+        initop(byref(self._rOps), self._T3NS, False)
         self._rOps = \
             cast(self._rOps, POINTER(tensors.ROperators))[:self._netw.nrbonds]
         self._rOps = (tensors.ROperators * len(self._rOps))(*self._rOps)
 
-    def execute_optimization(self, D, saveloc=None, **kwargs):
+    def execute_optimization(self, D, saveloc=None, verbosity=1, **kwargs):
         from sys import stdout
         import ctypes
 
@@ -437,7 +437,8 @@ class T3NS:
             POINTER(OptScheme),
             c_char_p,
             c_int,
-            POINTER(c_int)
+            POINTER(c_int),
+            c_int
         ]
         execute.restype = c_double
         saveloc = saveloc if saveloc is None else saveloc.encode('utf8')
@@ -445,7 +446,7 @@ class T3NS:
         stdout.flush()
 
         energy = execute(self._T3NS, self._rOps, byref(scheme), saveloc, 0,
-                         POINTER(c_int)())
+                         POINTER(c_int)(), verbosity)
         libc = ctypes.CDLL(None)
         c_stdout = ctypes.c_void_p.in_dll(libc, 'stdout')
         # Flushing C
