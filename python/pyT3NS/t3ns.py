@@ -453,7 +453,7 @@ class T3NS:
         libc.fflush(c_stdout)
         return energy
 
-    def disentangle(self, D=None, **kwargs):
+    def disentangle(self, D=None, verbosity=0, **kwargs):
         """Disentangles the network.
         """
         from sys import stdout
@@ -469,7 +469,7 @@ class T3NS:
         ]
         disent.restype = c_double
 
-        entanglement = disent(self._T3NS, byref(scheme), self.verbose >= 4)
+        entanglement = disent(self._T3NS, byref(scheme), verbosity)
         stdout.flush()
         self._netw = netw.Network(get_global=True)
         self._bookkeeper = bookkeeper.Bookkeeper.in_dll(libt3ns, "bookie")

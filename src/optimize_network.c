@@ -419,9 +419,9 @@ static double execute_regime(struct siteTensor * T3NS, struct rOperators * rops,
         while(sweepnrs < reg->max_sweeps) {
                 struct sweep_info info = execute_sweep(T3NS, rops, reg, 
                                                        *trunc_err, saveloc, lowD,
-                                                       lowDb, verbosity - 1);
+                                                       lowDb, verbosity - 2);
                 *trunc_err = info.sw_trunc;
-                if(verbosity > 0) { print_sweep_info(&info, sweepnrs + 1, regnumber); }
+                if(verbosity > 1) { print_sweep_info(&info, sweepnrs + 1, regnumber); }
                 add_timers(timings, &info.chrono);
                 destroy_timers(&info.chrono);
 
@@ -794,7 +794,7 @@ static struct entanglement_info entanglement_state(struct siteTensor * T3NS)
                 } else {
                         const double diffent = enti.entanglement[bond] -
                                 info.cut_ent[0];
-                        if (fabs(diffent) > 1e-14) {
+                        if (fabs(diffent) > 1e-6) {
                                 fprintf(stderr,"Something went wrong when calculating entanglement at bond %d. Difference is %g\n", bond, diffent);
                         }
                 }
@@ -1112,18 +1112,19 @@ double disentangle_state(struct siteTensor * T3NS,
         struct bestPerm bp = init_bestPerm(T3NS);
         bp.totent = enti.totent;
 
-        printf("\n****** Disentangling the wave function ******\n");
-        if (scheme->gambling) { printf("~~~ Rien ne va plus! ~~~\n"); }
-        printf("Initial ");
-        print_entanglement_info(&enti, 1);
-        print_siteorder();
-        printf("\n");
-
+        if (verbosity > 0) { printf("\n****** Disentangling the wave function ******\n"); }
+        if (scheme->gambling && verbosity > 0) { printf("~~~ Rien ne va plus! ~~~\n"); }
+        if (verbosity > 0) {
+                printf("Initial ");
+                print_entanglement_info(&enti, verbosity - 1);
+                if (verbosity > 1) {print_siteorder();}
+                printf("\n");
+        }
         for (int i = 0; i < scheme->max_sweeps; ++i) {
-                disentangle_sweep(T3NS, scheme, &enti, &bp, verbosity, &chrono);
-                if (verbosity > 0) {
+                disentangle_sweep(T3NS, scheme, &enti, &bp, verbosity - 1, &chrono);
+                if (verbosity > 1) {
                         printf("@ sweep %d: ", i + 1);
-                        print_entanglement_info(&enti, verbosity - 1);
+                        print_entanglement_info(&enti, verbosity - 2);
                 }
         }
 
@@ -1137,12 +1138,14 @@ double disentangle_state(struct siteTensor * T3NS,
         enti = entanglement_state(T3NS);
         toc(&chrono, NETW_ENT);
 
-        printf("Final ");
-        print_entanglement_info(&enti, 1);
-        print_siteorder();
-        printf("\n");
-        printf("Timers for disentangling scheme:\n");
-        print_timers(&chrono, " * ", true);
+        if (verbosity > 0) {
+                printf("Final ");
+                print_entanglement_info(&enti, verbosity - 1);
+                print_siteorder();
+                printf("\n");
+                printf("Timers for disentangling scheme:\n");
+                print_timers(&chrono, " * ", true);
+        }
         destroy_timers(&chrono);
 
         safe_free(netw.sweep);
