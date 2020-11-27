@@ -177,7 +177,11 @@ struct iter_gs init_iter_gs(int tid, int idnr, const struct good_sectors * gs)
                         if (iter.gs->sectors[id[0]] == NULL) { continue; }
                         iter.length += gs->sectors[id[0]][id[1]].L;
                 }
-                iter.maxid[2] = gs->sectors[iter.iid[0]][iter.iid[1]].L;
+                if (iter.gs->sectors[iter.iid[0]] == NULL) {
+                        iter.maxid[2] = 0;
+                } else {
+                        iter.maxid[2] = gs->sectors[iter.iid[0]][iter.iid[1]].L;
+                }
         } else {
                 for (id[0] = 0; id[0] < gs->ss[0].nrSecs; ++id[0]) {
                         for (id[1] = 0; id[1] < gs->ss[1].nrSecs; ++id[1]) {
