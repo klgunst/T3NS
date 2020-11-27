@@ -1,0 +1,251 @@
+from pyscf import gto, lo
+from pyT3NS import t3ns
+import numpy as np
+import sys
+import os
+
+"""
+An examplar calculation of a T3NS-DOCI-calculation (without orbital opt).
+
+The integrals are generated with pyscf and the eventual output file generated
+on a quad-core laptop can be found in `examples/Ru_ph/doci.out`.
+
+If you pass 'localized' as argument to the file, the orbitals will first be
+localized.
+"""
+
+with open(os.path.abspath(__file__)) as f:
+    print(f.read())
+
+print()
+print("######################################################################")
+print()
+
+mol = gto.M(
+    atom=open('Ru_ph_ph_ph.xyz').read(),
+    unit='ang',
+    basis='STO3G',
+    charge=2,
+    verbose=3,
+    symmetry='C1',
+    max_memory=13000,
+)
+
+mf = mol.HF().run()
+
+# split localizing by Pipek-Mezey
+if len(sys.argv) == 2 and sys.argv[1] == 'localized':
+    print("Using PM localized orbitals")
+    C = np.hstack((
+        lo.PM(mol, mf.mo_coeff[:, mf.mo_occ > 0]).kernel(),
+        lo.PM(mol, mf.mo_coeff[:, mf.mo_occ == 0]).kernel()))
+else:
+    print("Using RHF orbitals")
+    C = mf.mo_coeff
+
+tree = t3ns.T3NS(mol, c=C, network='T3NS')
+
+tree.kernel(D=50, doci=True, max_sweeps=10, verbosity=2)
+tree.disentangle()
+tree.kernel(D=50, doci=True, max_sweeps=10, verbosity=2)
+
+E = tree.kernel(D=100, doci=True, max_sweeps=100,
+                energy_conv=1e-5, verbosity=3)
+
+print()
+print(f"E@D=100: {E}")
+print("E@D=75:", tree.kernel(D=75, doci=True, energy_conv=1e-5,
+                             max_sweeps=100, verbosity=0))
+print("E@D=50:", tree.kernel(D=50, doci=True, energy_conv=1e-5,
+                             max_sweeps=100, verbosity=0))
+
+
+######################################################################
+
+converged SCF energy = -6080.73472115321
+Using RHF orbitals
+>> Preparing siteTensors...
+>> Preparing renormalized operators...
+ * rOperators: append physical         :: 0.07 sec
+ * rOperators: update physical         :: 0.10 sec
+ * rOperators: update branching        :: 2.13 sec
+ * Total time                          :: 2.30 sec
+============================================================================
+============================================================================
+END OF REGIME 1 AFTER 10/10 SWEEPS.
+THE ENERGY DID NOT CONVERGE UP TO ASKED TOLERANCE OF 1.000000e-06
+MINIMUM ENERGY ENCOUNTERED : -6080.7946781872806241
+============================================================================
+
+============================================================================
+END OF CONVERGENCE SCHEME.
+MINIMUM ENERGY ENCOUNTERED : -6080.7946781872806241
+============================================================================
+TIMERS FOR OPTIMIZATION SCHEME
+ * rOperators: append physical         :: 7.29 sec
+ * rOperators: update physical         :: 2.82 sec
+ * rOperators: update branching        :: 16.56 sec
+ * Heff T3NS: prepare data             :: 0.28 sec
+ * Heff T3NS: diagonal                 :: 1.20 sec
+ * Heff T3NS: matvec                   :: 108.70 sec
+ * siteTensor: make multisite tensor   :: 0.46 sec
+ * siteTensor: decompose               :: 1.85 sec
+ * io: write to disk                   :: 0.00 sec
+ * Total time                          :: 139.39 sec
+============================================================================
+
+>> Preparing siteTensors...
+>> Preparing renormalized operators...
+ * rOperators: append physical         :: 0.08 sec
+ * rOperators: update physical         :: 0.04 sec
+ * rOperators: update branching        :: 0.28 sec
+ * Total time                          :: 0.41 sec
+============================================================================
+============================================================================
+END OF REGIME 1 AFTER 10/10 SWEEPS.
+THE ENERGY DID NOT CONVERGE UP TO ASKED TOLERANCE OF 1.000000e-06
+MINIMUM ENERGY ENCOUNTERED : -6080.7949363514917422
+============================================================================
+
+============================================================================
+END OF CONVERGENCE SCHEME.
+MINIMUM ENERGY ENCOUNTERED : -6080.7949363514917422
+============================================================================
+TIMERS FOR OPTIMIZATION SCHEME
+ * rOperators: append physical         :: 7.20 sec
+ * rOperators: update physical         :: 2.65 sec
+ * rOperators: update branching        :: 15.46 sec
+ * Heff T3NS: prepare data             :: 0.21 sec
+ * Heff T3NS: diagonal                 :: 1.50 sec
+ * Heff T3NS: matvec                   :: 53.81 sec
+ * siteTensor: make multisite tensor   :: 0.46 sec
+ * siteTensor: decompose               :: 1.81 sec
+ * io: write to disk                   :: 0.00 sec
+ * Total time                          :: 83.28 sec
+============================================================================
+
+>> Preparing siteTensors...
+============================================================================
+============================================================================
+END OF SWEEP 1 IN REGIME 1.
+MINIMUM ENERGY ENCOUNTERED DURING THIS SWEEP: -6080.7950119974393601
+MAXIMUM TRUNCATION ERROR ENCOUNTERED DURING THIS SWEEP: 9.4830e-08
+MAXIMUM BOND DIMENSION ENCOUNTERED DURING THIS SWEEP: 100
+TIMERS:
+ * rOperators: append physical         :: 1.65 sec
+ * rOperators: update physical         :: 0.61 sec
+ * rOperators: update branching        :: 6.56 sec
+ * Heff T3NS: prepare data             :: 0.03 sec
+ * Heff T3NS: diagonal                 :: 0.35 sec
+ * Heff T3NS: matvec                   :: 31.66 sec
+ * siteTensor: make multisite tensor   :: 0.06 sec
+ * siteTensor: decompose               :: 0.59 sec
+ * io: write to disk                   :: 0.00 sec
+ * Total time                          :: 41.55 sec
+============================================================================
+
+============================================================================
+END OF SWEEP 2 IN REGIME 1.
+MINIMUM ENERGY ENCOUNTERED DURING THIS SWEEP: -6080.7950356700557677
+MAXIMUM TRUNCATION ERROR ENCOUNTERED DURING THIS SWEEP: 1.5518e-07
+MAXIMUM BOND DIMENSION ENCOUNTERED DURING THIS SWEEP: 100
+TIMERS:
+ * rOperators: append physical         :: 2.37 sec
+ * rOperators: update physical         :: 0.95 sec
+ * rOperators: update branching        :: 9.44 sec
+ * Heff T3NS: prepare data             :: 0.03 sec
+ * Heff T3NS: diagonal                 :: 0.66 sec
+ * Heff T3NS: matvec                   :: 58.54 sec
+ * siteTensor: make multisite tensor   :: 0.09 sec
+ * siteTensor: decompose               :: 0.93 sec
+ * io: write to disk                   :: 0.00 sec
+ * Total time                          :: 73.04 sec
+============================================================================
+
+============================================================================
+END OF SWEEP 3 IN REGIME 1.
+MINIMUM ENERGY ENCOUNTERED DURING THIS SWEEP: -6080.7950461401742359
+MAXIMUM TRUNCATION ERROR ENCOUNTERED DURING THIS SWEEP: 1.7533e-07
+MAXIMUM BOND DIMENSION ENCOUNTERED DURING THIS SWEEP: 100
+TIMERS:
+ * rOperators: append physical         :: 2.26 sec
+ * rOperators: update physical         :: 0.98 sec
+ * rOperators: update branching        :: 8.79 sec
+ * Heff T3NS: prepare data             :: 0.04 sec
+ * Heff T3NS: diagonal                 :: 0.60 sec
+ * Heff T3NS: matvec                   :: 49.79 sec
+ * siteTensor: make multisite tensor   :: 0.08 sec
+ * siteTensor: decompose               :: 0.86 sec
+ * io: write to disk                   :: 0.00 sec
+ * Total time                          :: 63.42 sec
+============================================================================
+
+============================================================================
+END OF SWEEP 4 IN REGIME 1.
+MINIMUM ENERGY ENCOUNTERED DURING THIS SWEEP: -6080.7950548827338935
+MAXIMUM TRUNCATION ERROR ENCOUNTERED DURING THIS SWEEP: 1.8280e-07
+MAXIMUM BOND DIMENSION ENCOUNTERED DURING THIS SWEEP: 100
+TIMERS:
+ * rOperators: append physical         :: 2.63 sec
+ * rOperators: update physical         :: 1.18 sec
+ * rOperators: update branching        :: 10.88 sec
+ * Heff T3NS: prepare data             :: 0.04 sec
+ * Heff T3NS: diagonal                 :: 0.68 sec
+ * Heff T3NS: matvec                   :: 60.67 sec
+ * siteTensor: make multisite tensor   :: 0.10 sec
+ * siteTensor: decompose               :: 0.97 sec
+ * io: write to disk                   :: 0.00 sec
+ * Total time                          :: 77.18 sec
+============================================================================
+
+============================================================================
+END OF REGIME 1 AFTER 4/100 SWEEPS.
+MINIMUM ENERGY ENCOUNTERED : -6080.7950548827338935
+============================================================================
+
+============================================================================
+END OF CONVERGENCE SCHEME.
+MINIMUM ENERGY ENCOUNTERED : -6080.7950548827338935
+============================================================================
+TIMERS FOR OPTIMIZATION SCHEME
+ * rOperators: append physical         :: 8.91 sec
+ * rOperators: update physical         :: 3.72 sec
+ * rOperators: update branching        :: 35.67 sec
+ * Heff T3NS: prepare data             :: 0.14 sec
+ * Heff T3NS: diagonal                 :: 2.30 sec
+ * Heff T3NS: matvec                   :: 200.66 sec
+ * siteTensor: make multisite tensor   :: 0.33 sec
+ * siteTensor: decompose               :: 3.35 sec
+ * io: write to disk                   :: 0.00 sec
+ * Total time                          :: 255.18 sec
+============================================================================
+
+
+E@D=100: -6080.795054882734
+>> Preparing siteTensors...
+E@D=75: -6080.795048285051
+>> Preparing siteTensors...
+E@D=50: -6080.794995065227
+	Command being timed: "python3 doci.py"
+	User time (seconds): 2968.17
+	System time (seconds): 63.05
+	Percent of CPU this job got: 367%
+	Elapsed (wall clock) time (h:mm:ss or m:ss): 13:45.92
+	Average shared text size (kbytes): 0
+	Average unshared data size (kbytes): 0
+	Average stack size (kbytes): 0
+	Average total size (kbytes): 0
+	Maximum resident set size (kbytes): 9852916
+	Average resident set size (kbytes): 0
+	Major (requiring I/O) page faults: 7139
+	Minor (reclaiming a frame) page faults: 2933625
+	Voluntary context switches: 69220
+	Involuntary context switches: 43211
+	Swaps: 0
+	File system inputs: 30225704
+	File system outputs: 36539976
+	Socket messages sent: 0
+	Socket messages received: 0
+	Signals delivered: 0
+	Page size (bytes): 4096
+	Exit status: 0
