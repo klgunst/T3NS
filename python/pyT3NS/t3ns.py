@@ -1,10 +1,9 @@
 import pyscf
 import numpy
 from pyT3NS import netw, bookkeeper, tensors
-from ctypes import c_int, cdll, POINTER, c_double, c_char, byref, c_void_p, \
+from pyT3NS.bookkeeper import libt3ns
+from ctypes import c_int, POINTER, c_double, c_char, byref, c_void_p, \
     cast, Structure, c_char_p, c_bool
-
-libt3ns = cdll.LoadLibrary("libT3NS.so")
 
 supported_pgs = ['D2h', 'C2v', 'C2h', 'D2', 'Cs', 'C2', 'Ci', 'C1']
 
@@ -287,7 +286,7 @@ class T3NS:
             The level of noise is scaled as
             0.5 * noise * (discarded weight last sweep)
         '''
-        pbookie = self._bookkeeper if hasattr(self, '_bookkeeper') else None
+        pbookie = self._bookkeeper.shallow_copy() if hasattr(self, '_bookkeeper') else None
         if mstates is None:
             mstates = 2 if pbookie is None else 0
 
@@ -322,9 +321,13 @@ class T3NS:
             maxD = fD[1]
         else:
             maxD = fD
+        changedSS = self._bookkeeper.init_bookkeeper(pbookie, maxD, mstates)
+        self.init_wave_function(changedSS, pbookie)
+        if changedSS == 1:
+            for rops in self._rOps:
+                rops.delete()
+            self._rOps = None
 
-        self._bookkeeper.init_bookkeeper(pbookie, maxD, mstates)
-        self.init_wave_function(pbookie)
         self.init_operators()
         self.energy = self.execute_optimization(D, **kwargs)
         return self.energy
@@ -337,6 +340,7 @@ class T3NS:
         nham = 1 + doci * 2
         if nham != ham.value:
             libt3ns.destroy_hamiltonian()
+            libt3ns.clear_instructions()
         else:
             return
 
@@ -392,19 +396,24 @@ class T3NS:
                 int('SU2' in self.symmetries),
                 int('SENIORITY' in self.symmetries),
             )
+            # libt3ns.clear_instructions()
+            libt3ns.reinit_hamiltonian()
 
-    def init_wave_function(self, pbookie=None):
+    def init_wave_function(self, changedSS, pbookie=None):
         initwav = libt3ns.init_wave_function
-        initwav.argtypes = [POINTER(c_void_p), c_int,
+        initwav.argtypes = [POINTER(POINTER(tensors.SiteTensor)), c_int,
                             POINTER(bookkeeper.Bookkeeper), c_char]
 
         ppbookie = None if pbookie is None else byref(pbookie)
 
         if not hasattr(self, '_T3NS'):
-            self._T3NS = c_void_p(None)
+            self._T3NS = cast(c_void_p(None), POINTER(tensors.SiteTensor))
+            pp = byref(self._T3NS)
+        else:
+            X = cast(self._T3NS, POINTER(tensors.SiteTensor))
+            pp = byref(X)
 
-        initwav(cast(byref(self._T3NS), POINTER(c_void_p)), 0, ppbookie,
-                'r'.encode('utf8'))
+        initwav(pp, changedSS, ppbookie, 'r'.encode('utf8'))
         self._T3NS = \
             cast(self._T3NS, POINTER(tensors.SiteTensor))[:self._netw.nrsites]
         self._T3NS = (tensors.SiteTensor * len(self._T3NS))(*self._T3NS)

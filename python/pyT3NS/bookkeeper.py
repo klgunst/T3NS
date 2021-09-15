@@ -1,6 +1,5 @@
 from ctypes import cdll, Structure, c_int, POINTER, byref, c_double, c_char_p
 
-
 libt3ns = cdll.LoadLibrary("libT3NS.so")
 MAX_SYMMETRIES = c_int.in_dll(libt3ns, "maxsymmetries").value
 
@@ -81,6 +80,7 @@ class Bookkeeper(Structure):
         changedSS = c_int(0)
         preparebookkeeper(None if pbookie is None else byref(pbookie), maxD,
                           1, mstates, byref(changedSS))
+        return changedSS.value
 
     def __str__(self):
         from io import StringIO
@@ -101,3 +101,9 @@ class Bookkeeper(Structure):
         self.target_state = (c_int * MAX_SYMMETRIES)(
             *translate_irrep(target, symmetries)
         )
+
+    def shallow_copy(self):
+        func = libt3ns.shallow_copy_bookkeeper
+        func.argtypes = [POINTER(Bookkeeper)]
+        func.restype = Bookkeeper
+        return func(byref(self))
