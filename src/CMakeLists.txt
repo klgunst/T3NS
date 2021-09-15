@@ -45,7 +45,7 @@ set(T3NSLIB_SOURCE_FILES
     )
 
 add_library(T3NS-shared SHARED ${T3NSLIB_SOURCE_FILES})
-target_link_libraries(T3NS-shared ${LAPACK_LIBRARIES} ${HDF5_LIBRARIES} ${PRIMME_LIBRARIES})
+target_link_libraries(T3NS-shared ${HDF5_LIBRARIES} ${PRIMME_LIBRARIES} ${LAPACK_LIBRARIES} ${OpenMP_C_LIB_NAMES})
 set_target_properties(T3NS-shared PROPERTIES OUTPUT_NAME "T3NS" EXPORT_NAME "T3NS")
 
 add_executable(T3NS-bin executable.c)
