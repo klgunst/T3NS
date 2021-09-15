@@ -649,7 +649,7 @@ static void update_unique_ops_T3NS(struct rOperators * const newops,
         initialize_indexhelper(updateCase, site, tens, instructions, hss_of_ops,
                                Operator);
 
-#pragma omp parallel for schedule(dynamic) default(none)
+#pragma omp parallel for schedule(dynamic) default(shared)
         for (int new_sb = 0; new_sb < N; ++new_sb) {
                 struct update_data data;
                 int prod, nr_of_prods, *possible_prods;

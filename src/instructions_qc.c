@@ -183,7 +183,7 @@ static void combine_all_operators(const struct opType * const ops, const char c,
         instructions->instr = NULL;
         const long long max_instr = data.start_combine[data.size];
 
-#pragma omp parallel default(none) shared(data)
+#pragma omp parallel default(shared) shared(data)
         {
                 // First, for every thread, allocate some working memory
                 // for the instructions.

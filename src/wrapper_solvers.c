@@ -51,7 +51,7 @@ static void primmeprec(void * x, PRIMME_INT * ldx, void *y, PRIMME_INT * ldy,
 
         *ierr = 0;
 
-#pragma omp parallel for default(none)
+#pragma omp parallel for default(shared)
         for (int i = 0; i < size; ++i) {
                 const double diff     = diagonal[i] - theta;
                 const double fabsdiff = fabs(diff);

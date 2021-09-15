@@ -319,7 +319,7 @@ int qr(struct siteTensor * A, int bond,
         struct qrdata dat = init_qrdata(A, Q, R, bond);
 
         int erflag = 0;
-#pragma omp parallel for schedule(dynamic) default(none) shared(erflag, dat)
+#pragma omp parallel for schedule(dynamic) default(shared) shared(erflag, dat)
         for (int block = 0; block < dat.nrRblocks; ++block) {
                 if (!erflag && qrblocks(&dat, block) != 0) { erflag = 1; }
         }
@@ -537,7 +537,7 @@ int is_orthogonal(struct siteTensor * Q, const int bond)
         struct qrdata dat = init_qrdata(Q, NULL, NULL, bond);
 
         int orthoflag = 1;
-#pragma omp parallel for schedule(dynamic) default(none) shared(orthoflag, dat)
+#pragma omp parallel for schedule(dynamic) default(shared) shared(orthoflag, dat)
         for (int block = 0; block < dat.nrRblocks; ++block) {
                 if (orthoflag && !orthoblock(&dat, block)) { orthoflag = 0; }
         }
@@ -1289,7 +1289,7 @@ static void init_UV_tensors_and_change_symsec(struct svddata * dat)
         safe_calloc(dat->V->blocks.beginblock, dat->V->nrblocks + 1);
 
         int totaldims = 0;
-#pragma omp parallel for schedule(dynamic) default(none) shared(dat) reduction(+:totaldims)
+#pragma omp parallel for schedule(dynamic) default(shared) shared(dat) reduction(+:totaldims)
         for (int ssid = 0; ssid < dat->nrSss; ++ssid) {
                 const struct svd_bond_info info = dat->ss_info[ssid];
                 const int dimS = dat->S->dimS[ssid][1];
@@ -1403,7 +1403,7 @@ struct SelectRes split_of_site(struct siteTensor * A, int site,
         struct svddata dat = init_svddata(A, site, U, S, V);
 
         int erflag = 0;
-#pragma omp parallel for schedule(dynamic) default(none) shared(erflag, dat)
+#pragma omp parallel for schedule(dynamic) default(shared) shared(erflag, dat)
         for (int ssid = 0; ssid < dat.nrSss; ++ssid) {
                 if (!erflag && svdblocks(&dat, ssid)) { erflag = 1; }
         }
@@ -1411,7 +1411,7 @@ struct SelectRes split_of_site(struct siteTensor * A, int site,
         if (!erflag && selectS(S, sel, &res)) { erflag = 1; }
 
         init_UV_tensors_and_change_symsec(&dat);
-#pragma omp parallel for schedule(dynamic) default(none) shared(erflag, dat)
+#pragma omp parallel for schedule(dynamic) default(shared) shared(erflag, dat)
         for (int ssid = 0; ssid < dat.nrSss; ++ssid) {
                 if (!erflag && SVD_copy_from_mem(&dat, ssid)) { erflag = 1; }
         }

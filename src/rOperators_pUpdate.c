@@ -377,7 +377,7 @@ void update_rOperators_physical(struct rOperators * rops,
         struct udata dat = make_update_data(&urops, rops, tens, internalss);
 
         // Loop over the different symmetryblocks of the new rOperators.
-#pragma omp parallel for schedule(dynamic) default(none) shared(urops, dat)
+#pragma omp parallel for schedule(dynamic) default(shared) shared(urops, dat)
         for (int usb = 0; usb < urops.begin_blocks_of_hss[urops.nrhss]; ++usb) {
                 pUpdate_block(&dat, usb);
         }
@@ -653,7 +653,7 @@ static struct rOperators unique_rOperators_ap(const struct rOperators * or,
         struct append_data ad = init_append_data(or, set);
 
         // Loop over different symsecs of uniquerops.
-#pragma omp parallel for schedule(dynamic) default(none) shared(ad)
+#pragma omp parallel for schedule(dynamic) default(shared) shared(ad)
         for (int usb = 0; usb < ad.ur.begin_blocks_of_hss[ad.ur.nrhss]; ++usb) {
                 pAppend_block(&ad, usb);
         }

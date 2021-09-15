@@ -309,7 +309,7 @@ static void make_qnB_arrT3NS(struct Heffdata * const data,
         safe_malloc(data->nrMPOcombos, data->nr_qnB);
         safe_malloc(data->MPOs, data->nr_qnB);
 
-#pragma omp parallel for schedule(dynamic) default(none) shared(lastind, helperarray)
+#pragma omp parallel for schedule(dynamic) default(shared) shared(lastind, helperarray)
         for (int i = 0; i < data->nr_qnB; ++i) {
                 int indices[3];
                 int indicesold[3] = {-1, -1, -1};
@@ -374,7 +374,7 @@ static void make_qnB_arrDMRG(struct Heffdata * const data)
         assert(op.P_operator);
         const int N  = op.begin_blocks_of_hss[op.nrhss];
 
-#pragma omp parallel for schedule(dynamic) default(none) shared(stderr)
+#pragma omp parallel for schedule(dynamic) default(shared) shared(stderr)
         for (int i = 0; i < data->nr_qnB; ++i) {
                 const QN_TYPE * qna = op.qnumbers;
                 safe_malloc(data->qnBtoqnB_arr[i], data->nr_qnB);
@@ -952,7 +952,7 @@ static void exec_secondrun(const double * const vec, double * const result,
         const int n = data->siteObject.nrblocks;
         int first = 0;
         int second = 0;
-#pragma omp parallel default(none) shared(map) reduction(+:first,second)
+#pragma omp parallel default(shared) shared(map) reduction(+:first,second)
         {
                 T3NS_EL_TYPE * tels[7];
                 safe_malloc(tels[WORK1], data->sr.worksize[0]);
@@ -1009,7 +1009,7 @@ static void exec_firstrun(const double * const vec, double * const result,
         safe_malloc(data->sr.ntom, n);
 
         int wsize[2] = {0, 0};
-#pragma omp parallel for schedule(dynamic) default(none) shared(stderr) reduction(max:wsize)
+#pragma omp parallel for schedule(dynamic) default(shared) shared(stderr) reduction(max:wsize)
         for (int newqnB_id = 0; newqnB_id < data->nr_qnB; ++newqnB_id) {
                 struct indexdata idd;
                 make_map(idd.map, data);
@@ -1109,7 +1109,7 @@ static void diag_old_to_new_sb(int MPO, struct indexdata * idd,
 
 static void adaptMPOcombos(struct Heffdata * data)
 {
-#pragma omp parallel for schedule(dynamic) default(none) shared(data)
+#pragma omp parallel for schedule(dynamic) default(shared) shared(data)
         for (int i = 0; i < data->nr_qnB; ++i) {
                 /* If assertion fails it is because i apparently needed what 
                  * was originally here up until:
@@ -1141,7 +1141,7 @@ static void make_sb_with_qnBid(struct Heffdata * const data)
         const int n = data->siteObject.nrblocks;
         const int ns = data->siteObject.nrsites;
 
-#pragma omp parallel for schedule(static) default(none) shared(stderr)
+#pragma omp parallel for schedule(static) default(shared) shared(stderr)
         for (int i = 0; i < data->nr_qnB; ++i) {
                 int cnt = 0;
                 safe_malloc(data->sb_with_qnid[i], n);
@@ -1269,7 +1269,7 @@ T3NS_EL_TYPE * make_diagonal(const struct Heffdata * const data)
 {
         T3NS_EL_TYPE * safe_calloc(result, siteTensor_get_size(&data->siteObject));
 
-#pragma omp parallel for schedule(dynamic) default(none) shared(result)
+#pragma omp parallel for schedule(dynamic) default(shared) shared(result)
         for (int newqnB_id = 0; newqnB_id < data->nr_qnB; ++newqnB_id) {
                 struct indexdata idd;
                 make_map(idd.map, data);

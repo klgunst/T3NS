@@ -447,7 +447,7 @@ static void make_qnumbers_and_dims(const struct good_sectors * const gs)
         int nrblocks = 0;
         const bool counted = md.T->nrblocks != 0;
 
-#pragma omp parallel default(none) shared(md) reduction(+:nrblocks)
+#pragma omp parallel default(shared) shared(md) reduction(+:nrblocks)
         {
                 QN_TYPE * qnumbers = NULL;
                 T3NS_BB_TYPE * dims = NULL;
@@ -763,7 +763,7 @@ static void clean_makeinfo(struct makeinfo * minfo)
 
 static void contractsiteTensors(void)
 {
-#pragma omp parallel for schedule(static) default(none) shared(md)
+#pragma omp parallel for schedule(static) default(shared) shared(md)
         for (int sb = 0; sb < md.T->nrblocks; ++sb) {
                 const int order[3] = {0, 1, 2};
                 struct makeinfo minfo = init_makeinfo(sb);
@@ -1174,7 +1174,7 @@ static bool get_o_perm_block(struct permute_helper * ph)
 
 static void permute_tensors(void)
 {
-#pragma omp parallel for schedule(dynamic) default(none) shared(pd,bookie)
+#pragma omp parallel for schedule(dynamic) default(shared) shared(pd,bookie)
         for (int nb = 0; nb < pd.Tp->nrblocks; ++nb) {
                 struct permute_helper ph = init_permute_helper(nb);
                 while (get_o_perm_block(&ph)) { 

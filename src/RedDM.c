@@ -236,7 +236,7 @@ static int make1siteRDM(struct siteTensor * rdm, struct siteTensor * orthoc)
         const T3NS_BB_TYPE N = crdm->blocks.beginblock[crdm->nrblocks];
         safe_calloc(crdm->blocks.tel, N);
 
-//#pragma omp parallel default(none) shared(crdm,orthoc,symarr,bookie,dims)
+//#pragma omp parallel default(shared) shared(crdm,orthoc,symarr,bookie,dims)
         {
                 T3NS_EL_TYPE * safe_calloc(temptel, N);
 
@@ -399,7 +399,7 @@ int get_1siteEntanglement(const struct RedDM * rdm, double ** result)
 
         safe_calloc(*result, rdm->sites);
         int flag = 0;
-//#pragma omp parallel for schedule(static) default(none) shared(result, rdm, stderr,flag,bookie)
+//#pragma omp parallel for schedule(static) default(shared) shared(result, rdm, stderr,flag,bookie)
         for (int i = 0; i < rdm->sites; ++i) {
                 if (flag) { continue; }
                 const struct siteTensor * crdm = &rdm->sRDMs[0][i];

@@ -124,7 +124,7 @@ struct good_sectors find_good_sectors(const struct symsecs * symarr, int sign)
         };
         int total = 0;
 
-#pragma omp parallel for schedule(dynamic) default(none) shared(res,sign) reduction(+:total)
+#pragma omp parallel for schedule(dynamic) default(shared) shared(res,sign) reduction(+:total)
         for (int i = 0; i < res.ss[0].nrSecs; ++i) {
                 res.sectors[i] = NULL;
                 if (res.ss[0].dims[i] == 0) { continue; }
@@ -360,7 +360,7 @@ struct symsecs tensprod_symsecs(const struct symsecs * sectors1,
                 *sectors2
         };
 
-#pragma omp parallel default(none) shared(ss,res,sign,o,stderr)
+#pragma omp parallel default(shared) shared(ss,res,sign,o,stderr)
         {
                 double * safe_calloc(fcidims, res.nrSecs);
                 int * dims = NULL;

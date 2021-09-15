@@ -133,7 +133,7 @@ static void expand_submatrix(void)
 {
 
         double * const VAm = david_dat.VA + (long long) david_dat.size * david_dat.m;
-#pragma omp parallel for default(none) shared(david_dat)
+#pragma omp parallel for default(shared) shared(david_dat)
         for (int i = 0; i < david_dat.m + 1; ++i) {
                 const int shift         = david_dat.m * david_dat.max_vecs;
                 const long long  shift2 = (long long) david_dat.size * i;
@@ -189,7 +189,7 @@ static double calculate_residue(double * result)
         double norm2 = 0;
         const double theta = david_dat.eigvalues[0];
 
-#pragma omp parallel for default(none) shared(david_dat,result) reduction(+:norm2)
+#pragma omp parallel for default(shared) shared(david_dat,result) reduction(+:norm2)
         for (int i = 0; i < david_dat.size; ++i) {
                 result[i] = cblas_ddot(david_dat.m, david_dat.V + i, 
                                        david_dat.size, david_dat.eigv, 1);
@@ -227,7 +227,7 @@ void davidson_diagonal_preconditioner(const double * const result,
 {
         double uKr = 0;
         double uKu = 0;
-#pragma omp parallel for default(none) reduction(+:uKr,uKu)
+#pragma omp parallel for default(shared) reduction(+:uKr,uKu)
         for (int i = 0; i < size; ++i) {
                 const double diff     = diagonal[i] - theta;
                 const double fabsdiff = fabs(diff);
@@ -243,7 +243,7 @@ void davidson_diagonal_preconditioner(const double * const result,
         const double alpha = -uKr / uKu;
         cblas_daxpy(size, alpha, result, 1, vec_t, 1);
 
-#pragma omp parallel for default(none)
+#pragma omp parallel for default(shared)
         for (int i = 0; i < size; ++i) {
                 const double diff     = diagonal[i] - theta;
                 const double fabsdiff = fabs(diff);

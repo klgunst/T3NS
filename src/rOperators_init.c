@@ -205,7 +205,7 @@ static struct rOperators init_sum_unique(const struct rOperators * ur,
 
         safe_malloc(res.hss_of_ops, res.nrops);
         safe_malloc(res.operators, res.nrops);
-#pragma omp parallel for schedule(static) default(none) shared(ur,set,res)
+#pragma omp parallel for schedule(static) default(shared) shared(ur,set,res)
         for (int i = 0; i < res.nrops; ++i) {
                 struct sparseblocks * nOp = &res.operators[i];
                 res.hss_of_ops[i] = set->hss_of_new[i];
@@ -274,7 +274,7 @@ struct rOperators sum_unique_rOperators(const struct rOperators * ur,
                 pinstr = instr;
         }
 
-#pragma omp parallel for schedule(guided) default(none) shared(res, nrins, ins)
+#pragma omp parallel for schedule(guided) default(shared) shared(res, nrins, ins)
         for (int i = 0; i < res.nrops; ++i) {
                 const int nrbl = nblocks_in_operator(&res, i);
                 struct sparseblocks * const nOp = &res.operators[i];
@@ -371,7 +371,7 @@ static void init_nP_rOperators(struct rOperators * const rops,
         rops->hss_of_ops = NULL;
         rops->operators = NULL;
 
-#pragma omp parallel for schedule(dynamic) default(none) shared(gs,tmpbb)
+#pragma omp parallel for schedule(dynamic) default(shared) shared(gs,tmpbb)
         for (int hss = 0; hss < rops->nrhss; ++hss) {
                 (*tmpbb)[hss] = nP_make_qnumbers_for_hss(rops, &gs, hss);
         }
@@ -416,7 +416,7 @@ static struct qndarr * make_qndarr(struct rOperators * const rops)
         const int ibond = rops->is_left * 2;
         struct qndarr * const safe_malloc(res, sitegs.ss[ibond].nrSecs);
 
-#pragma omp parallel for schedule(dynamic) default(none) shared(ss, sitegs)
+#pragma omp parallel for schedule(dynamic) default(shared) shared(ss, sitegs)
         for (int i = 0; i < sitegs.ss[ibond].nrSecs; ++i) {
                 struct iter_gs iter = init_iter_gs(i, ibond, &sitegs);
                 res[i].L = iter.length;
@@ -519,7 +519,7 @@ static void init_P_rOperators(struct rOperators * const rops, T3NS_BB_TYPE *** t
 
         safe_malloc(rops->qnumbers, rops->begin_blocks_of_hss[rops->nrhss] * 3);
         safe_malloc(*tmpbb, rops->nrhss);
-#pragma omp parallel for schedule(dynamic) default(none) shared(qna,intgs,tmpbb)
+#pragma omp parallel for schedule(dynamic) default(shared) shared(qna,intgs,tmpbb)
         for (int hss = 0; hss < rops->nrhss; ++hss) {
                 (*tmpbb)[hss] = P_make_qnumbers_for_hss(rops, &intgs, qna, hss);
         }
